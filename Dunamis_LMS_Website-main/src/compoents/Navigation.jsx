@@ -145,7 +145,7 @@ const Navigation = () => {
             }`}
         >
           <Link
-            href="http://localhost:5173/"
+            href="https://dashboard.dunamisindia.co.in/"
             className={`relative font-medium transition-all duration-300 group ${mobile
               ? "text-lg text-gray-700 hover:text-[#FF6B35] py-2"
               : "text-gray-700 hover:text-[#FF6B35]"

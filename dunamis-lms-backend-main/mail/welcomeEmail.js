@@ -1,5 +1,5 @@
 const welcomeEmailTemplate = (email, name) => {
-    const BASE_URL= 'https://dunamis-lms-dashboard.netlify.app/';
+    const BASE_URL= 'https://dashboard.dunamisindia.co.in/';
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -22,20 +22,20 @@ const welcomeEmailTemplate = (email, name) => {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Welcome to Webseeder</h1>
+          <h1>Welcome to Dunamis</h1>
         </div>
         <div class="content">
           <h2>Dear ${name},</h2>
-          <p>On behalf of <span class="highlight">Webseeder</span>, we extend our heartfelt gratitude for choosing us as your partner in your educational journey. Your decision to join our esteemed institute marks the beginning of an inspiring path toward mastering <span class="highlight">music, chess, and dance</span>.</p>
-          <p>At Webseeder, we pride ourselves on delivering world-class learning experiences, crafted by dedicated instructors who are leaders in their fields. Our institute is built on a foundation of trust, excellence, and a passion for nurturing talent. Whether you're exploring the rhythms of music, the strategies of chess, or the grace of dance, we are committed to empowering you with the skills and confidence to shine.</p>
-          <p>We invite you to dive into our carefully designed courses and discover the joy of learning with a community that values your growth. With Webseeder by your side, your potential is limitless.</p>
+          <p>On behalf of <span class="highlight">Dunamis</span>, we extend our heartfelt gratitude for choosing us as your partner in your educational journey. Your decision to join our esteemed institute marks the beginning of an inspiring path toward mastering <span class="highlight">music, chess, dance and many more</span>.</p>
+          <p>At Dunamis, we pride ourselves on delivering world-class learning experiences, crafted by dedicated instructors who are leaders in their fields. Our institute is built on a foundation of trust, excellence, and a passion for nurturing talent. Whether you're exploring the rhythms of music, the strategies of chess, or the grace of dance, we are committed to empowering you with the skills and confidence to shine.</p>
+          <p>We invite you to dive into our carefully designed courses and discover the joy of learning with a community that values your growth. With Dunamis by your side, your potential is limitless.</p>
           <a href="${BASE_URL}/courses" class="cta-button">Start Your Journey</a>
-          <p>Should you have any questions or need guidance, our dedicated support team is here for you at <a href="mailto:support@Webseederinstitute.com">support@Webseederinstitute.com</a>. We look forward to celebrating your achievements and being a trusted part of your learning adventure.</p>
+          <p>Should you have any questions or need guidance, our dedicated support team is here for you at <a href="mailto:contact@dunamisindia.co.in">contact@dunamisindia.co.in</a>. We look forward to celebrating your achievements and being a trusted part of your learning adventure.</p>
           <p>With warmest thanks and best wishes,<br>
-          The Webseeder Team</p>
+          The Dunamis Team</p>
         </div>
         <div class="footer">
-          <p>© 2025 Webseeder. All rights reserved.</p>
+          <p>© 2026 Dunamis. All rights reserved.</p>
           <p><a href="${BASE_URL}/unsubscribe">Unsubscribe</a></p>
         </div>
       </div>

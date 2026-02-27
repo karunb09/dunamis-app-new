@@ -56,7 +56,7 @@ exports.sendOTP = async (req, res) => {
       // expiresAt:new Date(Date.now()+10*60*1000),
     };
     // TODO: Enable this later
-    // await mailSender(email, "email verification", otpTemplate(otp));
+    await mailSender(email, "email verification", otpTemplate(otp));
     const otpBody = await OTP.create(otpPayload);
 
     console.log(otpBody);
@@ -177,11 +177,11 @@ exports.createStudent = async (req, res) => {
     user.roleModel = "student";
     await user.save();
      // TODO: Enable this later
-    // await mailSender(
-    //   email,
-    //   "Welcome to Duanamis Institute – Thank You for Trusting Us!",
-    //   welcomeEmailTemplate(email, firstName)
-    // );
+    await mailSender(
+      email,
+      "Welcome to Duanamis Institute – Thank You for Trusting Us!",
+      welcomeEmailTemplate(email, firstName)
+    );
 
     return res.status(200).json({
       success: true,
