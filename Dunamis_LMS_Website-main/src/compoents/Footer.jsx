@@ -226,15 +226,15 @@ const Footer = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-sm text-gray-600">
             <span>© {new Date().getFullYear()}</span>
             <a
-              href="https://webseeder.in"
+              href="https://dunamisindia.co.in"
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors duration-200"
             >
-              Webseeder Technologies
+              Dunamis Music
             </a>
             <span className="flex items-center gap-1">
-              • Made with <Heart className="w-3 h-3 text-red-500 fill-current" /> in India
+              • Made with <Heart className="w-3 h-3 text-red-500 fill-current" />
             </span>
           </div>
         </div>
