@@ -189,7 +189,7 @@ const SignIn = () => {
             <div className="text-center text-sm mt-4 text-gray-600">
               Don't have an account?{" "}
               <a
-                href="http://localhost:3000/signup"
+                href="https://dunamisindia.co.in/signup"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 hover:underline"
