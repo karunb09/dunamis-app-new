@@ -1,0 +1,612 @@
+const User = require("../model/user.model")
+const OTP = require("../model/otp.model");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const mailSender = require("../utils/mailSender");
+const otpTemplate= require("../mail/emailVerification");
+require("dotenv").config();
+const AdminNotice = require("../model/adminNotice.model");
+const { localFileUpload } = require("../utils/locallyUploader");
+
+//Login
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(403).json({
+        success: false,
+        message: "All fields are mandatory, please try again",
+      });
+    }
+
+    const user = await User.findOne({ email }).populate("adminDetails");
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "User is not registered, please signup first",
+      });
+    }
+
+    if (user.accountStatus !== "active") {
+      return res.status(400).json({
+        success: false,
+        message: "Your account has been deactivated, please contact admin",
+      });
+    }
+
+    if (await bcrypt.compare(password, user.password)) {
+      const payload = {
+        email: user.email,
+        userId: user._id,
+        roleId: user.roleId,
+        accountType: user.accountType,
+      };
+
+      const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: "100h",
+      });
+
+      user.token = token;
+      user.password = undefined;
+
+      const options = {
+        expires: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+        httpOnly: true,
+      };
+
+      res
+        .cookie("token", token, options)
+        .status(200)
+        .json({
+          success: true,
+          token,
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            accountType: user.accountType,
+            accountStatus: user.accountStatus,
+            image: user.image,
+            roleId: user.roleId,
+            roleModel: user.roleModel,
+            permissions: user.permissions, // Virtual field
+            role: user.role, // Virtual field
+            adminDetails: user.adminDetails,
+            teacherDetails: user.teacherDetails,
+            studentDetails: user.studentDetails,
+          },
+          message: "Logged in successfully",
+        });
+    } else {
+      return res.status(401).json({
+        success: false,
+        message: "Email or password is incorrect",
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Login failure, please try again",
+    });
+  }
+};
+
+//change password
+exports.changePassword = async(req,res)=>{
+
+  try {
+      //get data from req body
+      const userDetails = await User.findById(req.user.userId);
+   
+      //get oldPassword,newPassword,confirmNewPassword
+      
+      const{oldPassword,newPassword}=req.body;
+      //validation
+      const isOldPasswordMatch = await bcrypt.compare(
+          oldPassword,
+          userDetails.password,
+      )
+  
+      if(!isOldPasswordMatch){
+          return res.status(401).json({
+              success:false,
+              message:"The password is incorrect"
+          })
+      }
+      //update password
+      const encryptedPassword = await bcrypt.hash(newPassword,10);
+      const updatedUserDetails = await User.findByIdAndUpdate(req.user.userId,
+          {
+              password:encryptedPassword
+          },
+          {new:true}
+      )
+  
+      function passwordUpdated(email, message) {
+          return `
+        <h2>Password Updated Successfully</h2>
+        <p>${message}</p>
+        <p>If you did not request this, please contact support immediately.</p>
+    `;
+      }
+  
+      
+      //send mail -password updated
+      try {
+          const emailResponse =await mailSender(
+              updatedUserDetails.email,
+              "Password for your acoount has been updated successfully",
+              passwordUpdated(
+                  updatedUserDetails.email,
+                  `password updated succcessfully for ${updatedUserDetails.firstName} ${updatedUserDetails.lastName}`
+              )
+  
+          )
+          console.log("email Sent successfully:",emailResponse.response);
+          
+      } catch (error) {
+          console.error("error while sending email:",error);
+          return res.status(500).json({
+              success:false,
+              message:"error while sending email",
+              error:error.message
+          })
+          
+      }
+      
+      
+      //return response
+      return res.status(200).json({
+        success:true,
+        message:"password changed successfully",
+      })
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+        success:false,
+        messaage:"error in changin password",
+        error: error.message
+    })
+    
+  }
+}
+
+// Forgot Password - Send OTP
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        // Validation
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is required",
+            });
+        }
+
+        // Check if user exists
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User with this email does not exist",
+            });
+        }
+
+        // Check if account is active
+        if (user.accountStatus !== "active") {
+            return res.status(400).json({
+                success: false,
+                message: "Your account has been deactivated. Please contact admin.",
+            });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Check if OTP already exists for this email
+        const existingOTP = await OTP.findOne({ email });
+        if (existingOTP) {
+            // Update existing OTP
+            existingOTP.otp = otp;
+            existingOTP.createdAt = Date.now();
+            await existingOTP.save();
+        } else {
+            // Create new OTP entry
+            await OTP.create({ email, otp });
+        }
+
+        // Send OTP via email
+        try {
+            await mailSender(
+                email,
+                "Password Reset OTP",
+                otpTemplate(otp, `${user.name.firstName} ${user.name.lastName}`)
+            );
+
+            return res.status(200).json({
+              success: true,
+              message: "OTP sent to your email successfully",
+              otp: otp,
+            });
+        } catch (error) {
+            console.error("Error sending OTP email:", error);
+            return res.status(500).json({
+                success: false,
+                message: "Failed to send OTP email",
+                error: error.message,
+            });
+        }
+    } catch (error) {
+        console.error("Error in forgot password:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to process forgot password request",
+            error: error.message,
+        });
+    }
+};
+
+// Verify OTP
+exports.verifyOTP = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        // Validation
+        if (!email || !otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and OTP are required",
+            });
+        }
+
+        // Check if user exists
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Find the most recent OTP for this email
+        const otpRecord = await OTP.findOne({ email }).sort({ createdAt: -1 });
+
+        if (!otpRecord) {
+            return res.status(400).json({
+                success: false,
+                message: "OTP not found. Please request a new OTP.",
+            });
+        }
+
+        // Check if OTP has expired (5 minutes validity)
+        const otpAge = Date.now() - otpRecord.createdAt;
+        const OTP_VALIDITY = 5 * 60 * 1000; // 5 minutes
+
+        if (otpAge > OTP_VALIDITY) {
+            await OTP.deleteOne({ _id: otpRecord._id });
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new OTP.",
+            });
+        }
+
+        // Verify OTP
+        if (otpRecord.otp !== otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP. Please try again.",
+            });
+        }
+
+        // OTP is valid
+        return res.status(200).json({
+            success: true,
+            message: "OTP verified successfully",
+        });
+    } catch (error) {
+        console.error("Error verifying OTP:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to verify OTP",
+            error: error.message,
+        });
+    }
+};
+
+// Reset Password (After OTP Verification)
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        // Validation
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Email, OTP, and new password are required",
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: "Password must be at least 6 characters long",
+            });
+        }
+
+        // Check if user exists
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Verify OTP one more time
+        const otpRecord = await OTP.findOne({ email }).sort({ createdAt: -1 });
+
+        if (!otpRecord) {
+            return res.status(400).json({
+                success: false,
+                message: "OTP not found. Please request a new OTP.",
+            });
+        }
+
+        // Check if OTP has expired
+        const otpAge = Date.now() - otpRecord.createdAt;
+        const OTP_VALIDITY = 5 * 60 * 1000; // 5 minutes
+
+        if (otpAge > OTP_VALIDITY) {
+            await OTP.deleteOne({ _id: otpRecord._id });
+            return res.status(400).json({
+                success: false,
+                message: "OTP has expired. Please request a new OTP.",
+            });
+        }
+
+        // Verify OTP
+        if (otpRecord.otp !== otp) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid OTP. Please try again.",
+            });
+        }
+
+        user.password = newPassword;
+        await user.save(); 
+        // Delete used OTP
+        await OTP.deleteOne({ _id: otpRecord._id });
+
+        // Send confirmation email
+        function passwordResetSuccess(email, name) {
+            return `
+                <h2>Password Reset Successful</h2>
+                <p>Hello ${name},</p>
+                <p>Your password has been reset successfully.</p>
+                <p>If you did not make this change, please contact support immediately.</p>
+                <p>Thanks,<br/>Support Team</p>
+            `;
+        }
+
+        try {
+            await mailSender(
+                email,
+                "Password Reset Successful",
+                passwordResetSuccess(email, `${user.name.firstName} ${user.name.lastName}`)
+            );
+        } catch (error) {
+            console.error("Error sending confirmation email:", error);
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Password reset successfully. You can now login with your new password.",
+        });
+    } catch (error) {
+        console.error("Error resetting password:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to reset password",
+            error: error.message,
+        });
+    }
+};
+
+// Get All Users
+exports.getAllUsers = async (req, res) => {
+    try {
+        const users = await User.find()
+            .select("-password -__v")
+            .populate("roleId")
+            .populate("adminDetails"); // Add this line
+
+        if (!users || users.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "No users found",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Users retrieved successfully",
+            users,
+        });
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch users",
+            error: error.message,
+        });
+    }
+};
+
+// Get by id
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findById(id)
+            .select("-password")
+            .populate("roleId")
+            .populate("adminDetails"); // Add this line
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "User fetched successfully",
+            user,
+            permissions: user.permissions // Add permissions explicitly
+        });
+    } catch (error) {
+        console.error("Error fetching User:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+// Update User - WITH IMAGE UPLOAD SUPPORT
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Debug logs
+        console.log("Request Body:", req.body);
+        console.log("Request Files:", req.files);
+
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Handle file upload if present
+        let imagePath = user.image; // Keep existing image by default
+        
+        if (req.files && req.files.profileImage) {
+            console.log("Processing image upload...");
+            try {
+                // Define allowed image types
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                
+                // Upload file (returns array)
+                const uploadResults = await localFileUpload(req.files.profileImage, allowedTypes);
+                
+                console.log("Upload results:", uploadResults);
+                
+                // Extract path from first result (since it returns an array)
+                if (uploadResults && uploadResults.length > 0 && uploadResults[0].path) {
+                    imagePath = uploadResults[0].path;
+                    console.log("Image path updated:", imagePath);
+                }
+            } catch (uploadError) {
+                console.error("Error uploading image:", uploadError);
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to upload image",
+                    error: uploadError.message,
+                });
+            }
+        } else {
+            console.log("No file found in request");
+        }
+
+        // Extract fields from request body
+        const { 
+            firstName, 
+            lastName, 
+            name, 
+            mobileNo, 
+            email, 
+            accountType, 
+            accountStatus, 
+            roleModel,
+            location,
+            bio 
+        } = req.body;
+
+        // Update User fields (only if provided)
+        if (firstName !== undefined) user.name.firstName = firstName;
+        if (lastName !== undefined) user.name.lastName = lastName;
+        
+        // Handle nested name object
+        if (name?.firstName !== undefined) user.name.firstName = name.firstName;
+        if (name?.lastName !== undefined) user.name.lastName = name.lastName;
+        
+        if (mobileNo !== undefined) user.mobileNo = mobileNo;
+        if (email !== undefined) user.email = email;
+        if (accountType !== undefined) user.accountType = accountType;
+        if (accountStatus !== undefined) user.accountStatus = accountStatus;
+        if (roleModel !== undefined) user.roleModel = roleModel;
+        if (location !== undefined) user.location = location;
+        if (bio !== undefined) user.bio = bio;
+        
+        // Update image
+        user.image = imagePath;
+
+        await user.save();
+
+        console.log("User saved with image:", user.image);
+
+        res.status(200).json({
+            success: true,
+            message: "User updated successfully",
+            user: {
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                mobileNo: user.mobileNo,
+                accountType: user.accountType,
+                accountStatus: user.accountStatus,
+                image: user.image,
+                roleModel: user.roleModel,
+                location: user.location,
+                bio: user.bio,
+            },
+        });
+    } catch (error) {
+        console.error("Error updating User:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to Update User",
+            error: error.message,
+        });
+    }
+};
+
+exports.getUserDashboardNotices = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const notices = await AdminNotice.find({
+      $or: [
+        { targetUsers: "All" },
+        { targetUsers: "Specific Users", specificUsers: userId },
+      ],
+    })
+      .populate({ path: "creator", select: "name email" })
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      notices,
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard notices:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
