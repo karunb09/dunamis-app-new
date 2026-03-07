@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
-const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3003";
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
 
 const SignInNavbar = () => {
   const [open, setOpen] = useState(false);
