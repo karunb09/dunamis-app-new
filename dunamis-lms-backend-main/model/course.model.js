@@ -44,7 +44,9 @@ const courseSchema = new mongoose.Schema(
     },
     description: {
       type: String,
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     category: {
       type: mongoose.Schema.ObjectId,
@@ -54,28 +56,35 @@ const courseSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: "SubCategory",
-        required: true,
       },
     ],
     mode: {
       type: String,
       enum: ["online", "offline"],
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     courseType: {
       type: String,
       enum: ["fixed", "running"],
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     level: {
       type: String,
       enum: ["beginner", "intermediate", "advanced"],
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     certification: {
       type: String,
       enum: ["certification", "non-certification"],
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     startDate: {
       type: Date,
@@ -93,7 +102,6 @@ const courseSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.ObjectId,
         ref: "teacher",
-        required: true,
       },
     ],
     // student: [
@@ -117,13 +125,15 @@ const courseSchema = new mongoose.Schema(
         type: mongoose.Schema.ObjectId,
         ref: "Branch",
         required: function () {
-          return this.mode === "offline";
+          return this.isPublished && this.mode === "offline";
         },
       },
     ],
     image: {
       type: String,
-      required: true,
+      required: function () {
+        return this.isPublished;
+      },
     },
     isPublished: {
       type: Boolean,

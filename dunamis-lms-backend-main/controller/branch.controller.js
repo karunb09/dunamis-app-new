@@ -1,7 +1,6 @@
 const User = require("../model/user.model");
 const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
-const Zone = require("../model/zone.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 
 // Create Branch
@@ -55,6 +54,13 @@ exports.createBranch = async (req, res) => {
       });
     }
 
+    if (!/^\d+$/.test(String(zone).trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Zone must contain numbers only.",
+      });
+    }
+
     // Validate if status is valid
     const validStatuses = ["draft", "active"];
     if (!validStatuses.includes(status)) {
@@ -73,28 +79,12 @@ exports.createBranch = async (req, res) => {
       });
     }
 
-    // Validate zone exists and city is part of the zone
-    const zoneExists = await Zone.findById(zone);
-    if (!zoneExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid zone. Zone does not exist.",
-      });
-    }
-
-    // Validate city exists and is part of the zone
+    // Validate city exists
     const cityExists = await City.findById(city);
     if (!cityExists) {
       return res.status(400).json({
         success: false,
         message: "Invalid city. City does not exist.",
-      });
-    }
-
-    if (!zoneExists.city.includes(city)) {
-      return res.status(400).json({
-        success: false,
-        message: "City does not belong to this zone.",
       });
     }
 
@@ -147,7 +137,6 @@ exports.getAllBranches = async (req, res) => {
     const branches = await Branch.find()
       .populate("branchManager", "name email")
       .populate("city", "cityName location")
-      .populate("zone", "name location city")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -184,7 +173,6 @@ exports.getBranchById = async (req, res) => {
     const branch = await Branch.findById(id)
       .populate("branchManager", "name email phone")
       .populate("city", "cityName location")
-      .populate("zone", "name location city")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -302,6 +290,13 @@ exports.updateBranch = async (req, res) => {
       });
     }
 
+    if (!/^\d+$/.test(String(zone).trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Zone must contain numbers only.",
+      });
+    }
+
     // Validate if branchManager exists
     const managerExists = await User.findById(branchManager);
     if (!managerExists) {
@@ -311,27 +306,12 @@ exports.updateBranch = async (req, res) => {
       });
     }
 
-    // Validate zone and city existence and relationship
-    const zoneExists = await Zone.findById(zone);
-    if (!zoneExists) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid zone. Zone does not exist.",
-      });
-    }
-
+    // Validate city existence
     const cityExists = await City.findById(city);
     if (!cityExists) {
       return res.status(400).json({
         success: false,
         message: "Invalid city. City does not exist.",
-      });
-    }
-
-    if (!zoneExists.city.includes(city)) {
-      return res.status(400).json({
-        success: false,
-        message: "City does not belong to this zone.",
       });
     }
 

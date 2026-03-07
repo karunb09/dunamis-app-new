@@ -5,6 +5,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -139,29 +140,18 @@ const Navigation = () => {
         </div>
 
 
-        {/* Auth Buttons https://dunamis-lms-dashboard.netlify.app*/}
+        {/* Auth CTA */}
         <div
           className={`flex ${mobile ? "flex-col space-y-2 mt-4" : "items-center space-x-4"
             }`}
         >
           <Link
-            href="https://dashboard.dunamisindia.co.in/"
-            className={`relative font-medium transition-all duration-300 group ${mobile
-              ? "text-lg text-gray-700 hover:text-[#FF6B35] py-2"
-              : "text-gray-700 hover:text-[#FF6B35]"
-              }`}
-            onClick={closeMobileMenu}
-          >
-            Login
-            <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#FF6B35] transition-all duration-300 group-hover:w-full"></span>
-          </Link>
-          <Link
-            href="/signup"
+            href={DASHBOARD_URL}
             className={`px-4 py-2 bg-[#FF6B35] text-white rounded-xl hover:bg-[#ff4400] transition-all duration-300 text-sm font-medium ${mobile ? "w-full text-center" : ""
               }`}
             onClick={closeMobileMenu}
           >
-            Sign Up
+            Login | Dashboard
           </Link>
         </div>
       </>

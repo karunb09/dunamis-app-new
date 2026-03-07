@@ -1,243 +1,206 @@
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { FiEdit2, FiTrash2, FiUploadCloud } from "react-icons/fi";
-import { fetchCategories } from '@/store/categorySlice';
+import React, { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchCategories } from "@/store/categorySlice";
+import {
+  FileUploadField,
+  SelectInput,
+  TextInput,
+} from "./FormFields";
 
 export default function Step3Professional({
-    formData,
-    setFormData,
-    cv,
-    setCv,
-    cvInputRef,
-    profileVideo,
-    setProfileVideo,
-    videoInputRef,
-    relevantCertificate,
-    setRelevantCertificate,
-    certificateInputRef,
-    profilePicture,
-    setProfilePicture,
-    profilePictureInputRef,
+  formData,
+  setFormData,
+  errors = {},
+  cv,
+  setCv,
+  cvInputRef,
+  profileVideo,
+  setProfileVideo,
+  videoInputRef,
+  relevantCertificate,
+  setRelevantCertificate,
+  certificateInputRef,
+  profilePicture,
+  setProfilePicture,
+  profilePictureInputRef,
 }) {
-    const dispatch = useDispatch();
-    const { categories, subCategories, status } = useSelector(state => state.category);
+  const dispatch = useDispatch();
+  const { categories, subCategories, status } = useSelector((state) => state.category);
 
-    const [expertise, setExpertise] = useState("");
-    const [specializations, setSpecializations] = useState([]);
-    const [selectedSpecialization, setSelectedSpecialization] = useState("");
+  const [expertiseId, setExpertiseId] = useState("");
+  const [specializationId, setSpecializationId] = useState("");
+  const [hasCertificate, setHasCertificate] = useState(
+    relevantCertificate ? "Yes" : "No"
+  );
 
-    const [hasCertificate, setHasCertificate] = useState("No"); 
+  useEffect(() => {
+    if (status === "idle") {
+      dispatch(fetchCategories());
+    }
+  }, [status, dispatch]);
 
-    useEffect(() => {
-        if (status === 'idle') {
-            dispatch(fetchCategories());
-        }
-    }, [status, dispatch]);
+  const availableSpecializations = useMemo(() => {
+    if (!expertiseId) return [];
+    return subCategories.filter((subCategory) => subCategory.categoryId === expertiseId);
+  }, [expertiseId, subCategories]);
 
-    useEffect(() => {
-        if (expertise) {
-            const filteredSpecializations = subCategories.filter(
-                (subCategory) => subCategory.categoryId === expertise
-            );
-            setSpecializations(filteredSpecializations);
-            setSelectedSpecialization("");
-        }
-    }, [expertise, subCategories]);
+  const handleExpertiseChange = (event) => {
+    const selectedCategoryId = event.target.value;
+    const selectedCategory = categories.find((category) => category._id === selectedCategoryId);
 
-    const handleExpertiseChange = (e) => {
-        const selectedCategoryId = e.target.value;
-        setExpertise(selectedCategoryId);
+    setExpertiseId(selectedCategoryId);
+    setSpecializationId("");
+    setFormData({
+      ...formData,
+      areaOfExpertise: selectedCategory?.name || "",
+      specialization: "",
+    });
+  };
 
-        const selectedCategory = categories.find(cat => cat._id === selectedCategoryId);
-
-        setFormData({
-            ...formData,
-            areaOfExpertise: selectedCategory?.name || "",
-            specialization: "",
-        });
-
-        setSelectedSpecialization("");
-    };
-
-    const handleSpecializationChange = (e) => {
-        const selectedId = e.target.value;
-        setSelectedSpecialization(selectedId);
-
-        const selectedSubCategory = specializations.find(sub => sub._id === selectedId);
-
-        setFormData({
-            ...formData,
-            specialization: selectedSubCategory?.name || "",
-        });
-    };
-
-
-    const handleCertificateOptionChange = (e) => {
-        const value = e.target.value;
-        setHasCertificate(value);
-
-        // Clear relevantCertificate if "No" selected
-        if (value === "No") {
-            setRelevantCertificate(null);
-        }
-    };
-
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-                <select
-                    className="w-full p-3 rounded-2xl border border-gray-300"
-                    value={expertise}
-                    onChange={handleExpertiseChange}
-                >
-                    <option value="">Select Expertise</option>
-                    {categories.map((category) => (
-                        <option key={category._id} value={category._id}>
-                            {category.name}
-                        </option>
-                    ))}
-                </select>
-
-                {expertise && (
-                    <select
-                        className="w-full p-3 rounded-2xl border border-gray-300"
-                        value={selectedSpecialization}
-                        onChange={handleSpecializationChange}
-                    >
-                        <option value="">Select Specialization</option>
-                        {specializations.map((spec) => (
-                            <option key={spec._id} value={spec._id}>
-                                {spec.name}
-                            </option>
-                        ))}
-                    </select>
-                )}
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-4">
-                <select
-                    className="w-full p-3 rounded-2xl border border-gray-300"
-                    value={formData.highestQualification}
-                    onChange={(e) =>
-                        setFormData({ ...formData, highestQualification: e.target.value })
-                    }
-                >
-                    <option value="">Select highest qualification</option>
-                    <option value="Bachelor's Degree">Bachelor's Degree</option>
-                    <option value="Master's Degree">Master's Degree</option>
-                    <option value="PhD">PhD</option>
-                    <option value="Diploma">Diploma</option>
-                    <option value="Certificate">Certificate</option>
-                    <option value="Others">Others</option>
-                </select>
-
-                <select
-                    className="w-full p-3 rounded-2xl border border-gray-300"
-                    value={hasCertificate}
-                    onChange={handleCertificateOptionChange}
-                >
-                    <option value="No">Relevant certificates?</option>
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                </select>
-            </div>
-
-            <input
-                type="text"
-                placeholder="Enter years of experience"
-                className="w-full p-3 rounded-2xl border border-gray-300"
-                value={formData.yearOfExperience}
-                onChange={(e) =>
-                    setFormData({ ...formData, yearOfExperience: e.target.value })
-                }
-            />
-
-            {/* Profile Picture Upload */}
-            <UploadBox
-                label="Upload Profile Picture (.jpg, .jpeg, .png)"
-                accept=".jpg,.jpeg,.png"
-                file={profilePicture}
-                setFile={setProfilePicture}
-                inputRef={profilePictureInputRef}
-            />
-
-            {/* CV Upload */}
-            <UploadBox
-                label="Upload Your CV (PDF, DOC, DOCX)"
-                accept=".pdf,.doc,.docx"
-                file={cv}
-                setFile={setCv}
-                inputRef={cvInputRef}
-            />
-
-            {/* Profile Video Upload */}
-            <UploadBox
-                label="Upload a Profile Video"
-                accept="video/*"
-                file={profileVideo}
-                setFile={setProfileVideo}
-                inputRef={videoInputRef}
-            />
-
-            {/* Conditional Certificate Upload Field */}
-            {hasCertificate === "Yes" && (
-                <UploadBox
-                    label="Upload Relevant Certificates (PDF, DOC, JPG, PNG)"
-                    accept=".pdf,.doc,.jpg,.jpeg,.png"
-                    file={relevantCertificate}
-                    setFile={setRelevantCertificate}
-                    inputRef={certificateInputRef}
-                />
-            )}
-        </div>
+  const handleSpecializationChange = (event) => {
+    const selectedId = event.target.value;
+    const selectedSubCategory = availableSpecializations.find(
+      (subCategory) => subCategory._id === selectedId
     );
-}
 
-function UploadBox({ label, accept, file, setFile, inputRef }) {
-    return (
-        <div className="border-2 border-dashed border-gray-300 p-4 rounded-xl text-center hover:border-orange-400 transition">
-            <label className="block mb-1 text-sm font-medium text-gray-700">{label}</label>
+    setSpecializationId(selectedId);
+    setFormData({
+      ...formData,
+      specialization: selectedSubCategory?.name || "",
+    });
+  };
 
-            <input
-                type="file"
-                accept={accept}
-                ref={inputRef}
-                className="hidden"
-                onChange={(e) => setFile(e.target.files[0])}
-            />
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <SelectInput
+          id="teacher-expertise"
+          label="Area of Expertise"
+          value={expertiseId}
+          onChange={handleExpertiseChange}
+          error={errors.areaOfExpertise}
+          required
+        >
+          <option value="">Select expertise</option>
+          {categories.map((category) => (
+            <option key={category._id} value={category._id}>
+              {category.name}
+            </option>
+          ))}
+        </SelectInput>
 
-            {!file ? (
-                <div>
-                    <FiUploadCloud className="mx-auto text-2xl text-gray-400 mb-1" />
-                    <button
-                        type="button"
-                        className="cursor-pointer text-blue-600 text-sm font-medium"
-                        onClick={() => inputRef.current?.click()}
-                    >
-                        Click to Upload
-                    </button>
-                </div>
-            ) : (
-                <div className="flex items-center justify-between bg-gray-50 p-2 rounded-lg">
-                    <span className="text-xs text-gray-700 truncate">{file.name}</span>
-                    <div className="flex gap-1">
-                        <button
-                            type="button"
-                            className="text-blue-600 hover:text-blue-800 text-sm"
-                            onClick={() => inputRef.current?.click()}
-                        >
-                            <FiEdit2 />
-                        </button>
-                        <button
-                            type="button"
-                            className="text-red-600 hover:text-red-800 text-sm"
-                            onClick={() => setFile(null)}
-                        >
-                            <FiTrash2 />
-                        </button>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
+        <SelectInput
+          id="teacher-specialization"
+          label="Specialization"
+          value={specializationId}
+          onChange={handleSpecializationChange}
+          disabled={!expertiseId}
+        >
+          <option value="">Select specialization</option>
+          {availableSpecializations.map((specialization) => (
+            <option key={specialization._id} value={specialization._id}>
+              {specialization.name}
+            </option>
+          ))}
+        </SelectInput>
+
+        <SelectInput
+          id="teacher-qualification"
+          label="Highest Qualification"
+          value={formData.highestQualification}
+          onChange={(e) =>
+            setFormData({ ...formData, highestQualification: e.target.value })
+          }
+          error={errors.highestQualification}
+          required
+        >
+          <option value="">Select highest qualification</option>
+          <option value="Bachelor's Degree">Bachelor&apos;s Degree</option>
+          <option value="Master's Degree">Master&apos;s Degree</option>
+          <option value="PhD">PhD</option>
+          <option value="Diploma">Diploma</option>
+          <option value="Certificate">Certificate</option>
+          <option value="Others">Others</option>
+        </SelectInput>
+
+        <TextInput
+          id="teacher-experience"
+          label="Years of Experience"
+          type="number"
+          min="0"
+          placeholder="Enter years of experience"
+          value={formData.yearOfExperience}
+          onChange={(e) =>
+            setFormData({ ...formData, yearOfExperience: e.target.value })
+          }
+          error={errors.yearOfExperience}
+          required
+        />
+
+        <SelectInput
+          id="teacher-certificate-toggle"
+          label="Do you have relevant certificates?"
+          value={hasCertificate}
+          onChange={(e) => {
+            const value = e.target.value;
+            setHasCertificate(value);
+            if (value === "No") {
+              setRelevantCertificate(null);
+            }
+          }}
+          className="md:col-span-2"
+        >
+          <option value="No">No</option>
+          <option value="Yes">Yes</option>
+        </SelectInput>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <FileUploadField
+          label="Profile Picture"
+          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+          helperText="JPG or PNG only"
+          file={profilePicture}
+          error={errors.profilePicture}
+          setFile={setProfilePicture}
+          inputRef={profilePictureInputRef}
+          required
+        />
+
+        <FileUploadField
+          label="CV"
+          accept=".pdf,application/pdf"
+          helperText="PDF only"
+          file={cv}
+          error={errors.cv}
+          setFile={setCv}
+          inputRef={cvInputRef}
+          required
+        />
+
+        <FileUploadField
+          label="Profile Video"
+          accept=".mp4,.mpeg,.avi,.mov,video/mp4,video/mpeg,video/avi,video/quicktime"
+          helperText="MP4, MPEG, AVI, or MOV"
+          file={profileVideo}
+          error={errors.profileVideo}
+          setFile={setProfileVideo}
+          inputRef={videoInputRef}
+          required
+        />
+
+        {hasCertificate === "Yes" ? (
+          <FileUploadField
+            label="Relevant Certificate"
+            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+            helperText="PDF, JPG, or PNG"
+            file={relevantCertificate}
+            error={errors.relevantCertificate}
+            setFile={setRelevantCertificate}
+            inputRef={certificateInputRef}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
 }

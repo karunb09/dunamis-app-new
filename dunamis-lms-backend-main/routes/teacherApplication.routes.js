@@ -2,9 +2,7 @@ const express = require('express');
 const router = express.Router();
 const teacherApplicationController = require('../controller/teacherApplication.controller');
 const TeacherApplication = require("../model/teacherApplication.model")
-
-
-const auth = require('../middleware/auth'); // For authentication
+const { isAuth, accessToRole } = require('../middleware/auth');
 
 // ===== PUBLIC ROUTES =====
 
@@ -34,8 +32,8 @@ router.get('/status/:id', teacherApplicationController.getTeacherApplicationById
  * @query   ?status=new&page=1&limit=10&sortBy=createdAt&sortOrder=desc
  */
 router.get('/get-all', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     teacherApplicationController.getAllTeacherApplications
 );
 
@@ -45,8 +43,8 @@ router.get('/get-all',
  * @access  Admin only
  */
 router.get('/getApplicationById/:id', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     teacherApplicationController.getTeacherApplicationById
 );
 
@@ -57,8 +55,8 @@ router.get('/getApplicationById/:id',
  * @body    { status: "shortlisted" }
  */
 router.put('/updateStatus/:id/status', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     teacherApplicationController.updateApplicationStatus
 );
 
@@ -68,8 +66,8 @@ router.put('/updateStatus/:id/status',
  * @access  Admin only
  */
 router.delete('/delete/:id', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     teacherApplicationController.deleteTeacherApplication
 );
 
@@ -81,8 +79,8 @@ router.delete('/delete/:id',
  * @access  Admin only
  */
 router.get('/stats/overview', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     async (req, res) => {
         try {
             const TeacherApplication = require('../model/teacherApplication.model');
@@ -127,8 +125,8 @@ router.get('/stats/overview',
  * @access  Admin only
  */
 router.get('/export/csv', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     async (req, res) => {
         try {
             const { status } = req.query;
@@ -192,8 +190,8 @@ router.get('/export/csv',
  * @body    { note: "Candidate looks promising" }
  */
 router.post('/:id/notes', 
-    // auth, // Uncomment if using authentication
-    // adminAuth, // Uncomment if using admin authorization
+    isAuth,
+    accessToRole(["admin", "superadmin"]),
     async (req, res) => {
         try {
             const { id } = req.params;

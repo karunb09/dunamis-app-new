@@ -7,13 +7,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GoArrowUpRight } from "react-icons/go";
 import { IoMdStar } from "react-icons/io";
 import { fetchMentors } from "@/store/mentorSlice";
-
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
+import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 
 export default function Mentors() {
     const dispatch = useDispatch();
     const { mentors, loading, error } = useSelector((state) => state.mentor);
-    console.log("Mentors from Redux:", mentors, loading, error);
 
     const getImageUrl = (imagePath, fallbackName = "Unknown") => {
         if (!imagePath) {
@@ -25,7 +23,7 @@ export default function Mentors() {
         }
 
         const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-        return `${IMAGE}${cleanPath}`;
+        return `${IMAGE_BASE_URL}${cleanPath}`;
     };
 
     // Transform mentors with API data
@@ -104,7 +102,7 @@ export default function Mentors() {
     }, []);
 
     const totalSlides =
-        mentors && mentors.length > 0 ? Math.max(1, Math.ceil(mentors.length / cardsPerView)) : 1;
+        transformedMentors.length > 0 ? Math.max(1, Math.ceil(transformedMentors.length / cardsPerView)) : 1;
 
     useEffect(() => {
         if (totalSlides <= 1 || isHovered) return;
@@ -119,9 +117,7 @@ export default function Mentors() {
     }, [totalSlides, isHovered]);
 
     // Loading and error states
-    if (loading) return <div>Loading mentors...</div>;
-    if (error) return <div>Error: {error}</div>;
-    if (!mentors || mentors.length === 0) return <div>No mentors found.</div>;
+    if (loading || error || transformedMentors.length === 0) return null;
 
     const nextSlide = () => {
         setDirection(1);
@@ -142,15 +138,17 @@ export default function Mentors() {
     };
 
     const getCurrentMentors = () => {
-        if (!Array.isArray(mentors) || mentors.length === 0) return [];
+        if (!Array.isArray(transformedMentors) || transformedMentors.length === 0) return [];
 
         const start = currentSlide * cardsPerView;
         const end = start + cardsPerView;
 
-        if (end <= mentors.length) {
+        if (end <= transformedMentors.length) {
             return transformedMentors.slice(start, end);
         } else {
-            return transformedMentors.slice(start).concat(transformedMentors.slice(0, end - mentors.length));
+            return transformedMentors
+                .slice(start)
+                .concat(transformedMentors.slice(0, end - transformedMentors.length));
         }
     };
 
@@ -214,7 +212,7 @@ export default function Mentors() {
                                     className="flex gap-6 justify-center items-start"
                                 >
                                     {getCurrentMentors().map((mentor, idx) => {
-                                        const globalIndex = (currentSlide * cardsPerView + idx) % mentors.length;
+                                        const globalIndex = (currentSlide * cardsPerView + idx) % transformedMentors.length;
                                         const isSelected = selectedCard === globalIndex;
 
                                         return (

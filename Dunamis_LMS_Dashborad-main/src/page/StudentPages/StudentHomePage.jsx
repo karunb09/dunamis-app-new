@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CourseCard from "./CoursePage";
 import { GoBook } from "react-icons/go";
 import { PiFlagCheckered } from "react-icons/pi";
+import { X } from "react-feather";
 
 // SVG/emoji icons for stat cards
 const StatIcon = ({ name }) => {
@@ -55,11 +56,19 @@ const StatIcon = ({ name }) => {
 };
 
 // Feedback Modal
-function FeedbackModal({ open, feedback, onInput, onSubmit }) {
+function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
-      <div className="bg-white rounded-2xl border border-[#e4e0e8] shadow-xl p-8 w-full max-w-md">
+      <div className="bg-white rounded-2xl border border-[#e4e0e8] shadow-xl p-8 w-full max-w-md relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 text-gray-500 hover:text-black"
+          aria-label="Close feedback dialog"
+        >
+          <X size={18} />
+        </button>
         <h2 className="text-xl font-bold text-center mb-5">
           Give us your feedback
           <br />
@@ -566,6 +575,7 @@ export default function StudentHomePage() {
         feedback={feedback}
         onInput={setFeedback}
         onSubmit={handleFeedbackSubmit}
+        onClose={() => setShowFeedback(false)}
       />
       {/* Reschedule Modal */}
       <RescheduleModal

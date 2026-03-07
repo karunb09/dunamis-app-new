@@ -1,21 +1,26 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   FaEdit,
   FaRegClock,
   FaCopy,
   FaChevronDown,
+  FaTrash,
 } from "react-icons/fa";
 import { BookOpen } from "react-feather";
 import {
+  deleteContent,
   fetchContentById,
   updateContent,
 } from "../../../redux/Content/ContentSlice";
+import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 
 const ContentDetails = () => {
   const { id } = useParams();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const { content, loading, error } = useSelector((state) => state.content);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -49,6 +54,27 @@ const ContentDetails = () => {
     }
   };
 
+  const handleDelete = () => {
+    Swal.fire({
+      title: "Delete content?",
+      text: "This action cannot be undone.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      confirmButtonText: "Delete",
+    }).then(async (result) => {
+      if (!result.isConfirmed) return;
+
+      try {
+        await dispatch(deleteContent(content._id)).unwrap();
+        toast.success("Content deleted successfully");
+        navigate("/admin/content-management");
+      } catch (deleteError) {
+        toast.error(`Failed to delete content: ${deleteError}`);
+      }
+    });
+  };
+
   if (loading) {
     return <div className="p-6 text-gray-500">Loading content...</div>;
   }
@@ -67,6 +93,13 @@ const ContentDetails = () => {
     <div className="bg-[#F9F9F9] p-0">
       {/* Top Action Buttons */}
       <div className="flex justify-end mb-4 gap-5">
+        <button
+          onClick={handleDelete}
+          className="px-4 py-2 rounded-2xl border border-red-500 text-red-600 flex items-center gap-2"
+        >
+          <FaTrash /> Delete Content
+        </button>
+
         {/* Toggle Status Button */}
         <button
           onClick={handleStatusToggle}

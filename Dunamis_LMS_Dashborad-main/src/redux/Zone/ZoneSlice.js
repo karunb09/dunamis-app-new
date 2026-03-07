@@ -80,6 +80,7 @@ const zoneSlice = createSlice({
     zones: [],
     zone: null,
     loading: false,
+    listStatus: "idle",
     error: null,
   },
   reducers: {},
@@ -101,14 +102,16 @@ const zoneSlice = createSlice({
       // Get All Zones
       .addCase(getAllZones.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllZones.fulfilled, (state, action) => {
-        console.log("Zones API payload:", action.payload);
         state.loading = false;
-        state.zones = action.payload.zone; // adjust after checking log
+        state.listStatus = "succeeded";
+        state.zones = action.payload.zone;
       })
       .addCase(getAllZones.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload;
       })
 

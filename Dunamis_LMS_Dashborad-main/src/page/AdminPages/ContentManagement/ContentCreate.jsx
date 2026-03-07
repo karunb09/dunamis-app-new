@@ -21,6 +21,22 @@ const ContentForm = () => {
   const { categories, subCategories, status } = useSelector((state) => state.category);
   const { content, status: contentStatus, error: contentError } = useSelector((state) => state.content);
 
+  const selectedCategoryId =
+    typeof category === "object" ? category?._id || "" : category;
+
+  const selectedCategory =
+    categories.find((cat) => cat._id === selectedCategoryId) ||
+    (typeof category === "object" ? category : null);
+
+  const visibleCategories = categories.filter(
+    (cat) => cat.status === "published" || cat._id === selectedCategoryId
+  );
+
+  const visibleSubCategories =
+    selectedCategory?.subcategories?.length > 0
+      ? selectedCategory.subcategories
+      : subCategories.filter((subCat) => subCat.categoryId === selectedCategoryId);
+
   useEffect(() => {
     if (status === "idle") {
       dispatch(fetchCategories());
@@ -41,22 +57,26 @@ const ContentForm = () => {
       setCategory(content.category?._id || content.category || "");
       setSubCategory(content.subCategory?._id || content.subCategory || "");
 
-      // !!! dont uncomment it !!!
-      if (id && content.modules) {
-        // setCurriculum(
-        //   content.modules.map((module) => ({
-        //     moduleName: module.title || "",
-        //     duration: module.duration || "",
-        //     lessons: module.lessons?.map((lesson) => ({
-        //       lessonName: lesson.title || "",
-        //       topics: lesson.topics?.map((topic) => ({
-        //         topicName: topic.title || "",
-        //         desc: topic.description || "",
-        //       })) || [],
-        //     })) || [],
-        //   })) || []
-        // );
-      }
+      setCurriculum(
+        Array.isArray(content.modules)
+          ? content.modules.map((module) => ({
+              moduleName: module.title || "",
+              duration: module.duration || "",
+              lessons: Array.isArray(module.lessons)
+                ? module.lessons.map((lesson) => ({
+                    lessonName: lesson.title || "",
+                    topics:
+                      Array.isArray(lesson.topics) && lesson.topics.length > 0
+                        ? lesson.topics.map((topic) => ({
+                            topicName: topic.title || "",
+                            desc: topic.description || "",
+                          }))
+                        : [{ topicName: "", desc: "" }],
+                  }))
+                : [],
+            }))
+          : []
+      );
     }
   }, [content, id]);  
 
@@ -171,7 +191,7 @@ const ContentForm = () => {
     return true;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (targetStatus) => {
     if (!validateForm()) return;
 
     const contentData = {
@@ -180,6 +200,7 @@ const ContentForm = () => {
       courseDescription: description,
       category,
       subCategory,
+      ...(targetStatus ? { status: targetStatus } : {}),
       modules: curriculum.map((module) => ({
         duration: module.duration,
         title: module.moduleName,
@@ -199,7 +220,11 @@ const ContentForm = () => {
         toast.success("Content updated successfully!");
       } else {
         await dispatch(createContent(contentData)).unwrap();
-        toast.success("Content created successfully, Check Draft!");
+        toast.success(
+          targetStatus === "draft"
+            ? "Content saved to drafts!"
+            : "Content created successfully!"
+        );
       }
       navigate("/admin/content-management");
     } catch (error) {
@@ -249,7 +274,7 @@ const ContentForm = () => {
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
           >
             <option value="">Select a category</option>
-            {categories.map((cat) => (
+            {visibleCategories.map((cat) => (
               <option key={cat._id} value={cat._id}>
                 {cat.name}
               </option>
@@ -261,13 +286,11 @@ const ContentForm = () => {
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
           >
             <option value="">Select a sub-category</option>
-            {subCategories
-              .filter((subCat) => subCat.categoryId === category)
-              .map((subCat) => (
-                <option key={subCat._id} value={subCat._id}>
-                  {subCat.name}
-                </option>
-              ))}
+            {visibleSubCategories.map((subCat) => (
+              <option key={subCat._id} value={subCat._id}>
+                {subCat.name}
+              </option>
+            ))}
           </select>
         </div>
       </div>
@@ -388,11 +411,14 @@ const ContentForm = () => {
           Cancel
         </button>
         <div className="flex gap-2">
-          <button className="px-4 py-2 border rounded-2xl bg-white hover:bg-gray-100">
+          <button
+            onClick={() => handleSave("draft")}
+            className="px-4 py-2 border rounded-2xl bg-white hover:bg-gray-100"
+          >
             Draft
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(id ? undefined : "published")}
             className="px-4 py-2 border rounded-2xl bg-black text-white"
           >
             {id ? "Update Content" : "Save Content"}

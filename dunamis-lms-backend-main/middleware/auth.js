@@ -8,25 +8,30 @@ exports.isAuth = async (req, res, next) => {
       req.headers.authorization?.replace(/^\s*\w+\s+/, "").trim() ||
       req.headers.authorization?.split(" ")[1];
 
-    console.log("Received Token:", token); // Debug token
-
     if (!token) {
-      return res.status(401).json({ error: "Access denied. No token provided." });
+      return res.status(401).json({
+        success: false,
+        message: "Access denied. No token provided.",
+      });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded Token:", decoded); // Debug decoded data
 
     if (decoded.exp * 1000 < Date.now()) {
-      res.clearCookie("msToken");
-      return res.status(401).json({ message: "Access token has expired" });
+      res.clearCookie("token");
+      return res.status(401).json({
+        success: false,
+        message: "Access token has expired",
+      });
     }
+
     req.user = decoded;
-    console.log("req.user:", req.user); // Debug req.user
     next();
   } catch (error) {
-    console.error("JWT Error:", error.message); // Debug error
-    next(error);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
   }
 };
 

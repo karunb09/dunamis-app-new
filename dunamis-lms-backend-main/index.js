@@ -14,6 +14,7 @@ const allowedOrigins = [
   "https://dashboard.dunamisindia.co.in",
   "http://localhost:3000",
   "http://localhost:5173",
+  "http://localhost:3003",
   "https://dunamisindia.co.in",
   "https://api.dunamisindia.co.in"
 ];

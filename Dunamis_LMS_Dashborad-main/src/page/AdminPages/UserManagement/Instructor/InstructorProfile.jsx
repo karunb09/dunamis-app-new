@@ -24,8 +24,7 @@ import ReviewsTab from "./TabContent/ReviewsTab";
 import OrientationsTab from "./TabContent/Orientationstab";
 import RemunerationTab from "./TabContent/RemunerationTab";
 import { fetchTeacherById } from "../../../../redux/Intructor/teacherSlice";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { DEFAULT_AVATAR, resolveImageUrl } from "../../../../utils/resolveImageUrl";
 
 const InstructorProfile = () => {
   const { instructorId } = useParams();
@@ -55,6 +54,10 @@ const InstructorProfile = () => {
   if (!selectedTeacher) return <div className="p-6 text-red-500">Instructor not found.</div>;
 
   const instructor = selectedTeacher.teacherDetails;
+  const instructorAvatar = resolveImageUrl(
+    instructor?.profilePicture || selectedTeacher.user?.image,
+    DEFAULT_AVATAR
+  );
 
   const joiningDate = new Date(instructor?.createdAt);
   const formattedDate =
@@ -111,7 +114,7 @@ const InstructorProfile = () => {
       <div className="bg-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center">
         <div className="flex items-start gap-4 w-full">
           <img
-            src={`${IMAGE}${instructor.profilePicture}`}
+            src={instructorAvatar}
             alt={instructor.name?.firstName}
             className="w-28 h-28 rounded-full object-cover flex-shrink-0"
           />

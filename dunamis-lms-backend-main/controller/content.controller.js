@@ -115,9 +115,9 @@ exports.updateContent = async (req, res) => {
     content.subCategory = updates.subCategory || content.subCategory;
     content.status = updates.status || content.status;
 
-    // Append new modules
+    // Replace curriculum when the edit form sends the full modules array
     if (updates.modules && Array.isArray(updates.modules)) {
-      content.modules.push(...updates.modules);
+      content.modules = updates.modules;
     }
 
     // Add lessons to a specific module

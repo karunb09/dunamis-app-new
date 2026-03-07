@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { FaSave } from "react-icons/fa";
 import { MdCancel } from "react-icons/md";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { createCity } from "../../../redux/City/CitySlice";
+import { createCity, getCityById, updateCity } from "../../../redux/City/CitySlice";
 import { getAllUsers } from "../../../redux/User/UserSlice";
+import toast from "react-hot-toast";
 
 const AddCityForm = () => {
+    const { id } = useParams();
     const [formData, setFormData] = useState({
         cityName: "",
-        location: "",
         cityManager: "", // Used for both City Manager and Admin
         cityAdminContact: "",
         cityAdminEmail: "",
@@ -25,16 +26,35 @@ const AddCityForm = () => {
         users,
         loading: usersLoading,
         error: usersError,
+        listStatus: userListStatus,
     } = useSelector((state) => state.user);
+    const { city } = useSelector((state) => state.city);
 
     // Replace with actual token from auth state/context
     const token = "yourAuthToken";
 
     useEffect(() => {
-        if (!users.length && token) {
+        if (userListStatus === "idle" && token) {
             dispatch(getAllUsers(token));
         }
-    }, [dispatch, users.length, token]);
+    }, [dispatch, userListStatus, token]);
+
+    useEffect(() => {
+        if (id) {
+            dispatch(getCityById(id));
+        }
+    }, [dispatch, id]);
+
+    useEffect(() => {
+        if (id && city?._id === id) {
+            setFormData({
+                cityName: city.cityName || "",
+                cityManager: city.cityManager?._id || city.cityManager || "",
+                cityAdminContact: city.cityAdminContact || "",
+                cityAdminEmail: city.cityAdminEmail || "",
+            });
+        }
+    }, [city, id]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -62,16 +82,21 @@ const AddCityForm = () => {
         setError(null);
 
         try {
-            const newCity = {
+            const cityData = {
                 cityName: formData.cityName,
-                location: formData.location,
                 cityManager: formData.cityManager,
                 cityAdminContact: formData.cityAdminContact,
                 cityAdminEmail: formData.cityAdminEmail,
             };
 
-            await dispatch(createCity(newCity)).unwrap();
-            navigate("/admin/centers");
+            if (id) {
+                await dispatch(updateCity({ cityId: id, cityData })).unwrap();
+                toast.success("City updated successfully!");
+            } else {
+                await dispatch(createCity(cityData)).unwrap();
+                toast.success("City created successfully!");
+            }
+            navigate(-1);
         } catch (err) {
             setError(err.message || "Failed to create city");
         } finally {
@@ -82,17 +107,17 @@ const AddCityForm = () => {
     const handleCancel = () => {
         setFormData({
             cityName: "",
-            location: "",
             cityManager: "",
             cityAdminContact: "",
             cityAdminEmail: "",
         });
-        navigate("/admin/centers");
+        navigate(-1);
     };
 
     return (
         <div className="p-6 bg-gray-50 rounded-2xl">
             <h2 className="text-lg font-semibold mb-4">Create New City</h2>
+            {id && <p className="mb-4 text-sm text-gray-500">Update city details</p>}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label htmlFor="cityName">
@@ -101,17 +126,6 @@ const AddCityForm = () => {
                         type="text"
                         name="cityName"
                         value={formData.cityName}
-                        onChange={handleChange}
-                        className="p-3 border rounded-2xl w-full"
-                    />
-                </label>
-
-                <label htmlFor="location">
-                    Location
-                    <input
-                        type="text"
-                        name="location"
-                        value={formData.location}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
                     />
@@ -186,7 +200,7 @@ const AddCityForm = () => {
                         className="flex items-center gap-2 bg-black text-white px-6 py-2 rounded-2xl hover:bg-gray-900"
                         disabled={loading}
                     >
-                        {loading ? <span>Saving...</span> : <><FaSave /> Save City</>}
+                        {loading ? <span>Saving...</span> : <><FaSave /> {id ? "Update City" : "Save City"}</>}
                     </button>
                 </div>
             </div>

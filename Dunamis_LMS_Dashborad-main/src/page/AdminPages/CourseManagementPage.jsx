@@ -9,10 +9,9 @@ import toast from 'react-hot-toast';
 import { deleteCourse, getCourses, updateCourse } from '../../redux/Course/CourseSlice';
 import Swal from 'sweetalert2';
 import { X } from 'react-feather';
+import { DEFAULT_AVATAR, resolveImageUrl } from '../../utils/resolveImageUrl';
 
 const TABS = ['Active Courses', 'Draft Courses'];
-const IMAGE = import.meta.env.VITE_IMAGE;
-
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
     { value: 'name-desc', label: 'Name Z-A' },
@@ -542,7 +541,10 @@ const CourseManagement = () => {
                                                     {course.teacher?.map((teacher, index) => (
                                                         <img
                                                             key={index}
-                                                            src={`${IMAGE}${teacher?.teacherDetail?.profilePicture}`}
+                                                            src={resolveImageUrl(
+                                                                teacher?.teacherDetail?.profilePicture || teacher?.userId?.image,
+                                                                DEFAULT_AVATAR
+                                                            )}
                                                             alt="teacher"
                                                             className="w-8 h-8 rounded-full border-2 border-white"
                                                         />

@@ -126,7 +126,7 @@ const contentSlice = createSlice({
   name: "content",
   initialState: {
     contentList: [],
-    selectedContent: null,
+    content: null,
     loading: false,
     error: null,
   },
@@ -168,7 +168,9 @@ const contentSlice = createSlice({
       })
       .addCase(createContent.fulfilled, (state, action) => {
         state.loading = false;
-        state.contentList.push(action.payload); // Add created content to the list
+        if (action.payload?.content) {
+          state.contentList.unshift(action.payload.content);
+        }
       })
       .addCase(createContent.rejected, (state, action) => {
         state.loading = false;
@@ -182,11 +184,16 @@ const contentSlice = createSlice({
       })
       .addCase(updateContent.fulfilled, (state, action) => {
         state.loading = false;
+        const updatedContent = action.payload?.content;
+        if (!updatedContent) return;
         const index = state.contentList.findIndex(
-          (content) => content.id === action.payload.id
+          (content) => content._id === updatedContent._id
         );
         if (index >= 0) {
-          state.contentList[index] = action.payload; // Replace updated content
+          state.contentList[index] = updatedContent;
+        }
+        if (state.content?._id === updatedContent._id) {
+          state.content = updatedContent;
         }
       })
       .addCase(updateContent.rejected, (state, action) => {
@@ -202,8 +209,11 @@ const contentSlice = createSlice({
       .addCase(deleteContent.fulfilled, (state, action) => {
         state.loading = false;
         state.contentList = state.contentList.filter(
-          (content) => content.id !== action.payload
+          (content) => content._id !== action.payload
         );
+        if (state.content?._id === action.payload) {
+          state.content = null;
+        }
       })
       .addCase(deleteContent.rejected, (state, action) => {
         state.loading = false;
@@ -217,8 +227,8 @@ const contentSlice = createSlice({
       })
       .addCase(addModuleToContent.fulfilled, (state, action) => {
         state.loading = false;
-        if (state.selectedContent) {
-          state.selectedContent.modules.push(action.payload); // Add module to selected content
+        if (state.content) {
+          state.content.modules.push(action.payload); // Add module to selected content
         }
       })
       .addCase(addModuleToContent.rejected, (state, action) => {
@@ -233,7 +243,7 @@ const contentSlice = createSlice({
       })
       .addCase(addLessonToModule.fulfilled, (state, action) => {
         state.loading = false;
-        const module = state.selectedContent?.modules.find(
+        const module = state.content?.modules.find(
           (mod) => mod.id === action.payload.moduleId
         );
         if (module) {
@@ -252,7 +262,7 @@ const contentSlice = createSlice({
       })
       .addCase(addTopicToLesson.fulfilled, (state, action) => {
         state.loading = false;
-        const lesson = state.selectedContent?.modules
+        const lesson = state.content?.modules
           .flatMap((module) => module.lessons)
           .find((lesson) => lesson.id === action.payload.lessonId);
 

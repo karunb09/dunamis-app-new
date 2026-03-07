@@ -20,12 +20,14 @@ const applicationSlice = createSlice({
     loading: false,
     success: false,
     error: null,
+    errorDetails: [],
   },
   reducers: {
     resetStatus: (state) => {
       state.loading = false;
       state.success = false;
       state.error = null;
+      state.errorDetails = [];
     },
   },
   extraReducers: (builder) => {
@@ -34,6 +36,7 @@ const applicationSlice = createSlice({
         state.loading = true;
         state.success = false;
         state.error = null;
+        state.errorDetails = [];
       })
       .addCase(submitApplication.fulfilled, (state) => {
         state.loading = false;
@@ -41,10 +44,19 @@ const applicationSlice = createSlice({
       })
       .addCase(submitApplication.rejected, (state, action) => {
         state.loading = false;
+        if (typeof action.payload === "string") {
+          state.error = action.payload;
+          state.errorDetails = [];
+          return;
+        }
+
         state.error =
           action.payload?.message ||
           action.error?.message ||
           "Submission failed";
+        state.errorDetails = Array.isArray(action.payload?.errors)
+          ? action.payload.errors
+          : [];
       });
   },
 });

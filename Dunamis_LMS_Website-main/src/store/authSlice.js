@@ -1,5 +1,11 @@
 // store/authSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  clearWebsiteAuthSession,
+  getWebsiteToken,
+  getWebsiteUser,
+  persistWebsiteAuthSession,
+} from "@/lib/authSession";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -89,8 +95,8 @@ const authSlice = createSlice({
   initialState: {
     loading: false,
     error: null,
-    user: null,
-    token: null,
+    user: getWebsiteUser(),
+    token: getWebsiteToken(),
     forgotSent: false,
     otpVerified: false,
     passwordReset: false,
@@ -100,6 +106,7 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.error = null;
+      clearWebsiteAuthSession();
     },
     clearAuthFlags: (state) => {
       state.forgotSent = false;
@@ -119,6 +126,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        persistWebsiteAuthSession(action.payload);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;

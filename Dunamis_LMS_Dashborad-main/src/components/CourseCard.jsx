@@ -8,6 +8,7 @@ import { toast } from 'react-hot-toast';
 import { useDispatch } from 'react-redux';
 import Swal from 'sweetalert2';
 import { getCourses, deleteCourse, updateCourse } from '../redux/Course/CourseSlice';
+import { DEFAULT_AVATAR, resolveImageUrl } from '../utils/resolveImageUrl';
 const IMAGE = import.meta.env.VITE_IMAGE;
 const categoryIcons = {
     Music: <MdMusicNote className="inline-block mr-1 text-blue-600" size={16} />,
@@ -40,8 +41,8 @@ const CourseCard = ({ course }) => {
         teacher = [],
     } = course;
 
-    const avatars = teacher.map(
-        t => t?.teacherDetail?.profilePicture || 'https://via.placeholder.com/150'
+    const avatars = teacher.map((item) =>
+        resolveImageUrl(item?.teacherDetail?.profilePicture || item?.userId?.image, DEFAULT_AVATAR)
     );
 
     const dispatch = useDispatch();
@@ -212,7 +213,7 @@ const CourseCard = ({ course }) => {
                     {avatars.map((avatar, idx) => (
                         <img
                             key={idx}
-                            src={`${IMAGE}${avatar}`}
+                            src={avatar}
                             className="w-6 h-6 rounded-full border-2 border-white"
                             alt="instructor"
                             draggable={false}

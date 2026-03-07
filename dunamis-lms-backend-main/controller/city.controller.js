@@ -6,7 +6,6 @@ exports.createCity = async (req, res) => {
   try {
     const {
       cityName,
-      location,
       cityManager,
       cityAdminEmail,
       cityAdminContact,
@@ -17,7 +16,6 @@ exports.createCity = async (req, res) => {
     // Validation
     if (
       !cityName ||
-      !location ||
       !cityManager ||
       !cityAdminEmail ||
       !cityAdminContact
@@ -32,7 +30,6 @@ exports.createCity = async (req, res) => {
 
     const newCity = new City({
       cityName,
-      location,
       cityManager,
       cityAdminEmail,
       cityAdminContact,
@@ -179,4 +176,3 @@ exports.deleteCity = async (req, res) => {
     });
   }
 };
-

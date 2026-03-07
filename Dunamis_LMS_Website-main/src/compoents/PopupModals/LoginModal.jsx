@@ -17,11 +17,6 @@ export default function LoginModal({ open, onClose }) {
         const password = fd.get('password');
         const action = await dispatch(login({ email, password }));
         if (login.fulfilled.match(action)) {
-            const payload = action.payload; // { user, token }
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('auth_user', JSON.stringify(payload.user || null));
-                localStorage.setItem('auth_token', payload.token || '');
-            }
             onClose?.();
         }
     };

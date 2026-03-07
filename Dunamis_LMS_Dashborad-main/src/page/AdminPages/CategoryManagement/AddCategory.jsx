@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import {
   createCategoryWithSubCategories,
+  deleteCategory,
   updateCategory,
 } from "../../../redux/Category/CategorySlice";
 import CategoryForm from "./CategoryForm";
@@ -34,32 +35,101 @@ const AddCategory = () => {
     }
   };
 
-  const handleCreateCategory = async () => {
+  const handleRemoveSubCategory = (indexToRemove) => {
+    setSubCategories((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const persistCategory = async (targetStatus) => {
     if (!categoryName.trim()) {
       toast.error("Category name is required");
       return;
     }
 
-    const payload = {
-      name: categoryName,
-      icon: selectedIcon || "",
-      color: selectedColor,
-      status: "draft",
-      subcategories: subCategories.map((name) => ({ name, description: "" })),
-    };
+    try {
+      if (!editingCategory) {
+        const payload = {
+          name: categoryName,
+          icon: selectedIcon || "",
+          color: selectedColor,
+          status: targetStatus,
+          subcategories: subCategories.map((name) => ({ name, description: "" })),
+        };
+
+        const resultAction = await dispatch(
+          createCategoryWithSubCategories(payload)
+        );
+        const createdCategory = resultAction.payload;
+
+        if (!createdCategory?._id) {
+          toast.error("Failed to create category");
+          return;
+        }
+      } else {
+        const existingSubcategoryIds = subCategories
+          .map((name) => findExistingSubcategoryByName(name)?._id)
+          .filter(Boolean);
+
+        const newSubcategoryNames = getNewSubcategoryNames(subCategories);
+        const createdSubcategoryIds = [];
+
+        for (const subName of newSubcategoryNames) {
+          const createdSubcat = await dispatch(
+            createSubCategory({ name: subName, description: "" })
+          ).unwrap();
+          createdSubcategoryIds.push(createdSubcat._id);
+        }
+
+        await dispatch(
+          updateCategory({
+            id: editingCategory._id,
+            updatedData: {
+              name: categoryName,
+              icon: selectedIcon || "",
+              color: selectedColor,
+              status: targetStatus,
+              subcategories: [...existingSubcategoryIds, ...createdSubcategoryIds],
+            },
+          })
+        ).unwrap();
+      }
+
+      toast.success(
+        targetStatus === "draft"
+          ? "Category saved to drafts!"
+          : editingCategory
+            ? "Category updated successfully!"
+            : "Category created successfully!"
+      );
+      navigate("/admin/category-management");
+    } catch (err) {
+      console.error("Category save error:", err);
+      toast.error(
+        targetStatus === "draft"
+          ? "Failed to save draft"
+          : editingCategory
+            ? "Failed to update category"
+            : "Error creating category"
+      );
+    }
+  };
+
+  const handleCreateCategory = async () => {
+    await persistCategory("published");
+  };
+
+  const handleSaveDraft = async () => {
+    await persistCategory("draft");
+  };
+
+  const handleDeleteCategory = async () => {
+    if (!editingCategory?._id) return;
 
     try {
-      const resultAction = await dispatch(createCategoryWithSubCategories(payload));
-      const createdCategory = resultAction.payload;
-
-      if (createdCategory && createdCategory._id) {
-        toast.success("Category created successfully!");
-        navigate("/admin/category-management");
-      } else {
-        toast.error("Failed to create category");
-      }
+      await dispatch(deleteCategory(editingCategory._id)).unwrap();
+      toast.success("Category deleted successfully!");
+      navigate("/admin/category-management");
     } catch (err) {
-      toast.error("Error creating category");
+      toast.error("Failed to delete category");
     }
   };
 
@@ -72,50 +142,7 @@ const AddCategory = () => {
   };
 
   const handleUpdateCategory = async () => {
-    if (!categoryName.trim()) {
-      toast.error("Category name is required");
-      return;
-    }
-
-    const newSubcategoryNames = getNewSubcategoryNames(subCategories);
-
-    try {
-      // Update basic fields first
-      const basicPayload = {
-        name: categoryName,
-        icon: selectedIcon || "",
-        color: selectedColor,
-        status: editingCategory.status || "draft",
-      };
-
-      await dispatch(
-        updateCategory({ id: editingCategory._id, updatedData: basicPayload })
-      ).unwrap();
-
-      // Create and add new subcategories
-      if (newSubcategoryNames.length > 0) {
-        for (const subName of newSubcategoryNames) {
-          // Create subcategory
-          const createdSubcat = await dispatch(
-            createSubCategory({ name: subName, description: "" })
-          ).unwrap();
-
-          // Add to category
-          await dispatch(
-            updateCategory({
-              id: editingCategory._id,
-              updatedData: { subcategoryId: createdSubcat._id },
-            })
-          ).unwrap();
-        }
-      }
-
-      toast.success("Category updated successfully!");
-      navigate("/admin/category-management");
-    } catch (err) {
-      console.error("Update error:", err);
-      toast.error("Failed to update category");
-    }
+    await persistCategory(editingCategory?.status || "published");
   };
 
   return (
@@ -142,28 +169,34 @@ const AddCategory = () => {
         newSubCategory={newSubCategory}
         setNewSubCategory={setNewSubCategory}
         handleAddSubCategory={handleAddSubCategory}
+        handleRemoveSubCategory={handleRemoveSubCategory}
       />
 
       <div className="flex justify-between gap-3 mt-8">
-        <button
-          onClick={() => navigate("/admin/category-management")}
-          className="px-4 py-2 border bg-gray-50 rounded-2xl hover:bg-gray-100"
-        >
-          Cancel
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate("/admin/category-management")}
+            className="px-4 py-2 border bg-gray-50 rounded-2xl hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+
+          {editingCategory && (
+            <button
+              type="button"
+              onClick={handleDeleteCategory}
+              className="px-4 py-2 border border-red-500 text-red-600 bg-white rounded-2xl hover:bg-red-50"
+            >
+              Delete Category
+            </button>
+          )}
+        </div>
 
         <div className="flex justify-end gap-4">
           <button
             type="button"
             className="bg-white text-black border border-black px-4 py-2 rounded-2xl"
-            onClick={() =>
-              console.log("Draft Saved:", {
-                categoryName,
-                selectedIcon,
-                selectedColor,
-                subCategories,
-              })
-            }
+            onClick={handleSaveDraft}
           >
             Save Draft
           </button>

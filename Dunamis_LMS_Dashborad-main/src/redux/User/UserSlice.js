@@ -86,6 +86,7 @@ const userSlice = createSlice({
     users: [],
     selectedUser: null,
     loading: false,
+    listStatus: "idle",
     error: null,
     success: false,
     message: "",
@@ -162,18 +163,21 @@ const userSlice = createSlice({
       // Get all users
       .addCase(getAllUsers.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
         state.error = null;
         state.success = false;
         state.message = "";
       })
       .addCase(getAllUsers.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.users = action.payload;
         state.success = true;
         state.message = action.payload.message || "Users fetched successfully";
       })
       .addCase(getAllUsers.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload?.message || "Failed to fetch users";
         state.success = false;
       });

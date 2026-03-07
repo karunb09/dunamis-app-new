@@ -5,33 +5,18 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { fetchOfflineCenters } from "@/store/centerSlice";
-
-// Get image base URL from environment variable
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
+import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 
 export default function Centers() {
   const router = useRouter();
   const dispatch = useDispatch();
 
-  // Redux state - Add detailed debugging
-  const offlineCenterState = useSelector((state) => {
-    console.log("Full Redux State:", state);
-    console.log("offlineCenters slice:", state.offlineCenters);
-    return state.offlineCenters;
-  });
+  const offlineCenterState = useSelector((state) => state.offlineCenters);
 
   // Handle both 'centers' and 'branches' keys from API
   const centersData = offlineCenterState?.centers || offlineCenterState?.branches || [];
   const loading = offlineCenterState?.loading || false;
   const error = offlineCenterState?.error || null;
-
-  console.log("offlineCenterState:", offlineCenterState);
-  console.log("Centers Data:", centersData);
-  console.log("Centers type:", typeof centersData);
-  console.log("Centers isArray:", Array.isArray(centersData));
-  console.log("Centers length:", centersData?.length);
-  console.log("Loading:", loading);
-  console.log("Error:", error);
 
   useEffect(() => {
     dispatch(fetchOfflineCenters());
@@ -55,8 +40,6 @@ export default function Centers() {
   };
 
   const allCenters = Array.isArray(centersData) ? centersData.slice(0, 3) : [];
-  console.log("All centers displayed on UI:", allCenters);
-  console.log("First center image:", allCenters[0]?.branchImage);
 
   // Helper function to process image URLs
   const getImageUrl = (branchImage) => {
@@ -72,29 +55,10 @@ export default function Centers() {
 
     // If it's a relative path, prepend base URL
     const cleanPath = branchImage.startsWith('/') ? branchImage : `/${branchImage}`;
-    const fullUrl = `${IMAGE}${cleanPath}`;
-
-    console.log('Image URL constructed:', fullUrl);
-    return fullUrl;
+    return `${IMAGE_BASE_URL}${cleanPath}`;
   };
 
-  if (loading) {
-    return (
-      <section className="py-20 px-6 text-center">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35]"></div>
-        </div>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="py-20 px-6 text-center">
-        <p className="text-red-500 font-medium">Error: {error}</p>
-      </section>
-    );
-  }
+  if (loading || error || allCenters.length === 0) return null;
 
   return (
     <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 text-center bg-gray-50">

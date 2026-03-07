@@ -1,7 +1,7 @@
 import EmojiPicker from "emoji-picker-react";
 import React from "react";
 import { ChromePicker } from "react-color";
-import { FaPlus } from "react-icons/fa";
+import { FaPlus, FaTrash } from "react-icons/fa";
 
 const CategoryForm = ({
     categoryName,
@@ -23,6 +23,7 @@ const CategoryForm = ({
     colors = [],
     icons = [],
     handleAddSubCategory = () => { },
+    handleRemoveSubCategory = () => { },
 }) => {
 
     return (
@@ -120,9 +121,19 @@ const CategoryForm = ({
                     </button>
                 </div>
                 {subCategories.length > 0 && (
-                    <ul className="list-disc list-inside text-gray-700">
+                    <ul className="space-y-2 text-gray-700">
                         {subCategories.map((sub, index) => (
-                            <li key={index}>{sub}</li>
+                            <li key={index} className="flex items-center justify-between rounded-xl border bg-white px-3 py-2">
+                                <span>{sub}</span>
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveSubCategory(index)}
+                                    className="text-red-500 hover:text-red-700"
+                                    aria-label={`Remove ${sub}`}
+                                >
+                                    <FaTrash />
+                                </button>
+                            </li>
                         ))}
                     </ul>
                 )}

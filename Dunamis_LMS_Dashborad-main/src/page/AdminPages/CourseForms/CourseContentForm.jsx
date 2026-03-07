@@ -17,9 +17,10 @@ const CourseContentForm = ({ content, setContent }) => {
     const [isCurriculumOpen, setIsCurriculumOpen] = useState(true);
     const dispatch = useDispatch();
 
-    const selectedCourseId = localStorage.getItem("selectedCourseId");
+    const selectedCourseId = Array.isArray(content?.content) && content.content.length > 0
+        ? content.content[0]?._id || content.content[0]
+        : null;
 
-    // Fetch curriculum (content) by ID from localStorage
     useEffect(() => {
         if (selectedCourseId) {
             dispatch(fetchContentById(selectedCourseId));
@@ -32,22 +33,18 @@ const CourseContentForm = ({ content, setContent }) => {
         error,
     } = useSelector((state) => state.content);
 
-    // Sync objectives from parent (if already added)
-    // useEffect(() => {
-    //     if (content?.objectives) {
-    //         setObjectives(content.objectives);
-    //     }
-    // }, [content]);
-
-    // When curriculum is fetched, update content ID in parent
     useEffect(() => {
-        if (fetchedContent?._id) {
+        setObjectives(Array.isArray(content?.objectives) ? content.objectives : []);
+    }, [content?.objectives]);
+
+    useEffect(() => {
+        if (selectedCourseId && fetchedContent?._id === selectedCourseId) {
             setContent((prev) => ({
                 ...prev,
-                content: [fetchedContent._id], // store as array of content ID
+                content: [fetchedContent._id],
             }));
         }
-    }, [fetchedContent, setContent]);
+    }, [fetchedContent, selectedCourseId, setContent]);
 
     // Add new objective
     const handleAddObjective = () => {
@@ -158,7 +155,7 @@ const CourseContentForm = ({ content, setContent }) => {
                     )}
                 </div>
 
-                {isCurriculumOpen && fetchedContent?.modules?.length > 0 ? (
+                {isCurriculumOpen && selectedCourseId && fetchedContent?._id === selectedCourseId && fetchedContent?.modules?.length > 0 ? (
                     <div
                         id="curriculum-section"
                         className="space-y-6 border border-gray-200 rounded-2xl bg-white p-4"
@@ -209,7 +206,9 @@ const CourseContentForm = ({ content, setContent }) => {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-500">No modules available</p>
+                    <p className="text-gray-500">
+                        {selectedCourseId ? "No modules available" : "Select course content first"}
+                    </p>
                 )}
             </div>
         </div>

@@ -7,6 +7,6 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    allowedHosts: ["dashboard.dunamisindia.co.in"],
+    allowedHosts: ["dashboard.dunamisindia.co.in", "http://localhost:3000", "http://localhost:5173", "http://localhost:3003"],
   },
 });

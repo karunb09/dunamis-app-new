@@ -35,6 +35,11 @@ const teacherApplicationSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    source: {
+      type: String,
+      enum: ["application", "admin"],
+      default: "application",
+    },
     mobileNo: {
       type: Number,
       required: true,
@@ -68,15 +73,21 @@ const teacherApplicationSchema = new mongoose.Schema(
     },
     cv: {
       type: String,
-      required: true,
+      required: function () {
+        return this.source !== "admin";
+      },
     },
     profileVideo: {
       type: String,
-      required: true,
+      required: function () {
+        return this.source !== "admin";
+      },
     },
     profilePicture: {
       type: String,
-      required: true,
+      required: function () {
+        return this.source !== "admin";
+      },
     },
     currentCTC: {
       type: String,

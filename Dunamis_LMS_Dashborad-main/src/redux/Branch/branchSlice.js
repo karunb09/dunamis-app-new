@@ -81,10 +81,7 @@ export const updateBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(branchData),
+        body: branchData,
       });
       const data = await res.json();
       if (!data.success) {
@@ -121,8 +118,11 @@ const branchSlice = createSlice({
   initialState: {
     loading: false,
     error: null,
+    listStatus: "idle",
     branches: [],
     managers: [],
+    branch: null,
+    selectedBranch: null,
   },
   reducers: {},
   extraReducers: (builder) => {
@@ -131,13 +131,16 @@ const branchSlice = createSlice({
       .addCase(fetchAllBranches.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.listStatus = "loading";
       })
       .addCase(fetchAllBranches.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.branches = action.payload;
       })
       .addCase(fetchAllBranches.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload || "Failed to fetch branches";
       })
       // Create Branch
@@ -147,6 +150,7 @@ const branchSlice = createSlice({
       })
       .addCase(createBranch.fulfilled, (state, action) => {
         state.loading = false;
+        state.branch = action.payload;
         state.branches.push(action.payload); // Add the newly created branch
       })
       .addCase(createBranch.rejected, (state, action) => {
@@ -174,10 +178,13 @@ const branchSlice = createSlice({
       .addCase(updateBranch.fulfilled, (state, action) => {
         state.loading = false;
         const index = state.branches.findIndex(
-          (branch) => branch.id === action.payload.id
+          (branch) => branch._id === action.payload._id
         );
         if (index !== -1) {
           state.branches[index] = action.payload; // Update the branch in the state
+        }
+        if (state.selectedBranch?._id === action.payload._id) {
+          state.selectedBranch = action.payload;
         }
       })
       .addCase(updateBranch.rejected, (state, action) => {
@@ -192,7 +199,7 @@ const branchSlice = createSlice({
       .addCase(deleteBranch.fulfilled, (state, action) => {
         state.loading = false;
         state.branches = state.branches.filter(
-          (branch) => branch.id !== action.payload
+          (branch) => branch._id !== action.payload
         ); // Remove the deleted branch
       })
       .addCase(deleteBranch.rejected, (state, action) => {

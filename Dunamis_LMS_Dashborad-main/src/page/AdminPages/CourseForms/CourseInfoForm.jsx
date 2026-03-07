@@ -13,16 +13,18 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
         loading: contentLoading,
         error: contentError,
     } = useSelector((state) => state.content);
-    const { branches: allBranches } = useSelector((state) => state.branch);
+    const { branches: allBranches, listStatus: branchListStatus } = useSelector((state) => state.branch);
     const publishedContentList = contentList.filter(content => content.status === "published");
 
     const [showDateFields, setShowDateFields] = useState(false);
     const [showBranchField, setShowBranchField] = useState(false);
 
     useEffect(() => {
-        dispatch(fetchAllBranches());
+        if (branchListStatus === "idle") {
+            dispatch(fetchAllBranches());
+        }
         dispatch(fetchAllContent());
-    }, [dispatch]);
+    }, [dispatch, branchListStatus]);
 
     useEffect(() => {
         if (!courseInfo) return;
@@ -46,7 +48,6 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
                 subCategory: "",
             });
             setContent([]);
-            localStorage.removeItem("selectedCourseId");
             return;
         }
 
@@ -55,7 +56,6 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
         );
 
         if (selectedCourse) {
-            localStorage.setItem("selectedCourseId", selectedCourse._id);
             setContent([selectedCourse._id]);
 
             setCourseInfo({
@@ -66,7 +66,6 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
                 subCategory: selectedCourse.subCategory?._id || "",
             });
         } else {
-            localStorage.removeItem("selectedCourseId");
             setContent([]);
             setCourseInfo({
                 ...courseInfo,

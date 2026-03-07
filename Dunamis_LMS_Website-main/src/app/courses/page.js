@@ -7,16 +7,14 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCourses } from "@/store/courseSlice";
 import { IoMdStar } from "react-icons/io";
+import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
 export default function CoursesPage() {
   const dispatch = useDispatch();
   const courseState = useSelector((state) => state.course);
   const courses = courseState.courses || [];
   const loading = courseState.loading;
   const error = courseState.error;
-
-  console.log("Redux State:", courseState);
 
   const [transformedCourses, setTransformedCourses] = useState([]);
   const [search, setSearch] = useState("");
@@ -28,10 +26,22 @@ export default function CoursesPage() {
   // Transform API data for UI
   const transformCourses = (rawCourses) => {
     if (!Array.isArray(rawCourses)) return [];
-    return rawCourses.map((course) => {
+    return rawCourses
+      .filter((course) => course?.isPublished !== false)
+      .map((course) => {
       const selectedPrice = Array.isArray(course.price)
         ? course.price.find((p) => p.isSelected) || course.price[0]
         : null;
+
+      const imagePath = course.image || "";
+      const image =
+        imagePath && (imagePath.startsWith("http://") || imagePath.startsWith("https://"))
+          ? imagePath
+          : imagePath
+            ? `${IMAGE_BASE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`
+            : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                course.name || "Course"
+              )}`;
 
       return {
         id: course._id,
@@ -50,7 +60,7 @@ export default function CoursesPage() {
               })}`
             : "Duration not specified",
         price: selectedPrice?.monthlyFee || selectedPrice?.fullPayment || 0,
-        image: `${IMAGE}${course.image}`,
+        image,
         rating: course.rating || 4.8,
         tags: [course.category?.name, course.level].filter(Boolean),
         type:
@@ -73,11 +83,8 @@ export default function CoursesPage() {
   // Transform courses when Redux updates
   useEffect(() => {
     if (courses && courses.length > 0) {
-      const transformed = transformCourses(courses);
-      console.log("Transformed courses:", transformed);
-      setTransformedCourses(transformed);
+      setTransformedCourses(transformCourses(courses));
     } else {
-      console.log("No courses to transform");
       setTransformedCourses([]);
     }
   }, [courses]);
@@ -105,31 +112,6 @@ export default function CoursesPage() {
       <section className="max-w-7xl mt-20 mx-auto px-6 py-12 flex flex-col items-center justify-center">
         <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-lg text-gray-600">Loading courses...</p>
-      </section>
-    );
-
-  // Error state
-  if (error)
-    return (
-      <section className="max-w-7xl mt-20 mx-auto px-6 py-12 text-center">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8">
-          <p className="text-red-600 text-lg font-medium">
-            Error loading courses
-          </p>
-          <p className="text-red-500 mt-2">{error}</p>
-        </div>
-      </section>
-    );
-
-  // Empty state
-  if (!courses || courses.length === 0)
-    return (
-      <section className="max-w-7xl mt-20 mx-auto px-6 py-12 text-center">
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8">
-          <p className="text-gray-600 text-lg">
-            No courses available at the moment.
-          </p>
-        </div>
       </section>
     );
 
@@ -268,10 +250,12 @@ export default function CoursesPage() {
       </AnimatePresence>
 
       {/* Courses Grid */}
-      <p className="text-sm text-gray-600 mb-4">
-        {filteredCourses.length} course{filteredCourses.length !== 1 ? "s" : ""}{" "}
-        found
-      </p>
+      {!error && transformedCourses.length > 0 && (
+        <p className="text-sm text-gray-600 mb-4">
+          {filteredCourses.length} course{filteredCourses.length !== 1 ? "s" : ""}{" "}
+          found
+        </p>
+      )}
 
       <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {filteredCourses.map((course, index) => (

@@ -1,38 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import React from "react";
 import toast from "react-hot-toast";
-import { fetchAllBranches } from "../../../../redux/Branch/branchSlice";
 import { IoClose } from "react-icons/io5";
+import { DEFAULT_AVATAR, resolveImageUrl } from "../../../../utils/resolveImageUrl";
 
 const CredentialModal = ({ instructor, password, onClose }) => {
-    const dispatch = useDispatch();
-    const { branches = [], loading } = useSelector((state) => state.branch || {});
-    const [selectedBranch, setSelectedBranch] = useState(""); // Single branch
-    const [error, setError] = useState("");
-
-    useEffect(() => {
-        dispatch(fetchAllBranches());
-    }, [dispatch]);
-
-    const handleBranchChange = (e) => {
-        setSelectedBranch(e.target.value);
-        if (e.target.value) setError("");
-    };
-
     const handleCopy = () => {
-        const fullCopyText = `Username: ${instructor.email}\nPassword: ${password}\nBranch: ${selectedBranch}`;
+        const fullCopyText = `Username: ${instructor.email}\nPassword: ${password}`;
         navigator.clipboard.writeText(fullCopyText)
             .then(() => toast.success("Credentials copied to clipboard!"))
             .catch(() => toast.error("Failed to copy to clipboard."));
-    };
-
-    const handleAddInstructor = () => {
-        if (!selectedBranch) {
-            setError("Please select a branch.");
-            return;
-        }
-        toast.success(`Instructor added to: ${selectedBranch}`);
-        onClose();
     };
 
     const fullName =
@@ -61,7 +37,7 @@ const CredentialModal = ({ instructor, password, onClose }) => {
 
                 <div className="flex items-center gap-3 mb-4">
                     <img
-                        src={instructor.avatar || "https://via.placeholder.com/40"}
+                        src={resolveImageUrl(instructor.avatar, DEFAULT_AVATAR)}
                         alt={fullName}
                         className="w-10 h-10 rounded-full object-cover"
                     />
@@ -84,56 +60,26 @@ const CredentialModal = ({ instructor, password, onClose }) => {
                     </p>
                 </div>
 
-                {/* Branch Radio Options */}
                 <div className="mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Branch <span className="text-red-500">*</span>
-                    </label>
-
-                    {loading ? (
-                        <p>Loading branches...</p>
-                    ) : branches.length === 0 ? (
-                        <p className="text-red-500">No branches available</p>
-                    ) : (
-                        <div className="space-y-2 max-h-40 overflow-auto scrollbar-hide">
-                            {branches.map((branch) => (
-                                <label key={branch._id || branch.id} className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="radio"
-                                        name="branch"
-                                        value={branch.branchName}
-                                        checked={selectedBranch === branch.branchName}
-                                        onChange={handleBranchChange}
-                                    />
-                                    <span>{branch.branchName}</span>
-                                </label>
-                            ))}
-                        </div>
-                    )}
-                    {error && <p className="text-red-500 mt-1 text-sm">{error}</p>}
+                    <p className="text-sm text-gray-600">
+                        The instructor account is already created when the application is marked
+                        as <span className="font-medium">selected</span>. Copy the credentials if
+                        you need them for handoff.
+                    </p>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="flex justify-between items-center">
                     <button
                         onClick={handleCopy}
-                        disabled={!selectedBranch}
-                        className={`px-4 py-2 border rounded ${!selectedBranch
-                            ? "opacity-50 cursor-not-allowed"
-                            : "hover:bg-gray-100"
-                            }`}
+                        className="px-4 py-2 border rounded hover:bg-gray-100"
                     >
                         Copy
                     </button>
                     <button
-                        onClick={handleAddInstructor}
-                        disabled={!selectedBranch}
-                        className={`px-4 py-2 rounded text-white ${!selectedBranch
-                            ? "bg-gray-400 cursor-not-allowed"
-                            : "bg-black hover:bg-gray-800"
-                            }`}
+                        onClick={onClose}
+                        className="px-4 py-2 rounded text-white bg-black hover:bg-gray-800"
                     >
-                        Add Instructor
+                        Done
                     </button>
                 </div>
             </div>

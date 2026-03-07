@@ -1,232 +1,363 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
-import { FiSend } from "react-icons/fi";
+import { useDispatch, useSelector } from "react-redux";
 import {
-  FaLinkedin,
-  FaInstagram,
-  FaTelegram,
-  FaPhoneAlt,
-  FaEnvelope,
-  FaMapMarkerAlt,
   FaClock,
+  FaEnvelope,
+  FaInstagram,
+  FaLinkedin,
+  FaMapMarkerAlt,
+  FaPhoneAlt,
+  FaTelegram,
 } from "react-icons/fa";
-import { createEnquiry } from "@/store/enquirySlice";
+import { HiChatAlt2, HiMail, HiPencilAlt, HiUser } from "react-icons/hi";
 import toast from "react-hot-toast";
+import { createEnquiry, resetStatus } from "@/store/enquirySlice";
 
+const CONTACT_CARDS = [
+  {
+    icon: FaPhoneAlt,
+    title: "Call Us",
+    lines: ["+91 98765 43210", "+91 98765 43211"],
+    note: "Mon-Sat: 9 AM - 9 PM",
+  },
+  {
+    icon: FaEnvelope,
+    title: "Write To Us",
+    lines: ["info@dunamis.in", "support@dunamis.in"],
+    note: "We usually reply within 24 hours",
+  },
+  {
+    icon: FaMapMarkerAlt,
+    title: "Visit The Studio",
+    lines: ["DUNAMIS Creative Hub", "Bandra West, Mumbai - 400050"],
+    note: "Walk-ins are welcome",
+  },
+  {
+    icon: FaClock,
+    title: "Working Hours",
+    lines: ["Mon-Sat: 9:00 AM - 9:00 PM", "Sunday: 10:00 AM - 6:00 PM"],
+    note: "Online support across time zones",
+  },
+];
+
+const INITIAL_FORM = {
+  name: "",
+  email: "",
+  subject: "",
+  message: "",
+};
 
 export default function ContactPage() {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    subject: "",
-    message: "",
-  });
-
   const dispatch = useDispatch();
-  const { status, error } = useSelector((state) => state.enquiry);
+  const { status, error, errorDetails } = useSelector((state) => state.enquiry);
+  const [form, setForm] = useState(INITIAL_FORM);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    dispatch(createEnquiry(form));
-  };
+  const fieldErrors = useMemo(() => {
+    return (errorDetails || []).reduce((acc, item) => {
+      if (item?.field) {
+        acc[item.field] = item.message;
+      }
+      return acc;
+    }, {});
+  }, [errorDetails]);
 
   useEffect(() => {
     if (status === "succeeded") {
-      toast.success("Enquiry submitted successfully!");
-      setForm({ name: "", email: "", subject: "", message: "" });
+      toast.success("Enquiry submitted successfully.");
+      setForm(INITIAL_FORM);
+      dispatch(resetStatus());
+      return;
     }
 
-    if (status === "failed") {
-      toast.error("Failed to submit enquiry. Please try again.");
+    if (status === "failed" && error) {
+      toast.error(error);
     }
-  }, [status]);
+  }, [dispatch, error, status]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(resetStatus());
+    };
+  }, [dispatch]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+
+    if (status !== "idle") {
+      dispatch(resetStatus());
+    }
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    dispatch(createEnquiry(form));
+  };
+
+  const renderFieldError = (field) => {
+    if (!fieldErrors[field]) {
+      return null;
+    }
+
+    return <p className="mt-2 text-sm text-red-600">{fieldErrors[field]}</p>;
+  };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
-      {/* Left Panel */}
-      <motion.div
-        initial={{ opacity: 0, x: -50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="flex flex-col justify-center px-10 py-16"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-black">
-            Contact <span className="text-orange-600">Us.</span>
-          </h1>
-          <p className="text-gray-600 text-lg mt-4">
-            We will read all emails one by one and will not miss them. Send us
-            any message you want, and we will reply to it.
-          </p>
-          <p className="text-sm text-gray-500 mt-3">
-            We need your <strong>Name</strong> and{" "}
-            <strong>Email Address</strong>, but you won’t receive anything
-            except our reply only.
-          </p>
-
-          <div className="mt-8">
-            <p className="text-gray-800 font-semibold mb-3">
-              Get in touch with us on
-            </p>
-            <div className="flex space-x-4">
-              <a
-                href="#"
-                className="bg-gray-200 hover:bg-orange-100 p-2 rounded-md"
-              >
-                <FaLinkedin
-                  size={20}
-                  className="text-gray-600 hover:text-orange-600"
-                />
-              </a>
-              <a
-                href="#"
-                className="bg-gray-200 hover:bg-orange-100 p-2 rounded-md"
-              >
-                <FaInstagram
-                  size={20}
-                  className="text-gray-600 hover:text-orange-600"
-                />
-              </a>
-              <a
-                href="#"
-                className="bg-gray-200 hover:bg-orange-100 p-2 rounded-md"
-              >
-                <FaTelegram
-                  size={20}
-                  className="text-gray-600 hover:text-orange-600"
-                />
-              </a>
-            </div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm text-gray-700">
-            <div>
-              <h4 className="font-semibold flex items-center gap-2 text-base mb-1">
-                <FaPhoneAlt /> Phone
-              </h4>
-              <p>+91 98765 43210</p>
-              <p>+91 98765 43211</p>
-              <p className="text-xs text-gray-500 mt-1">Mon-Sat: 9 AM - 9 PM</p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold flex items-center gap-2 text-base mb-1">
-                <FaEnvelope /> Email
-              </h4>
-              <p>info@dunamis.in</p>
-              <p>support@dunamis.in</p>
-              <p className="text-xs text-gray-500 mt-1">
-                We'll respond within 24 hours
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold flex items-center gap-2 text-base mb-1">
-                <FaMapMarkerAlt /> Head Office
-              </h4>
-              <p>DUNAMIS Creative Hub</p>
-              <p>Bandra West, Mumbai - 400050</p>
-              <p className="text-xs text-gray-500 mt-1">Visit us anytime</p>
-            </div>
-
-            <div>
-              <h4 className="font-semibold flex items-center gap-2 text-base mb-1">
-                <FaClock /> Business Hours
-              </h4>
-              <p>Mon-Sat: 9:00 AM - 9:00 PM</p>
-              <p>Sunday: 10:00 AM - 6:00 PM</p>
-              <p className="text-xs text-gray-500 mt-1">
-                All time zones supported online
-              </p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Right Panel - Contact Form */}
-      <div
-        className="relative flex items-center justify-center px-6 py-12"
-        style={{
-          backgroundImage: `url('/BG-1.jpg')`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        <div className="absolute inset-0 bg-black/60 z-0"></div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          viewport={{ once: false }}
-          className="z-10 bg-black/50 backdrop-blur-md p-10 rounded-xl w-full max-w-lg text-white shadow-2xl"
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(249,115,22,0.14),_transparent_35%),linear-gradient(180deg,#fff7ed_0%,#ffffff_38%,#fff1e6_100%)] px-4 pb-10 pt-28 md:px-6 md:pt-32 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-[2rem] border border-orange-100 bg-white p-8 shadow-[0_24px_80px_-36px_rgba(234,88,12,0.45)] md:p-10"
         >
-          <h2 className="text-2xl font-bold mb-6">Send Us A Message</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex space-x-4">
-              <input
-                name="name"
-                placeholder="First Name"
-                value={form.name}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-transparent border border-gray-400 rounded-md text-white placeholder-gray-300 focus:outline-none"
-                required
-              />
-              <input
-                name="email"
-                type="email"
-                placeholder="Email Address"
-                value={form.email}
-                onChange={handleChange}
-                className="w-full px-4 py-2 bg-transparent border border-gray-400 rounded-md text-white placeholder-gray-300 focus:outline-none"
-                required
-              />
-            </div>
-            <input
-              name="subject"
-              placeholder="Subject"
-              value={form.subject}
-              onChange={handleChange}
-              className="w-full px-4 py-2 bg-transparent border border-gray-400 rounded-md text-white placeholder-gray-300 focus:outline-none"
-              required
-            />
-            <textarea
-              name="message"
-              placeholder="Message"
-              rows={4}
-              value={form.message}
-              onChange={handleChange}
-              className="w-full px-4 py-2 bg-transparent border border-gray-400 rounded-md text-white placeholder-gray-300 focus:outline-none"
-              required
-            ></textarea>
+          <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-orange-200/40 blur-3xl" />
+          <div className="pointer-events-none absolute bottom-0 left-0 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
 
-            <button
-              type="submit"
-              className="cursor-pointer w-full mt-2 bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 rounded-md flex justify-center items-center gap-2 transition-all duration-200"
-              disabled={status === "loading"}
-            >
-              {status === "loading" ? (
-                "Sending..."
-              ) : (
-                <>
-                  <FiSend size={18} /> Send Message
-                </>
-              )}
-            </button>
-            {error && (
-              <p className="text-sm text-red-400 text-center mt-2">
-                {typeof error === "string" ? error : "Something went wrong."}
-              </p>
-            )}
-          </form>
-        </motion.div>
+          <div className="relative">
+            <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-4 py-2 text-sm font-medium text-orange-700">
+              <HiChatAlt2 className="h-4 w-4" />
+              Let&apos;s talk
+            </div>
+
+            <h1 className="mt-5 max-w-xl text-4xl font-bold tracking-tight text-gray-900 md:text-5xl">
+              Contact the team without hunting for the right inbox.
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-gray-600 md:text-lg">
+              Share what you need, where you are stuck, or what you want to
+              explore next. The enquiry form routes straight into the admin
+              workflow so your message does not disappear into a generic mailbox.
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/courses"
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-600 hover:to-orange-600"
+              >
+                Explore Courses
+              </Link>
+              <Link
+                href="/become-teacher"
+                className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:border-orange-200 hover:text-orange-700"
+              >
+                Become a Teacher
+              </Link>
+            </div>
+
+            <div className="mt-10 grid gap-4 sm:grid-cols-2">
+              {CONTACT_CARDS.map(({ icon: Icon, title, lines, note }) => (
+                <div
+                  key={title}
+                  className="rounded-3xl border border-gray-100 bg-orange-50/40 p-5 shadow-sm"
+                >
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <h2 className="mt-4 text-lg font-semibold text-gray-900">
+                    {title}
+                  </h2>
+                  <div className="mt-2 space-y-1 text-sm text-gray-700">
+                    {lines.map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs font-medium uppercase tracking-[0.18em] text-gray-400">
+                    {note}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex items-center gap-3 text-gray-500">
+              {[
+                { href: "#", icon: FaLinkedin, label: "LinkedIn" },
+                { href: "#", icon: FaInstagram, label: "Instagram" },
+                { href: "#", icon: FaTelegram, label: "Telegram" },
+              ].map(({ href, icon: Icon, label }) => (
+                <a
+                  key={label}
+                  href={href}
+                  aria-label={label}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-200 hover:text-orange-600"
+                >
+                  <Icon className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, delay: 0.08, ease: "easeOut" }}
+          className="relative overflow-hidden rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5"
+        >
+          <div className="grid h-full grid-cols-1 md:grid-cols-[0.8fr_1.2fr]">
+            <div className="relative hidden overflow-hidden bg-gradient-to-b from-orange-500 to-orange-600 p-8 text-white md:flex md:flex-col md:justify-between">
+              <div>
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/15 backdrop-blur">
+                  <HiChatAlt2 className="h-5 w-5" />
+                </div>
+                <h2 className="mt-6 text-3xl font-bold">Send an enquiry</h2>
+                <p className="mt-3 text-sm leading-6 text-white/90">
+                  Keep it direct. Tell us what you need and the team can route
+                  it to the right admin immediately.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                  <p className="text-sm font-medium text-white/80">Best for</p>
+                  <p className="mt-2 text-sm text-white">
+                    Admissions, course guidance, branch visits, partnerships,
+                    support follow-ups, and general questions.
+                  </p>
+                </div>
+                <p className="text-xs uppercase tracking-[0.18em] text-white/75">
+                  Human reply. No bot maze.
+                </p>
+              </div>
+
+              <div className="pointer-events-none absolute -bottom-8 -left-10 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+              <div className="pointer-events-none absolute -right-12 top-10 h-36 w-36 rounded-full bg-amber-300/20 blur-2xl" />
+            </div>
+
+            <div className="p-8 md:p-10">
+              <div className="max-w-xl">
+                <h3 className="text-2xl font-semibold text-gray-900">
+                  Start the conversation
+                </h3>
+                <p className="mt-2 text-sm text-gray-500">
+                  This follows the same clean flow as login and signup. Fill the
+                  fields below and submit once.
+                </p>
+
+                <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Full name
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
+                        <HiUser className="h-5 w-5" />
+                      </span>
+                      <input
+                        name="name"
+                        value={form.name}
+                        onChange={handleChange}
+                        placeholder="Enter your full name"
+                        className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
+                          fieldErrors.name
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                            : "border-gray-200 focus:border-orange-600 focus:ring-orange-100"
+                        }`}
+                      />
+                    </div>
+                    {renderFieldError("name")}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Email address
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
+                        <HiMail className="h-5 w-5" />
+                      </span>
+                      <input
+                        name="email"
+                        type="email"
+                        value={form.email}
+                        onChange={handleChange}
+                        placeholder="you@example.com"
+                        className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
+                          fieldErrors.email
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                            : "border-gray-200 focus:border-orange-600 focus:ring-orange-100"
+                        }`}
+                      />
+                    </div>
+                    {renderFieldError("email")}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Subject
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
+                        <HiPencilAlt className="h-5 w-5" />
+                      </span>
+                      <input
+                        name="subject"
+                        value={form.subject}
+                        onChange={handleChange}
+                        placeholder="How can we help you?"
+                        className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
+                          fieldErrors.subject
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                            : "border-gray-200 focus:border-orange-600 focus:ring-orange-100"
+                        }`}
+                      />
+                    </div>
+                    {renderFieldError("subject")}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Message
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-4 text-gray-400">
+                        <HiChatAlt2 className="h-5 w-5" />
+                      </span>
+                      <textarea
+                        name="message"
+                        rows={6}
+                        value={form.message}
+                        onChange={handleChange}
+                        placeholder="Share the details so the team can respond clearly."
+                        className={`w-full rounded-[1.75rem] border bg-white px-12 py-4 text-gray-900 outline-none transition focus:ring-2 ${
+                          fieldErrors.message
+                            ? "border-red-300 focus:border-red-400 focus:ring-red-100"
+                            : "border-gray-200 focus:border-orange-600 focus:ring-orange-100"
+                        }`}
+                      />
+                    </div>
+                    {renderFieldError("message")}
+                  </div>
+
+                  {error && errorDetails.length === 0 ? (
+                    <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  ) : null}
+
+                  <button
+                    type="submit"
+                    disabled={status === "loading"}
+                    className={`w-full rounded-full px-6 py-3 font-semibold text-white shadow-lg transition focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                      status === "loading"
+                        ? "cursor-not-allowed bg-orange-400/70"
+                        : "bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-600"
+                    }`}
+                  >
+                    {status === "loading" ? "Sending enquiry..." : "Send enquiry"}
+                  </button>
+
+                  <p className="text-center text-xs text-gray-500">
+                    Your message goes straight to the internal enquiries queue.
+                  </p>
+                </form>
+              </div>
+            </div>
+          </div>
+        </motion.section>
       </div>
     </div>
   );

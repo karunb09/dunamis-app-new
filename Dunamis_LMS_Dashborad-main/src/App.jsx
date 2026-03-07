@@ -7,6 +7,7 @@ import Navigation from "./components/mainLayout/Navbar";
 import SignIn from "./components/signIn";
 import TermsAndConditions from "./components/TermsAndConditions";
 import SignInNavbar from "./components/signInNavbar";
+import { PublicOnlyRoute, RequireAuth } from "./components/auth/AuthGuard";
 
 // Student Pages
 import HomePage from "./page/StudentPages/StudentHomePage";
@@ -57,6 +58,7 @@ import StudentDetail from "./page/TeacherPages/TeacherCourses/StudentDetail";
 import Profile from "./page/TeacherPages/profile";
 
 import Instructor from "./page/AdminPages/UserManagement/Instructor/Instructor";
+import AddInstructorForm from "./page/AdminPages/UserManagement/Instructor/AddInstructorForm";
 import InstructorProfile from "./page/AdminPages/UserManagement/Instructor/InstructorProfile";
 import AddAdminForm from "./page/AdminPages/AddAdminForm";
 import AddBranch from "./page/AdminPages/OfflineCenters/AddBranchForm";
@@ -95,10 +97,19 @@ const App = () => {
   // signIn and Terms page layout
   if (location.pathname === "/" || location.pathname === "/terms") {
     return (
-      <div className="flex flex-col h-screen">
-        <SignInNavbar />
-        {location.pathname === "/" ? <SignIn /> : <TermsAndConditions />}
-      </div>
+      <>
+        <Toaster />
+        <div className="flex flex-col h-screen">
+          <SignInNavbar />
+          {location.pathname === "/" ? (
+            <PublicOnlyRoute>
+              <SignIn />
+            </PublicOnlyRoute>
+          ) : (
+            <TermsAndConditions />
+          )}
+        </div>
+      </>
     );
   }
 
@@ -119,109 +130,115 @@ const App = () => {
         <main className="p-6 bg-gray-50 flex-1">
           <Routes>
             {/* Student Routes */}
-            <Route path="/home" element={<HomePage />} />
-            <Route path="/my-courses" element={<CoursePage />} />
-            <Route path="/explore-courses" element={<ExploreCourses />} />
-            <Route path="/assignments" element={<AssignmentPage />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/homework" element={<HomeworkPage />} />
-            <Route path="/performance" element={<PerformancePage />} />
-            <Route path="/student/profile" element={<ProfilePage />} />
+            <Route path="/home" element={<RequireAuth allowedRoles={["student"]}><HomePage /></RequireAuth>} />
+            <Route path="/my-courses" element={<RequireAuth allowedRoles={["student"]}><CoursePage /></RequireAuth>} />
+            <Route path="/explore-courses" element={<RequireAuth allowedRoles={["student"]}><ExploreCourses /></RequireAuth>} />
+            <Route path="/assignments" element={<RequireAuth allowedRoles={["student"]}><AssignmentPage /></RequireAuth>} />
+            <Route path="/upload" element={<RequireAuth allowedRoles={["student"]}><Upload /></RequireAuth>} />
+            <Route path="/homework" element={<RequireAuth allowedRoles={["student"]}><HomeworkPage /></RequireAuth>} />
+            <Route path="/performance" element={<RequireAuth allowedRoles={["student"]}><PerformancePage /></RequireAuth>} />
+            <Route path="/student/profile" element={<RequireAuth allowedRoles={["student"]}><ProfilePage /></RequireAuth>} />
             <Route
               path="/explore-course/:id"
-              element={<ExploreCourseDetails />}
+              element={<RequireAuth allowedRoles={["student"]}><ExploreCourseDetails /></RequireAuth>}
             />
-            <Route path="/payment/confirm" element={<PaymentConfirmation />} />
+            <Route path="/payment/confirm" element={<RequireAuth allowedRoles={["student"]}><PaymentConfirmation /></RequireAuth>} />
             {/* Admin Routes */}
-            <Route path="/admin" element={<AdminHomePage />} />
+            <Route path="/admin" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AdminHomePage /></RequireAuth>} />
             <Route
               path="/admin/content-management"
-              element={<ContentManagementPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentManagementPage /></RequireAuth>}
             />
             <Route
               path="/admin/content/details/:id"
-              element={<ContentDetails />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentDetails /></RequireAuth>}
             />
-            <Route path="/admin/content/create" element={<ContentCreate />} />
-            <Route path="/admin/content/add/:id" element={<ContentForm />} />
+            <Route path="/admin/content/create" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentCreate /></RequireAuth>} />
+            <Route path="/admin/content/add/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentForm /></RequireAuth>} />
             {/* Learning Management */}
             <Route
               path="/admin/course-management"
-              element={<CourseManagementPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CourseManagementPage /></RequireAuth>}
             />
-            <Route path="/course/:courseId" element={<CourseDetails />} />
-            <Route path="/admin/add-course" element={<CreateCourseForm />} />
-            <Route path="/admin/edit-course/:courseId" element={<CreateCourseForm />} />
+            <Route path="/course/:courseId" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CourseDetails /></RequireAuth>} />
+            <Route path="/admin/add-course" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CreateCourseForm /></RequireAuth>} />
+            <Route path="/admin/edit-course/:courseId" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CreateCourseForm /></RequireAuth>} />
             <Route
               path="/admin/category-management"
-              element={<CategoryManagementPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CategoryManagementPage /></RequireAuth>}
             />
-            <Route path="/admin/add-category" element={<AddCategory />} />
+            <Route path="/admin/add-category" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddCategory /></RequireAuth>} />
             {/* User Management */}
             <Route
               path="/admin/student-management"
-              element={<StudentManagementPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><StudentManagementPage /></RequireAuth>}
             />
-            <Route path="/admin/admin-profile" element={<AdminProfile />} />
+            <Route path="/admin/admin-profile" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AdminProfile /></RequireAuth>} />
             <Route
               path="/admin/student-management/enrolled-student"
-              element={<EnrolledStudents />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><EnrolledStudents /></RequireAuth>}
             />
             <Route
               path="/admin/student-management/students/:id"
-              element={<StudentProfile />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><StudentProfile /></RequireAuth>}
             />
             <Route
               path="/admin/instructor-management"
-              element={<InstructorManagementPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><InstructorManagementPage /></RequireAuth>}
             />
-            <Route path="/applications/:id" element={<ApplicationDetails />} />
+            <Route path="/applications/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ApplicationDetails /></RequireAuth>} />
             <Route
               path="/admin/instructor-management/instructors"
-              element={<Instructor />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><Instructor /></RequireAuth>}
+            />
+            <Route
+              path="/admin/instructor-management/add-instructor"
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddInstructorForm /></RequireAuth>}
             />
             <Route
               path="/admin/instructor-management/instructors/:instructorId"
-              element={<InstructorProfile />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><InstructorProfile /></RequireAuth>}
             />
             <Route
               path="/admin/admin-management"
-              element={<AdminManageMentPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AdminManageMentPage /></RequireAuth>}
             />
-            <Route path="/admin/add-admin" element={<AddAdminForm />} />
-            <Route path="/admin/add-admin/:id" element={<AddAdminForm />} />
+            <Route path="/admin/add-admin" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddAdminForm /></RequireAuth>} />
+            <Route path="/admin/add-admin/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddAdminForm /></RequireAuth>} />
             {/* Others */}
-            <Route path="/admin/centers" element={<OffilineCentersPage />} />
-            <Route path="/admin/centers/add-branch" element={<AddBranch />} />
-            <Route path="/admin/centers/add-zone" element={<AddZone />} />
-            <Route path="/admin/centers/add-city" element={<AddCityForm />} />
+            <Route path="/admin/centers" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><OffilineCentersPage /></RequireAuth>} />
+            <Route path="/admin/centers/add-branch" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddBranch /></RequireAuth>} />
+            <Route path="/admin/centers/edit-branch/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddBranch /></RequireAuth>} />
+            <Route path="/admin/centers/add-zone" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddZone /></RequireAuth>} />
+            <Route path="/admin/centers/add-city" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddCityForm /></RequireAuth>} />
+            <Route path="/admin/centers/add-city/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AddCityForm /></RequireAuth>} />
             {/* Detail page of Offline center */}
             <Route
               path="/admin/centers/:id"
-              element={<CenterDetailsPage />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CenterDetailsPage /></RequireAuth>}
             />
-            <Route path="/admin/financials" element={<FinancialPage />} />
-            <Route path="/admin/enquiries" element={<EnquiriesPage />} />
-            <Route path="/admin/updates" element={<UpdatesPage />} />
+            <Route path="/admin/financials" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><FinancialPage /></RequireAuth>} />
+            <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><EnquiriesPage /></RequireAuth>} />
+            <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><UpdatesPage /></RequireAuth>} />
             <Route
               path="/admin/updates/create-updates"
-              element={<CreateUpdateForm />}
+              element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CreateUpdateForm /></RequireAuth>}
             />
 
             {/* Teacher */}
-            <Route path="/teacher" element={<Dashboard />} />
-            <Route path="/teacher/courses" element={<MyCourses />} />
-            <Route path="/teacher/students" element={<MyStudent />} />
-            <Route path="/teacher/assignments" element={<Assignment />} />
-            <Route path="/teacher/schedule" element={<MySchedule />} />
-            <Route path="/teacher/reports" element={<Report />} />
-            <Route path="/teacher/attendance" element={<Attendance />} />
-            <Route path="/teacher/assessments" element={<Assessment />} />
+            <Route path="/teacher" element={<RequireAuth allowedRoles={["teacher"]}><Dashboard /></RequireAuth>} />
+            <Route path="/teacher/courses" element={<RequireAuth allowedRoles={["teacher"]}><MyCourses /></RequireAuth>} />
+            <Route path="/teacher/students" element={<RequireAuth allowedRoles={["teacher"]}><MyStudent /></RequireAuth>} />
+            <Route path="/teacher/assignments" element={<RequireAuth allowedRoles={["teacher"]}><Assignment /></RequireAuth>} />
+            <Route path="/teacher/schedule" element={<RequireAuth allowedRoles={["teacher"]}><MySchedule /></RequireAuth>} />
+            <Route path="/teacher/reports" element={<RequireAuth allowedRoles={["teacher"]}><Report /></RequireAuth>} />
+            <Route path="/teacher/attendance" element={<RequireAuth allowedRoles={["teacher"]}><Attendance /></RequireAuth>} />
+            <Route path="/teacher/assessments" element={<RequireAuth allowedRoles={["teacher"]}><Assessment /></RequireAuth>} />
             <Route
               path="/teacher/studentDetail/:id"
-              element={<StudentDetail />}
+              element={<RequireAuth allowedRoles={["teacher"]}><StudentDetail /></RequireAuth>}
             />
-            <Route path="/teacher/profile" element={<Profile />} />
+            <Route path="/teacher/profile" element={<RequireAuth allowedRoles={["teacher"]}><Profile /></RequireAuth>} />
 
           </Routes>
         </main>

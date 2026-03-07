@@ -14,6 +14,7 @@ import Step4Preferences from "./Step4Preferences";
 
 export default function MultiStepForm() {
     const [step, setStep] = useState(1);
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [formData, setFormData] = useState({
         firstName: "",
@@ -27,7 +28,9 @@ export default function MultiStepForm() {
         currentState: "",
         currentCity: "",
         currentAddress: "",
+        country: "IN",
         areaOfExpertise: "",
+        specialization: "",
         yearOfExperience: "",
         highestQualification: "",
         certificationDetails: "",
@@ -35,7 +38,7 @@ export default function MultiStepForm() {
         expectedCTC: "",
         noticePeriod: "",
         mode: "",
-        availability: [],
+        availability: "",
     });
 
     // Files
@@ -49,16 +52,124 @@ export default function MultiStepForm() {
     const certificateInputRef = useRef(null);
 
     const dispatch = useDispatch();
-    const { loading: isSubmitting, success: submitSuccess, error: submitError } =
+    const {
+        loading: isSubmitting,
+        success: submitSuccess,
+        error: submitError,
+        errorDetails,
+    } =
         useSelector((state) => state.application);
 
     // toast alerts
     useEffect(() => {
         if (submitSuccess) toast.success("Application submitted successfully!");
-        if (submitError) toast.error("Something went wrong");
+        if (submitError) toast.error(submitError);
     }, [submitSuccess, submitError]);
 
+    useEffect(() => {
+        return () => {
+            dispatch(resetStatus());
+        };
+    }, [dispatch]);
+
+    const validateFileType = (file, allowedMimeTypes) => {
+        if (!file) return false;
+        return allowedMimeTypes.includes(file.type);
+    };
+
+    const validateCurrentStep = (currentStep) => {
+        const errors = {};
+
+        if (currentStep === 1) {
+            if (!formData.firstName.trim()) errors.firstName = "First name is required";
+            if (!formData.lastName.trim()) errors.lastName = "Last name is required";
+            if (!formData.gender) errors.gender = "Please select your gender";
+            if (!formData.readLanguage.trim()) {
+                errors.readLanguage = "Please enter the languages you can read";
+            }
+            if (!formData.speakLanguage.trim()) {
+                errors.speakLanguage = "Please enter the languages you can speak";
+            }
+        }
+
+        if (currentStep === 2) {
+            if (!formData.email.trim()) errors.email = "Email address is required";
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+                errors.email = "Enter a valid email address";
+            }
+            if (!/^\d{10}$/.test(formData.mobileNo.trim())) {
+                errors.mobileNo = "Mobile number must be 10 digits";
+            }
+            if (!formData.currentState.trim()) errors.currentState = "Please select your state";
+            if (!formData.currentCity.trim()) errors.currentCity = "Please select your city";
+            if (!formData.currentAddress.trim()) errors.currentAddress = "Current address is required";
+        }
+
+        if (currentStep === 3) {
+            if (!formData.areaOfExpertise.trim()) {
+                errors.areaOfExpertise = "Please select your area of expertise";
+            }
+            if (!formData.highestQualification.trim()) {
+                errors.highestQualification = "Please select your highest qualification";
+            }
+            if (!formData.yearOfExperience.trim()) {
+                errors.yearOfExperience = "Years of experience is required";
+            }
+            if (!profilePicture) {
+                errors.profilePicture = "Profile picture is required";
+            } else if (
+                !validateFileType(profilePicture, ["image/png", "image/jpeg", "image/jpg"])
+            ) {
+                errors.profilePicture = "Profile picture must be JPG or PNG";
+            }
+            if (!cv) {
+                errors.cv = "CV is required";
+            } else if (!validateFileType(cv, ["application/pdf"])) {
+                errors.cv = "CV must be a PDF file";
+            }
+            if (!profileVideo) {
+                errors.profileVideo = "Profile video is required";
+            } else if (
+                !validateFileType(profileVideo, [
+                    "video/mp4",
+                    "video/mpeg",
+                    "video/avi",
+                    "video/quicktime",
+                ])
+            ) {
+                errors.profileVideo = "Profile video must be MP4, MPEG, AVI, or MOV";
+            }
+            if (
+                relevantCertificate &&
+                !validateFileType(relevantCertificate, [
+                    "application/pdf",
+                    "image/png",
+                    "image/jpeg",
+                    "image/jpg",
+                ])
+            ) {
+                errors.relevantCertificate =
+                    "Certificate must be a PDF, JPG, or PNG file";
+            }
+        }
+
+        if (currentStep === 4) {
+            if (!formData.currentCTC.trim()) errors.currentCTC = "Current CTC is required";
+            if (!formData.expectedCTC.trim()) errors.expectedCTC = "Expected CTC is required";
+            if (!formData.noticePeriod) errors.noticePeriod = "Please select your notice period";
+            if (!formData.mode) errors.mode = "Please select your teaching mode";
+            if (!formData.availability) errors.availability = "Please select your availability";
+        }
+
+        setFieldErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleSubmit = () => {
+        if (!validateCurrentStep(4)) {
+            return;
+        }
+
         const form = new FormData();
         Object.keys(formData).forEach((field) => form.append(field, formData[field]));
         if (cv) form.append("cv", cv);
@@ -70,11 +181,12 @@ export default function MultiStepForm() {
 
 
     const steps = [
-        <Step1Personal formData={formData} setFormData={setFormData} />,
-        <Step2Contact formData={formData} setFormData={setFormData} />,
+        <Step1Personal formData={formData} setFormData={setFormData} errors={fieldErrors} />,
+        <Step2Contact formData={formData} setFormData={setFormData} errors={fieldErrors} />,
         <Step3Professional
             formData={formData}
             setFormData={setFormData}
+            errors={fieldErrors}
             cv={cv}
             setCv={setCv}
             cvInputRef={cvInputRef}
@@ -88,7 +200,7 @@ export default function MultiStepForm() {
             setProfilePicture={setProfilePicture}
             profilePictureInputRef={profilePictureInputRef}
         />,
-        <Step4Preferences formData={formData} setFormData={setFormData} />,
+        <Step4Preferences formData={formData} setFormData={setFormData} errors={fieldErrors} />,
     ];
     if (submitSuccess) {
         return (
@@ -104,7 +216,7 @@ export default function MultiStepForm() {
     }
     return (
         <div className="min-h-screen flex items-center justify-center p-4 md:p-6 lg:p-8">
-            <div className="w-full max-w-3xl md:max-w-4xl rounded-2xl p-6 md:p-8 shadow-md overflow-hidden">
+            <div className="w-full max-w-3xl md:max-w-4xl rounded-3xl border border-gray-100 bg-white p-6 md:p-8 shadow-xl overflow-hidden">
                 {/* Render step Progress bar */}
                 <div className="flex flex-wrap justify-center mb-6 gap-2 md:gap-4">
                     {[1, 2, 3, 4].map((s) => (
@@ -125,7 +237,7 @@ export default function MultiStepForm() {
                     ))}
                 </div>
                 {/* Step heading */}
-                <h2 className="text-xl md:text-2xl font-semibold text-center text-[#6a844d] mb-1">
+                <h2 className="text-xl md:text-2xl font-semibold text-center text-gray-900 mb-1">
                     {step === 1
                         ? "Personal Information"
                         : step === 2
@@ -136,6 +248,19 @@ export default function MultiStepForm() {
                 </h2>
 
                 <p className="text-center text-gray-500 mb-6">Step {step} of 4</p>
+
+                {submitError ? (
+                    <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+                        <p className="font-medium text-red-700">{submitError}</p>
+                        {Array.isArray(errorDetails) && errorDetails.length > 0 ? (
+                            <ul className="mt-2 list-disc pl-5 text-sm text-red-600">
+                                {errorDetails.map((detail, index) => (
+                                    <li key={`${detail}-${index}`}>{detail}</li>
+                                ))}
+                            </ul>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 {/* Render step */}
                 {steps[step - 1]}
@@ -157,7 +282,11 @@ export default function MultiStepForm() {
                     {step < 4 ? (
                         <button
                             className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-2xl"
-                            onClick={() => setStep(step + 1)}
+                            onClick={() => {
+                                if (validateCurrentStep(step)) {
+                                    setStep(step + 1);
+                                }
+                            }}
                             disabled={isSubmitting}
                         >
                             Next

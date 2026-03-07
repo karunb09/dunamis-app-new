@@ -11,29 +11,40 @@ const initialState = {
 
 export const fetchCourses = createAsyncThunk(
   "course/fetchCourses",
-  async () => {
-    const response = await fetch(`${BASE_URL}/v1/course/get`);
-    if (!response.ok) {
-      throw new Error("Failed to fetch courses");
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${BASE_URL}/v1/course/get`);
+
+      if (response.status === 404) {
+        return [];
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch courses");
+      }
+
+      const data = await response.json();
+      return Array.isArray(data?.data) ? data.data : [];
+    } catch (error) {
+      return rejectWithValue(error.message || "Failed to fetch courses");
     }
-    const data = await response.json();
-
-    console.log("Fetched courses data:", data); 
-
-    return data.data;
   }
 );
 
 
 export const fetchCourseById = createAsyncThunk(
   "course/fetchCourseById",
-  async (courseId) => {
-    const response = await fetch(`${BASE_URL}/v1/course/get/${courseId}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch course with id: ${courseId}`);
+  async (courseId, { rejectWithValue }) => {
+    try {
+      const response = await fetch(`${BASE_URL}/v1/course/get/${courseId}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch course with id: ${courseId}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || "Failed to fetch course");
     }
-    const data = await response.json();
-    return data;
   }
 );
 
@@ -53,7 +64,7 @@ const courseSlice = createSlice({
       })
       .addCase(fetchCourses.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
       .addCase(fetchCourseById.pending, (state) => {
         state.loading = true;
@@ -65,7 +76,7 @@ const courseSlice = createSlice({
       })
       .addCase(fetchCourseById.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       });
   },
 });

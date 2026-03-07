@@ -25,9 +25,9 @@ const branchSchema = new mongoose.Schema(
       required: true,
     },
     zone: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Zone",
+      type: String,
       required: true,
+      trim: true,
     },
     city: {
       type: mongoose.Schema.Types.ObjectId,
@@ -59,7 +59,7 @@ const branchSchema = new mongoose.Schema(
     },
     branchImage: {
       type: String,
-      required: true,
+      default: null,
     },
     status: {
       type: String,

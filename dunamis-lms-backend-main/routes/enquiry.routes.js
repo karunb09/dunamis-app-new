@@ -7,18 +7,29 @@ const {
   assignEnquiry,
   respondEnquiry,
 } = require("../controller/enquiry.controller");
+const { isAuth, accessToRole } = require("../middleware/auth");
 
 // Public - Website Contact Form
 router.post("/create", createEnquiry);
 
 // Admin/Super Admin
-router.get("/", getAllEnquiries);
-router.get("/:id", getEnquiryById);
+router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllEnquiries);
+router.get("/:id", isAuth, accessToRole(["admin", "superadmin"]), getEnquiryById);
 
 // Super Admin assigns
-router.put("/assign/:id", assignEnquiry);
+router.put(
+  "/assign/:id",
+  isAuth,
+  accessToRole(["superadmin"]),
+  assignEnquiry
+);
 
 // Admin responds
-router.put("/respond/:id", respondEnquiry);
+router.put(
+  "/respond/:id",
+  isAuth,
+  accessToRole(["admin", "superadmin"]),
+  respondEnquiry
+);
 
 module.exports = router;

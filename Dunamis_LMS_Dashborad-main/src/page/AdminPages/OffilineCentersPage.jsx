@@ -3,7 +3,6 @@ import { FaSearch, FaFilter, FaSortAmountDown, FaPlus, FaMapMarkerAlt, FaTrash, 
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllBranches, deleteBranch } from "../../redux/Branch/branchSlice";
-import { getAllZones } from "../../redux/Zone/ZoneSlice";
 import { X } from "phosphor-react";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
@@ -28,15 +27,15 @@ const OfflineCentersPage = () => {
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { branches, loading, error } = useSelector((state) => state.branch);
-    const { zones } = useSelector((state) => state.zone);
+    const { branches, loading, error, listStatus: branchListStatus } = useSelector((state) => state.branch);
 
     const dropdownRef = useRef(null);
 
     useEffect(() => {
-        dispatch(fetchAllBranches());
-        dispatch(getAllZones());
-    }, [dispatch]);
+        if (branchListStatus === "idle") {
+            dispatch(fetchAllBranches());
+        }
+    }, [branchListStatus, dispatch]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -145,7 +144,7 @@ const OfflineCentersPage = () => {
         )
         .filter((branch) => {
             if (filters.city && branch.city?.cityName !== filters.city) return false;
-            if (filters.zone && branch.zone?._id !== filters.zone) return false;
+            if (filters.zone && branch.zone !== filters.zone) return false;
             return true;
         });
 
@@ -346,6 +345,16 @@ const OfflineCentersPage = () => {
                                             </button>
                                         )}
                                     </Menu.Item> */}
+                                    <Menu.Item>
+                                        {({ active }) => (
+                                            <button
+                                                onClick={() => navigate(`/admin/centers/edit-branch/${branch._id}`)}
+                                                className={`w-full text-left px-4 py-2 text-sm ${active ? "bg-gray-100" : ""}`}
+                                            >
+                                                Edit
+                                            </button>
+                                        )}
+                                    </Menu.Item>
                                     <Menu.Item>
                                         {({ active }) => (
                                             <button

@@ -23,7 +23,7 @@ out/
 *.swo
 *~
 .DS_Store
-.env.*.local
+# .env.*.local
 *.sublime-workspace
 *.sublime-project
 

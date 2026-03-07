@@ -46,12 +46,14 @@ exports.getAllCategories = async (req, res) => {
 exports.updateCategory = async (req, res) => {
   try {
     const { id } = req.params;
-    const { subcategoryId, ...updates } = req.body;
-
-    if (updates.subcategories) delete updates.subcategories;
+    const { subcategoryId, subcategories, ...updates } = req.body;
 
     const updateQuery = { ...updates };
-     
+
+    if (Array.isArray(subcategories)) {
+      updateQuery.subcategories = subcategories;
+    }
+
     if (subcategoryId) {
       updateQuery.$addToSet = { subcategories: subcategoryId };
     }

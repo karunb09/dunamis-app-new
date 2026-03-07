@@ -1,6 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import {
+  clearAuthSession,
+  getStoredToken,
+  getStoredUser,
+  persistAuthSession,
+} from "../utils/authSession";
 
-const getToken = () => localStorage.getItem("token");
+const getToken = () => getStoredToken();
 
 export const login = createAsyncThunk(
   "auth/login",
@@ -24,8 +30,35 @@ export const login = createAsyncThunk(
         return rejectWithValue(data.message || "Login failed");
       }
 
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || "An error occurred");
+    }
+  }
+);
+
+export const logoutUser = createAsyncThunk(
+  "auth/logoutUser",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = getStoredToken();
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/logout`,
+        {
+          method: "POST",
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : {},
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 401) {
+        return rejectWithValue(data.message || "Failed to logout");
+      }
 
       return data;
     } catch (error) {
@@ -261,9 +294,9 @@ export const updateUser = createAsyncThunk(
         return rejectWithValue(data.message || "Failed to update user");
       }
 
-      const currentUser = JSON.parse(localStorage.getItem("user"));
+      const currentUser = getStoredUser();
       if (currentUser && currentUser._id === id) {
-        localStorage.setItem("user", JSON.stringify(data.user));
+        persistAuthSession({ token: getStoredToken(), user: data.user });
       }
 
       return data;
@@ -276,8 +309,8 @@ export const updateUser = createAsyncThunk(
 const authSlice = createSlice({
   name: "auth",
   initialState: {
-    user: JSON.parse(localStorage.getItem("user")) || null,
-    token: localStorage.getItem("token") || null,
+    user: getStoredUser(),
+    token: getStoredToken(),
     users: [],
     currentUserProfile: null,
     notices: [],
@@ -291,8 +324,7 @@ const authSlice = createSlice({
       state.users = [];
       state.currentUserProfile = null;
       state.notices = [];
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearAuthSession();
     },
     clearError: (state) => {
       state.error = null;
@@ -308,10 +340,31 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        persistAuthSession({
+          token: action.payload.token,
+          user: action.payload.user,
+        });
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.users = [];
+        state.currentUserProfile = null;
+        state.notices = [];
+        clearAuthSession();
+      })
+      .addCase(logoutUser.rejected, (state) => {
+        state.user = null;
+        state.token = null;
+        state.users = [];
+        state.currentUserProfile = null;
+        state.notices = [];
+        clearAuthSession();
       })
 
       .addCase(forgotPassword.pending, (state) => {

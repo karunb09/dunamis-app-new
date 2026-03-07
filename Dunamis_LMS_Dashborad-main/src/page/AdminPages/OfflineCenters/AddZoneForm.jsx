@@ -22,19 +22,19 @@ const AddZone = () => {
         cities: [], // multi-select: array of city IDs
     });
 
-    const { users } = useSelector((state) => state.user);
-    const { cities } = useSelector((state) => state.city);
+    const { users, listStatus: userListStatus } = useSelector((state) => state.user);
+    const { cities, listStatus: cityListStatus } = useSelector((state) => state.city);
     const { loading } = useSelector((state) => state.zone);
 
     // Fetch cities and users
     useEffect(() => {
-        if (!cities || cities.length === 0) {
+        if (cityListStatus === "idle") {
             dispatch(getAllCities());
         }
-        if (!users || users.length === 0) {
+        if (userListStatus === "idle") {
             dispatch(getAllUsers());
         }
-    }, [dispatch, cities, users]);
+    }, [dispatch, cityListStatus, userListStatus]);
 
     // Handle input fields
     const handleChange = (e) => {

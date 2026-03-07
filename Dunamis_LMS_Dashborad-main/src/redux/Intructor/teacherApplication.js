@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { getStoredToken } from "../../utils/authSession";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // get all applications
@@ -6,7 +7,11 @@ export const fetchAllApplications = createAsyncThunk(
   "application/fetchAll",
   async (_, thunkAPI) => {
     try {
-      const res = await fetch(`${BASE_URL}/teacherApplication/get-all`);
+      const token = getStoredToken();
+      const res = await fetch(`${BASE_URL}/teacherApplication/get-all`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.message || "Failed to fetch applications");
@@ -23,8 +28,13 @@ export const fetchApplicationById = createAsyncThunk(
   "application/fetchById",
   async (id, thunkAPI) => {
     try {
+      const token = getStoredToken();
       const res = await fetch(
-        `${BASE_URL}/teacherApplication/getApplicationById/${id}`
+        `${BASE_URL}/teacherApplication/getApplicationById/${id}`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: "include",
+        }
       );
       const data = await res.json();
       if (!data.success) {
@@ -42,11 +52,16 @@ export const updateApplicationStatus = createAsyncThunk(
   "application/updateStatus",
   async ({ id, status }, thunkAPI) => {
     try {
+      const token = getStoredToken();
       const res = await fetch(
         `${BASE_URL}/teacherApplication/updateStatus/${id}/status`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          credentials: "include",
           body: JSON.stringify({ status }), 
         }
       );
@@ -54,7 +69,11 @@ export const updateApplicationStatus = createAsyncThunk(
       if (!data.success) {
         throw new Error(data.message || "Failed to update status");
       }
-      return { id, status };
+      return {
+        id,
+        status,
+        generatedPassword: data.credentials?.password || "",
+      };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.message);
     }

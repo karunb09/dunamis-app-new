@@ -9,6 +9,7 @@ import {
 } from "../../redux/Enquiry/EnquirySlice";
 import { fetchAdmins } from "../../redux/Admin/AdminSlice";
 import { X } from "phosphor-react";
+import { getStoredUser } from "../../utils/authSession";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -17,7 +18,11 @@ const SORT_OPTIONS = [
     { value: "date-desc", label: "Date Desc" },
 ];
 
-const FILTER_OPTIONS = ["Resolved", "Pending", "Archived"];
+const FILTER_OPTIONS = [
+    { value: "new", label: "New" },
+    { value: "in-progress", label: "In Progress" },
+    { value: "resolved", label: "Resolved" },
+];
 
 const EnquiriesPage = () => {
     const dispatch = useDispatch();
@@ -38,7 +43,7 @@ const EnquiriesPage = () => {
     const sortRef = useRef(null);
 
     // Get current user from localStorage
-    const currentUser = JSON.parse(localStorage.getItem('user')) || {};
+    const currentUser = getStoredUser() || {};
     const currentAdminRoleId = currentUser.roleId; // Get the roleId to match with assignedTo
 
     // Check if user is superadmin by checking the role field or accountType
@@ -276,8 +281,8 @@ const EnquiriesPage = () => {
                         >
                             <option value="">All Status</option>
                             {FILTER_OPTIONS.map((opt) => (
-                                <option key={opt} value={opt}>
-                                    {opt}
+                                <option key={opt.value} value={opt.value}>
+                                    {opt.label}
                                 </option>
                             ))}
                         </select>
@@ -305,6 +310,10 @@ const EnquiriesPage = () => {
                 <div>Loading...</div>
             ) : error ? (
                 <div>Error: {error}</div>
+            ) : filteredData.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
+                    No enquiries found.
+                </div>
             ) : (
                 <DataTable data={filteredData} columns={columns} selectable={false} />
             )}

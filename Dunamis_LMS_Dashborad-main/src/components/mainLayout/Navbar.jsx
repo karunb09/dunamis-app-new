@@ -1,6 +1,7 @@
 import React from "react";
 import { FiMenu, FiBell, FiSettings, FiArrowLeft } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
+import { getStoredUser } from "../../utils/authSession";
 
 const IMAGE = import.meta.env.VITE_IMAGE;
 
@@ -8,7 +9,7 @@ const Navigation = ({ onMenuClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const user = JSON.parse(localStorage.getItem('user')) || {};
+  const user = getStoredUser() || {};
   const fullName = `${user?.name?.firstName || 'User'} ${user?.name?.lastName || ''}`.trim();
   const accountType = user?.accountType || 'guest';
 

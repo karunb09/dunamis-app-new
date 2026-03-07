@@ -91,6 +91,7 @@ const citySlice = createSlice({
     city: null,
     managers: [],
     loading: false,
+    listStatus: "idle",
     error: null,
   },
   reducers: {},
@@ -102,7 +103,9 @@ const citySlice = createSlice({
       })
       .addCase(createCity.fulfilled, (state, action) => {
         state.loading = false;
-        state.cities.push(action.payload);
+        if (action.payload?.city) {
+          state.cities.unshift(action.payload.city);
+        }
       })
       .addCase(createCity.rejected, (state, action) => {
         state.loading = false;
@@ -112,13 +115,16 @@ const citySlice = createSlice({
       // Get All Cities
       .addCase(getAllCities.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllCities.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.cities = action.payload.cities;
       })
       .addCase(getAllCities.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload;
       })
 
@@ -141,7 +147,7 @@ const citySlice = createSlice({
       })
       .addCase(getCityById.fulfilled, (state, action) => {
         state.loading = false;
-        state.city = action.payload;
+        state.city = action.payload.city;
       })
       .addCase(getCityById.rejected, (state, action) => {
         state.loading = false;
@@ -154,9 +160,10 @@ const citySlice = createSlice({
       })
       .addCase(updateCity.fulfilled, (state, action) => {
         state.loading = false;
-        const updatedCity = action.payload;
+        const updatedCity = action.payload.city;
+        state.city = updatedCity;
         state.cities = state.cities.map((city) =>
-          city.id === updatedCity.id ? updatedCity : city
+          city._id === updatedCity._id ? updatedCity : city
         );
       })
       .addCase(updateCity.rejected, (state, action) => {
@@ -170,9 +177,13 @@ const citySlice = createSlice({
       })
       .addCase(deleteCity.fulfilled, (state, action) => {
         state.loading = false;
+        const deletedCityId = action.meta.arg;
         state.cities = state.cities.filter(
-          (city) => city.id !== action.payload.id
+          (city) => city._id !== deletedCityId
         );
+        if (state.city?._id === deletedCityId) {
+          state.city = null;
+        }
       })
       .addCase(deleteCity.rejected, (state, action) => {
         state.loading = false;

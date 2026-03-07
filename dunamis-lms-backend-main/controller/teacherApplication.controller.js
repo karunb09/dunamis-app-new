@@ -352,11 +352,11 @@ exports.updateApplicationStatus = async (req, res) => {
             });
         }
         const {firstName,lastName}= application.name
-        await mailSender(application.email,`your application have been ${application.status}`,sendApplicationStatus(firstName,application.email,application.status));
 
-        
+        let generatedPassword = null;
 
         if(application.status=='selected'){
+            await mailSender(application.email,`your application have been ${application.status}`,sendApplicationStatus(firstName,application.email,application.status));
             const email =application.email
             const existingUser = await User.find({email:email});
             if(existingUser.length!=0){
@@ -366,13 +366,13 @@ exports.updateApplicationStatus = async (req, res) => {
                 })
             }
 
-                var password = OtpGenerator.generate(7, {
+                generatedPassword = OtpGenerator.generate(7, {
                   upperCaseAlphabets: true,
                   lowerCaseAlphabets: true,
                   specialChars: true,
                 });
             
-                console.log("password generated: ", password);
+                console.log("password generated: ", generatedPassword);
 
                
             
@@ -383,7 +383,7 @@ exports.updateApplicationStatus = async (req, res) => {
                   },
                   email: application.email,
                   mobileNo:application.mobileNo,
-                  password: password,
+                  password: generatedPassword,
                   accountType: "teacher",
                   accountStatus: "active",
                   image: `https://api.dicebear.com/9.x/initials/svg?seed=${firstName}%20${lastName}`,
@@ -402,7 +402,7 @@ exports.updateApplicationStatus = async (req, res) => {
                 await mailSender(
                   application.email,
                   `Your teacher Account created`,
-                  sendPasswordTemplate(user, "teacher", password)
+                  sendPasswordTemplate(user, "teacher", generatedPassword)
                 );
         }
         else{
@@ -412,7 +412,13 @@ exports.updateApplicationStatus = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Application status updated successfully",
-            data: application
+            data: application,
+            credentials: generatedPassword
+                ? {
+                    email: application.email,
+                    password: generatedPassword,
+                  }
+                : null,
         });
 
     } catch (error) {

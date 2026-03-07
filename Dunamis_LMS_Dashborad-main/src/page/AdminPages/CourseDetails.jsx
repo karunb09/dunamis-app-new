@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { FaStar, FaClock, FaUsers } from "react-icons/fa";
 import { CheckCircle } from "react-feather";
 import { getCourseDetails } from "../../redux/Course/CourseSlice";
+import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 const IMAGE = import.meta.env.VITE_IMAGE;
 // CourseDetailPage Component
 const CourseDetailPage = () => {
@@ -177,7 +178,10 @@ const CourseDetailPage = () => {
                                 <div key={idx} className="mb-4 flex items-center gap-4">
                                     {/* Teacher Image */}
                                     <img
-                                        src={`${IMAGE}${instructor?.teacherDetail?.profilePicture}`}
+                                        src={resolveImageUrl(
+                                            instructor?.teacherDetail?.profilePicture || instructor?.userId?.image,
+                                            DEFAULT_AVATAR
+                                        )}
                                         alt={`${instructor.teacherDetail?.name?.firstName} ${instructor.teacherDetail?.name?.lastName}`}
                                         className="w-14 h-14 rounded-full object-cover border border-gray-300"
                                     />

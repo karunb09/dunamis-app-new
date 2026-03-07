@@ -85,13 +85,18 @@ const Applications = () => {
         }
     }
 
-    const handleStatusChange = (id, newStatus) => {
-        dispatch(updateApplicationStatus({ id, status: newStatus }));
+    const handleStatusChange = async (id, newStatus) => {
         const selectedApp = allApplications.find((app) => app._id === id);
-        if (newStatus === "selected" && selectedApp) {
-            const firstName = selectedApp?.name?.firstName || "User";
-            const randomDigits = Math.floor(100 + Math.random() * 900);
-            const password = `${firstName.toLowerCase()}dunamis@${randomDigits}`;
+        const result = await dispatch(updateApplicationStatus({ id, status: newStatus }));
+
+        if (newStatus === "selected" && selectedApp && result.meta.requestStatus === "fulfilled") {
+            const password = result.payload?.generatedPassword;
+
+            if (!password) {
+                toast.error("Instructor was created, but no password was returned.");
+                return;
+            }
+
             setGeneratedPassword(password);
             setSelectedInstructor(selectedApp);
         }

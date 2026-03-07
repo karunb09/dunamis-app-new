@@ -25,6 +25,7 @@ exports.createCourse = async (req, res) => {
       price,
       objectives,
       content,
+      isPublished,
     } = req.body;
 
     // Handle image upload (optional)
@@ -73,7 +74,11 @@ exports.createCourse = async (req, res) => {
       teacherIds = teacher;
     }
 
-    if (!Array.isArray(teacherIds)) teacherIds = [teacherIds];
+    if (!Array.isArray(teacherIds)) teacherIds = teacherIds ? [teacherIds] : [];
+    teacherIds = teacherIds.filter(Boolean);
+
+    const publishFlag =
+      typeof isPublished === "string" ? isPublished === "true" : Boolean(isPublished);
 
     // Create the course
     const course = await Course.create({
@@ -94,6 +99,7 @@ exports.createCourse = async (req, res) => {
       teacher: teacherIds,
       image: imagePath,
       price: parsedPrice,
+      isPublished: publishFlag,
     });
    
     try {
@@ -103,8 +109,9 @@ exports.createCourse = async (req, res) => {
     }
 
     if (!Array.isArray(teacherIds)) {
-      teacherIds = [teacherIds];
+      teacherIds = teacherIds ? [teacherIds] : [];
     }
+    teacherIds = teacherIds.filter(Boolean);
 
     for (const teacherId of teacherIds) {
       await Teacher.findByIdAndUpdate(
@@ -163,9 +170,10 @@ exports.getAllCourses = async (req, res) => {
       .lean();
 
     if (courses.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No course found",
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
       });
     }
 
@@ -310,6 +318,12 @@ exports.updateCourse = async (req, res) => {
     updateData.objectives =
       parseJSON("objectives") || existingCourse.objectives;
     updateData.price = parseJSON("price") || existingCourse.price;
+    if (req.body.isPublished !== undefined) {
+      updateData.isPublished =
+        typeof req.body.isPublished === "string"
+          ? req.body.isPublished === "true"
+          : Boolean(req.body.isPublished);
+    }
     const parsedBranches = parseJSON("branches") || [];
 
     if (updateData.mode === "offline") {
@@ -336,7 +350,7 @@ exports.updateCourse = async (req, res) => {
         ...(existingCourse.teacher || []).map((t) => t.toString()),
         ...(updateData.teacher || []).map((t) => t.toString()),
       ])
-    );
+    ).filter(Boolean);
     updateData.teacher = mergedTeachers;
 
     const updatedCourse = await Course.findByIdAndUpdate(id, updateData, {

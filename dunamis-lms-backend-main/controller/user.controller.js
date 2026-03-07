@@ -8,6 +8,22 @@ require("dotenv").config();
 const AdminNotice = require("../model/adminNotice.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 
+const authCookieOptions = {
+  httpOnly: true,
+  sameSite: "lax",
+  secure: process.env.NODE_ENV === "production",
+};
+
+const canManageUser = (requestUser, targetUserId) => {
+  if (!requestUser) return false;
+
+  return (
+    requestUser.accountType === "admin" ||
+    requestUser.accountType === "superadmin" ||
+    String(requestUser.userId) === String(targetUserId)
+  );
+};
+
 //Login
 exports.login = async (req, res) => {
   try {
@@ -53,7 +69,7 @@ exports.login = async (req, res) => {
 
       const options = {
         expires: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
-        httpOnly: true,
+        ...authCookieOptions,
       };
 
       res
@@ -92,6 +108,16 @@ exports.login = async (req, res) => {
       message: "Login failure, please try again",
     });
   }
+};
+
+exports.logout = async (req, res) => {
+  return res
+    .clearCookie("token", authCookieOptions)
+    .status(200)
+    .json({
+      success: true,
+      message: "Logged out successfully",
+    });
 };
 
 //change password
@@ -451,6 +477,13 @@ exports.getUserById = async (req, res) => {
     try {
         const { id } = req.params;
 
+        if (!canManageUser(req.user, id)) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to access this user",
+            });
+        }
+
         const user = await User.findById(id)
             .select("-password")
             .populate("roleId")
@@ -482,6 +515,13 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (!canManageUser(req.user, id)) {
+            return res.status(403).json({
+                success: false,
+                message: "You are not authorized to update this user",
+            });
+        }
 
         // Debug logs
         console.log("Request Body:", req.body);

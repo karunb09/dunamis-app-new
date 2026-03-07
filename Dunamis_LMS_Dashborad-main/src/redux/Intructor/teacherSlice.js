@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -10,6 +11,22 @@ export const fetchTeachers = createAsyncThunk(
     try {
       const response = await axios.get(`${BASE_URL}/teachers/`);
       return response.data.data || [];
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+export const createTeacher = createAsyncThunk(
+  "teachers/createTeacher",
+  async (teacherData, { rejectWithValue }) => {
+    try {
+      const token = getStoredToken();
+      const response = await axios.post(`${BASE_URL}/teachers/`, teacherData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      });
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -34,7 +51,11 @@ export const updateTeacher = createAsyncThunk(
   "teachers/updateTeacher",
   async ({ id, updatedData }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(`${BASE_URL}/teachers/${id}`, updatedData);
+      const token = getStoredToken();
+      const response = await axios.put(`${BASE_URL}/teachers/${id}`, updatedData, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -47,7 +68,11 @@ export const addBankDetails = createAsyncThunk(
   "teachers/addBankDetails",
   async ({ id, bankDetails }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(`${BASE_URL}/teachers/${id}/bank-details`, bankDetails);
+      const token = getStoredToken();
+      const response = await axios.put(`${BASE_URL}/teachers/${id}/bank-details`, bankDetails, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -79,6 +104,19 @@ const teacherSlice = createSlice({
         state.teachers = action.payload;
       })
       .addCase(fetchTeachers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Create teacher
+      .addCase(createTeacher.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createTeacher.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(createTeacher.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       })

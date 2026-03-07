@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { createBranch } from "../../../redux/Branch/branchSlice";
+import {
+    createBranch,
+    fetchBranchById,
+    updateBranch,
+} from "../../../redux/Branch/branchSlice";
 import { getAllUsers } from "../../../redux/User/UserSlice";
-import { getAllCities } from "../../../redux/City/CitySlice";
-import { getAllZones } from "../../../redux/Zone/ZoneSlice";
+import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
 import { Upload } from "phosphor-react";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 
 const AddBranch = () => {
+    const { id } = useParams();
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const daysRef = useRef();
@@ -31,49 +36,62 @@ const AddBranch = () => {
 
     const [showDaysDropdown, setShowDaysDropdown] = useState(false);
 
-    const { loading, branch: createdBranch, error } = useSelector(
+    const { loading, error, selectedBranch } = useSelector(
         (state) => state.branch
     );
 
-    const { users = [], loading: usersLoading, error: usersError } = useSelector(
+    const { users = [], loading: usersLoading, error: usersError, listStatus: userListStatus } = useSelector(
         (state) => state.user
     );
-    const { zones = [], loading: zonesLoading, error: zonesError } = useSelector(
-        (state) => state.zone
-    );
-    const { cities = [], loading: citiesLoading, error: citiesError } = useSelector(
+    const { cities = [], loading: citiesLoading, error: citiesError, listStatus: cityListStatus } = useSelector(
         (state) => state.city
     );
 
-    // Fetch users, cities, zones
+    // Fetch users and cities
     useEffect(() => {
-        if (!usersLoading && users.length === 0) dispatch(getAllUsers());
-    }, [dispatch, usersLoading, users.length]);
-
-    useEffect(() => {
-        if (!citiesLoading && cities.length === 0) dispatch(getAllCities());
-    }, [dispatch, citiesLoading, cities.length]);
-
-    useEffect(() => {
-        if (!zones.length && !zonesLoading) dispatch(getAllZones());
-    }, [dispatch, zones, zonesLoading]);
-
-    useEffect(() => {
-        console.log("Fetched Zones:", zones);
-    }, [zones]);
-
-    useEffect(() => {
-        if (createdBranch) {
-            toast.success("Branch created successfully!");
-            navigate("/admin/centers");
+        if (userListStatus === "idle") {
+            dispatch(getAllUsers());
         }
-    }, [createdBranch, navigate]);
+    }, [dispatch, userListStatus]);
+
+    useEffect(() => {
+        if (cityListStatus === "idle") {
+            dispatch(getAllCities());
+        }
+    }, [dispatch, cityListStatus]);
+
+    useEffect(() => {
+        if (id) {
+            dispatch(fetchBranchById(id));
+        }
+    }, [dispatch, id]);
 
     useEffect(() => {
         if (error) {
             toast.error(`Error: ${error}`);
         }
     }, [error]);
+
+    useEffect(() => {
+        if (id && selectedBranch?._id === id) {
+            setFormData({
+                branchName: selectedBranch.branchName || "",
+                location: selectedBranch.location || "",
+                zone: selectedBranch.zone || "",
+                city: selectedBranch.city?._id || selectedBranch.city || "",
+                branchManager:
+                    selectedBranch.branchManager?._id || selectedBranch.branchManager || "",
+                branchAdminContact: selectedBranch.branchAdminContact || "",
+                branchAdminEmail: selectedBranch.branchAdminEmail || "",
+                startTime: selectedBranch.branchTimings?.[0] || "",
+                endTime: selectedBranch.branchTimings?.[1] || "",
+                branchOpenDays: selectedBranch.branchOpenDays || [],
+                branchCapacity: String(selectedBranch.branchCapacity || ""),
+                centreFacilities: selectedBranch.centreFacilities || "",
+                branchImage: null,
+            });
+        }
+    }, [id, selectedBranch]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -112,6 +130,8 @@ const AddBranch = () => {
                     branchAdminContact: "",
                 });
             }
+        } else if (name === "zone") {
+            setFormData({ ...formData, zone: value.replace(/\D/g, "") });
         } else {
             setFormData({ ...formData, [name]: value });
         }
@@ -145,12 +165,7 @@ const AddBranch = () => {
         navigate("/admin/centers");
     };
 
-    const handleSaveDraft = () => {
-        console.log("Draft:", formData);
-        toast("Draft saved!"); 
-    };
-
-    const handleSaveBranch = async () => {
+    const buildPayload = (status) => {
         const required = [
             "branchName",
             "location",
@@ -162,29 +177,26 @@ const AddBranch = () => {
             "startTime",
             "endTime",
             "branchCapacity",
-            "branchImage",
         ];
 
         for (const field of required) {
             if (!formData[field]) {
-                alert(`Please fill ${field}`);
-                return;
+                throw new Error(`Please fill ${field}`);
             }
         }
 
         if (formData.startTime === formData.endTime) {
-            alert("Start time and end time must be different.");
-            return;
+            throw new Error("Start time and end time must be different.");
         }
 
         const img = formData.branchImage;
-        if (!(img instanceof File) || !img.type.startsWith("image/")) {
-            alert("Please upload a valid image file.");
-            return;
-        }
-        if (img.size > 5 * 1024 * 1024) {
-            alert("Image too large. Must be under 5MB.");
-            return;
+        if (img) {
+            if (!(img instanceof File) || !img.type.startsWith("image/")) {
+                throw new Error("Please upload a valid image file.");
+            }
+            if (img.size > 5 * 1024 * 1024) {
+                throw new Error("Image too large. Must be under 5MB.");
+            }
         }
 
         const payload = new FormData();
@@ -202,27 +214,88 @@ const AddBranch = () => {
         payload.append("branchOpenDays", JSON.stringify(formData.branchOpenDays));
         payload.append("branchCapacity", formData.branchCapacity);
         payload.append("centreFacilities", formData.centreFacilities || "");
-        payload.append("status", "active");
-        payload.append("branchImage", formData.branchImage);
+        payload.append("status", status);
+        if (formData.branchImage) {
+            payload.append("branchImage", formData.branchImage);
+        }
 
-        const toastId = toast.loading("Saving branch...");
-        await dispatch(createBranch(payload));
-        toast.dismiss(toastId);
+        return payload;
     };
 
-    // Filter cities by selected zone
-    const filteredCities =
-        formData.zone && zones.length
-            ? (() => {
-                const zoneObj = zones.find((z) => z._id === formData.zone);
-                if (!zoneObj || !zoneObj.city) return [];
-                return cities.filter((c) => zoneObj.city.includes(c._id));
-            })()
-            : [];
+    const saveBranch = async (status) => {
+        try {
+            const payload = buildPayload(status);
+            const toastId = toast.loading(
+                id
+                    ? status === "draft"
+                        ? "Updating draft..."
+                        : "Updating branch..."
+                    : status === "draft"
+                        ? "Saving draft..."
+                        : "Saving branch..."
+            );
+            if (id) {
+                await dispatch(updateBranch({ id, branchData: payload })).unwrap();
+            } else {
+                await dispatch(createBranch(payload)).unwrap();
+            }
+            toast.dismiss(toastId);
+            toast.success(
+                id
+                    ? status === "draft"
+                        ? "Branch draft updated!"
+                        : "Branch updated successfully!"
+                    : status === "draft"
+                        ? "Branch saved to drafts!"
+                        : "Branch created successfully!"
+            );
+            navigate("/admin/centers");
+        } catch (saveError) {
+            toast.error(saveError?.message || "Failed to save branch");
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        await saveBranch("draft");
+    };
+
+    const handleSaveBranch = async () => {
+        await saveBranch("active");
+    };
+
+    const handleDeleteCity = () => {
+        if (!formData.city) {
+            toast.error("Select a city first");
+            return;
+        }
+
+        const selectedCity = cities.find((city) => city._id === formData.city);
+
+        Swal.fire({
+            title: "Delete city?",
+            text: `This will delete ${selectedCity?.cityName || "the selected city"}.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Delete",
+        }).then(async (result) => {
+            if (!result.isConfirmed) return;
+
+            try {
+                await dispatch(deleteCity(formData.city)).unwrap();
+                toast.success("City deleted successfully");
+                setFormData((prev) => ({ ...prev, city: "" }));
+            } catch (deleteError) {
+                toast.error(deleteError?.message || "Failed to delete city");
+            }
+        });
+    };
 
     return (
         <div className="p-6 bg-gray-50 rounded-2xl">
-            <h2 className="text-lg font-semibold mb-4">Create New Branch</h2>
+            <h2 className="text-lg font-semibold mb-4">
+                {id ? "Edit Branch" : "Create New Branch"}
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Branch Name */}
                 <label>
@@ -251,26 +324,15 @@ const AddBranch = () => {
                 {/* Zone */}
                 <label>
                     Zone
-                    <select
+                    <input
+                        type="text"
                         name="zone"
                         value={formData.zone}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
-                        disabled={zonesLoading}
-                    >
-                        <option value="">Select Zone</option>
-                        {zonesLoading ? (
-                            <option>Loading...</option>
-                        ) : zonesError ? (
-                            <option>{zonesError}</option>
-                        ) : (
-                            zones.map((z) => (
-                                <option key={z._id} value={z._id}>
-                                    {z.name}
-                                </option>
-                            ))
-                        )}
-                    </select>
+                        inputMode="numeric"
+                        placeholder="Enter zone number"
+                    />
                 </label>
 
                 {/* City */}
@@ -281,19 +343,40 @@ const AddBranch = () => {
                         value={formData.city}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
-                        disabled={!formData.zone}
+                        disabled={citiesLoading}
                     >
                         <option value="">Select City</option>
-                        {filteredCities.length > 0 ? (
-                            filteredCities.map((c) => (
-                                <option key={c._id} value={c._id}>
-                                    {c.cityName}
-                                </option>
-                            ))
-                        ) : (
-                            <option>No cities for this zone</option>
-                        )}
+                        {cities.map((c) => (
+                            <option key={c._id} value={c._id}>
+                                {c.cityName}
+                            </option>
+                        ))}
                     </select>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={() => navigate("/admin/centers/add-city")}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100"
+                        >
+                            Add City
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => navigate(`/admin/centers/add-city/${formData.city}`)}
+                            disabled={!formData.city}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Edit City
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDeleteCity}
+                            disabled={!formData.city}
+                            className="rounded-xl border border-red-500 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Delete City
+                        </button>
+                    </div>
                 </label>
 
                 {/* Branch Manager */}
@@ -445,6 +528,12 @@ const AddBranch = () => {
                             alt="Branch Preview"
                             className="w-32 h-32 object-cover rounded-xl mb-2"
                         />
+                    ) : id && selectedBranch?.branchImage ? (
+                        <img
+                            src={`${import.meta.env.VITE_IMAGE || ""}${selectedBranch.branchImage}`}
+                            alt="Branch Preview"
+                            className="w-32 h-32 object-cover rounded-xl mb-2"
+                        />
                     ) : (
                         <Upload className="text-gray-600 text-4xl" />
                     )}
@@ -488,7 +577,7 @@ const AddBranch = () => {
                         disabled={loading}
                         className="flex items-center gap-2 bg-black text-white px-6 py-2 rounded-2xl hover:bg-gray-900"
                     >
-                        {loading ? "Saving..." : "Save Branch"}
+                        {loading ? "Saving..." : id ? "Update Branch" : "Save Branch"}
                     </button>
                 </div>
             </div>

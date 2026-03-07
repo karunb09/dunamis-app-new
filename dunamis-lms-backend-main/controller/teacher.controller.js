@@ -3,6 +3,232 @@ const User = require("../model/user.model");
 const TeacherDetail = require("../model/teacherApplication.model");
 const Feedback = require("../model/feedback.model");
 const Student = require("../model/student.model");
+const sendPasswordTemplate = require("../mail/sendPassword");
+const OtpGenerator = require("otp-generator");
+const mailSender = require("../utils/mailSender");
+
+const normalizeStringArray = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const canManageTeacher = (requestUser, teacherDoc) => {
+  if (!requestUser || !teacherDoc) return false;
+
+  return (
+    requestUser.accountType === "admin" ||
+    requestUser.accountType === "superadmin" ||
+    String(requestUser.roleId) === String(teacherDoc._id) ||
+    String(requestUser.userId) === String(teacherDoc.userId)
+  );
+};
+
+exports.createTeacher = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      mobileNo,
+      gender,
+      readLanguage,
+      speakLanguage,
+      currentState,
+      currentCity,
+      currentAddress,
+      areaOfExpertise,
+      yearOfExperience,
+      highestQualification,
+      currentCTC,
+      expectedCTC,
+      noticePeriod,
+      availability,
+      mode,
+      specialization,
+      profilePicture,
+    } = req.body;
+
+    const readLanguages = normalizeStringArray(readLanguage);
+    const speakLanguages = normalizeStringArray(speakLanguage);
+    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedMobileNo = String(mobileNo || "").trim();
+
+    const missingFields = [];
+    [
+      ["firstName", firstName],
+      ["lastName", lastName],
+      ["email", normalizedEmail],
+      ["mobileNo", normalizedMobileNo],
+      ["currentState", currentState],
+      ["currentCity", currentCity],
+      ["currentAddress", currentAddress],
+      ["areaOfExpertise", areaOfExpertise],
+      ["yearOfExperience", yearOfExperience],
+      ["highestQualification", highestQualification],
+      ["currentCTC", currentCTC],
+      ["expectedCTC", expectedCTC],
+      ["noticePeriod", noticePeriod],
+      ["availability", availability],
+      ["mode", mode],
+    ].forEach(([key, value]) => {
+      if (!value || (typeof value === "string" && value.trim() === "")) {
+        missingFields.push(key);
+      }
+    });
+
+    if (!readLanguages.length) {
+      missingFields.push("readLanguage");
+    }
+
+    if (!speakLanguages.length) {
+      missingFields.push("speakLanguage");
+    }
+
+    if (missingFields.length) {
+      return res.status(400).json({
+        success: false,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+    }
+
+    if (!/^\d{10}$/.test(normalizedMobileNo)) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number must be 10 digits",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "A user with this email already exists",
+      });
+    }
+
+    const existingTeacherDetail = await TeacherDetail.findOne({
+      email: normalizedEmail,
+    });
+    if (existingTeacherDetail) {
+      return res.status(409).json({
+        success: false,
+        message: "An instructor profile with this email already exists",
+      });
+    }
+
+    const password = OtpGenerator.generate(8, {
+      upperCaseAlphabets: true,
+      lowerCaseAlphabets: true,
+      digits: true,
+      specialChars: true,
+    });
+
+    const user = await User.create({
+      name: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      },
+      email: normalizedEmail,
+      mobileNo: Number(normalizedMobileNo),
+      password,
+      accountType: "teacher",
+      accountStatus: "active",
+      image: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+        `${firstName.trim()} ${lastName.trim()}`
+      )}`,
+    });
+
+    const teacherDetail = await TeacherDetail.create({
+      name: {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      },
+      source: "admin",
+      gender,
+      language: {
+        read: readLanguages,
+        speak: speakLanguages,
+      },
+      email: normalizedEmail,
+      mobileNo: Number(normalizedMobileNo),
+      currentState: currentState.trim(),
+      currentCity: currentCity.trim(),
+      currentAddress: currentAddress.trim(),
+      areaOfExpertise: areaOfExpertise.trim(),
+      yearOfExperience: Number(yearOfExperience),
+      highestQualification: highestQualification.trim(),
+      currentCTC: String(currentCTC).trim(),
+      expectedCTC: String(expectedCTC).trim(),
+      noticePeriod,
+      availability,
+      mode,
+      status: "selected",
+      profilePicture: profilePicture?.trim() || "",
+      specilization: specialization?.trim() || "",
+    });
+
+    const teacher = await Teacher.create({
+      userId: user._id,
+      teacherDetail: teacherDetail._id,
+    });
+
+    user.roleId = teacher._id;
+    user.roleModel = "teacher";
+    await user.save();
+
+    await mailSender(
+      normalizedEmail,
+      "Your teacher account has been created",
+      sendPasswordTemplate(user, "teacher", password)
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Instructor created successfully",
+      data: {
+        id: teacher._id,
+        userId: user._id,
+        teacherDetailId: teacherDetail._id,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Error creating teacher:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        success: false,
+        message: "Validation error",
+        errors: Object.values(error.errors).map((item) => item.message),
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "An instructor with this email already exists",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 exports.getAllTeachers = async (req, res) => {
   try {
@@ -434,6 +660,13 @@ exports.updateTeacher = async (req, res) => {
       });
     }
 
+    if (!canManageTeacher(req.user, teacher)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to update this teacher",
+      });
+    }
+
     // 2. Salary status
     if (salaryStatus) {
       teacher.salaryStatus = salaryStatus;
@@ -502,6 +735,13 @@ exports.addBankDetails = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Teacher not found",
+      });
+    }
+
+    if (!canManageTeacher(req.user, teacher)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to update this teacher",
       });
     }
 

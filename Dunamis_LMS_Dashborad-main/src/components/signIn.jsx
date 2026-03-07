@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { FiSmile } from "react-icons/fi";
@@ -19,6 +19,7 @@ const SignIn = () => {
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { loading } = useSelector((state) => state.auth);
 
   const validateEmail = (value) => {
@@ -42,19 +43,23 @@ const SignIn = () => {
       const result = await dispatch(login({ email, password })).unwrap();
       toast.success("Login successful!");
 
-      switch (result.user.accountType) {
-        case "admin":
-          navigate("/admin");
-          break;
-        case "teacher":
-          navigate("/teacher");
-          break;
-        case "student":
-          navigate("/home");
-          break;
-        default:
-          toast.error("Invalid account type");
+      const requestedPath = location.state?.from?.pathname;
+
+      const defaultRoute =
+        result.user.accountType === "admin"
+          ? "/admin"
+          : result.user.accountType === "teacher"
+            ? "/teacher"
+            : result.user.accountType === "student"
+              ? "/home"
+              : null;
+
+      if (!defaultRoute) {
+        toast.error("Invalid account type");
+        return;
       }
+
+      navigate(requestedPath || defaultRoute, { replace: true });
     } catch (err) {
       if (err?.toLowerCase().includes("user is not registered")) {
         toast.error("User not found. Please sign up first.");
@@ -185,16 +190,15 @@ const SignIn = () => {
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>
-            {/* https://dunamis-lms-website.netlify.app/signup */}
             <div className="text-center text-sm mt-4 text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account? Sign up on the website.{" "}
               <a
                 href="https://dunamisindia.co.in/signup"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 hover:underline"
               >
-                Sign up
+                Go to Sign Up
               </a>
             </div>
           </>

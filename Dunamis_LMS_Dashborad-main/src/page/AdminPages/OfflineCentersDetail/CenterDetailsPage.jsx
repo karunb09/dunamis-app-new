@@ -91,6 +91,14 @@ const CenterDetailsPage = () => {
       >
         ← Back to Offline Centres
       </button>
+      <div className="mb-6 flex justify-end">
+        <button
+          onClick={() => navigate(`/admin/centers/edit-branch/${center._id}`)}
+          className="rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+        >
+          Edit Branch
+        </button>
+      </div>
 
       <div className="flex flex-col md:flex-row justify-between gap-6 items-start md:items-center">
         <div className="flex flex-col md:flex-row justify-between gap-6 items-start md:items-center">

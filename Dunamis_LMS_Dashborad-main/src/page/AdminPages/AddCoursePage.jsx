@@ -60,6 +60,9 @@ const AddCoursePage = () => {
         if (courseId) {
             dispatch(getCourseDetails(courseId));
         }
+        return () => {
+            localStorage.removeItem("selectedCourseId");
+        };
     }, [courseId, dispatch]);
 
     useEffect(() => {
@@ -132,10 +135,6 @@ const AddCoursePage = () => {
         navigate("/admin/course-management");
     };
 
-    const handleSaveDraft = () => {
-        alert("Draft saved (mock)");
-    };
-
     const handleUpdateFormData = (newData, key) => {
         if (key === "media") {
             if (newData !== null && !(newData instanceof File)) {
@@ -150,7 +149,7 @@ const AddCoursePage = () => {
         }));
     };
 
-    const handleSubmit = async () => {
+    const saveCourse = async ({ isPublished }) => {
         if (!courseData.info.courseCode || courseData.info.courseCode.trim() === "") {
             toast.error("Course Code is required");
             return;
@@ -192,6 +191,7 @@ const AddCoursePage = () => {
                 ? courseData.content.map(c => c._id || c)
                 : [],
             objectives: Array.isArray(courseData.objectives) ? courseData.objectives : [],
+            isPublished,
         };
 
         const formData = new FormData();
@@ -223,11 +223,20 @@ const AddCoursePage = () => {
             (courseId && updateCourse.fulfilled.match(resultAction)) ||
             (!courseId && createCourse.fulfilled.match(resultAction))
         ) {
-            toast.success("Course saved successfully");
+            toast.success(isPublished ? "Course saved successfully" : "Course draft saved successfully");
+            navigate("/admin/course-management");
         } else {
             const errorMsg = resultAction?.payload?.message || "Course save failed.";
             toast.error(errorMsg);
         }
+    };
+
+    const handleSaveDraft = async () => {
+        await saveCourse({ isPublished: false });
+    };
+
+    const handleSubmit = async () => {
+        await saveCourse({ isPublished: true });
     };
 
     const renderTabContent = () => (

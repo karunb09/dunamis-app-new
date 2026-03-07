@@ -7,8 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchTeachers, updateTeacher } from '../../../../redux/Intructor/teacherSlice';
 import { updateUser } from '../../../../redux/User/UserSlice';
 import { X } from 'react-feather';
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -27,6 +26,7 @@ const mapTeacherToInstructor = (teacher, index) => {
         instructorId: `#INST-${index + 1000}`,
         name: fullName,
         avatar: teacher.teacherApplication?.profilePicture || '',
+        userImage: teacher.user?.image || '',
         accountStatus: teacher.user?.accountStatus || 'Inactive',
         courseCategory: teacher.teacherApplication?.areaOfExpertise || '—',
         studentCount: teacher.studentCount || 0,
@@ -154,7 +154,11 @@ Mode: ${i.mode}`
             header: 'Instructor',
             render: (value, row) => (
                 <div className="flex items-center gap-2">
-                    <img src={`${IMAGE}${row.avatar}`} alt={row.name} className="w-8 h-8 rounded-full" />
+                    <img
+                        src={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR)}
+                        alt={row.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                    />
                     <span>{row.name}</span>
                 </div>
             ),
@@ -225,7 +229,7 @@ Mode: ${i.mode}`
                         const newStatus = e.target.value;
                         if (newStatus === row.salaryStatus) return;
                         dispatch(updateTeacher({
-                            id: row.instructorId,
+                            id: row.id,
                             updatedData: { salaryStatus: newStatus },
                         })).unwrap()
                             .then(() => toast.success(`${row.name}'s salary status updated to ${newStatus}`))
@@ -259,6 +263,13 @@ Mode: ${i.mode}`
                 </div>
 
                 <div className="flex gap-2">
+                    <button
+                        type="button"
+                        className="px-4 py-2 rounded-2xl bg-black text-white text-sm hover:bg-gray-800"
+                        onClick={() => navigate('/admin/instructor-management/add-instructor')}
+                    >
+                        Add Instructor
+                    </button>
                     <div className="relative">
                         <button
                             className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-sm hover:bg-gray-100"

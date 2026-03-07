@@ -23,8 +23,9 @@ import { FaBuilding, FaBullhorn } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { logout } from "../../redux/authSlice";
+import { logoutUser } from "../../redux/authSlice";
 import clsx from "clsx";
+import { getStoredUser } from "../../utils/authSession";
 
 const Sidebar = ({ isOpen, onClose }) => {
   const [isDesktopOpen, setIsDesktopOpen] = useState(true);
@@ -34,8 +35,8 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const accountType =
     user?.accountType ||
-    JSON.parse(localStorage.getItem("user"))?.accountType ||
-    "student";
+    getStoredUser()?.accountType ||
+    "guest";
 
   const permissions = user?.permissions || [];
 
@@ -177,14 +178,17 @@ const Sidebar = ({ isOpen, onClose }) => {
   const getMenuToRender = () => {
     if (accountType === "student") return studentMenu;
     if (accountType === "teacher") return teacherMenu;
+    if (accountType === "guest") return [];
     return filteredAdminMenu;
   };
 
   const handleLogout = () => {
-    dispatch(logout());
-    toast.success("Logged out successfully!");
-    navigate("/");
-    onClose();
+    dispatch(logoutUser())
+      .finally(() => {
+        toast.success("Logged out successfully!");
+        navigate("/");
+        onClose();
+      });
   };
 
   const renderMenu = () => {

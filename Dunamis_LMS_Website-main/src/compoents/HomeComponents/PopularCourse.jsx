@@ -7,14 +7,11 @@ import { KeyboardMusic } from "lucide-react";
 import { fetchCourses } from "@/store/courseSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useEffect } from "react";
-
-// Get image base URL from environment variable
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL || "http://localhost:5000";
+import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 
 export default function PopularCourses() {
   const dispatch = useDispatch();
   const { courses, loading, error } = useSelector((state) => state.course);
-  console.log("courses from Redux:", courses, loading, error);
 
   const coursedata = (rawCourses) => {
     if (!Array.isArray(rawCourses)) return [];
@@ -116,7 +113,7 @@ export default function PopularCourses() {
         }
 
         const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-        return `${IMAGE}${cleanPath}`;
+        return `${IMAGE_BASE_URL}${cleanPath}`;
       };
 
       const courseRating = calculateCourseRating();
@@ -192,9 +189,7 @@ export default function PopularCourses() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
   };
 
-  if (loading) return <p className="text-center py-10">Loading courses...</p>;
-  if (error) return <p className="text-center text-red-500 py-10">Error: {error}</p>;
-  if (!transformedCourses.length) return <p className="text-center py-10">No published courses available.</p>;
+  if (loading || error || !transformedCourses.length) return null;
 
   return (
     <motion.section

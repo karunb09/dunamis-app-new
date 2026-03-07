@@ -7,8 +7,7 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOfflineCenters } from "@/store/centerSlice";
-
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL || "http://localhost:5000";
+import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 
 const getImageUrl = (
   imagePath,
@@ -23,7 +22,7 @@ const getImageUrl = (
   }
 
   const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  return `${IMAGE}${cleanPath}`;
+  return `${IMAGE_BASE_URL}${cleanPath}`;
 };
 
 const containerVariants = {
@@ -48,37 +47,13 @@ export default function Centers() {
 
   const [selectedCity, setSelectedCity] = useState("All Cities");
 
-  console.log("Redux full state:", offlineCenterState);
-  console.log("Centers data:", centers);
-  console.log("Centers length:", centers?.length);
-  console.log("Loading:", loading);
-  console.log("Error:", error);
-
   useEffect(() => {
-    console.log("Dispatching fetchOfflineCenters...");
-    dispatch(fetchOfflineCenters())
-      .then((result) => {
-        console.log("Fetch result:", result);
-      })
-      .catch((error) => {
-        console.error("Fetch error:", error);
-      });
+    dispatch(fetchOfflineCenters());
   }, [dispatch]);
-  console.log(" Full state:", offlineCenterState);
 
   const transformedCenters = useMemo(() => {
-    console.log("=== TRANSFORMATION DEBUG ===");
-    console.log("Input centers:", centers);
-    console.log("Centers is array?", Array.isArray(centers));
-    console.log("Centers length:", centers?.length);
-
-    if ((!centers || centers.length === 0) && !loading) {
-      console.log("Using mock data for testing...");
-    }
-
     if (centers && centers.length > 0) {
-      console.log("Raw branches from API:", centers);
-      const transformed = centers.map((center) => {
+      return centers.map((center) => {
         const formattedTimings =
           center.branchTimings && center.branchTimings.length >= 2
             ? `${center.branchTimings[0]} - ${center.branchTimings[1]}`
@@ -133,14 +108,9 @@ export default function Centers() {
             .replace(/\s+/g, "-"),
         };
       });
-
-      console.log("Transformed centers:", transformed);
-      console.log("Transformed length:", transformed.length);
-      return transformed;
     }
-    console.log("Returning empty array");
     return [];
-  }, [centers, loading]);
+  }, [centers]);
 
   const filteredCenters = useMemo(() => {
     return selectedCity === "All Cities"
@@ -160,39 +130,6 @@ export default function Centers() {
         <div className="flex flex-col items-center justify-center py-20">
           <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
           <p className="text-lg text-gray-600">Loading centers...</p>
-        </div>
-      </section>
-    );
-  }
-
-  if (error) {
-    return (
-      <section className="py-16 px-12 mx-auto">
-        <OfflineHero />
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 mt-12 text-center">
-          <p className="text-red-600 text-lg font-medium">
-            Error loading centers
-          </p>
-          <p className="text-red-500 mt-2">{error}</p>
-          <button
-            onClick={() => dispatch(fetchOfflineCenters())}
-            className="mt-4 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-          >
-            Retry
-          </button>
-        </div>
-      </section>
-    );
-  }
-
-  if (!loading && transformedCenters.length === 0) {
-    return (
-      <section className="py-16 px-12 mx-auto">
-        <OfflineHero />
-        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-8 mt-12 text-center">
-          <p className="text-gray-600 text-lg">
-            No centers available at the moment.
-          </p>
         </div>
       </section>
     );

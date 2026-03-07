@@ -8,8 +8,11 @@ export const fetchMentors = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await axios.get(`${BASE_URL}/v1/teachers/`);
-      return response.data;
+      return Array.isArray(response.data?.data) ? response.data.data : [];
     } catch (error) {
+      if (error.response?.status === 404) {
+        return [];
+      }
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch mentors"
       );
@@ -33,7 +36,7 @@ const mentorSlice = createSlice({
       })
       .addCase(fetchMentors.fulfilled, (state, action) => {
         state.loading = false;
-        state.mentors = action.payload.data || [];
+        state.mentors = action.payload || [];
       })
       .addCase(fetchMentors.rejected, (state, action) => {
         state.loading = false;

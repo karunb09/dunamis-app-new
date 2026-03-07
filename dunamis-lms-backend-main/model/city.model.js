@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const citySchema = new mongoose.Schema(
   {
     cityName: { type: String, required: true },
-    location: { type: String, required: true },
+    location: { type: String, default: "" },
     cityManager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
