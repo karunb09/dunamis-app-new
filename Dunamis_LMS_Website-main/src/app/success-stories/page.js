@@ -10,7 +10,7 @@ const stories = [
     tag: "Western Vocals",
     date: "December 2023",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Ananya%20Gupta",
   },
   {
     title: "Arjun Mehta, 22",
@@ -19,7 +19,7 @@ const stories = [
     tag: "Guitar",
     date: "March 2024",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Arjun%20Mehta",
   },
   {
     title: "Kavya Nair, 25",
@@ -28,7 +28,7 @@ const stories = [
     tag: "Carnatic Vocals",
     date: "August 2023",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Kavya%20Nair",
   },
   {
     title: "Rohan Singh, 14",
@@ -37,7 +37,7 @@ const stories = [
     tag: "Chess",
     date: "October 2023",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Rohan%20Singh",
   },
   {
     title: "Priya Sharma, 28",
@@ -46,7 +46,7 @@ const stories = [
     tag: "Zumba",
     date: "January 2024",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Priya%20Sharma",
   },
   {
     title: "Aditya Kumar, 19",
@@ -55,7 +55,7 @@ const stories = [
     tag: "Drums",
     date: "November 2023",
     image:
-      "https://",
+      "https://api.dicebear.com/9.x/initials/svg?seed=Aditya%20Kumar",
   },
 ];
 
@@ -191,7 +191,7 @@ export default function SuccessStories() {
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.96 }}
-              onClick={() => router.push("/contact")}
+              onClick={() => router.push("/contact-us")}
               className="text-[#47c9c4] cursor-pointer border border-[#47c9c4] hover:text-white hover:bg-[#47c9c4] transition-all duration-300 ease-in-out px-6 py-2 rounded-full"
             >
               Share Your Story
