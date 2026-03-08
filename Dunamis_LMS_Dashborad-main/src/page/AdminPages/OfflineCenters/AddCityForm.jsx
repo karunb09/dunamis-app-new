@@ -30,14 +30,11 @@ const AddCityForm = () => {
     } = useSelector((state) => state.user);
     const { city } = useSelector((state) => state.city);
 
-    // Replace with actual token from auth state/context
-    const token = "yourAuthToken";
-
     useEffect(() => {
-        if (userListStatus === "idle" && token) {
-            dispatch(getAllUsers(token));
+        if (userListStatus === "idle") {
+            dispatch(getAllUsers());
         }
-    }, [dispatch, userListStatus, token]);
+    }, [dispatch, userListStatus]);
 
     useEffect(() => {
         if (id) {

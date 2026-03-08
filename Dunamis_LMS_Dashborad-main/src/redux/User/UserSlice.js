@@ -1,16 +1,23 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+const resolveToken = (token) => token || getStoredToken();
 
 // Get user by ID
 export const getUserById = createAsyncThunk(
   "user/getUserById",
   async ({ id, token }, { rejectWithValue }) => {
     try {
+      const authToken = resolveToken(token);
+      if (!authToken) {
+        return rejectWithValue({ message: "Authentication required" });
+      }
+
       const response = await axios.get(`${BASE_URL}/user/${id}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
       });
       return response.data;
@@ -25,10 +32,15 @@ export const updateUser = createAsyncThunk(
   "user/updateUser",
   async ({ id, userData, token }, { rejectWithValue }) => {
     try {
+      const authToken = resolveToken(token);
+      if (!authToken) {
+        return rejectWithValue({ message: "Authentication required" });
+      }
+
       const isFormData = userData instanceof FormData;
       const response = await axios.put(`${BASE_URL}/user/${id}`, userData, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
           ...(isFormData ? {} : { "Content-Type": "application/json" }),
         },
       });
@@ -45,12 +57,17 @@ export const changePassword = createAsyncThunk(
   "user/changePassword",
   async ({ oldPassword, newPassword, token }, { rejectWithValue }) => {
     try {
+      const authToken = resolveToken(token);
+      if (!authToken) {
+        return rejectWithValue({ message: "Authentication required" });
+      }
+
       const response = await axios.post(
         `${BASE_URL}/user/change-password`,
         { oldPassword, newPassword },
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authToken}`,
             "Content-Type": "application/json",
           },
         }
@@ -67,9 +84,14 @@ export const getAllUsers = createAsyncThunk(
   "user/getAllUsers",
   async (token, { rejectWithValue }) => {
     try {
+      const authToken = resolveToken(token);
+      if (!authToken) {
+        return rejectWithValue({ message: "Authentication required" });
+      }
+
       const response = await axios.get(`${BASE_URL}/user/get-all`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
       });
       return response.data.users;

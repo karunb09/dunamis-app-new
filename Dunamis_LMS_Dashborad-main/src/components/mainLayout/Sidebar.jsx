@@ -261,8 +261,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        <div className="flex h-full flex-col justify-between overflow-hidden">
-          <div className="min-h-0 flex-1">
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <div
               className={clsx(
                 "flex items-center border-b border-slate-800 px-4 py-5",
@@ -299,7 +299,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               </button>
             </div>
 
-            <div className="px-4 py-5">
+            <div className="px-4 py-5 pb-6">
               {isExpanded && (
                 <div className="mb-5 rounded-3xl border border-white/10 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent px-4 py-4">
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-orange-200/80">
@@ -317,7 +317,7 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           </div>
 
-          <div className="border-t border-slate-800 px-4 py-5">
+          <div className="shrink-0 border-t border-slate-800 px-4 py-5">
             <button
               type="button"
               onClick={handleLogout}

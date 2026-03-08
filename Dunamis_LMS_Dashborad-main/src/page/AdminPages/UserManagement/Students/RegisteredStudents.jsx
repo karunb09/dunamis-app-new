@@ -5,9 +5,9 @@ import DataTable from "../../../../components/Table";
 import toast from "react-hot-toast";
 import { FaEllipsisH, FaFilter, FaSearch, FaSortAmountDown } from "react-icons/fa";
 import { X } from "react-feather";
+import { getStoredToken } from "../../../../utils/authSession";
 
 const IMAGE = import.meta.env.VITE_IMAGE;
-const token = localStorage.getItem("token");
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -19,7 +19,9 @@ const SORT_OPTIONS = [
 const RegisteredStudents = () => {
     const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState('');
-    const { users, loading, error } = useSelector((state) => state.user);
+    const { users, loading, error, listStatus } = useSelector((state) => state.user);
+    const authToken = useSelector((state) => state.auth.token);
+    const token = authToken || getStoredToken();
 
     const [dropdownOpen, setDropdownOpen] = useState(null);
     const [sortOpen, setSortOpen] = useState(false);
@@ -29,12 +31,12 @@ const RegisteredStudents = () => {
     const dropdownRef = useRef(null);
 
     useEffect(() => {
-        if (token) {
+        if (token && listStatus === "idle") {
             dispatch(getAllUsers(token));
-        } else {
+        } else if (!token) {
             toast.error("No token found. Please login.");
         }
-    }, [dispatch]);
+    }, [dispatch, listStatus, token]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
