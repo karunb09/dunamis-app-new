@@ -12,21 +12,7 @@ import { fetchCourses } from "@/store/courseSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useEffect } from "react";
 import LoginModal from "@/compoents/PopupModals/LoginModal";
-
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
-
-const getImageUrl = (imagePath, fallbackName = "Course") => {
-  if (!imagePath) {
-    return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-      fallbackName
-    )}`;
-  }
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
-  }
-  const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  return `${IMAGE}${cleanPath}`;
-};
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function CourseDetailPage() {
   const dispatch = useDispatch();
@@ -86,7 +72,12 @@ export default function CourseDetailPage() {
               ? `₹${priceObj.monthlyFee}/month`
               : "Price not available";
           })(),
-          image: getImageUrl(foundCourse.image, foundCourse.name || "Course"),
+          image: resolveImageUrl(
+            foundCourse.image,
+            `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+              foundCourse.name || "Course"
+            )}`
+          ),
           rating: foundCourse.rating || 4.8,
           reviewsCount:
             foundCourse.totalStudents ||
@@ -127,11 +118,13 @@ export default function CourseDetailPage() {
               branch: foundCourse.category?.name || "Department",
               exp: `${t.studentCount || 0} students taught`,
               rating: t.averageRating || 0,
-              image: getImageUrl(
+              image: resolveImageUrl(
                 t.teacherDetail?.profilePicture || t.userId?.image,
-                `${t.teacherDetail?.name?.firstName || ""} ${
-                  t.teacherDetail?.name?.lastName || ""
-                }`.trim() || "Instructor"
+                `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                  `${t.teacherDetail?.name?.firstName || ""} ${
+                    t.teacherDetail?.name?.lastName || ""
+                  }`.trim() || "Instructor"
+                )}`
               ),
             })) || [],
           feeStructure: {
