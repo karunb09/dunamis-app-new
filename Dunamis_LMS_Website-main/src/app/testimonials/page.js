@@ -84,7 +84,7 @@ const detailedTestimonials = [
 
 export default function Testimonials() {
   return (
-    <section className="px-6 py-20 bg-white mt-20">
+    <section className="bg-white px-6 py-20">
       {/* Heading */}
       <motion.div className="text-center mb-16" initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: false }} transition={{ duration: 0.5 }}>
         <p className="text-[#47c9c4] font-medium mb-2">Hear from our students</p>

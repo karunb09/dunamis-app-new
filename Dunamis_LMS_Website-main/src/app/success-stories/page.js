@@ -67,7 +67,7 @@ export default function SuccessStories() {
       <div className="max-w-8xl mx-auto px-6 text-center">
         {/* Title */}
         <motion.p
-          className="text-[#FF6B35] font-medium mt-20"
+          className="text-[#FF6B35] font-medium"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}

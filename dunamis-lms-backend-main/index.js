@@ -9,19 +9,36 @@ const fileUpload = require("express-fileupload");
 const path = require("path");
 const colors = require('colors')
 
-const allowedOrigins = [
-  "*",
+dotenv.config();
+
+const normalizeOrigin = (value) => value?.replace(/\/+$/, "");
+
+const defaultAllowedOrigins = [
   "https://dashboard.dunamisindia.co.in",
   "http://localhost:3000",
   "http://localhost:5173",
   "http://localhost:3003",
   "https://dunamisindia.co.in",
-  "https://api.dunamisindia.co.in"
+  "https://www.dunamisindia.co.in",
+  "https://api.dunamisindia.co.in",
 ];
+
+const envAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => normalizeOrigin(origin.trim()))
+  .filter(Boolean);
+
+const allowedOrigins = new Set(
+  [...defaultAllowedOrigins, ...envAllowedOrigins]
+    .map(normalizeOrigin)
+    .filter(Boolean)
+);
 
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    const normalizedOrigin = normalizeOrigin(origin);
+
+    if (!normalizedOrigin || allowedOrigins.has(normalizedOrigin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -52,8 +69,6 @@ const remunerationRoutes = require("./routes/remuneration.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
-
-dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 

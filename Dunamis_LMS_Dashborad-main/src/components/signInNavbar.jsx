@@ -29,20 +29,6 @@ const SignInNavbar = () => {
 
         {/* Menu Items (desktop) */}
         <div className="hidden sm:flex gap-3 items-center">
-          <Link
-            to="/"
-            className="px-4 py-2 rounded-full text-gray-700 hover:bg-gray-100"
-          >
-            Login
-          </Link>
-          <a
-            href={`${WEBSITE_URL}/signup`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-900"
-          >
-            Sign Up
-          </a>
           <a
             href={WEBSITE_URL}
             target="_blank"
@@ -57,22 +43,6 @@ const SignInNavbar = () => {
       {/* Mobile Menu */}
       {open && (
         <div className="flex flex-col gap-3 mt-4 sm:hidden">
-          <Link
-            to="/"
-            className="px-4 py-2 rounded-full text-center border border-gray-200"
-            onClick={() => setOpen(false)}
-          >
-            Login
-          </Link>
-          <a
-            href={`${WEBSITE_URL}/signup`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-black text-white px-4 py-2 rounded-full w-full text-center"
-            onClick={() => setOpen(false)}
-          >
-            Sign Up
-          </a>
           <a
             href={WEBSITE_URL}
             target="_blank"

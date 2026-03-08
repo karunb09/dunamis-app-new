@@ -2,7 +2,9 @@ import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getCourses } from "../../redux/Course/CourseSlice";
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
+
+const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
 const tagIcons = {
   Music: (
     <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
@@ -160,7 +162,7 @@ export default function ExploreCourses() {
             >
               <div className="rounded-t-xl w-full h-[150px] overflow-hidden">
                 <img
-                  src={`${IMAGE}${course.image}`}
+                  src={resolveImageUrl(course.image, DEFAULT_COURSE_IMAGE)}
                   alt={course.name}
                   className="object-cover w-full h-full"
                 />

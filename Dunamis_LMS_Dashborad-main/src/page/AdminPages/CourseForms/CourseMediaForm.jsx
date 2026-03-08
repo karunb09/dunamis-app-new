@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes, FaImage } from "react-icons/fa";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+
+const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
 
 const CourseMediaForm = ({ media, setMedia, existingImage }) => {
     const [file, setFile] = useState(null);
@@ -8,8 +11,7 @@ const CourseMediaForm = ({ media, setMedia, existingImage }) => {
     // Load existing
     useEffect(() => {
         if (existingImage && !media) {
-            const IMAGE = import.meta.env.VITE_IMAGE;
-            setPreviewUrl(`${IMAGE}${existingImage}`);
+            setPreviewUrl(resolveImageUrl(existingImage, DEFAULT_COURSE_IMAGE));
         }
     }, [existingImage, media]);
 

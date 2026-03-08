@@ -5,8 +5,9 @@ import { getCourseDetails } from "../../redux/Course/CourseSlice";
 import BookingWizardModal from "./BookingWizardModal.jsx";
 import CourseDetail from "./CourseDetails.jsx";
 import ExploreCourseDetailsSecond from "./ExploreCourseDetailsSecond.jsx";
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
-const IMAGE = import.meta.env.VITE_IMAGE;
+const DEFAULT_COURSE_IMAGE = "https://placehold.co/960x540?text=Course";
 
 export default function ExploreCourseDetails() {
   const location = useLocation();
@@ -79,7 +80,7 @@ export default function ExploreCourseDetails() {
   }
 
   const categoryName = course.category?.name || "General";
-  const courseImage = course.image ? `${IMAGE}${course.image}` : "/placeholder.jpg";
+  const courseImage = resolveImageUrl(course.image, DEFAULT_COURSE_IMAGE);
   const courseName = course.name || "Course Name";
   const courseDescription = course.description || "No description available";
   

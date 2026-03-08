@@ -20,7 +20,7 @@ const fadeUp = {
 
 const About = () => {
   return (
-    <div className="bg-white text-gray-800 mt-20">
+    <div className="bg-white text-gray-800">
       {/* Hero Section */}
       <section className="text-center py-12 px-4">
         <motion.h1

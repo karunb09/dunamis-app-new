@@ -47,6 +47,8 @@ const signupSlice = createSlice({
   initialState: {
     step: 1,
     loading: false,
+    otpStatus: "idle",
+    createStatus: "idle",
     error: null,
     otpSent: false,
     accountCreated: false,
@@ -58,6 +60,8 @@ const signupSlice = createSlice({
     resetSignup: () => ({
       step: 1,
       loading: false,
+      otpStatus: "idle",
+      createStatus: "idle",
       error: null,
       otpSent: false,
       accountCreated: false,
@@ -68,29 +72,35 @@ const signupSlice = createSlice({
       // Send OTP
       .addCase(sendOtp.pending, (state) => {
         state.loading = true;
+        state.otpStatus = "loading";
         state.error = null;
       })
       .addCase(sendOtp.fulfilled, (state) => {
         state.loading = false;
+        state.otpStatus = "succeeded";
         state.otpSent = true;
       })
       .addCase(sendOtp.rejected, (state, action) => {
         state.loading = false;
+        state.otpStatus = "failed";
         state.error = action.payload;
       })
 
       // Create Student
       .addCase(createStudent.pending, (state) => {
         state.loading = true;
+        state.createStatus = "loading";
         state.error = null;
       })
       .addCase(createStudent.fulfilled, (state) => {
         state.loading = false;
+        state.createStatus = "succeeded";
         state.accountCreated = true;
         state.step = 3; 
       })
       .addCase(createStudent.rejected, (state, action) => {
         state.loading = false;
+        state.createStatus = "failed";
         state.error = action.payload;
       });
   },

@@ -1,7 +1,8 @@
-const DEFAULT_IMAGE = "https://i.pravatar.cc/150?u=dunamis-default";
+const DEFAULT_IMAGE = "https://placehold.co/640x360?text=Course";
 
 const normalizeBaseUrl = (value) => {
-  const trimmed = typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
+  const trimmed =
+    typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
 
   if (!trimmed) {
     return "";
@@ -27,8 +28,8 @@ export const resolveImageUrl = (path, fallback = DEFAULT_IMAGE) => {
     return value;
   }
 
-  const imageBase = normalizeBaseUrl(import.meta.env.VITE_IMAGE);
-  const apiBase = normalizeBaseUrl(import.meta.env.VITE_BASE_URL);
+  const imageBase = normalizeBaseUrl(process.env.NEXT_PUBLIC_IMAGE_URL);
+  const apiBase = normalizeBaseUrl(process.env.NEXT_PUBLIC_BASE_URL);
   const baseUrl = imageBase || apiBase;
 
   if (!baseUrl) {
@@ -39,4 +40,4 @@ export const resolveImageUrl = (path, fallback = DEFAULT_IMAGE) => {
   return `${baseUrl}${normalizedPath}`;
 };
 
-export const DEFAULT_AVATAR = DEFAULT_IMAGE;
+export const DEFAULT_COURSE_IMAGE = DEFAULT_IMAGE;

@@ -9,7 +9,9 @@ export const fetchTeachers = createAsyncThunk(
   "teachers/fetchTeachers",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/teachers/`);
+      const response = await axios.get(`${BASE_URL}/teachers/`, {
+        params: { limit: 1000 },
+      });
       return response.data.data || [];
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);

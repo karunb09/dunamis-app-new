@@ -338,11 +338,7 @@ exports.updateApplicationStatus = async (req, res) => {
             });
         }
 
-        const application = await TeacherApplication.findByIdAndUpdate(
-            id,
-            { status },
-            { new: true, runValidators: true }
-        ).select('-__v');
+        const application = await TeacherApplication.findById(id).select('-__v');
        
 
         if (!application) {
@@ -351,63 +347,98 @@ exports.updateApplicationStatus = async (req, res) => {
                 message: "Teacher application not found"
             });
         }
-        const {firstName,lastName}= application.name
+        const {firstName,lastName}= application.name;
 
         let generatedPassword = null;
 
-        if(application.status=='selected'){
-            await mailSender(application.email,`your application have been ${application.status}`,sendApplicationStatus(firstName,application.email,application.status));
-            const email =application.email
-            const existingUser = await User.find({email:email});
-            if(existingUser.length!=0){
-                return res.status(400).json({
-                    success:false,
-                    message:"user already exist with this email"
-                })
+        if (status === "selected") {
+            let user = await User.findOne({ email: application.email });
+
+            if (user && user.accountType !== "teacher") {
+                return res.status(409).json({
+                    success: false,
+                    message: "A non-teacher user already exists with this email",
+                });
             }
 
+            if (!user) {
                 generatedPassword = OtpGenerator.generate(7, {
                   upperCaseAlphabets: true,
                   lowerCaseAlphabets: true,
                   specialChars: true,
                 });
-            
-                console.log("password generated: ", generatedPassword);
 
-               
-            
-                const user = await User.create({
+                user = await User.create({
                   name: {
-                    firstName:firstName,
-                    lastName:lastName
+                    firstName,
+                    lastName,
                   },
                   email: application.email,
-                  mobileNo:application.mobileNo,
+                  mobileNo: application.mobileNo,
                   password: generatedPassword,
                   accountType: "teacher",
                   accountStatus: "active",
                   image: `https://api.dicebear.com/9.x/initials/svg?seed=${firstName}%20${lastName}`,
                 });
-            
-                const TeacherDoc = await Teacher.create({
+            }
+
+            let teacherDoc = await Teacher.findOne({
+                $or: [
+                    { teacherDetail: application._id },
+                    { userId: user._id },
+                ],
+            });
+
+            if (!teacherDoc) {
+                teacherDoc = await Teacher.create({
                   userId: user._id,
-                  teacherDetail:application._id,
-                
+                  teacherDetail: application._id,
                 });
-            
-                user.roleId = TeacherDoc._id;
+            }
+
+            let shouldSaveUser = false;
+
+            if (user.accountType !== "teacher") {
+                user.accountType = "teacher";
+                shouldSaveUser = true;
+            }
+
+            if (user.accountStatus !== "active") {
+                user.accountStatus = "active";
+                shouldSaveUser = true;
+            }
+
+            if (String(user.roleId || "") !== String(teacherDoc._id)) {
+                user.roleId = teacherDoc._id;
+                shouldSaveUser = true;
+            }
+
+            if (user.roleModel !== "teacher") {
                 user.roleModel = "teacher";
+                shouldSaveUser = true;
+            }
+
+            if (shouldSaveUser) {
                 await user.save();
-                
+            }
+
+            if (generatedPassword) {
                 await mailSender(
                   application.email,
-                  `Your teacher Account created`,
+                  "Your teacher Account created",
                   sendPasswordTemplate(user, "teacher", generatedPassword)
                 );
+            }
         }
-        else{
-            await mailSender(application.email,`your application have been ${application.status}`,sendApplicationStatus(firstName,application.email,application.status));
-        }
+
+        application.status = status;
+        await application.save();
+
+        await mailSender(
+            application.email,
+            `your application have been ${application.status}`,
+            sendApplicationStatus(firstName, application.email, application.status)
+        );
 
         res.status(200).json({
             success: true,

@@ -5,7 +5,8 @@ import { FaStar, FaClock, FaUsers } from "react-icons/fa";
 import { CheckCircle } from "react-feather";
 import { getCourseDetails } from "../../redux/Course/CourseSlice";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
-const IMAGE = import.meta.env.VITE_IMAGE;
+
+const DEFAULT_COURSE_IMAGE = "https://placehold.co/960x540?text=Course";
 // CourseDetailPage Component
 const CourseDetailPage = () => {
     const dispatch = useDispatch();
@@ -36,7 +37,7 @@ const CourseDetailPage = () => {
                 {/* Course Image */}
                 <div className="rounded-xl overflow-hidden shadow-lg">
                     <img
-                        src={`${IMAGE}${courseData.image}`}
+                        src={resolveImageUrl(courseData.image, DEFAULT_COURSE_IMAGE)}
                         alt={courseData.name}
                         className="w-full h-60 sm:h-72 md:h-96 object-cover"
                     />

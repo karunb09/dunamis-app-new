@@ -7,7 +7,7 @@ import { KeyboardMusic } from "lucide-react";
 import { fetchCourses } from "@/store/courseSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useEffect } from "react";
-import { IMAGE_BASE_URL } from "@/lib/siteConfig";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function PopularCourses() {
   const dispatch = useDispatch();
@@ -101,21 +101,6 @@ export default function PopularCourses() {
         return `${branchNames[0]} +${branchNames.length - 1} more`;
       };
 
-      const getImageUrl = (imagePath) => {
-        if (!imagePath) {
-          return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-            course.name || "Course"
-          )}`;
-        }
-
-        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-          return imagePath;
-        }
-
-        const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-        return `${IMAGE_BASE_URL}${cleanPath}`;
-      };
-
       const courseRating = calculateCourseRating();
       const enrolledStudents = calculateTotalStudents();
 
@@ -144,7 +129,12 @@ export default function PopularCourses() {
         discount: activePrice?.discount || 0,
         sessionType: activePrice?.sessionType || "standard",
         installments: activePrice?.installments || 1,
-        image: getImageUrl(course.image),
+        image: resolveImageUrl(
+          course.image,
+          `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+            course.name || "Course"
+          )}`
+        ),
         rating: parseFloat(courseRating) || 0,
         averageRating: parseFloat(courseRating) || 0,
         enrolledStudents: enrolledStudents,

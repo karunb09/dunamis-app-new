@@ -11,11 +11,32 @@ import * as Select from "@radix-ui/react-select";
 import { IoMdArrowDropdown } from "react-icons/io";
 import BookDemoModal from "@/compoents/PopupModals/BookDemoModal";
 
+const ButtonSpinner = ({ label }) => (
+  <span className="inline-flex items-center gap-2">
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent" />
+    <span>{label}</span>
+  </span>
+);
+
+const StepBlockingLoader = ({ title, description }) => (
+  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-[28px] bg-white/80 px-6 backdrop-blur-sm">
+    <div className="w-full max-w-xs rounded-[28px] border border-orange-100 bg-white px-5 py-5 text-center shadow-[0_24px_80px_-48px_rgba(249,115,22,0.9)]">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange-50 text-orange-500">
+        <span className="h-7 w-7 animate-spin rounded-full border-[3px] border-current border-r-transparent" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold text-slate-900">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-orange-100">
+        <div className="h-full w-2/3 animate-pulse rounded-full bg-gradient-to-r from-orange-400 to-orange-500" />
+      </div>
+    </div>
+  </div>
+);
 
 export default function SignUpForm() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { step, otpSent } = useSelector((state) => state.signup);
+  const { step, otpSent, otpStatus, createStatus } = useSelector((state) => state.signup);
   const [isBookDemoOpen, setBookDemoOpen] = useState(false);
 
   // Step 1 Fields
@@ -33,6 +54,9 @@ export default function SignUpForm() {
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(30);
   const intervalRef = useRef(null);
+  const isOtpLoading = otpStatus === "loading";
+  const isAccountCreating = createStatus === "loading";
+  const isStep2Busy = isOtpLoading || isAccountCreating;
 
   useEffect(() => {
     return () => {
@@ -66,6 +90,8 @@ export default function SignUpForm() {
   const handleContinueStep2 = (e) => {
     e.preventDefault();
 
+    if (isStep2Busy) return;
+
     if (!email || !password || !confirmPassword) {
       toast.error("Please fill out all fields");
       return;
@@ -92,13 +118,14 @@ export default function SignUpForm() {
       .unwrap()
       .then(() => {
         toast.success("Account created successfully!");
-        dispatch(setStep(3));
       })
       .catch((err) => toast.error(err || "Signup failed"));
   };
 
   // OTP Functions
   const handleSendOtp = () => {
+    if (isStep2Busy) return;
+
     if (!email) {
       toast.error("Please enter your email first");
       return;
@@ -130,9 +157,17 @@ export default function SignUpForm() {
       {/* Back Button */}
       <div
         onClick={
-          step === 1 ? () => router.back() : () => dispatch(setStep(step - 1))
+          isStep2Busy
+            ? undefined
+            : step === 1
+              ? () => router.back()
+              : () => dispatch(setStep(step - 1))
         }
-        className="flex items-center mb-6 text-sm text-gray-500 cursor-pointer hover:text-gray-700 transition"
+        className={`mb-6 flex items-center text-sm transition ${
+          isStep2Busy
+            ? "cursor-not-allowed text-gray-300"
+            : "cursor-pointer text-gray-500 hover:text-gray-700"
+        }`}
       >
         <HiArrowLeft className="mr-1" />
         <span>Back</span>
@@ -255,113 +290,138 @@ export default function SignUpForm() {
 
       {/* Step 2 */}
       {step === 2 && (
-        <form
-          className="space-y-4 w-full md:w-1/2 mx-auto"
-          onSubmit={handleContinueStep2}
-        >
-          <h2 className="text-center text-2xl font-bold mb-1">Account Creation</h2>
-          <p className="text-center text-gray-600 text-sm mb-6">
-            Set up your login credentials
-          </p>
-
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Enter your email address"
-            required
-            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
-          />
-
-          {/* OTP Section */}
-          <div className="flex items-center gap-2">
-            {!otpSent ? (
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                className="bg-orange-400 hover:bg-orange-500 text-white px-4 py-2 rounded-lg"
-              >
-                Send OTP
-              </button>
-            ) : countdown > 0 ? (
-              <p className="text-gray-500 text-sm">Resend OTP in {countdown}s</p>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                className="bg-orange-400 hover:bg-orange-500 text-white px-4 py-2 rounded-lg"
-              >
-                Resend OTP
-              </button>
-            )}
-          </div>
-
-          {otpSent && (
-            <input
-              type="text"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              placeholder="Enter OTP"
-              required
-              inputMode="numeric"
-              pattern="[0-9]*"
-              className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+        <div className="relative mx-auto w-full md:w-1/2">
+          {isStep2Busy && (
+            <StepBlockingLoader
+              title={isOtpLoading ? "Sending your OTP" : "Creating your account"}
+              description={
+                isOtpLoading
+                  ? "Please wait while we secure your email verification."
+                  : "Please wait while we complete your sign up."
+              }
             />
           )}
 
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a password"
-            required
-            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
-          />
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm your password"
-            required
-            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
-          />
+          <form
+            className={`space-y-4 ${isStep2Busy ? "pointer-events-none select-none" : ""}`}
+            onSubmit={handleContinueStep2}
+            aria-busy={isStep2Busy}
+          >
+            <h2 className="mb-1 text-center text-2xl font-bold">Account Creation</h2>
+            <p className="mb-6 text-center text-sm text-gray-600">
+              Set up your login credentials
+            </p>
 
-          {/* Terms & Conditions */}
-          <div className="flex items-center gap-2">
-            <input type="checkbox" required id="terms" className="w-4 h-4" />
-            <label htmlFor="terms" className="text-sm text-gray-600">
-              I accept the{" "}
-              <a
-                href="/term-condition"
-                target="_blank"
-                className="text-[#47c9c4] underline hover:text-[#47c9c4]"
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email address"
+              required
+              disabled={isStep2Busy}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+            />
+
+            <div className="flex items-center gap-2">
+              {!otpSent ? (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={isStep2Busy}
+                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-lg bg-orange-400 px-4 py-2 text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-orange-300"
+                >
+                  {isOtpLoading ? <ButtonSpinner label="Sending OTP" /> : "Send OTP"}
+                </button>
+              ) : countdown > 0 ? (
+                <p className="text-sm text-gray-500">Resend OTP in {countdown}s</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={isStep2Busy}
+                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-lg bg-orange-400 px-4 py-2 text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-orange-300"
+                >
+                  {isOtpLoading ? <ButtonSpinner label="Sending OTP" /> : "Resend OTP"}
+                </button>
+              )}
+            </div>
+
+            {otpSent && (
+              <input
+                type="text"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="Enter OTP"
+                required
+                disabled={isStep2Busy}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+              />
+            )}
+
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a password"
+              required
+              disabled={isStep2Busy}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
+              required
+              disabled={isStep2Busy}
+              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+            />
+
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                required
+                id="terms"
+                disabled={isStep2Busy}
+                className="h-4 w-4"
+              />
+              <label htmlFor="terms" className="text-sm text-gray-600">
+                I accept the{" "}
+                <a
+                  href="/term-condition"
+                  target="_blank"
+                  className="text-[#47c9c4] underline hover:text-[#47c9c4]"
+                >
+                  Terms & Conditions
+                </a>
+              </label>
+            </div>
+
+            <div className="flex items-center justify-between pt-4">
+              <button
+                type="button"
+                onClick={() => dispatch(setStep(1))}
+                disabled={isStep2Busy}
+                className="rounded-2xl border border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
               >
-                Terms & Conditions
-              </a>
-            </label>
-          </div>
-
-          <div className="flex justify-between items-center pt-4">
-            <button
-              type="button"
-              onClick={() => dispatch(setStep(1))}
-              className="bg-white border border-gray-300 text-gray-700 font-medium px-6 py-2 rounded-2xl hover:bg-gray-100 transition"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              // disabled={!otpSent || !otp || !password || !confirmPassword}
-              className={`font-medium px-6 py-2 rounded-2xl transition ${
-                 password && confirmPassword //otpSent && otp &&
-                  ? "bg-orange-400 hover:bg-orange-500 text-white"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
-              Continue
-            </button>
-          </div>
-        </form>
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={isStep2Busy || !password || !confirmPassword || !otp}
+                className={`inline-flex min-w-[164px] items-center justify-center gap-2 rounded-2xl px-6 py-2 font-medium transition ${
+                  isStep2Busy || !password || !confirmPassword || !otp
+                    ? "cursor-not-allowed bg-gray-300 text-gray-500"
+                    : "bg-orange-400 text-white hover:bg-orange-500"
+                }`}
+              >
+                {isAccountCreating ? <ButtonSpinner label="Creating account" /> : "Continue"}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {/* Step 3 */}

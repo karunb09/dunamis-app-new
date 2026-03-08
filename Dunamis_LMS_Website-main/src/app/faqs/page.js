@@ -100,7 +100,7 @@ const FAQPage = () => {
 
   return (
     <section className="py-20">
-      <div className="max-w-5xl mx-auto px-6 mt-20">
+      <div className="max-w-5xl mx-auto px-6">
         <motion.h4
           className="text-[#FF6B35] font-medium mb-2 flex items-center justify-center"
           

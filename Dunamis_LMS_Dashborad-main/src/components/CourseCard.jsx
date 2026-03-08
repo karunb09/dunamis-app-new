@@ -9,7 +9,8 @@ import { useDispatch } from 'react-redux';
 import Swal from 'sweetalert2';
 import { getCourses, deleteCourse, updateCourse } from '../redux/Course/CourseSlice';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../utils/resolveImageUrl';
-const IMAGE = import.meta.env.VITE_IMAGE;
+
+const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
 const categoryIcons = {
     Music: <MdMusicNote className="inline-block mr-1 text-blue-600" size={16} />,
     Language: <MdLanguage className="inline-block mr-1 text-green-600" size={16} />,
@@ -131,7 +132,7 @@ const CourseCard = ({ course }) => {
             onClick={handleCardClick}
         >
             <img
-                src={`${IMAGE}${image}`}
+                src={resolveImageUrl(image, DEFAULT_COURSE_IMAGE)}
                 alt={title}
                 className="rounded-md w-full h-40 object-cover mb-4"
                 draggable={false}

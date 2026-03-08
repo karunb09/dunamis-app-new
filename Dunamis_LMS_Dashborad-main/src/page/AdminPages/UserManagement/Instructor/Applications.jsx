@@ -89,11 +89,16 @@ const Applications = () => {
         const selectedApp = allApplications.find((app) => app._id === id);
         const result = await dispatch(updateApplicationStatus({ id, status: newStatus }));
 
+        if (result.meta.requestStatus === "rejected") {
+            toast.error(result.payload || "Failed to update application status.");
+            return;
+        }
+
         if (newStatus === "selected" && selectedApp && result.meta.requestStatus === "fulfilled") {
             const password = result.payload?.generatedPassword;
 
             if (!password) {
-                toast.error("Instructor was created, but no password was returned.");
+                toast.success("Instructor account is ready.");
                 return;
             }
 

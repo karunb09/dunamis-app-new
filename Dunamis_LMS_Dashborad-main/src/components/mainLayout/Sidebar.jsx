@@ -17,6 +17,7 @@ import {
   FiBell,
   FiChevronLeft,
   FiChevronRight,
+  FiX,
 } from "react-icons/fi";
 import { PiStudentBold } from "react-icons/pi";
 import { FaBuilding, FaBullhorn } from "react-icons/fa";
@@ -39,6 +40,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     "guest";
 
   const permissions = user?.permissions || [];
+  const isExpanded = isOpen || isDesktopOpen;
+  const isAdminLike = !["student", "teacher", "guest"].includes(accountType);
 
   const studentMenu = [
     { to: "/home", icon: <FiHome />, text: "Home" },
@@ -194,11 +197,11 @@ const Sidebar = ({ isOpen, onClose }) => {
   const renderMenu = () => {
     const menu = getMenuToRender();
 
-    if (accountType === "admin") {
+    if (isAdminLike) {
       return menu.map((section, index) => (
         <div key={index} className="mb-4">
-          {section.section && isDesktopOpen && (
-            <div className="text-xs text-gray-500 uppercase px-4 py-1 tracking-wide">
+          {section.section && isExpanded && (
+            <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
               {section.section}
             </div>
           )}
@@ -210,8 +213,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               icon={item.icon}
               text={item.text}
               onClick={onClose}
-              isDesktopOpen={isDesktopOpen}
-              isFirst={index === 0 && i === 0}
+              isExpanded={isExpanded}
             />
           ))}
         </div>
@@ -225,8 +227,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         icon={item.icon}
         text={item.text}
         onClick={onClose}
-        isDesktopOpen={isDesktopOpen}
-        isFirst={index === 0}
+        isExpanded={isExpanded}
       />
     ));
   };
@@ -235,58 +236,102 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       <div
         className={clsx(
-          "fixed inset-0 bg-black bg-opacity-40 z-30 md:hidden transition-opacity",
+          "fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-opacity md:hidden",
           { hidden: !isOpen }
         )}
         onClick={onClose}
-      ></div>
+      />
 
       <div
         className={clsx(
-          "fixed z-40 md:static md:translate-x-0 md:flex",
-          "top-0 left-0 h-full bg-white border-r shadow-sm flex-col justify-between transition-all duration-300 ease-in-out",
+          "fixed inset-y-0 left-0 z-40 flex w-[290px] max-w-[84vw] flex-col border-r border-slate-800 bg-slate-950 shadow-2xl transition-all duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:max-w-none md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          isDesktopOpen ? "md:w-64" : "md:w-16"
+          isDesktopOpen ? "md:w-72" : "md:w-20"
         )}
       >
-        <div className="hidden md:block absolute top-1/2 -right-4 z-50 transform -translate-y-1/2">
+        <div className="absolute top-1/2 -right-4 z-50 hidden -translate-y-1/2 md:block">
           <button
             onClick={() => setIsDesktopOpen(!isDesktopOpen)}
-            className="bg-white border rounded-full shadow p-1 hover:bg-gray-100"
+            className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-700 shadow-lg transition hover:bg-slate-50"
+            aria-label={isDesktopOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            <span className="text-xl transition-transform duration-200">
+            <span className="text-lg transition-transform duration-200">
               {isDesktopOpen ? <FiChevronLeft /> : <FiChevronRight />}
             </span>
           </button>
         </div>
 
-        <div className="flex flex-col justify-between h-full">
-          <div>
-            {isDesktopOpen && (
-              <img
-                src="/dunamisMusic.png"
-                alt="DUNAMIS Logo"
-                className="mb-5 h-10 w-auto ml-2 mt-1 sm:h-16"
-              />
-            )}
-
-            <nav
+        <div className="flex h-full flex-col justify-between overflow-hidden">
+          <div className="min-h-0 flex-1">
+            <div
               className={clsx(
-                "flex flex-col gap-2 px-2 text-gray-700",
-                !isDesktopOpen && "mt-[100px]"
+                "flex items-center border-b border-slate-800 px-4 py-5",
+                isExpanded ? "justify-between" : "justify-center"
               )}
             >
-              {renderMenu()}
-            </nav>
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+                  <img
+                    src="/dunamisMusic.png"
+                    alt="DUNAMIS Logo"
+                    className="h-8 w-8 object-contain"
+                  />
+                </div>
+                {isExpanded && (
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      Dunamis
+                    </p>
+                    <p className="truncate text-base font-semibold text-white">
+                      Learning Suite
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 md:hidden"
+                aria-label="Close sidebar"
+              >
+                <FiX className="text-lg" />
+              </button>
+            </div>
+
+            <div className="px-4 py-5">
+              {isExpanded && (
+                <div className="mb-5 rounded-3xl border border-white/10 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent px-4 py-4">
+                  <p className="text-xs font-medium uppercase tracking-[0.2em] text-orange-200/80">
+                    Workspace
+                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    Navigate courses, students, and operations from one place.
+                  </p>
+                </div>
+              )}
+
+              <nav className="flex flex-col gap-1.5">
+                {renderMenu()}
+              </nav>
+            </div>
           </div>
-          <div className="mt-5 mb-5 border-t pt-2">
-            <SidebarLink
-              to="/"
-              icon={<FiLogOut />}
-              text="Logout"
+
+          <div className="border-t border-slate-800 px-4 py-5">
+            <button
+              type="button"
               onClick={handleLogout}
-              isDesktopOpen={isDesktopOpen}
-            />
+              className={clsx(
+                "flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white",
+                isExpanded ? "justify-start gap-3" : "justify-center"
+              )}
+              title={!isExpanded ? "Logout" : ""}
+            >
+              <span className="text-xl">
+                <FiLogOut />
+              </span>
+              {isExpanded && <span>Logout</span>}
+            </button>
           </div>
         </div>
       </div>
@@ -294,24 +339,24 @@ const Sidebar = ({ isOpen, onClose }) => {
   );
 };
 
-const SidebarLink = ({ icon, text, to, onClick, isDesktopOpen }) => (
+const SidebarLink = ({ icon, text, to, onClick, isExpanded }) => (
   <NavLink
     to={to}
     end
     onClick={onClick}
-    title={!isDesktopOpen ? text : ""}
+    title={!isExpanded ? text : ""}
     className={({ isActive }) =>
       clsx(
-        "flex items-center px-4 py-2 rounded-md transition-all cursor-pointer",
-        isDesktopOpen ? "gap-3 justify-start" : "justify-center",
+        "flex items-center rounded-2xl px-4 py-3 text-sm transition-all",
+        isExpanded ? "justify-start gap-3" : "justify-center",
         isActive
-          ? "bg-gray-100 font-semibold text-black"
-          : "text-gray-700 hover:bg-gray-100"
+          ? "bg-white text-slate-950 shadow-lg shadow-slate-950/20"
+          : "text-slate-300 hover:bg-white/10 hover:text-white"
       )
     }
   >
     <span className="text-xl">{icon}</span>
-    {isDesktopOpen && <span className="text-sm font-medium">{text}</span>}
+    {isExpanded && <span className="font-medium">{text}</span>}
   </NavLink>
 );
 

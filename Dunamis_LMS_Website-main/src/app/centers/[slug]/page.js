@@ -159,7 +159,7 @@ export default function CenterDetailsPage({ params }) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12 mt-20 min-h-screen">
+    <div className="mx-auto min-h-screen max-w-7xl px-6 py-12">
       <Link
         href="/centers"
         className="text-gray-700 hover:text-black mb-8 block text-sm flex items-center gap-2"

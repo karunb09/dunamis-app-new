@@ -191,7 +191,7 @@ export default function PaymentConfirmation() {
   if (sel === null) {
     return (
       <div className="min-h-screen bg-gray-50 py-8 px-4">
-        <div className="max-w-3xl mx-auto text-center mt-24">
+        <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-2xl font-semibold">No selection found</h1>
           <p className="text-gray-600 mt-2">Please go back and choose a plan.</p>
           <button onClick={handleBackToCourse} className="mt-6 rounded-md bg-gray-900 px-4 py-2 text-white">
@@ -205,7 +205,7 @@ export default function PaymentConfirmation() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mt-20">
+        <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-3">Payment Confirmation</h1>
           <p className="text-gray-500 text-lg">Review your course details and complete your enrollment</p>
           <button onClick={handleBackToCourse} className="mb-8 flex items-center justify-center gap-2 rounded-md px-4 py-2 text-gray-600 transition-colors hover:text-gray-900 mx-auto">

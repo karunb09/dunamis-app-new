@@ -26,7 +26,7 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
         ></link>
       </head>
-      <body className="flex flex-col min-h-screen">
+      <body className="flex min-h-screen flex-col bg-[#fffaf4] text-slate-900">
         <Toaster />
         <Navigation />
 

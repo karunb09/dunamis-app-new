@@ -223,6 +223,10 @@ const AddCoursePage = () => {
             (courseId && updateCourse.fulfilled.match(resultAction)) ||
             (!courseId && createCourse.fulfilled.match(resultAction))
         ) {
+            localStorage.setItem(
+                "activeTab",
+                isPublished ? "Active Courses" : "Draft Courses"
+            );
             toast.success(isPublished ? "Course saved successfully" : "Course draft saved successfully");
             navigate("/admin/course-management");
         } else {

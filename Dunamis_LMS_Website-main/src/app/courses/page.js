@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCourses } from "@/store/courseSlice";
 import { IoMdStar } from "react-icons/io";
-import { IMAGE_BASE_URL } from "@/lib/siteConfig";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function CoursesPage() {
   const dispatch = useDispatch();
@@ -33,15 +33,12 @@ export default function CoursesPage() {
         ? course.price.find((p) => p.isSelected) || course.price[0]
         : null;
 
-      const imagePath = course.image || "";
-      const image =
-        imagePath && (imagePath.startsWith("http://") || imagePath.startsWith("https://"))
-          ? imagePath
-          : imagePath
-            ? `${IMAGE_BASE_URL}${imagePath.startsWith("/") ? imagePath : `/${imagePath}`}`
-            : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-                course.name || "Course"
-              )}`;
+      const image = resolveImageUrl(
+        course.image,
+        `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+          course.name || "Course"
+        )}`
+      );
 
       return {
         id: course._id,
@@ -109,7 +106,7 @@ export default function CoursesPage() {
   // Loading state
   if (loading)
     return (
-      <section className="max-w-7xl mt-20 mx-auto px-6 py-12 flex flex-col items-center justify-center">
+      <section className="mx-auto flex max-w-7xl flex-col items-center justify-center px-6 py-12">
         <div className="w-16 h-16 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
         <p className="text-lg text-gray-600">Loading courses...</p>
       </section>
@@ -117,7 +114,7 @@ export default function CoursesPage() {
 
   // Main Page
   return (
-    <section className="max-w-7xl mt-20 mx-auto px-6 py-12">
+    <section className="mx-auto max-w-7xl px-6 py-12">
       {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-3xl font-extrabold">All Courses</h1>

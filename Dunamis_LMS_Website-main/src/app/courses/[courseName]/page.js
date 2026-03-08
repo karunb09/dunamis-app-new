@@ -205,7 +205,7 @@ export default function CourseDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto mt-20 px-4 sm:px-6 py-8 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B35] mx-auto mb-4"></div>
@@ -218,7 +218,7 @@ export default function CourseDetailPage() {
 
   if (error) {
     return (
-      <div className="max-w-7xl mx-auto mt-20 px-4 sm:px-6 py-8 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="text-center">
           <p className="text-red-500 mb-4">Error: {error}</p>
           <Link href="/courses" className="text-[#FF6B35] hover:underline">
@@ -231,7 +231,7 @@ export default function CourseDetailPage() {
 
   if (!course) {
     return (
-      <div className="max-w-7xl mx-auto mt-20 px-4 sm:px-6 py-8 sm:py-12">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="text-center">
           <p className="text-red-500 text-xl mb-2">Course not found!</p>
           <p className="text-gray-600 mb-4">
@@ -249,7 +249,7 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <section className="max-w-7xl mx-auto mt-20 px-4 sm:px-6 py-8 sm:py-12">
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
       <Link
         href="/courses"
         className="text-sm text-gray-500 hover:text-black block mb-4"

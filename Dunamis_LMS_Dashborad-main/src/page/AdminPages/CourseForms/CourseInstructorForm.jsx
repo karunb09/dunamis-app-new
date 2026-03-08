@@ -21,14 +21,12 @@ const InstructorForm = ({ instructors: propInstructors, setInstructors, selected
         dispatch(fetchTeachers());
     }, [dispatch]);
 
-    useEffect(() => {
-        console.log("All instructors from store:", instructorOptions);
-    }, [instructorOptions]);
-
-    const filteredInstructors = instructorOptions?.filter(
-        (inst) =>
-            inst?.teacherApplication?.mode?.toLowerCase() === selectedMode?.toLowerCase()
-    );
+    const filteredInstructors = selectedMode
+        ? instructorOptions?.filter(
+            (inst) =>
+                inst?.teacherApplication?.mode?.toLowerCase() === selectedMode?.toLowerCase()
+        )
+        : instructorOptions;
 
     const formattedOptions = filteredInstructors?.map((option) => ({
         value: option.id,

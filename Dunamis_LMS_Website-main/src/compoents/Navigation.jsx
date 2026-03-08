@@ -1,175 +1,147 @@
 "use client";
 
-import { Menu, X, ChevronDown } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { ChevronDown, Menu, X } from "lucide-react";
 import { DASHBOARD_URL } from "@/lib/siteConfig";
 
+const primaryLinks = [
+  { label: "Home", href: "/" },
+  { label: "Courses", href: "/courses" },
+  { label: "Offline Centres", href: "/centers" },
+];
+
+const secondaryLinks = [
+  { label: "About Us", href: "/about-us" },
+  { label: "Testimonials", href: "/testimonials" },
+  { label: "Success Stories", href: "/success-stories" },
+  { label: "Become a Teacher", href: "/become-teacher" },
+  { label: "FAQs", href: "/faqs" },
+  { label: "Contact Us", href: "/contact-us" },
+];
+
+const isActivePath = (pathname, href) => {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+};
+
 const Navigation = () => {
+  const pathname = usePathname();
+  const dropdownRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const [isMoreDropdownOpen, setIsMoreDropdownOpen] = useState(false);
-  const [showNavbar, setShowNavbar] = useState(true);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    setIsClient(true);
+    setIsMobileMenuOpen(false);
+    setIsMoreDropdownOpen(false);
+  }, [pathname]);
 
-    let lastScrollY = window.scrollY;
-
+  useEffect(() => {
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-
-      setScrolled(currentScrollY > 20);
-
-      // Hide on scroll down, show on scroll up
-      if (currentScrollY > lastScrollY && currentScrollY > 80) {
-        setShowNavbar(false);
-      } else {
-        setShowNavbar(true);
-      }
-
-      lastScrollY = currentScrollY;
+      setScrolled(window.scrollY > 16);
     };
 
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  if (!isClient) return null;
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!dropdownRef.current?.contains(event.target)) {
+        setIsMoreDropdownOpen(false);
+      }
+    };
 
-  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
-  const closeMobileMenu = () => {
+    document.addEventListener("mousedown", handlePointerDown);
+
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? "hidden" : "";
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileMenuOpen]);
+
+  const closeMenus = () => {
     setIsMobileMenuOpen(false);
     setIsMoreDropdownOpen(false);
   };
-  const toggleMoreDropdown = () => setIsMoreDropdownOpen(!isMoreDropdownOpen);
 
-  const NavLinks = ({ mobile = false }) => {
-    const pathname = usePathname();
-    // Route mapping
-    const routes = {
-      Home: "/",
-      Courses: "/courses",
-      "Offline Centres": "/centers",
-      Store: "/store",
-    };
+  const renderPrimaryLink = (link, mobile = false) => {
+    const active = isActivePath(pathname, link.href);
 
     return (
-      <>
-        {Object.entries(routes).map(([item, href], i) => (
-          <Link
-            key={i}
-            href={href}
-            className={`relative font-medium transition-all duration-300 group ${mobile
-              ? `text-lg ${pathname === href ? "text-[#FF6B35]" : "text-gray-700 hover:text-[#FF6B35]"} py-2`
-              : `${pathname === href ? "text-[#FF6B35]" : "text-gray-700 hover:text-[#FF6B35]"}`
-              }`}
-            onClick={closeMobileMenu}
-          >
-            {item}
-            <span className={`absolute bottom-0 left-0 h-0.5 bg-[#FF6B35] transition-all duration-300 ${pathname === href ? "w-full" : "w-0 group-hover:w-full"}`}></span>
-          </Link>
-        ))}
-
-        {/* More Dropdown */}
-        <div className="relative">
-          <button
-            onClick={toggleMoreDropdown}
-            className={`relative font-medium transition-all duration-300 group ${mobile
-              ? "text-lg text-gray-700 hover:text-[#FF6B35] py-2"
-              : "text-gray-700 hover:text-[#FF6B35]"
-              }`}
-          >
-            More
-            <ChevronDown
-              className="inline ml-1 transition-transform duration-300 group-hover:rotate-180"
-              size={16}
-            />
-          </button>
-
-          {/* Desktop Dropdown */}
-          {isMoreDropdownOpen && !mobile && (
-            <div className="absolute left-0 mt-2 w-48 rounded-lg shadow-lg bg-white/90 backdrop-blur-md border border-gray-200">
-              <div className="py-2 text-sm">
-                {[
-                  { label: "About Us", href: "/about-us" },
-                  { label: "Testimonials", href: "/testimonials" },
-                  { label: "Success Stories", href: "/success-stories" },
-                  { label: "Become a Teacher", href: "/become-teacher" },
-                  { label: "FAQs", href: "/faqs" },
-                  { label: "Contact Us", href: "/contact-us" },
-                ].map((link, i) => (
-                  <Link
-                    key={i}
-                    href={link.href}
-                    className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    onClick={closeMobileMenu}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mobile Dropdown */}
-          {isMoreDropdownOpen && mobile && (
-            <div className="mt-2 pl-4 space-y-2">
-              {[
-                { label: "About Us", href: "/about-us" },
-                { label: "Testimonials", href: "/testimonials" },
-                { label: "Success Stories", href: "/success-stories" },
-                { label: "Become a Teacher", href: "/become-teacher" },
-                { label: "FAQs", href: "/faqs" },
-                { label: "Contact Us", href: "/contact-us" },
-              ].map((link, i) => (
-                <Link
-                  key={i}
-                  href={link.href}
-                  className="block text-gray-700 hover:text-[#FF6B35]"
-                  onClick={closeMobileMenu}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-
-        {/* Auth CTA */}
-        <div
-          className={`flex ${mobile ? "flex-col space-y-2 mt-4" : "items-center space-x-4"
-            }`}
-        >
-          <Link
-            href={DASHBOARD_URL}
-            className={`px-4 py-2 bg-[#FF6B35] text-white rounded-xl hover:bg-[#ff4400] transition-all duration-300 text-sm font-medium ${mobile ? "w-full text-center" : ""
-              }`}
-            onClick={closeMobileMenu}
-          >
-            Login | Dashboard
-          </Link>
-        </div>
-      </>
+      <Link
+        key={link.href}
+        href={link.href}
+        onClick={closeMenus}
+        className={[
+          "transition-colors duration-200",
+          mobile
+            ? "block rounded-2xl px-4 py-3 text-base font-medium"
+            : "rounded-full px-4 py-2 text-sm font-medium",
+          active
+            ? "bg-[#fff1eb] text-[#d9480f]"
+            : "text-slate-700 hover:bg-stone-100 hover:text-slate-950",
+        ].join(" ")}
+      >
+        {link.label}
+      </Link>
     );
   };
 
+  const renderSecondaryLinks = (mobile = false) =>
+    secondaryLinks.map((link) => {
+      const active = isActivePath(pathname, link.href);
+
+      return (
+        <Link
+          key={link.href}
+          href={link.href}
+          onClick={closeMenus}
+          className={[
+            "transition-colors duration-200",
+            mobile
+              ? "block rounded-2xl px-4 py-3 text-sm font-medium"
+              : "block px-4 py-2.5 text-sm",
+            active
+              ? "bg-[#fff1eb] text-[#d9480f]"
+              : "text-slate-600 hover:bg-stone-50 hover:text-slate-950",
+          ].join(" ")}
+        >
+          {link.label}
+        </Link>
+      );
+    });
 
   return (
-    <div>
-      {/* Main Navigation */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${showNavbar ? "translate-y-0" : "-translate-y-full"
-          } ${scrolled ? "backdrop-blur-md bg-white shadow-md" : "bg-white"}`}
+    <>
+      <header
+        className={[
+          "sticky top-0 z-50 border-b transition-all duration-300",
+          scrolled
+            ? "border-stone-200/80 bg-[rgba(255,250,244,0.92)] shadow-[0_20px_50px_-32px_rgba(15,23,42,0.45)] backdrop-blur-xl"
+            : "border-transparent bg-[rgba(255,250,244,0.96)]",
+        ].join(" ")}
       >
-        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-2 lg:py-3">
-          {/* Logo */}
-          <Link href="/" onClick={closeMobileMenu} className="flex-shrink-0">
-            <div className="h-10 w-[120px] lg:h-12 lg:w-[140px] relative">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            onClick={closeMenus}
+            className="flex items-center gap-3 rounded-full bg-white px-3 py-2 shadow-sm ring-1 ring-stone-200 transition hover:ring-stone-300"
+          >
+            <div className="relative h-10 w-[104px] sm:h-11 sm:w-[116px]">
               <Image
                 src="/Dunamis.png"
                 alt="Dunamis Logo"
@@ -178,44 +150,99 @@ const Navigation = () => {
                 priority
               />
             </div>
+            <div className="hidden min-w-0 sm:block">
+              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
+                Creative Learning
+              </p>
+              <p className="truncate text-sm font-semibold text-slate-900">
+                Learn with rhythm
+              </p>
+            </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-8">
-            <NavLinks />
+          <div className="hidden flex-1 items-center justify-between rounded-full border border-stone-200 bg-white/90 px-3 py-2 shadow-sm lg:flex">
+            <nav className="flex items-center gap-1">
+              {primaryLinks.map((link) => renderPrimaryLink(link))}
+
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsMoreDropdownOpen((open) => !open)}
+                  className={[
+                    "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200",
+                    secondaryLinks.some((link) =>
+                      isActivePath(pathname, link.href),
+                    ) || isMoreDropdownOpen
+                      ? "bg-[#fff1eb] text-[#d9480f]"
+                      : "text-slate-700 hover:bg-stone-100 hover:text-slate-950",
+                  ].join(" ")}
+                  aria-expanded={isMoreDropdownOpen}
+                  aria-label="Open more pages"
+                >
+                  More
+                  <ChevronDown
+                    className={[
+                      "h-4 w-4 transition-transform",
+                      isMoreDropdownOpen ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </button>
+
+                {isMoreDropdownOpen && (
+                  <div className="absolute left-0 top-full mt-3 w-60 overflow-hidden rounded-3xl border border-stone-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.65)]">
+                    {renderSecondaryLinks()}
+                  </div>
+                )}
+              </div>
+            </nav>
+
+            <div className="ml-4 flex items-center gap-3">
+              <a
+                href="/signup"
+                className="inline-flex min-w-[108px] items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
+              >
+                Sign Up
+              </a>
+
+              <Link
+                href={DASHBOARD_URL}
+                className="inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
+              >
+                Login | Dashboard
+              </Link>
+            </div>
           </div>
 
-          {/* Mobile Menu Button */}
           <button
-            onClick={toggleMobileMenu}
-            className={`lg:hidden p-2 rounded-xl transition-all duration-300 ${isMobileMenuOpen
-              ? "bg-red-50 text-red-600"
-              : "bg-gray-50 text-gray-700 hover:bg-gray-100"
-              }`}
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="ml-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:border-stone-300 hover:bg-stone-50 lg:hidden"
+            aria-label="Open navigation menu"
           >
-            {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            <Menu className="h-5 w-5" />
           </button>
         </div>
-      </nav>
+      </header>
 
-      {/* Mobile Menu Overlay */}
       <div
-        className={`fixed inset-0 z-40 bg-black/20 backdrop-blur-sm transition-all duration-300 lg:hidden ${isMobileMenuOpen ? "opacity-100 visible" : "opacity-0 invisible"
-          }`}
-        onClick={closeMobileMenu}
+        className={[
+          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
+          isMobileMenuOpen ? "visible opacity-100" : "invisible opacity-0",
+        ].join(" ")}
+        onClick={closeMenus}
       />
 
-      {/* Mobile Menu */}
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-sm bg-white z-50 transition-transform duration-300 transform shadow-2xl lg:hidden ${isMobileMenuOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+        className={[
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_60%,#fff7ef_100%)] shadow-2xl transition-transform duration-300 lg:hidden",
+          isMobileMenuOpen ? "translate-x-0" : "translate-x-full",
+        ].join(" ")}
       >
-        {/* Mobile Header */}
-        <div className="flex justify-between items-center px-6 py-3 border-b border-gray-100 bg-gray-50">
+        <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
           <Link
             href="/"
-            onClick={closeMobileMenu}
-            className="h-[50px] w-[130px] relative"
+            onClick={closeMenus}
+            className="relative h-11 w-[118px]"
           >
             <Image
               src="/Dunamis.png"
@@ -226,19 +253,76 @@ const Navigation = () => {
             />
           </Link>
           <button
-            onClick={closeMobileMenu}
-            className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors duration-300"
+            type="button"
+            onClick={closeMenus}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 transition hover:bg-stone-50"
+            aria-label="Close navigation menu"
           >
-            <X size={24} />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Mobile Navigation */}
-        <div className="flex flex-col px-6 py-6 space-y-2 flex-1 overflow-y-auto">
-          <NavLinks mobile />
+        <div className="flex-1 overflow-y-auto px-5 py-6">
+          <div className="rounded-[28px] border border-stone-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
+              Explore
+            </p>
+            <div className="mt-3 space-y-1">
+              {primaryLinks.map((link) => renderPrimaryLink(link, true))}
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-[28px] border border-stone-200 bg-white px-4 py-4 shadow-sm">
+            <button
+              type="button"
+              onClick={() => setIsMoreDropdownOpen((open) => !open)}
+              className="flex w-full items-center justify-between rounded-2xl px-1 py-1 text-left"
+            >
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
+                  More
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Company pages, stories, and support.
+                </p>
+              </div>
+              <ChevronDown
+                className={[
+                  "h-5 w-5 text-slate-500 transition-transform",
+                  isMoreDropdownOpen ? "rotate-180" : "",
+                ].join(" ")}
+              />
+            </button>
+
+            {isMoreDropdownOpen && (
+              <div className="mt-3 space-y-1 border-t border-stone-100 pt-3">
+                {renderSecondaryLinks(true)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-stone-200 px-5 py-5">
+          <a
+            href="/signup"
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={closeMenus}
+            className="inline-flex w-full items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
+          >
+            Sign Up
+          </a>
+
+          <Link
+            href={DASHBOARD_URL}
+            onClick={closeMenus}
+            className="inline-flex w-full items-center justify-center rounded-full bg-[#ef6a32] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
+          >
+            Login | Dashboard
+          </Link>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

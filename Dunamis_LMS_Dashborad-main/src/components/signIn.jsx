@@ -136,8 +136,8 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex items-center h-[800px] px-2 bg-[url('/paper-geometric-shape.jpg')] bg-cover bg-[position:top_-80px_center] sm:bg-[position:top_-80px_center] bg-center">
-      <div className="bg-white/80 p-2 sm:p-8 rounded-2xl shadow-lg w-full max-w-xs sm:max-w-md mx-auto lg:ml-24 lg:mr-0">
+    <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-6 sm:px-6 sm:py-10 bg-[url('/paper-geometric-shape.jpg')] bg-cover bg-center">
+      <div className="w-full max-w-xs rounded-2xl bg-white/85 p-4 shadow-lg backdrop-blur-sm sm:max-w-md sm:p-8">
         <h2 className="text-2xl font-semibold text-center mb-6">
           {step === 1
             ? "Sign In"

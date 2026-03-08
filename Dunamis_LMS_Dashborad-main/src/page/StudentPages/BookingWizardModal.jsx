@@ -122,10 +122,7 @@ export default function BookingWizardModal({
 
           {/* Date & Time selection */}
           <div className="w-full">
-            <label className="flex items-center gap-2 font-semibold mb-2 text-gray-700 text-xs sm:text-base">
-              <span className="material-symbols-outlined text-base align-bottom">
-                calendar_month
-              </span>
+            <label className="flex items-center gap-2 font-semibold mb-2 text-gray-700 text-xs sm:text-base">        
               Select Date & Time
             </label>
             {demoSlots.map(({ date, slots }) => (

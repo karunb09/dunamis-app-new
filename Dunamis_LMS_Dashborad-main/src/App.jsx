@@ -77,24 +77,9 @@ import ContentForm from "./page/AdminPages/ContentManagement/ContentCreate";
 
 const App = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const user_role = "admin"; // change this to 'teacher' or 'admin' to test and also from Sidebar.jsx
 
   const location = useLocation();
 
-  // Map routes to titles
-  const pageTitleMap = {
-    "/home": "Home",
-    "/my-courses": "My Courses",
-    "/explore-courses": "Explore Courses",
-    "/assignments": "Assignments",
-    "/homework": "Homework",
-    "/performance": "Performance",
-    "/admin/content-management": "Content Management",
-  };
-
-  const currentTitle = pageTitleMap[location.pathname] || "Dashboard";
-
-  // signIn and Terms page layout
   if (location.pathname === "/" || location.pathname === "/terms") {
     return (
       <>
@@ -114,21 +99,17 @@ const App = () => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-screen bg-slate-100 text-slate-900">
       <Toaster />
       <Sidebar
-        user_role={user_role}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
-      <div className="flex flex-col flex-1 overflow-auto">
-        <Navigation
-          onMenuClick={() => setSidebarOpen(true)}
-          title={currentTitle}
-          userRole={user_role}
-        />
-        <main className="p-6 bg-gray-50 flex-1">
-          <Routes>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Navigation onMenuClick={() => setSidebarOpen(true)} />
+        <main className="flex-1 px-4 pb-6 pt-4 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Routes>
             {/* Student Routes */}
             <Route path="/home" element={<RequireAuth allowedRoles={["student"]}><HomePage /></RequireAuth>} />
             <Route path="/my-courses" element={<RequireAuth allowedRoles={["student"]}><CoursePage /></RequireAuth>} />
@@ -239,8 +220,8 @@ const App = () => {
               element={<RequireAuth allowedRoles={["teacher"]}><StudentDetail /></RequireAuth>}
             />
             <Route path="/teacher/profile" element={<RequireAuth allowedRoles={["teacher"]}><Profile /></RequireAuth>} />
-
-          </Routes>
+            </Routes>
+          </div>
         </main>
       </div>
     </div>

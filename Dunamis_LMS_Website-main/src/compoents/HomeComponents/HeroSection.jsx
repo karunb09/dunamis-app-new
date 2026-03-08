@@ -39,7 +39,7 @@ export default function HeroSection() {
               initial={{ opacity: 0, y: -50 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
-              className="text-4xl md:text-6xl font-bold mb-4 leading-tight text-white text-left mt-24"
+              className="mt-8 text-4xl font-bold leading-tight text-white md:mt-10 md:text-6xl"
             >
               Discover Your Creative Potential
             </motion.h1>

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getStoredToken } from "../../utils/authSession";
+import { fetchTeachers } from "./teacherSlice";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // get all applications
@@ -68,6 +69,9 @@ export const updateApplicationStatus = createAsyncThunk(
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.message || "Failed to update status");
+      }
+      if (status === "selected") {
+        thunkAPI.dispatch(fetchTeachers());
       }
       return {
         id,

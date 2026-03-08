@@ -56,7 +56,7 @@ export default function BecomeTeacher() {
   };
 
   return (
-    <main className="pt-20">
+    <main>
       {/* Hero Section */}
       <motion.section
         className="max-w-4xl mx-auto text-center px-6 py-12"
