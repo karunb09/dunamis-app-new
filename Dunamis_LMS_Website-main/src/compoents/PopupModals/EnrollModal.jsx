@@ -1,200 +1,257 @@
 // EnrollModal.jsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { usePathname } from 'next/navigation';
+import { useMemo, useState } from 'react';
 import { HiUsers, HiClock, HiCheckCircle, HiX } from 'react-icons/hi';
 import { FaUser } from 'react-icons/fa';
 import GroupSessionModal from './GroupSessionModal';
 import IndividualSessionModal from './IndividualSessionModal';
-import { fetchCourseById } from '../../store/courseSlice';
-import { upsertEnrollSelection } from '../../helpers/session';
+import { getCurrentSelection, upsertEnrollSelection } from '../../helpers/session';
 
-const toTimeLabel = (t) => {
-    if (!t && t !== 0) return '—';
-    const s = String(t).trim();
-    if (/\b(AM|PM)\b/i.test(s)) return s.toUpperCase();
-    const clean = s.replace(/\D/g, '');
-    if (clean.length < 3) return s;
-    const hh = parseInt(clean.slice(0, clean.length - 2), 10);
-    const mm = clean.slice(-2);
-    if (Number.isNaN(hh)) return s;
-    const h12 = ((hh + 11) % 12) + 1;
-    const ap = hh < 12 ? 'AM' : 'PM';
-    return `${h12}:${mm} ${ap}`;
+const toTimeLabel = (value) => {
+    if (!value && value !== 0) return '—';
+
+    const raw = String(value).trim();
+    if (/\b(AM|PM)\b/i.test(raw)) {
+        return raw.toUpperCase();
+    }
+
+    const parts = raw.split(':');
+    if (parts.length === 2) {
+        const hours = Number(parts[0]);
+        const minutes = Number(parts[1]);
+
+        if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+            const hour12 = ((hours + 11) % 12) + 1;
+            const ampm = hours < 12 ? 'AM' : 'PM';
+            return `${hour12}:${String(minutes).padStart(2, '0')} ${ampm}`;
+        }
+    }
+
+    return raw;
 };
 
-const toMoney = (n) => {
-    const v = Number(n);
-    if (!Number.isFinite(v) || v <= 0) return null;
-    return `₹${v.toLocaleString('en-IN')}`;
+const toMoney = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    return `₹${amount.toLocaleString('en-IN')}`;
 };
 
-export default function EnrollModal({ isOpen, onClose }) {
-    const pathname = usePathname();
-    const dispatch = useDispatch();
+const normalizeCourseCategory = (course) => {
+    if (!course?.category) return '';
+    if (typeof course.category === 'string') return course.category;
+    return course.category?.name || '';
+};
 
-    const { course: storedCourse, loading, error } = useSelector((s) => s.course);
-    const payload = storedCourse || null;
-
+export default function EnrollModal({
+    isOpen,
+    onClose,
+    selection,
+    course: initialCourse,
+}) {
     const [isGroupModalOpen, setGroupModalOpen] = useState(false);
     const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
 
-    const courseId = useMemo(() => {
-        const parts = (pathname || '').split('/').filter(Boolean);
-        const i = parts.findIndex((p) => p.toLowerCase() === 'courses');
-        return i >= 0 ? parts[i + 1] : null;
-    }, [pathname]);
+    const selectedContext = selection || getCurrentSelection() || {};
+    const payload = initialCourse || null;
 
-    const loadedId = payload?._id || payload?.id || null;
+    const courseDetails = useMemo(() => {
+        const item = payload || {};
 
-    useEffect(() => {
-        if (!courseId) return;
-        if (loadedId === courseId) return;
-        dispatch(fetchCourseById(courseId));
-    }, [courseId, loadedId, dispatch]);
-
-    const course = useMemo(() => {
-        const d = payload || {};
         return {
-            id: d?._id || d?.id,
-            name: d?.name,
-            code: d?.code,
-            mode: d?.mode,
-            level: d?.level,
-            startDate: d?.startDate,
-            endDate: d?.endDate,
-            image: d?.image,
-            totalStudents: d?.totalStudents,
+            id: item?._id || item?.id || '',
+            name: item?.name || '',
+            code: item?.code || '',
+            mode: item?.mode || '',
+            level: item?.level || '',
+            startDate: item?.startDate || '',
+            endDate: item?.endDate || '',
+            image: item?.image || '',
+            totalStudents: item?.totalStudents || 0,
+            branches: Array.isArray(item?.branches) ? item.branches : [],
         };
     }, [payload]);
-
-    const teacher = useMemo(() => {
-        const d = payload || {};
-        const teachers = Array.isArray(d?.teacher) ? d.teacher : d?.teacher ? [d.teacher] : [];
-        const t =
-            teachers.find((x) => Array.isArray(x?.weeklyAvailability) && x.weeklyAvailability.length) ||
-            teachers[0] ||
-            {};
-        const td = t?.teacherDetail || {};
-        return {
-            id: t?._id || t?.id,
-            firstName: td?.name?.firstName,
-            lastName: td?.name?.lastName,
-            profilePicture: td?.profilePicture || t?.userId?.image || d?.image,
-            averageRating: t?.averageRating ?? d?.averageRating,
-            studentCount: t?.studentCount ?? d?.studentCount,
-            weeklyAvailability: Array.isArray(t?.weeklyAvailability) ? t.weeklyAvailability : [],
-        };
-    }, [payload]);
-
-    const schedules = useMemo(() => {
-        const list = (teacher?.weeklyAvailability || []).map((s) => ({
-            id: s?._id || s?.id,
-            days: s?.days || s?.day,
-            startTime: s?.startTime,
-            endTime: s?.endTime,
-            sessionType: s?.sessionType,
-            slotType: s?.slotType,
-            maxStudents: s?.maxStudents,
-        }));
-        const seen = new Set();
-        return list.filter((x) => {
-            const key = x.id || `${x.sessionType}-${x.days}-${x.startTime}-${x.endTime}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-    }, [teacher]);
 
     const prices = useMemo(() => {
-        const d = payload || {};
-        const arr = Array.isArray(d?.price) ? d.price : d?.price ? [d.price] : [];
-        return arr.map((x) => ({
-            id: x?._id || x?.id,
-            sessionType: x?.sessionType,
-            monthlyFee: x?.monthlyFee,
-            fullPayment: x?.fullPayment,
-            discount: x?.discount ?? 0,
-            isSelected: x?.isSelected ?? false,
-            isActive: x?.isActive ?? true,
+        const source = Array.isArray(payload?.price)
+            ? payload.price
+            : payload?.price
+                ? [payload.price]
+                : [];
+
+        return source.map((item) => ({
+            id: item?._id || item?.id || '',
+            sessionType: item?.sessionType || '',
+            monthlyFee: item?.monthlyFee,
+            fullPayment: item?.fullPayment,
+            discount: item?.discount ?? 0,
+            isSelected: item?.isSelected ?? false,
+            isActive: item?.isActive ?? true,
         }));
     }, [payload]);
 
     const groupPrice = useMemo(() => {
-        const list = prices.filter((p) => p.sessionType === 'standard');
-        return list.find((p) => p.isSelected) || list[0] || null;
+        const items = prices.filter(
+            (price) => price.isActive !== false && price.sessionType === 'standard'
+        );
+
+        return items.find((price) => price.isSelected) || items[0] || null;
     }, [prices]);
 
     const premiumPrice = useMemo(() => {
-        const list = prices.filter((p) => p.sessionType === 'premium');
-        return list.find((p) => p.isSelected) || list[0] || null;
+        const items = prices.filter(
+            (price) => price.isActive !== false && price.sessionType === 'premium'
+        );
+
+        return items.find((price) => price.isSelected) || items[0] || null;
     }, [prices]);
 
-    const groupSchedules = useMemo(() => schedules.filter((s) => s.sessionType === 'standard'), [schedules]);
-    const premiumSchedules = useMemo(() => schedules.filter((s) => s.sessionType === 'premium'), [schedules]);
+    const selectedSlot = selectedContext?.slot || null;
+    const selectedSessionType =
+        selectedContext?.sessionType || selectedSlot?.sessionType || null;
+    const selectedBranch =
+        selectedContext?.branchLabel || selectedContext?.branch || null;
+    const selectedInstructorLabel =
+        selectedContext?.instructorLabel || selectedContext?.instructor || 'Instructor';
+    const selectedSlotId = selectedSlot?.slotId || selectedSlot?.id || '';
+    const hasChosenSlot = Boolean(selectedSlotId);
+
+    const canChooseGroup =
+        hasChosenSlot &&
+        Boolean(groupPrice) &&
+        (!selectedSessionType || selectedSessionType === 'standard');
+    const canChoosePremium =
+        hasChosenSlot &&
+        Boolean(premiumPrice) &&
+        (!selectedSessionType || selectedSessionType === 'premium');
+
+    const getSlotSummary = (sessionType) => {
+        if (!selectedSlot || (selectedSessionType && selectedSessionType !== sessionType)) {
+            return {
+                maxStudents: null,
+                timeRange: 'Choose a matching slot in the previous step',
+            };
+        }
+
+        return {
+            maxStudents: selectedSlot?.maxStudents ?? null,
+            timeRange:
+                selectedSlot?.startTime && selectedSlot?.endTime
+                    ? `${toTimeLabel(selectedSlot.startTime)} - ${toTimeLabel(selectedSlot.endTime)}`
+                    : selectedSlot?.label || 'Selected in previous step',
+        };
+    };
+
+    const groupSlotSummary = getSlotSummary('standard');
+    const premiumSlotSummary = getSlotSummary('premium');
 
     if (!isOpen) return null;
 
-    const firstGroup = groupSchedules[0];
-    const firstPremium = premiumSchedules[0];
-
     const groupMonthly = toMoney(groupPrice?.monthlyFee) || toMoney(groupPrice?.fullPayment);
-    const premiumMonthly = toMoney(premiumPrice?.monthlyFee) || toMoney(premiumPrice?.fullPayment);
+    const premiumMonthly =
+        toMoney(premiumPrice?.monthlyFee) || toMoney(premiumPrice?.fullPayment);
+    const courseCategory = normalizeCourseCategory(payload);
 
-    // Use merge helper; do not write instructor/branch/slot here
-    const handleOpenGroup = () => {
+    const persistPlanContext = (sessionType, priceId) => {
         upsertEnrollSelection({
-            courseId: course?.id || null,
-            courseName: course?.name || '',
-            sessionType: 'standard',
-            priceId: groupPrice?.id || null,
-            scheduleId: firstGroup?.id || null,
+            courseId: courseDetails?.id || null,
+            courseName: courseDetails?.name || '',
+            deliveryMode: selectedContext?.deliveryMode || courseDetails?.mode || null,
+            sessionType,
+            priceId: priceId || null,
         });
+    };
+
+    const handleOpenGroup = () => {
+        if (!canChooseGroup) return;
+        persistPlanContext('standard', groupPrice?.id || null);
         setGroupModalOpen(true);
     };
 
     const handleOpenPremium = () => {
-        upsertEnrollSelection({
-            courseId: course?.id || null,
-            courseName: course?.name || '',
-            sessionType: 'premium',
-            priceId: premiumPrice?.id || null,
-            scheduleId: firstPremium?.id || null,
-        });
+        if (!canChoosePremium) return;
+        persistPlanContext('premium', premiumPrice?.id || null);
         setIsIndividualModalOpen(true);
     };
 
+    const selectionLockedMessage = !hasChosenSlot
+        ? 'Choose instructor and slot in the previous step to continue.'
+        : selectedSessionType
+            ? `Your selected slot is a ${selectedSessionType} session.`
+            : '';
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
-                <button onClick={onClose} className="cursor-pointer absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl" aria-label="Close">
+            <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+                <button
+                    onClick={onClose}
+                    className="absolute right-3 top-3 cursor-pointer text-xl text-gray-400 hover:text-gray-600"
+                    aria-label="Close"
+                >
                     <HiX />
                 </button>
 
-                <h2 className="text-2xl font-semibold text-center mb-1">Choose Your Learning Style</h2>
-                <p className="text-center text-sm text-gray-600 mb-5">Select the type of session that best fits your learning preferences</p>
+                <h2 className="mb-1 text-center text-2xl font-semibold">
+                    Choose Your Learning Style
+                </h2>
+                <p className="mb-5 text-center text-sm text-gray-600">
+                    Select the type of session that best fits your learning preferences
+                </p>
 
-                <div onClick={handleOpenGroup} className="border border-gray-200 rounded-lg p-5 mb-4 hover:shadow-md cursor-pointer transition-all">
-                    <div className="flex justify-between items-center">
-                        <h3 className="text-lg font-semibold">Standard Sessions</h3>
-                        <span className="bg-purple-100 text-purple-700 text-xs font-medium px-3 py-1 rounded-full">Popular</span>
+                {(selectedBranch || selectedContext?.instructorId || selectedSessionType) && (
+                    <div className="mb-5 rounded-xl border border-orange-100 bg-orange-50 p-4 text-sm text-gray-700">
+                        <p className="font-semibold text-gray-900">
+                            Your selected enrollment context
+                        </p>
+                        <div className="mt-2 space-y-1">
+                            {selectedBranch && <p>Branch: {selectedBranch}</p>}
+                            {selectedContext?.instructorId && (
+                                <p>Instructor: {selectedInstructorLabel}</p>
+                            )}
+                            {selectedSessionType && (
+                                <p>Slot session: {selectedSessionType}</p>
+                            )}
+                            {selectedSlot?.label && <p>Selected slot: {selectedSlot.label}</p>}
+                        </div>
                     </div>
-                    <p className="text-2xl font-bold mt-2 mb-1">
-                        {groupMonthly || '—'} <span className="text-sm font-medium text-gray-600">/month</span>
+                )}
+
+                {selectionLockedMessage ? (
+                    <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
+                        {selectionLockedMessage}
+                    </div>
+                ) : null}
+
+                <div
+                    onClick={handleOpenGroup}
+                    className={`mb-4 rounded-lg border p-5 transition-all ${
+                        !canChooseGroup
+                            ? 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60'
+                            : 'cursor-pointer border-gray-200 hover:shadow-md'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Standard Sessions</h3>
+                        <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                            Popular
+                        </span>
+                    </div>
+                    <p className="mb-1 mt-2 text-2xl font-bold">
+                        {groupMonthly || '—'}{' '}
+                        <span className="text-sm font-medium text-gray-600">/month</span>
                     </p>
-                    <p className="text-xs text-gray-500 mb-3">
-                        Full: {toMoney(groupPrice?.fullPayment) || '—'} • Discount: {groupPrice?.discount ?? 0} • Selected: {groupPrice?.isSelected ? 'Yes' : 'No'}
+                    <p className="mb-3 text-xs text-gray-500">
+                        Full: {toMoney(groupPrice?.fullPayment) || '—'} • Discount:{' '}
+                        {groupPrice?.discount ?? 0}%
                     </p>
-                    <ul className="text-sm text-gray-700 space-y-2">
+                    <ul className="space-y-2 text-sm text-gray-700">
                         <li className="flex items-center gap-2">
                             <HiUsers className="text-gray-600" />
-                            Up to {firstGroup?.maxStudents ?? 4} students
+                            Up to {groupSlotSummary.maxStudents ?? 4} students
                         </li>
                         <li className="flex items-center gap-2">
                             <HiClock className="text-gray-600" />
-                            {toTimeLabel(firstGroup?.startTime)} - {toTimeLabel(firstGroup?.endTime)}
+                            {groupSlotSummary.timeRange}
                         </li>
                         <li className="flex items-center gap-2">
                             <HiCheckCircle className="text-green-600" />
@@ -207,35 +264,44 @@ export default function EnrollModal({ isOpen, onClose }) {
                     <GroupSessionModal
                         isOpen
                         onClose={() => setGroupModalOpen(false)}
-                        course={course}
-                        teacher={teacher}
+                        course={courseDetails}
                         price={groupPrice}
-                        schedules={groupSchedules}
-                        courseCategory={payload?.category?.name}
+                        courseCategory={courseCategory}
                     />
                 )}
 
-                <div onClick={handleOpenPremium} className="border border-green-300 rounded-lg p-5 hover:shadow-md cursor-pointer transition-all">
-                    <div className="flex justify-between items-center">
+                <div
+                    onClick={handleOpenPremium}
+                    className={`rounded-lg border p-5 transition-all ${
+                        !canChoosePremium
+                            ? 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60'
+                            : 'cursor-pointer border-green-300 hover:shadow-md'
+                    }`}
+                >
+                    <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold">Premium Sessions</h3>
-                        <span className="bg-purple-100 text-purple-700 text-xs font-medium px-3 py-1 rounded-full">Personalized</span>
+                        <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                            Personalized
+                        </span>
                     </div>
-                    <div className="mt-2 mb-1">
+                    <div className="mb-1 mt-2">
                         <p className="text-2xl font-bold">
-                            {premiumMonthly || '—'} <span className="text-sm font-medium text-gray-600">/month</span>
+                            {premiumMonthly || '—'}{' '}
+                            <span className="text-sm font-medium text-gray-600">/month</span>
                         </p>
                     </div>
-                    <p className="text-xs text-gray-500 mb-3">
-                        Full: {toMoney(premiumPrice?.fullPayment) || '—'} • Discount: {premiumPrice?.discount ?? 0} • Selected: {premiumPrice?.isSelected ? 'Yes' : 'No'}
+                    <p className="mb-3 text-xs text-gray-500">
+                        Full: {toMoney(premiumPrice?.fullPayment) || '—'} • Discount:{' '}
+                        {premiumPrice?.discount ?? 0}%
                     </p>
-                    <ul className="text-sm text-gray-700 space-y-2">
+                    <ul className="space-y-2 text-sm text-gray-700">
                         <li className="flex items-center gap-2">
                             <FaUser className="text-gray-600" />
-                            Max {firstPremium?.maxStudents ?? 1} student
+                            Max {premiumSlotSummary.maxStudents ?? 1} student
                         </li>
                         <li className="flex items-center gap-2">
                             <HiClock className="text-gray-600" />
-                            {toTimeLabel(firstPremium?.startTime)} - {toTimeLabel(firstPremium?.endTime)}
+                            {premiumSlotSummary.timeRange}
                         </li>
                         <li className="flex items-center gap-2">
                             <HiCheckCircle className="text-green-600" />
@@ -248,21 +314,15 @@ export default function EnrollModal({ isOpen, onClose }) {
                     <IndividualSessionModal
                         isOpen
                         onClose={() => setIsIndividualModalOpen(false)}
-                        course={course}
-                        teacher={teacher}
+                        course={courseDetails}
                         price={premiumPrice}
-                        schedules={premiumSchedules}
-                        courseCategory={payload?.category?.name}
+                        courseCategory={courseCategory}
                     />
                 )}
 
-                <p className="text-center text-xs text-gray-500 mt-6">Click any option to continue with plan selection</p>
-
-                {(loading || error) && (
-                    <div className="absolute inset-0 bg-white/70 rounded-xl flex items-center justify-center text-sm">
-                        {loading ? 'Loading course...' : error}
-                    </div>
-                )}
+                <p className="mt-6 text-center text-xs text-gray-500">
+                    Click any option to continue with plan selection
+                </p>
             </div>
         </div>
     );

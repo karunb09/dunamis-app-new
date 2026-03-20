@@ -3,6 +3,10 @@ const User = require("../model/user.model");
 const TeacherDetail = require("../model/teacherApplication.model");
 const Feedback = require("../model/feedback.model");
 const Student = require("../model/student.model");
+const Course = require("../model/course.model");
+const Branch = require("../model/branch.model");
+const Slot = require("../model/slot.model");
+const DemoBooking = require("../model/demoBooking.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
@@ -34,6 +38,130 @@ const canManageTeacher = (requestUser, teacherDoc) => {
     String(requestUser.userId) === String(teacherDoc.userId)
   );
 };
+
+const safeParseNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toDayLabel = (day) => {
+  const value = String(day || "").trim().toLowerCase();
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1, 3);
+};
+
+const formatAvailabilitySlot = (slot) => {
+  if (!slot || !Array.isArray(slot.days) || !slot.days.length) {
+    return "Not specified";
+  }
+
+  const dayLabel = slot.days.map(toDayLabel).filter(Boolean).join(", ");
+  const timeLabel =
+    slot.startTime && slot.endTime
+      ? `${slot.startTime} - ${slot.endTime}`
+      : "Time not specified";
+
+  return `${dayLabel} (${timeLabel})`;
+};
+
+const formatPublicTeacherApplication = (teacherDetail) => {
+  if (!teacherDetail) return null;
+
+  return {
+    id: teacherDetail._id,
+    name: teacherDetail.name,
+    gender: teacherDetail.gender,
+    language: teacherDetail.language,
+    currentState: teacherDetail.currentState,
+    currentCity: teacherDetail.currentCity,
+    areaOfExpertise: teacherDetail.areaOfExpertise,
+    yearOfExperience: teacherDetail.yearOfExperience,
+    highestQualification: teacherDetail.highestQualification,
+    availability: teacherDetail.availability,
+    mode: teacherDetail.mode,
+    profilePicture: teacherDetail.profilePicture,
+    profileVideo: teacherDetail.profileVideo,
+    specialization:
+      teacherDetail.specilization || teacherDetail.specialization || "",
+  };
+};
+
+const formatPublicCourseSummary = (course) => {
+  if (!course) return null;
+
+  return {
+    _id: course._id,
+    id: course._id,
+    name: course.name,
+    code: course.code,
+    mode: course.mode,
+    level: course.level,
+    image: course.image,
+    category: course.category
+      ? {
+          _id: course.category._id,
+          name: course.category.name,
+          icon: course.category.icon,
+          color: course.category.color,
+        }
+      : null,
+  };
+};
+
+const formatPublicUserSummary = (user) => {
+  if (!user) return null;
+
+  return {
+    _id: user._id,
+    name: user.name,
+    image: user.image,
+  };
+};
+
+const formatPublicTeacherSummary = (teacher) => {
+  const teacherDetail = teacher.teacherDetail;
+  const courseSummaries = Array.isArray(teacher.course)
+    ? teacher.course.map(formatPublicCourseSummary).filter(Boolean)
+    : [];
+  const firstCourse = courseSummaries[0] || null;
+  const firstAvailability = Array.isArray(teacher.weeklyAvailability)
+    ? teacher.weeklyAvailability[0]
+    : null;
+
+  return {
+    id: teacher._id,
+    user: formatPublicUserSummary(teacher.userId),
+    averageRating: safeParseNumber(teacher.averageRating, 0),
+    studentCount: safeParseNumber(teacher.studentCount, 0),
+    teacherApplication: formatPublicTeacherApplication(teacherDetail),
+    courses: courseSummaries,
+    attendanceHistory: [
+      {
+        courseCategory: firstCourse?.category?.name || "N/A",
+        courseName: firstCourse?.name || "N/A",
+        slot: formatAvailabilitySlot(firstAvailability),
+        sessionType:
+          teacherDetail?.mode === "online" ? "Online" : teacherDetail?.mode || "N/A",
+      },
+    ],
+    createdAt: teacher.createdAt,
+    updatedAt: teacher.updatedAt,
+  };
+};
+
+const formatPublicTeacherDetails = (teacher) => ({
+  id: teacher._id,
+  user: formatPublicUserSummary(teacher.userId),
+  averageRating: safeParseNumber(teacher.averageRating, 0),
+  studentCount: safeParseNumber(teacher.studentCount, 0),
+  teacherDetails: formatPublicTeacherApplication(teacher.teacherDetail),
+  courses: Array.isArray(teacher.course)
+    ? teacher.course.map(formatPublicCourseSummary).filter(Boolean)
+    : [],
+  introVideoUrl: teacher.teacherDetail?.profileVideo || "",
+  createdAt: teacher.createdAt,
+  updatedAt: teacher.updatedAt,
+});
 
 exports.createTeacher = async (req, res) => {
   try {
@@ -222,6 +350,81 @@ exports.createTeacher = async (req, res) => {
       });
     }
 
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.getPublicTeachers = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 50,
+      sortBy = "createdAt",
+      sortOrder = "desc",
+      search,
+    } = req.query;
+
+    const filter = {};
+    if (search) {
+      const regex = { $regex: search, $options: "i" };
+      const teacherDetailIds = await TeacherDetail.find({
+        $or: [
+          { "name.firstName": regex },
+          { "name.lastName": regex },
+          { areaOfExpertise: regex },
+        ],
+      }).distinct("_id");
+
+      filter.$or = [{ teacherDetail: { $in: teacherDetailIds } }];
+    }
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 50, 1);
+
+    const teachers = await Teacher.find(filter)
+      .populate({
+        path: "userId",
+        select: "name image _id",
+      })
+      .populate({
+        path: "teacherDetail",
+        select:
+          "name gender language currentState currentCity areaOfExpertise yearOfExperience highestQualification availability mode profilePicture profileVideo specilization specialization",
+      })
+      .populate({
+        path: "course",
+        select: "_id name code mode level image category",
+        populate: {
+          path: "category",
+          model: "Category",
+          select: "name icon color",
+        },
+      })
+      .select(
+        "userId teacherDetail course studentCount averageRating weeklyAvailability createdAt updatedAt"
+      )
+      .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
+      .skip((pageNumber - 1) * limitNumber)
+      .limit(limitNumber);
+
+    const total = await Teacher.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      data: teachers.map(formatPublicTeacherSummary),
+      pagination: {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(total / limitNumber),
+        totalTeachers: total,
+        hasNextPage: pageNumber * limitNumber < total,
+        hasPrevPage: pageNumber > 1,
+      },
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -425,9 +628,78 @@ exports.getAllTeachers = async (req, res) => {
   }
 };
 
+exports.getPublicTeacherById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const teacher = await Teacher.findById(id)
+      .populate({
+        path: "userId",
+        select: "name image _id",
+      })
+      .populate({
+        path: "teacherDetail",
+        select:
+          "name gender language currentState currentCity areaOfExpertise yearOfExperience highestQualification availability mode profilePicture profileVideo specilization specialization",
+      })
+      .populate({
+        path: "course",
+        select: "_id name code mode level image category",
+        populate: {
+          path: "category",
+          model: "Category",
+          select: "name icon color",
+        },
+      })
+      .select(
+        "userId teacherDetail course studentCount averageRating createdAt updatedAt"
+      );
+
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: "Teacher not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: formatPublicTeacherDetails(teacher),
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid teacher ID format",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 exports.getTeacherById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    const teacherAccess = await Teacher.findById(id).select("userId");
+    if (!teacherAccess) {
+      return res.status(404).json({
+        success: false,
+        message: "Teacher not found",
+      });
+    }
+
+    if (!canManageTeacher(req.user, teacherAccess)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not authorized to access this teacher",
+      });
+    }
 
     // Populate teacher with all relevant details
     const teacher = await Teacher.findById(id)
@@ -471,13 +743,6 @@ exports.getTeacherById = async (req, res) => {
         },
       })
       .populate("remunerations");
-
-    if (!teacher) {
-      return res.status(404).json({
-        success: false,
-        message: "Teacher not found",
-      });
-    }
 
     // Get courses IDs
     const courseIds = teacher.course.map((c) => c._id);
@@ -714,6 +979,97 @@ exports.updateTeacher = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+exports.deleteTeacher = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const teacher = await Teacher.findById(id).populate("userId teacherDetail");
+    if (!teacher) {
+      return res.status(404).json({
+        success: false,
+        message: "Teacher not found",
+      });
+    }
+
+    const [
+      occupiedSlotCount,
+      demoBookingCount,
+      paymentReferenceCount,
+      courseAssignmentCount,
+      branchAssignmentCount,
+    ] = await Promise.all([
+      Slot.countDocuments({
+        createdBy: teacher._id,
+        "students.0": { $exists: true },
+      }),
+      DemoBooking.countDocuments({ teacherId: teacher._id }),
+      Student.countDocuments({ "payments.teacherId": teacher._id }),
+      Course.countDocuments({ teacher: teacher._id }),
+      Branch.countDocuments({ teachers: teacher._id }),
+    ]);
+
+    if (occupiedSlotCount || demoBookingCount || paymentReferenceCount) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This instructor has live bookings, payments, or occupied slots. Disable the account instead of deleting it.",
+        blockers: {
+          occupiedSlots: occupiedSlotCount,
+          demoBookings: demoBookingCount,
+          paymentReferences: paymentReferenceCount,
+        },
+      });
+    }
+
+    await Promise.all([
+      Course.updateMany(
+        { teacher: teacher._id },
+        { $pull: { teacher: teacher._id } }
+      ),
+      Branch.updateMany(
+        { teachers: teacher._id },
+        { $pull: { teachers: teacher._id } }
+      ),
+      Slot.deleteMany({ createdBy: teacher._id }),
+    ]);
+
+    if (teacher.teacherDetail?._id) {
+      await TeacherDetail.findByIdAndDelete(teacher.teacherDetail._id);
+    }
+
+    if (teacher.userId?._id) {
+      await User.findByIdAndDelete(teacher.userId._id);
+    }
+
+    await Teacher.findByIdAndDelete(teacher._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Instructor deleted successfully",
+      deletedTeacherId: id,
+      cleanup: {
+        removedFromCourses: courseAssignmentCount,
+        removedFromBranches: branchAssignmentCount,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting teacher:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid teacher ID format",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete instructor",
       error: error.message,
     });
   }

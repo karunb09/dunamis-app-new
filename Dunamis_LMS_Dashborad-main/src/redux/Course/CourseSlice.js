@@ -1,12 +1,38 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "../../api/axios";
+import { getStoredToken, getStoredUser } from "../../utils/authSession";
+
+const resolveAccountType = () => {
+  const user = getStoredUser();
+  return user?.accountType || user?.role || user?.roleId?.accountType || "";
+};
+
+const isAdminRole = () => {
+  const accountType = String(resolveAccountType()).toLowerCase();
+  return ["admin", "superadmin"].includes(accountType);
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Get all courses
 export const getCourses = createAsyncThunk(
   "course/getCourses",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get("/course/get");
+      const usePrivateRoute = isAdminRole();
+      const endpoint = usePrivateRoute ? "/course/manage" : "/course/get";
+      const headers = usePrivateRoute ? getAuthHeaders() : {};
+
+      if (usePrivateRoute && !headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
+      const response = await axios.get(endpoint, {
+        headers,
+      });
       return Array.isArray(response.data)
         ? response.data
         : response.data.data || [];
@@ -21,7 +47,19 @@ export const getCourseDetails = createAsyncThunk(
   "course/getCourseDetails",
   async (courseId, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`/course/get/${courseId}`);
+      const usePrivateRoute = isAdminRole();
+      const endpoint = usePrivateRoute
+        ? `/course/manage/${courseId}`
+        : `/course/get/${courseId}`;
+      const headers = usePrivateRoute ? getAuthHeaders() : {};
+
+      if (usePrivateRoute && !headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
+      const response = await axios.get(endpoint, {
+        headers,
+      });
       return response.data.data;
     } catch (err) {
       return rejectWithValue(err.response?.data || err.message);
@@ -34,8 +72,14 @@ export const createCourse = createAsyncThunk(
   "course/createCourse",
   async (formData, { rejectWithValue }) => {
     try {
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
       const response = await axios.post("/course/create", formData, {
         headers: {
+          ...headers,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -51,7 +95,14 @@ export const deleteCourse = createAsyncThunk(
   "course/deleteCourse",
   async (courseId, { rejectWithValue }) => {
     try {
-      const response = await axios.delete(`/course/delete/${courseId}`);
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
+      const response = await axios.delete(`/course/delete/${courseId}`, {
+        headers,
+      });
       return courseId;
     } catch (error) {
       return rejectWithValue(error.response?.data || "Failed to delete course");
@@ -64,8 +115,14 @@ export const updateCourse = createAsyncThunk(
   "course/updateCourse",
   async ({ courseId, updates }, { rejectWithValue }) => {
     try {
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
       const response = await axios.put(`/course/update/${courseId}`, updates, {
         headers: {
+          ...headers,
           "Content-Type": "multipart/form-data",
         },
       });

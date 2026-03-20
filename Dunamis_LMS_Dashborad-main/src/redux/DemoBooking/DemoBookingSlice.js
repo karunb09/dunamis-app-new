@@ -1,7 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL; 
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Book Demo Slot
 export const bookDemoSlot = createAsyncThunk(
@@ -10,11 +16,14 @@ export const bookDemoSlot = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/demoBookings/`,
-        bookingData
+        bookingData,
+        {
+          headers: getAuthHeaders(),
+        }
       );
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -22,12 +31,15 @@ export const bookDemoSlot = createAsyncThunk(
 // Get All Bookings
 export const getAllBookings = createAsyncThunk(
   "demoBookings/getAllBookings",
-  async (_, thunkAPI) => {
+  async (params = {}, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/demoBookings/`);
+      const response = await axios.get(`${BASE_URL}/demoBookings/`, {
+        params,
+        headers: getAuthHeaders(),
+      });
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -39,11 +51,14 @@ export const updateBookingStatus = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/demoBookings/${id}`,
-        updatedData
+        updatedData,
+        {
+          headers: getAuthHeaders(),
+        }
       );
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data || error.message);
     }
   }
 );
@@ -65,7 +80,11 @@ const demoBookingSlice = createSlice({
       })
       .addCase(bookDemoSlot.fulfilled, (state, action) => {
         state.loading = false;
-        state.bookings.push(action.payload); 
+        if (action.payload?.booking) {
+          state.bookings.unshift(action.payload.booking);
+        } else if (action.payload) {
+          state.bookings.unshift(action.payload);
+        }
       })
       .addCase(bookDemoSlot.rejected, (state, action) => {
         state.loading = false;
@@ -78,7 +97,7 @@ const demoBookingSlice = createSlice({
       })
       .addCase(getAllBookings.fulfilled, (state, action) => {
         state.loading = false;
-        state.bookings = action.payload; 
+        state.bookings = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(getAllBookings.rejected, (state, action) => {
         state.loading = false;
@@ -91,9 +110,11 @@ const demoBookingSlice = createSlice({
       })
       .addCase(updateBookingStatus.fulfilled, (state, action) => {
         state.loading = false;
-        const updatedBooking = action.payload;
+        const updatedBooking = action.payload?.booking || action.payload;
         state.bookings = state.bookings.map((booking) =>
-          booking.id === updatedBooking.id ? updatedBooking : booking
+          (booking.id || booking._id) === (updatedBooking.id || updatedBooking._id)
+            ? updatedBooking
+            : booking
         );
       })
       .addCase(updateBookingStatus.rejected, (state, action) => {

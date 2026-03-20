@@ -7,14 +7,27 @@ import { useRouter } from 'next/navigation';
 import LoginModal from '@/compoents/PopupModals/LoginModal';
 import PaymentModal from '@/compoents/PopupModals/PaymentModal';
 import { createEnrollmentOrder, verifyEnrollmentPayment, clearOrder } from '@/store/enrollmentSlice';
+import { getCurrentSelection, clearEnrollSelection } from '@/helpers/session';
+import {
+  clearEnrollmentResume,
+  resolveEnrollmentResumeHref,
+  saveEnrollmentResume,
+} from '@/helpers/enrollmentResume';
 
 const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
-const SESSION_KEY = 'enrollSelection';
 
 const asMoney = (n) => {
   const v = Number(n);
   if (!Number.isFinite(v) || v < 0) return null;
   return `₹${v.toLocaleString('en-IN')}`;
+};
+
+const getUserDisplayName = (user) => {
+  const rawName = user?.name;
+  if (typeof rawName === 'string') return rawName;
+  const firstName = rawName?.firstName || user?.firstName || '';
+  const lastName = rawName?.lastName || user?.lastName || '';
+  return `${firstName} ${lastName}`.trim();
 };
 
 export default function PaymentConfirmation() {
@@ -27,6 +40,7 @@ export default function PaymentConfirmation() {
   const [hasToken, setHasToken] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [pendingPaymentAction, setPendingPaymentAction] = useState(false);
   const [sel, setSel] = useState(null);
 
   useEffect(() => {
@@ -37,12 +51,20 @@ export default function PaymentConfirmation() {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(SESSION_KEY);
-      setSel(raw ? JSON.parse(raw) : null);
+      setSel(getCurrentSelection());
     } catch (e) {
       setSel(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!sel) return;
+    if (hasToken) return;
+
+    saveEnrollmentResume('/payment-confirmation');
+    setPendingPaymentAction(true);
+    setLoginOpen(true);
+  }, [sel, hasToken]);
 
   useEffect(() => {
     return () => {
@@ -50,13 +72,15 @@ export default function PaymentConfirmation() {
     };
   }, [dispatch]);
 
-  const sessionType = sel?.sessionType || null;
+  const selectedSessionType = sel?.sessionType || sel?.slot?.sessionType || null;
   const planType = sel?.planType || null;
   const courseName = sel?.courseName || null;
   const category = sel?.category || null;
   const duration = sel?.duration || null;
   const courseImageParam = sel?.courseImage || null;
-  const branch = sel?.branch || null;
+  const deliveryMode = sel?.deliveryMode || null;
+  const branchId = sel?.branchId || null;
+  const branchLabel = sel?.branchLabel || sel?.branch || null;
   const instructorId = sel?.instructorId || null;
   const instructorLabel = sel?.instructorLabel || sel?.instructor || null;
   const slot = sel?.slot || null;
@@ -65,10 +89,11 @@ export default function PaymentConfirmation() {
   const discount = sel?.discount ?? 0;
   const courseId = sel?.courseId || null;
 
-  const uiSessionLabel = sessionType === 'premium' ? 'Individual Sessions' : sessionType === 'standard' ? 'Group Sessions' : null;
+  const uiSessionLabel = selectedSessionType === 'premium' ? 'Individual Sessions' : selectedSessionType === 'standard' ? 'Group Sessions' : null;
+  const uiDeliveryLabel = deliveryMode ? deliveryMode.charAt(0).toUpperCase() + deliveryMode.slice(1) : null;
 
   const priceBlock = useMemo(() => {
-    if (!sessionType) return { error: 'Missing or invalid sessionType.' };
+    if (!selectedSessionType) return { error: 'Missing or invalid sessionType.' };
     if (!planType) return { error: 'Missing or invalid planType.' };
 
     if (planType === 'monthly') {
@@ -99,7 +124,7 @@ export default function PaymentConfirmation() {
       savings,
       pct: hasPct ? pct : 0,
     };
-  }, [sessionType, planType, monthlyFee, fullPayment, discount]);
+  }, [selectedSessionType, planType, monthlyFee, fullPayment, discount]);
 
   const srcImage = useMemo(() => {
     if (!courseImageParam) return null;
@@ -108,19 +133,14 @@ export default function PaymentConfirmation() {
 
   const handleBackToCourse = () => router.push('/courses');
 
-  const handlePayClick = async () => {
+  const submitPayment = async () => {
     if (priceBlock?.error) return;
-
-    if (!hasToken) {
-      setLoginOpen(true);
-      return;
-    }
 
     if (!courseId) {
       alert('Course ID is missing. Please restart enrollment.');
       return;
     }
-    if (!sessionType) {
+    if (!selectedSessionType) {
       alert('Session type is missing. Please restart enrollment.');
       return;
     }
@@ -137,9 +157,12 @@ export default function PaymentConfirmation() {
 
     const orderData = {
       courseId: courseId,
-      sessionType: sessionType,
+      sessionType: selectedSessionType,
+      planType,
       teacherId: instructorId,
       slotId: slot.slotId,
+      deliveryMode,
+      branchId,
     };
 
     const result = await dispatch(createEnrollmentOrder(orderData));
@@ -151,22 +174,48 @@ export default function PaymentConfirmation() {
     }
   };
 
+  const handlePayClick = async () => {
+    if (!hasToken) {
+      saveEnrollmentResume('/payment-confirmation');
+      setPendingPaymentAction(true);
+      setLoginOpen(true);
+      return;
+    }
+
+    await submitPayment();
+  };
+
+  const handleAuthSuccess = async () => {
+    setHasToken(true);
+    setLoginOpen(false);
+
+    if (pendingPaymentAction) {
+      setPendingPaymentAction(false);
+      await submitPayment();
+      return;
+    }
+  };
+
   const handlePaymentSuccess = async (paymentDetails) => {
     const verificationData = {
       razorpay_order_id: paymentDetails.razorpay_order_id,
       razorpay_payment_id: paymentDetails.razorpay_payment_id,
       razorpay_signature: paymentDetails.razorpay_signature,
       courseId: courseId,
-      sessionType: sessionType,
+      sessionType: selectedSessionType,
+      planType,
       teacherId: instructorId,
       slotId: slot.slotId,
+      deliveryMode,
+      branchId,
     };
 
     const result = await dispatch(verifyEnrollmentPayment(verificationData));
 
     if (verifyEnrollmentPayment.fulfilled.match(result)) {
       setPayOpen(false);
-      sessionStorage.removeItem(SESSION_KEY);
+      clearEnrollSelection();
+      clearEnrollmentResume();
       router.push('/payments/success');
     } else {
       alert('Payment verification failed. Please contact support.');
@@ -218,7 +267,7 @@ export default function PaymentConfirmation() {
           <div className="rounded-2xl bg-white p-8 shadow-sm">
             <h2 className="mb-6 text-2xl font-bold text-gray-900">Course Details</h2>
 
-            <div className="mb-8 flex gap-4 border-b border-gray-100 pb-8">
+          <div className="mb-8 flex gap-4 border-b border-gray-100 pb-8">
               {srcImage ? (
                 <img src={srcImage} alt={courseName || 'Course'} className="h-20 w-20 rounded-lg object-cover" />
               ) : (
@@ -232,10 +281,16 @@ export default function PaymentConfirmation() {
                     <HiUser className="h-4 w-4" />
                     <span>{instructorLabel || 'Instructor not selected'}</span>
                   </div>
-                  {branch && (
+                  {uiDeliveryLabel && (
                     <div className="flex items-center gap-1">
                       <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
-                      <span>{branch}</span>
+                      <span>{uiDeliveryLabel}</span>
+                    </div>
+                  )}
+                  {branchLabel && (
+                    <div className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
+                      <span>{branchLabel}</span>
                     </div>
                   )}
                   {slot?.label ? (
@@ -262,6 +317,12 @@ export default function PaymentConfirmation() {
                 <span className="text-gray-600">Plan Type</span>
                 <span className="font-semibold text-gray-900">{priceBlock?.planName || 'Plan type missing'}</span>
               </div>
+              {uiDeliveryLabel && (
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Delivery Mode</span>
+                  <span className="font-semibold text-gray-900">{uiDeliveryLabel}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-gray-600">Duration</span>
                 <span className="font-semibold text-gray-900">{priceBlock?.planDuration || 'Duration unavailable'}</span>
@@ -274,7 +335,7 @@ export default function PaymentConfirmation() {
                 <div className="flex items-center gap-3">
                   <HiCheckCircle className="h-5 w-5 flex-shrink-0 text-green-500" />
                   <span className="text-gray-700">
-                    {sessionType === 'premium' ? 'One-on-one personalized sessions' : sessionType === 'standard' ? 'Interactive group sessions' : 'Session type missing'}
+                    {selectedSessionType === 'premium' ? 'One-on-one personalized sessions' : selectedSessionType === 'standard' ? 'Interactive group sessions' : 'Session type missing'}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -349,7 +410,13 @@ export default function PaymentConfirmation() {
               className={`mb-6 w-full rounded-full px-6 py-4 text-lg font-semibold text-white transition-colors ${priceBlock?.error || orderLoading ? 'cursor-not-allowed bg-gray-300' : 'bg-orange-500 hover:bg-orange-600'
                 }`}
             >
-              {orderLoading ? 'Creating order...' : priceBlock?.error ? 'Resolve errors to continue' : `Pay ${asMoney(priceBlock.courseFee)}`}
+              {hasToken
+                ? orderLoading
+                  ? 'Creating order...'
+                  : priceBlock?.error
+                    ? 'Resolve errors to continue'
+                    : `Pay ${asMoney(priceBlock.courseFee)}`
+                : 'Sign in to continue'}
             </button>
 
             <div className="space-y-3">
@@ -363,7 +430,14 @@ export default function PaymentConfirmation() {
         </div>
       </div>
 
-      {loginOpen && <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />}
+      {loginOpen && (
+        <LoginModal
+          open={loginOpen}
+          onClose={() => setLoginOpen(false)}
+          onSuccess={handleAuthSuccess}
+          nextHref={resolveEnrollmentResumeHref('/payment-confirmation')}
+        />
+      )}
 
       {payOpen && order && (
         <PaymentModal
@@ -372,9 +446,9 @@ export default function PaymentConfirmation() {
           keyId={process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID}
           order={order}
           customer={{
-            name: user?.name || '',
+            name: getUserDisplayName(user),
             email: user?.email || '',
-            contact: user?.phone || '',
+            contact: user?.mobileNo || user?.phone || '',
           }}
           notes={{ description: courseName || 'Course purchase' }}
           onSuccess={handlePaymentSuccess}

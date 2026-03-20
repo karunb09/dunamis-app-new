@@ -1,10 +1,16 @@
 const nodemailer = require("nodemailer");
 const mailSender = async (email, title, body, attachments = []) => {
   try {
+    const port = Number(process.env.MAIL_PORT || 465);
+    const secure =
+      typeof process.env.MAIL_SECURE === "string"
+        ? process.env.MAIL_SECURE === "true"
+        : port === 465;
+
     let transporter = nodemailer.createTransport({
       host: process.env.MAIL_HOST,
-      port: process.env.MAIL_PORT,
-      secure: true,
+      port,
+      secure,
       auth: {
         user: process.env.MAIL_USER,
         pass: process.env.MAIL_PASS,
@@ -12,7 +18,9 @@ const mailSender = async (email, title, body, attachments = []) => {
     });
 
     let info = await transporter.sendMail({
-      from: `Dunamis LMS ${process.env.MAIL_USER}`,
+      from:
+        process.env.MAIL_FROM ||
+        `Dunamis LMS <${process.env.MAIL_USER}>`,
       to: `${email}`,
       subject: `${title}`,
       html: `${body}`,

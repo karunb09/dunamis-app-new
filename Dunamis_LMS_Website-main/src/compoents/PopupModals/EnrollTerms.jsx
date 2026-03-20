@@ -1,292 +1,371 @@
-// EnrollTerm.jsx
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { HiOutlineLocationMarker, HiOutlineCalendar, HiUser, HiX } from 'react-icons/hi';
-import { upsertEnrollSelection } from '@/helpers/session';
+import {
+  HiOutlineLocationMarker,
+  HiOutlineCalendar,
+  HiUser,
+  HiX,
+} from 'react-icons/hi';
+import { fetchAvailableSlots } from '@/store/demoBookingSlice';
+import { getCurrentSelection, upsertEnrollSelection } from '@/helpers/session';
+import {
+  buildBranchOptions,
+  buildInstructorOptions,
+  buildModeOptions,
+  filterSlotsForSelection,
+  normalizeMode,
+} from '@/helpers/courseSlots';
 
 export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
-    const dispatch = useDispatch();
-    const { status, items, error } = useSelector((s) => s.demoBooking || {});
+  const dispatch = useDispatch();
+  const {
+    availableSlots = [],
+    slotsStatus = 'idle',
+    slotsError = null,
+  } = useSelector((state) => state.demoBooking || {});
 
-    const [selectedBranch, setSelectedBranch] = useState('');
-    const [selectedInstructor, setSelectedInstructor] = useState(''); // store id
-    const [selectedSlot, setSelectedSlot] = useState(null);
+  const courseId = course?._id || course?.id || null;
+  const courseTitle = course?.name || course?.title || 'Course';
+  const modeOptions = useMemo(
+    () => buildModeOptions(course, availableSlots),
+    [availableSlots, course]
+  );
+  const branchOptions = useMemo(
+    () => buildBranchOptions(course, availableSlots),
+    [availableSlots, course]
+  );
+  const instructors = useMemo(
+    () => buildInstructorOptions(course, availableSlots, 'enrolled'),
+    [availableSlots, course]
+  );
 
-    const courseTitle = useMemo(() => course?.name || course?.title || 'Course', [course]);
+  const [selectedDeliveryMode, setSelectedDeliveryMode] = useState('online');
+  const [selectedBranchId, setSelectedBranchId] = useState('');
+  const [selectedInstructorId, setSelectedInstructorId] = useState('');
+  const [selectedSlotId, setSelectedSlotId] = useState('');
 
-    const dynamicBranches = useMemo(() => {
-        const arr = course?.branches || [];
-        const names = arr.map((b) => b?.branchName).filter(Boolean);
-        return names.length ? names : null;
-    }, [course]);
+  useEffect(() => {
+    if (!isOpen || !courseId) return;
+    dispatch(fetchAvailableSlots({ courseId, slotType: 'enrolled' }));
+  }, [courseId, dispatch, isOpen]);
 
-    // Build instructors as { id, label }
-    const dynamicInstructors = useMemo(() => {
-        const t = Array.isArray(course?.teacher) ? course.teacher : [];
-        const list = t
-            .map((it) => {
-                const id = it?._id || it?.id || it?.teacherDetail?._id || it?.userId?._id || null;
-                const f = it?.teacherDetail?.name?.firstName || '';
-                const l = it?.teacherDetail?.name?.lastName || '';
-                const label = `${f} ${l}`.trim() || 'Instructor';
-                return id ? { id: String(id), label } : null;
-            })
-            .filter(Boolean);
-        const seen = new Set();
-        return list.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
-    }, [course]);
+  useEffect(() => {
+    if (!isOpen) return;
 
-    const dynamicDates = useMemo(() => {
-        const teachers = Array.isArray(course?.teacher) ? course.teacher : [];
-        const avail = teachers
-            .filter((t) => Array.isArray(t.weeklyAvailability) && t.weeklyAvailability.length)
-            .flatMap((t) => t.weeklyAvailability);
+    const current = getCurrentSelection() || {};
+    const initialMode =
+      normalizeMode(current.deliveryMode) ||
+      modeOptions[0] ||
+      normalizeMode(course?.mode) ||
+      'online';
 
-        const onlyEnrolled = avail.filter((s) => s.slotType === 'enrolled');
-        if (!onlyEnrolled.length) return null;
+    setSelectedDeliveryMode(initialMode);
+    setSelectedBranchId(current.branchId || '');
+    setSelectedInstructorId(current.instructorId || '');
+    setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
+  }, [course?.mode, isOpen, modeOptions]);
 
-        const byDay = new Map();
+  useEffect(() => {
+    if (selectedDeliveryMode === 'offline') return;
+    if (!selectedBranchId) return;
+    setSelectedBranchId('');
+  }, [selectedBranchId, selectedDeliveryMode]);
 
-        const addSlot = (dayStr, start, end, id) => {
-            const dayLabel = capitalize(dayStr);
-            const time = start && end ? `${start} - ${end}` : 'Time TBD';
-            if (!byDay.has(dayLabel)) byDay.set(dayLabel, []);
-            byDay.get(dayLabel).push({
-                slotId: id || null,
-                label: `${dayLabel} | ${time}`,
-                startTime: start || null,
-                endTime: end || null,
-            });
-        };
+  useEffect(() => {
+    if (selectedBranchId) return;
 
-        for (const s of onlyEnrolled) {
-            if (s.day) addSlot(s.day, s.startTime, s.endTime, s._id);
-            else if (Array.isArray(s.days) && s.days.length) {
-                s.days.forEach((d) => addSlot(d, s.startTime, s.endTime, s._id));
-            }
-        }
+    const current = getCurrentSelection() || {};
+    if (!current.branchLabel || !branchOptions.length) return;
 
-        const out = [];
-        for (const [day, slots] of byDay.entries()) out.push({ day, slots });
-
-        const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-        out.sort((a, b) => dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day));
-        return out.length ? out : null;
-    }, [course]);
-
-    const branches = Array.isArray(dynamicBranches) ? dynamicBranches : [];
-    const instructors = Array.isArray(dynamicInstructors) ? dynamicInstructors : [];
-    const dates = Array.isArray(dynamicDates) ? dynamicDates : [];
-
-    const noBranches = branches.length === 0;
-    const noInstructors = instructors.length === 0;
-    const noDates = dates.length === 0;
-
-    const canProceed =
-        !noBranches &&
-        !noInstructors &&
-        !noDates &&
-        !!selectedBranch &&
-        !!selectedInstructor &&
-        !!selectedSlot?.slotId &&
-        status !== 'loading';
-
-    if (!isOpen) return null;
-
-    const selectedInstructorLabel =
-        instructors.find((x) => x.id === selectedInstructor)?.label || '';
-
-    const handleNext = () => {
-        if (!canProceed) return;
-        upsertEnrollSelection({
-            courseId: course?._id || course?.id || null,
-            courseName: course?.name || course?.title || null,
-            branch: selectedBranch,
-            instructorId: selectedInstructor, // store id
-            instructorLabel: selectedInstructorLabel, // optional for UI
-            slot: selectedSlot,
-        });
-        onNext?.({
-            branch: selectedBranch,
-            instructorId: selectedInstructor,
-            instructorLabel: selectedInstructorLabel,
-            slot: selectedSlot,
-        });
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 relative overflow-y-auto max-h-[90vh]">
-                <button
-                    onClick={onClose}
-                    className="cursor-pointer absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl"
-                    aria-label="Close"
-                >
-                    <HiX />
-                </button>
-
-                <div className="text-center mb-6">
-                    <h2 className="text-2xl font-bold">Confirm Enrolment Details</h2>
-                    <p className="text-gray-500 mt-1">
-                        Select branch, instructor, and a suitable date & time slot before continuing.
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">Course: {courseTitle}</p>
-                </div>
-
-                <div className="mb-6">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <HiOutlineLocationMarker />
-                        Select Branch
-                    </label>
-                    <select
-                        value={selectedBranch}
-                        onChange={(e) => {
-                            const value = e.target.value;
-                            setSelectedBranch(value);
-                            setSelectedSlot(null);
-                            upsertEnrollSelection({ branch: value });
-                        }}
-                        disabled={noBranches}
-                        className={`w-full border rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 ${noBranches ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'focus:ring-purple-300'
-                            }`}
-                    >
-                        <option value="">{noBranches ? 'Not available' : 'Choose a branch'}</option>
-                        {branches.map((branch, index) => (
-                            <option key={index} value={branch}>
-                                {branch}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="mb-6">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1">
-                        <HiUser />
-                        Select Instructor
-                    </label>
-                    <select
-                        value={selectedInstructor}
-                        onChange={(e) => {
-                            const id = e.target.value;
-                            setSelectedInstructor(id);
-                            upsertEnrollSelection({ instructorId: id });
-                        }}
-                        disabled={noInstructors}
-                        className={`w-full border rounded-lg px-4 py-2 bg-gray-50 focus:outline-none focus:ring-2 ${noInstructors ? 'text-gray-400 bg-gray-100 cursor-not-allowed' : 'focus:ring-purple-300'
-                            }`}
-                    >
-                        <option value="">{noInstructors ? 'Not available' : 'Choose an instructor'}</option>
-                        {instructors.map((it) => (
-                            <option key={it.id} value={it.id}>
-                                {it.label}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="mb-6">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-4">
-                        <HiOutlineCalendar />
-                        Select Date & Time
-                    </label>
-
-                    {noDates ? (
-                        <div className="text-sm text-gray-400 bg-gray-100 p-4 rounded-lg">Not available</div>
-                    ) : (
-                        <div className="space-y-4">
-                            {dates.map((day, i) => (
-                                <div key={i} className="border border-gray-200 rounded-xl p-4">
-                                    <p className="font-semibold mb-3 text-gray-800">{day.day}</p>
-                                    <div className="flex flex-wrap gap-3">
-                                        {day.slots.map((slot, j) => {
-                                            const value =
-                                                typeof slot === 'string'
-                                                    ? { slotId: null, label: `${day.day} | ${slot}` }
-                                                    : slot;
-                                            const active = selectedSlot?.slotId
-                                                ? selectedSlot.slotId === value.slotId
-                                                : selectedSlot?.label === value.label;
-                                            const disabled = !value.slotId;
-
-                                            return (
-                                                <button
-                                                    key={j}
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (disabled) return;
-                                                        setSelectedSlot(value);
-                                                        upsertEnrollSelection({ slot: value });
-                                                    }}
-                                                    disabled={disabled}
-                                                    className={`px-4 py-2 rounded-lg border text-sm transition ${disabled
-                                                            ? 'text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed'
-                                                            : active
-                                                                ? 'bg-purple-100 border-purple-300 text-purple-700'
-                                                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                                                        }`}
-                                                >
-                                                    {value.label}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex items-center justify-between">
-                    <div className="text-xs text-gray-500">
-                        {status === 'loading' ? 'Loading recent bookings…' : null}
-                        {error ? (
-                            <span className="text-red-500">
-                                {typeof error === 'string' ? error : error?.message || 'Failed to load'}
-                            </span>
-                        ) : null}
-                    </div>
-
-                    <button
-                        onClick={handleNext}
-                        disabled={!canProceed}
-                        className={`px-6 py-2 rounded-full font-medium transition ${!canProceed ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-purple-500 text-white hover:bg-purple-600'
-                            }`}
-                    >
-                        Next
-                    </button>
-                </div>
-
-                {Array.isArray(items) && items.length > 0 ? (
-                    <div className="mt-6">
-                        <p className="text-sm text-gray-600 mb-2">Recent bookings (for reference):</p>
-                        <div className="max-h-40 overflow-auto border rounded-lg">
-                            <ul className="divide-y">
-                                {items
-                                    .filter((b) => b.slotId?.slotType === 'enrolled' || b.enrollmentStatus === 'Enrolled')
-                                    .slice(0, 5)
-                                    .map((b) => (
-                                        <li key={b._id} className="p-3 text-sm text-gray-700">
-                                            <div className="flex justify-between">
-                                                <span>{b.slotId?.date ? new Date(b.slotId.date).toDateString() : '—'}</span>
-                                                <span className="text-gray-500">{b.enrollmentStatus || '—'}</span>
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {b.slotId?.startTime || '—'} - {b.slotId?.endTime || '—'} • {b.slotId?.location || '—'}
-                                            </div>
-                                        </li>
-                                    ))}
-                            </ul>
-                        </div>
-                    </div>
-                ) : null}
-            </div>
-        </div>
+    const matchedBranch = branchOptions.find(
+      (branch) => branch.label === current.branchLabel
     );
-}
 
-function capitalize(s) {
-    if (!s || typeof s !== 'string') return '';
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    if (matchedBranch) {
+      setSelectedBranchId(matchedBranch.id);
+    }
+  }, [branchOptions, selectedBranchId]);
+
+  const visibleInstructors = useMemo(() => {
+    return instructors.filter((instructor) =>
+      filterSlotsForSelection(instructor.slots, {
+        deliveryMode: selectedDeliveryMode,
+        branchId: selectedBranchId,
+      }).length > 0
+    );
+  }, [instructors, selectedBranchId, selectedDeliveryMode]);
+
+  const selectedInstructor = useMemo(
+    () =>
+      visibleInstructors.find(
+        (instructor) => instructor.id === selectedInstructorId
+      ) ||
+      instructors.find((instructor) => instructor.id === selectedInstructorId) ||
+      null,
+    [instructors, selectedInstructorId, visibleInstructors]
+  );
+
+  const visibleSlots = useMemo(
+    () =>
+      filterSlotsForSelection(selectedInstructor?.slots || [], {
+        deliveryMode: selectedDeliveryMode,
+        branchId: selectedBranchId,
+      }),
+    [selectedBranchId, selectedDeliveryMode, selectedInstructor]
+  );
+
+  const selectedSlot = useMemo(
+    () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
+    [selectedSlotId, visibleSlots]
+  );
+
+  useEffect(() => {
+    if (!selectedInstructorId) return;
+    if (
+      visibleInstructors.some((instructor) => instructor.id === selectedInstructorId)
+    ) {
+      return;
+    }
+
+    setSelectedInstructorId('');
+    setSelectedSlotId('');
+  }, [selectedInstructorId, visibleInstructors]);
+
+  useEffect(() => {
+    if (!selectedSlotId) return;
+    if (visibleSlots.some((slot) => slot.id === selectedSlotId)) return;
+    setSelectedSlotId('');
+  }, [selectedSlotId, visibleSlots]);
+
+  if (!isOpen) return null;
+
+  const selectedBranch =
+    branchOptions.find((branch) => branch.id === selectedBranchId) || null;
+  const shouldPickBranch =
+    selectedDeliveryMode === 'offline' && branchOptions.length > 0;
+  const canProceed =
+    Boolean(selectedInstructorId) &&
+    Boolean(selectedSlot?.slotId) &&
+    (!shouldPickBranch || Boolean(selectedBranchId)) &&
+    slotsStatus !== 'loading';
+  const slotsErrorMessage =
+    typeof slotsError === 'string'
+      ? slotsError
+      : slotsError?.message || slotsError?.error || '';
+
+  const handleNext = () => {
+    if (!canProceed) return;
+
+    upsertEnrollSelection({
+      courseId,
+      courseName: courseTitle,
+      deliveryMode: selectedDeliveryMode || null,
+      branchId: selectedBranch?.id || null,
+      branchLabel: selectedBranch?.label || null,
+      branch: selectedBranch?.label || null,
+      instructorId: selectedInstructor?.id || null,
+      instructorLabel: selectedInstructor?.name || null,
+      slot: selectedSlot,
+      sessionType: selectedSlot?.sessionType || null,
+      slotType: selectedSlot?.slotType || null,
+    });
+
+    onNext?.({
+      branchId: selectedBranch?.id || null,
+      branchLabel: selectedBranch?.label || null,
+      branch: selectedBranch?.label || null,
+      instructorId: selectedInstructor?.id || null,
+      instructorLabel: selectedInstructor?.name || null,
+      slot: selectedSlot,
+      sessionType: selectedSlot?.sessionType || null,
+      deliveryMode: selectedDeliveryMode || null,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 cursor-pointer text-xl text-gray-400 hover:text-gray-600"
+          aria-label="Close"
+        >
+          <HiX />
+        </button>
+
+        <div className="mb-6 text-center">
+          <h2 className="text-2xl font-bold">Confirm Enrolment Details</h2>
+          <p className="mt-1 text-gray-500">
+            Choose delivery mode, instructor, and your preferred class slot.
+          </p>
+          <p className="mt-1 text-sm text-gray-600">Course: {courseTitle}</p>
+        </div>
+
+        {modeOptions.length > 1 ? (
+          <div className="mb-6">
+            <label className="mb-3 block text-sm font-medium text-gray-700">
+              Select Delivery Mode
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {modeOptions.map((mode) => {
+                const active = selectedDeliveryMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => {
+                      setSelectedDeliveryMode(mode);
+                      setSelectedSlotId('');
+                    }}
+                    className={`rounded-xl border px-4 py-3 text-left transition ${
+                      active
+                        ? 'border-purple-300 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="font-semibold capitalize">{mode}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {mode === 'offline'
+                        ? 'Attend at the selected branch.'
+                        : 'Attend the session online.'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
+            Delivery mode: <span className="font-semibold capitalize">{selectedDeliveryMode}</span>
+          </div>
+        )}
+
+        {shouldPickBranch ? (
+          <div className="mb-6">
+            <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
+              <HiOutlineLocationMarker />
+              Select Branch
+            </label>
+            <select
+              value={selectedBranchId}
+              onChange={(event) => {
+                setSelectedBranchId(event.target.value);
+                setSelectedSlotId('');
+              }}
+              className="w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
+            >
+              <option value="">Choose a branch</option>
+              {branchOptions.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        <div className="mb-6">
+          <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <HiUser />
+            Select Instructor
+          </label>
+          <select
+            value={selectedInstructorId}
+            onChange={(event) => {
+              setSelectedInstructorId(event.target.value);
+              setSelectedSlotId('');
+            }}
+            disabled={slotsStatus === 'loading' || visibleInstructors.length === 0}
+            className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 ${
+              slotsStatus === 'loading' || visibleInstructors.length === 0
+                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                : 'bg-gray-50 focus:ring-purple-300'
+            }`}
+          >
+            <option value="">
+              {slotsStatus === 'loading'
+                ? 'Loading instructors...'
+                : visibleInstructors.length === 0
+                  ? 'No instructors available'
+                  : 'Choose an instructor'}
+            </option>
+            {visibleInstructors.map((instructor) => (
+              <option key={instructor.id} value={instructor.id}>
+                {instructor.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-6">
+          <label className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <HiOutlineCalendar />
+            Select Date & Time
+          </label>
+
+          {slotsStatus === 'loading' ? (
+            <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-500">
+              Loading available class slots...
+            </div>
+          ) : selectedInstructorId && visibleSlots.length > 0 ? (
+            <div className="space-y-3">
+              {visibleSlots.map((slot) => {
+                const active = selectedSlotId === slot.id;
+                return (
+                  <button
+                    key={slot.id}
+                    type="button"
+                    onClick={() => setSelectedSlotId(slot.id)}
+                    className={`w-full rounded-xl border p-4 text-left transition ${
+                      active
+                        ? 'border-purple-300 bg-purple-50 text-purple-700'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <p className="font-semibold">{slot.label}</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {slot.branchLabel
+                        ? `Branch: ${slot.branchLabel}`
+                        : 'Online class'}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Session: {slot.sessionType || 'standard'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-500">
+              {selectedInstructorId
+                ? 'No slots are currently available for this instructor and delivery mode.'
+                : 'Choose an instructor first to view available slots.'}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-gray-500">
+            {slotsErrorMessage ? (
+              <span className="text-red-500">{slotsErrorMessage}</span>
+            ) : null}
+          </div>
+
+          <button
+            onClick={handleNext}
+            disabled={!canProceed}
+            className={`rounded-full px-6 py-2 font-medium transition ${
+              !canProceed
+                ? 'cursor-not-allowed bg-gray-200 text-gray-500'
+                : 'bg-purple-500 text-white hover:bg-purple-600'
+            }`}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

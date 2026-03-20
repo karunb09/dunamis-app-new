@@ -1,12 +1,29 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { RiPenNibFill, RiMusic2Fill } from "react-icons/ri";
 import { Clock, Users, Eye } from "react-feather"; 
 import { AiOutlineFileDone } from "react-icons/ai";
 import { LuMusic } from "react-icons/lu";
+import { getStoredUser } from "../../../utils/authSession";
+import { getAllBookings } from "../../../redux/DemoBooking/DemoBookingSlice";
+import DemoBookingsPanel from "./DemoBookingsPanel";
+import {
+  getTeacherRoleId,
+  getUserDisplayName,
+} from "../../../utils/roleIdentity";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const authUser = useSelector((state) => state.auth?.user);
+  const { bookings, loading: demoLoading, error: demoError } = useSelector(
+    (state) => state.demoBookings || {}
+  );
+  const storedUser = getStoredUser() || {};
+  const resolvedUser = authUser || storedUser || {};
+  const teacherId = getTeacherRoleId(resolvedUser);
+  const teacherName = getUserDisplayName(resolvedUser, "Teacher");
 
   // Sample classes data
   const initialClasses = [
@@ -101,17 +118,33 @@ const Dashboard = () => {
     studentsTaught: 15,
   };
 
+  useEffect(() => {
+    dispatch(getAllBookings(teacherId ? { teacherId } : {}));
+  }, [dispatch, teacherId]);
+
+  const handleRefreshDemoBookings = () => {
+    dispatch(getAllBookings(teacherId ? { teacherId } : {}));
+  };
+
   return (
     <div className="w-full min-h-screen bg-gray-50 p-4 md:p-6 -ml-6">
       {/* Welcome */}
       <div className="mb-6 ml-2">
         <h1 className="text-2xl font-semibold text-gray-800">
-          Welcome back, Abhinav
+          Welcome back, {teacherName}
         </h1>
         <p className="text-gray-500 text-sm">
-          Time to sprinkle some learning magic again today!
+          Your upcoming demos and class activity are lined up here.
         </p>
       </div>
+
+      <DemoBookingsPanel
+        bookings={bookings}
+        teacherId={teacherId}
+        loading={demoLoading}
+        error={demoError}
+        onRefresh={handleRefreshDemoBookings}
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

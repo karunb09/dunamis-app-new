@@ -1,13 +1,13 @@
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
+const mongoose = require("mongoose");
 const Course = require("../model/course.model");
+const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
-const User = require("../model/user.model");
 const mailSender = require("../utils/mailSender");
-const mongoose = require("mongoose");
-require("dotenv").config();
 const updateTeacherStats = require("../utils/updateTeacherStats");
+require("dotenv").config();
 
 const razorpayInstance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -24,132 +24,256 @@ const enrollmentEmailTemplate = (user, course) => `
   <p>Regards,<br>Dunamis Music LMS</p>
 `;
 
+const normalizeMode = (value) => {
+  const mode = String(value || "").trim().toLowerCase();
+  return ["online", "offline"].includes(mode) ? mode : null;
+};
+
+const resolvePlanType = (value) =>
+  String(value || "").trim().toLowerCase() === "monthly" ? "monthly" : "full";
+
+const buildPricingForPlan = (course, sessionType, planType) => {
+  const selectedPrice = course.price.find((p) => p.sessionType === sessionType);
+  if (!selectedPrice) {
+    return { error: "Invalid session type" };
+  }
+
+  if (planType === "monthly") {
+    const installments = Number(selectedPrice.installments) || 1;
+    const amount = Number(selectedPrice.monthlyFee);
+
+    if (!amount || amount <= 0) {
+      return { error: "Invalid monthly fee amount" };
+    }
+
+    return {
+      selectedPrice,
+      amount,
+      paymentType: "Installment",
+      installmentTotal: installments,
+      installmentAmount: amount,
+    };
+  }
+
+  const amount = Number(selectedPrice.fullPayment);
+  if (!amount || amount <= 0) {
+    return { error: "Invalid course price" };
+  }
+
+  return {
+    selectedPrice,
+    amount,
+    paymentType: "Full",
+    installmentTotal: 1,
+    installmentAmount: null,
+  };
+};
+
+const getReceiptSuffix = (paymentType) =>
+  paymentType === "Installment" ? "monthly" : "full";
+
+const getPendingPaymentForOrder = (student, orderId) =>
+  student.payments.find((payment) => payment.razorpayOrderId === orderId);
+
+const loadValidatedEnrollmentContext = async ({
+  courseId,
+  teacherId,
+  slotId,
+  sessionType,
+  deliveryMode,
+  branchId,
+}) => {
+  const course = await Course.findById(courseId).populate("teacher");
+  if (!course) {
+    return { error: { status: 404, message: "Course not found" } };
+  }
+
+  if (!course.teacher.some((teacher) => teacher._id.toString() === teacherId)) {
+    return {
+      error: { status: 400, message: "Teacher does not teach this course" },
+    };
+  }
+
+  const teacher = await Teacher.findById(teacherId);
+  if (!teacher) {
+    return { error: { status: 404, message: "Teacher not found" } };
+  }
+
+  const slot = await Slot.findById(slotId);
+  if (!slot) {
+    return { error: { status: 404, message: "Slot not found" } };
+  }
+
+  if (slot.courseId?.toString() !== courseId) {
+    return {
+      error: { status: 400, message: "Selected slot is not for this course" },
+    };
+  }
+
+  if (slot.createdBy?.toString() !== teacherId) {
+    return {
+      error: {
+        status: 400,
+        message: "Selected slot does not belong to the chosen teacher",
+      },
+    };
+  }
+
+  if (slot.slotType !== "enrolled") {
+    return {
+      error: {
+        status: 400,
+        message: "This slot is not available for enrollment",
+      },
+    };
+  }
+
+  if (slot.sessionType !== sessionType) {
+    return {
+      error: { status: 400, message: "Slot sessionType mismatch" },
+    };
+  }
+
+  const resolvedMode = normalizeMode(deliveryMode) || course.mode || "online";
+  if (course.mode && resolvedMode !== course.mode) {
+    return {
+      error: { status: 400, message: "Delivery mode does not match this course" },
+    };
+  }
+
+  const resolvedBranchId = branchId || slot.branchId?.toString() || null;
+  if (resolvedMode === "offline") {
+    if (!resolvedBranchId) {
+      return {
+        error: { status: 400, message: "branchId is required for offline enrollment" },
+      };
+    }
+
+    if (!slot.branchId || slot.branchId.toString() !== resolvedBranchId) {
+      return {
+        error: {
+          status: 400,
+          message: "Selected slot does not belong to the chosen branch",
+        },
+      };
+    }
+  }
+
+  if ((slot.students || []).length >= slot.maxStudents) {
+    return { error: { status: 400, message: "Selected slot is already full" } };
+  }
+
+  return {
+    course,
+    teacher,
+    slot,
+    resolvedMode,
+    resolvedBranchId,
+  };
+};
+
 exports.createOrder = async (req, res) => {
   try {
-    const { courseId, sessionType, teacherId, slotId } = req.body;
+    const {
+      courseId,
+      sessionType,
+      teacherId,
+      slotId,
+      planType,
+      deliveryMode,
+      branchId,
+    } = req.body;
     const userId = new mongoose.Types.ObjectId(req.user.userId);
-    const paymentType = "Full";
+    const resolvedPlanType = resolvePlanType(planType);
 
     if (!courseId || !sessionType || !teacherId || !slotId) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Course, sessionType, teacherId, and slotId are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Course, sessionType, teacherId, and slotId are required",
+      });
     }
 
-    // Fetch course and validate session type
-    const course = await Course.findById(courseId).populate("teacher");
-    if (!course)
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-
-    const selectedPrice = course.price.find(
-      (p) => p.sessionType === sessionType
-    );
-    if (!selectedPrice)
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid session type" });
-
-    // Check if teacher teaches this course
-    if (!course.teacher.some((t) => t._id.toString() === teacherId)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Teacher does not teach this course",
-        });
-    }
-
-    // Fetch teacher and validate slot
-    const teacher = await Teacher.findById(teacherId);
-    if (!teacher)
-      return res
-        .status(404)
-        .json({ success: false, message: "Teacher not found" });
-
-    const slot = teacher.weeklyAvailability.id(slotId);
-    if (!slot)
-      return res
-        .status(404)
-        .json({ success: false, message: "Slot not found" });
-    
-    const parentAvailabilityId = slot.parentAvailabilityId || slot._id;
-
-    if (slot.courseId.toString() !== courseId) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Slot not for this course" });
-    }
-
-    if (slot.sessionType !== sessionType) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Slot sessionType mismatch" });
-    }
-
-    if (!slot.currentStudentCount) slot.currentStudentCount = 0;
-    if (slot.currentStudentCount >= slot.maxStudents) {
-      return res.status(400).json({ success: false, message: "Slot is full" });
-    }
-
-    // Fetch student
     const student = await Student.findOne({ userId }).populate("userId");
-    if (!student)
+    if (!student) {
       return res
         .status(404)
         .json({ success: false, message: "Student not found" });
-
-    // Prevent duplicate active payments
-    const existingPayment = student.payments.find(
-      (p) =>
-        p.courseId.toString() === courseId &&
-        p.sessionType === sessionType &&
-        p.paymentType === paymentType &&
-        p.PaymentStatus !== "failed"
-    );
-    if (existingPayment) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            "An active payment already exists for this course and session",
-        });
     }
 
-    // Create Razorpay order
-    const amount = selectedPrice.fullPayment;
-    if (!amount || amount <= 0)
+    const context = await loadValidatedEnrollmentContext({
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+    });
+
+    if (context.error) {
       return res
-        .status(400)
-        .json({ success: false, message: "Invalid course price" });
+        .status(context.error.status)
+        .json({ success: false, message: context.error.message });
+    }
+
+    const pricing = buildPricingForPlan(
+      context.course,
+      sessionType,
+      resolvedPlanType
+    );
+    if (pricing.error) {
+      return res.status(400).json({ success: false, message: pricing.error });
+    }
+
+    const existingPayment = student.payments.find(
+      (payment) =>
+        payment.courseId?.toString() === courseId &&
+        payment.sessionType === sessionType &&
+        payment.slotId?.toString() === slotId &&
+        payment.paymentType === pricing.paymentType &&
+        payment.PaymentStatus !== "failed"
+    );
+
+    if (existingPayment) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "An active payment already exists for this course, session, and slot",
+      });
+    }
 
     const shortCourseId = courseId.slice(-6);
     const shortUserId = userId.toString().slice(-6);
+    const receiptSuffix = getReceiptSuffix(pricing.paymentType);
 
     const order = await razorpayInstance.orders.create({
-      amount: amount * 100,
+      amount: pricing.amount * 100,
       currency: "INR",
-      receipt: `rcpt_${shortCourseId}_${shortUserId}_${sessionType}_${paymentType}`,
+      receipt: `rcpt_${shortCourseId}_${shortUserId}_${sessionType}_${receiptSuffix}`,
     });
 
     const paymentData = {
       courseId,
       razorpayOrderId: order.id,
-      amount,
+      amount: pricing.amount,
       PaymentStatus: "pending",
       sessionType,
-      paymentType,
+      paymentType: pricing.paymentType,
+      planType: resolvedPlanType,
       teacherId,
       slotId,
-      parentAvailabilityId,
+      parentAvailabilityId: context.slot.parentAvailabilityId || null,
+      branchId: context.resolvedBranchId,
+      deliveryMode: context.resolvedMode,
+      monthlyPaymentStatus:
+        pricing.paymentType === "Installment" ? "pending" : null,
     };
 
-    if (paymentType === "Installment") paymentData.dueDate = new Date();
+    if (pricing.paymentType === "Installment") {
+      paymentData.installmentNo = 1;
+      paymentData.installmentTotal = pricing.installmentTotal;
+      paymentData.installmentAmount = pricing.installmentAmount;
+      paymentData.dueDate = new Date();
+    }
 
     student.payments.push(paymentData);
     await student.save({ validateModifiedOnly: true });
@@ -157,6 +281,8 @@ exports.createOrder = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Order created successfully",
+      planType: resolvedPlanType,
+      paymentType: pricing.paymentType,
       order: {
         id: order.id,
         amount: order.amount,
@@ -166,13 +292,11 @@ exports.createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating order:", error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to create order",
-        error: error.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create order",
+      error: error.message,
+    });
   }
 };
 
@@ -189,18 +313,11 @@ exports.verifyPayment = async (req, res) => {
     } = req.body;
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
-    if (
-      !razorpay_order_id ||
-      !razorpay_payment_id ||
-      !razorpay_signature ||
-      !courseId ||
-      !sessionType ||
-      !teacherId ||
-      !slotId
-    ) {
-      return res
-        .status(400)
-        .json({ success: false, message: "All payment details are required" });
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: "All payment details are required",
+      });
     }
 
     const generatedSignature = crypto
@@ -221,51 +338,10 @@ exports.verifyPayment = async (req, res) => {
         .json({ success: false, message: "Student not found" });
     }
 
-    const course = await Course.findById(courseId);
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    const teacher = await Teacher.findById(teacherId);
-    if (!teacher) return res
-      .status(404)
-      .json({ success: false, message: "Teacher not found" });
-
-    // Check teacher teaches the course
-    if (!teacher.course.some((c) => c.toString() === courseId)) {
-      return res
-        .status(400)
-        .json({ message: "Teacher does not teach the selected course" });
-    }
-
-    const parentSlot = teacher.weeklyAvailability.id(slotId);
-    if (!parentSlot)
-      return res.status(404).json({ message: "Slot not found" });
-
-    if (parentSlot.courseId.toString() !== courseId)
-      return res
-        .status(400)
-        .json({ message: "Slot not for selected course" });
-
-    if (parentSlot.sessionType !== sessionType)
-      return res.status(400).json({ message: "Slot sessionType mismatch" });
-
-    const parentAvailabilityId =
-      parentSlot.parentAvailabilityId || parentSlot._id;
-
-    const recurringSlots = teacher.weeklyAvailability.filter(
-      (s) =>
-        s.parentAvailabilityId?.toString() ===
-          parentAvailabilityId.toString() ||
-        s._id.toString() === parentAvailabilityId.toString()
-    );
-
     const existingPayment = student.payments.find(
-      (p) =>
-        p.razorpayOrderId === razorpay_order_id &&
-        p.PaymentStatus === "completed"
+      (payment) =>
+        payment.razorpayOrderId === razorpay_order_id &&
+        payment.PaymentStatus === "completed"
     );
     if (existingPayment) {
       return res
@@ -273,52 +349,62 @@ exports.verifyPayment = async (req, res) => {
         .json({ success: false, message: "Payment already processed" });
     }
 
-    const pendingPayment = student.payments.find(
-      (p) =>
-        p.razorpayOrderId === razorpay_order_id &&
-        p.courseId.toString() === courseId &&
-        p.sessionType === sessionType
-    );
+    const pendingPayment = getPendingPaymentForOrder(student, razorpay_order_id);
     if (!pendingPayment) {
       return res
         .status(404)
         .json({ success: false, message: "Payment record not found" });
     }
 
-    // FULL PAYMENT
+    const resolvedCourseId = courseId || pendingPayment.courseId?.toString();
+    const resolvedSessionType = sessionType || pendingPayment.sessionType;
+    const resolvedTeacherId = teacherId || pendingPayment.teacherId?.toString();
+    const resolvedSlotId = slotId || pendingPayment.slotId?.toString();
+
+    if (
+      !resolvedCourseId ||
+      !resolvedSessionType ||
+      !resolvedTeacherId ||
+      !resolvedSlotId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Stored payment is missing enrollment linkage",
+      });
+    }
+
+    const context = await loadValidatedEnrollmentContext({
+      courseId: resolvedCourseId,
+      teacherId: resolvedTeacherId,
+      slotId: resolvedSlotId,
+      sessionType: resolvedSessionType,
+      deliveryMode: pendingPayment.deliveryMode,
+      branchId: pendingPayment.branchId?.toString(),
+    });
+
+    if (context.error) {
+      return res
+        .status(context.error.status)
+        .json({ success: false, message: context.error.message });
+    }
+
+    pendingPayment.razorpayPaymentId = razorpay_payment_id;
+    pendingPayment.razorpaySignature = razorpay_signature;
+    pendingPayment.PaymentStatus = "completed";
+    pendingPayment.feeStatus = "Paid";
+    pendingPayment.paidAt = new Date();
+
     if (pendingPayment.paymentType === "Full") {
-      pendingPayment.razorpayPaymentId = razorpay_payment_id;
-      pendingPayment.razorpaySignature = razorpay_signature;
-      pendingPayment.PaymentStatus = "completed";
-      pendingPayment.feeStatus = "Paid";
-      pendingPayment.paidAt = new Date();
       pendingPayment.monthlyPaymentStatus = "completed";
       pendingPayment.dueDate = null;
-    }
-    // INSTALLMENT PAYMENT FLOW
-    else if (pendingPayment.paymentType === "Installment") {
-      const sessionPrice = course.price.find(
-        (p) => p.sessionType === sessionType
-      );
-      const totalInstallments = sessionPrice ? sessionPrice.installments : 1;
-      const installmentAmount = sessionPrice ? sessionPrice.monthlyFee : 0;
-
-      pendingPayment.razorpayPaymentId = razorpay_payment_id;
-      pendingPayment.razorpaySignature = razorpay_signature;
-      pendingPayment.PaymentStatus = "completed";
-      pendingPayment.feeStatus = "Paid";
-      pendingPayment.paidAt = new Date();
+    } else {
+      const totalInstallments = pendingPayment.installmentTotal || 1;
       pendingPayment.installmentNo = pendingPayment.installmentNo || 1;
-      pendingPayment.installmentAmount = installmentAmount;
-      pendingPayment.installmentTotal = totalInstallments;
-
-      // Check if all installments paid
       pendingPayment.monthlyPaymentStatus =
         pendingPayment.installmentNo >= totalInstallments
           ? "completed"
           : "pending";
 
-      // Set next due date if installments remain
       if (pendingPayment.monthlyPaymentStatus === "pending") {
         const nextDueDate = new Date();
         nextDueDate.setMonth(nextDueDate.getMonth() + 1);
@@ -326,63 +412,69 @@ exports.verifyPayment = async (req, res) => {
       } else {
         pendingPayment.dueDate = null;
       }
-    } else {
-      pendingPayment.dueDate = null;
     }
-    // Remove null courseId entries to avoid duplicates
+
     student.enrolledCourses = student.enrolledCourses.filter(
-      (c) => c.courseId !== null
+      (course) => course.courseId !== null
     );
 
-    // Enroll student in course if not already
-    if (
-      !student.enrolledCourses.some((c) => c.courseId.toString() === courseId)
-    ) {
-      const enrollmentTime = new Date();
+    const existingEnrollment = student.enrolledCourses.find(
+      (course) => course.courseId.toString() === resolvedCourseId
+    );
+
+    if (!existingEnrollment) {
       student.enrolledCourses.push({
-        courseId,
+        courseId: resolvedCourseId,
         progress: 0,
         status: "in-progress",
         completedAt: null,
-        slotId,
-        joinedAt: enrollmentTime,
+        slotId: context.slot._id,
+        joinedAt: new Date(),
       });
+    } else if (!existingEnrollment.slotId) {
+      existingEnrollment.slotId = context.slot._id;
     }
 
-    for (const recurringSlot of recurringSlots) {
-      if (!recurringSlot.students) recurringSlot.students = [];
-
-      if (recurringSlot.students.includes(student._id)) continue;
-
-      if (recurringSlot.students.length >= recurringSlot.maxStudents) {
+    const alreadyInSlot = (context.slot.students || []).some(
+      (studentId) => studentId.toString() === student._id.toString()
+    );
+    if (!alreadyInSlot) {
+      if ((context.slot.students || []).length >= context.slot.maxStudents) {
         return res.status(400).json({
-          message: `Slot on ${recurringSlot.day || "some day"} is full`,
+          success: false,
+          message: "Selected slot is already full",
         });
       }
 
-      recurringSlot.students.push(student._id);
+      context.slot.students.push(student._id);
     }
-    
-    await teacher.save();
-    await student.save();
 
-    await updateTeacherStats(courseId);
+    if (context.resolvedMode) {
+      student.mode = context.resolvedMode;
+    }
+    if (context.resolvedBranchId) {
+      student.branch = context.resolvedBranchId;
+    }
+
+    await context.slot.save();
+    await student.save();
+    await updateTeacherStats(resolvedCourseId);
 
     await mailSender(
       student.userId.email,
       "Course Enrollment Confirmation",
-      enrollmentEmailTemplate(student.userId, course)
+      enrollmentEmailTemplate(student.userId, context.course)
     );
 
     return res.status(200).json({
       success: true,
       message: "Payment verified and course enrolled successfully",
-      course,
-      sessionType,
-      teacherId,
-      slotId,
-      recurringDays: parentSlot.recurringDays || [],
+      course: context.course,
+      sessionType: resolvedSessionType,
+      teacherId: resolvedTeacherId,
+      slotId: resolvedSlotId,
       paymentType: pendingPayment.paymentType,
+      planType: pendingPayment.planType,
       installmentNo: pendingPayment.installmentNo,
       monthlyPaymentStatus: pendingPayment.monthlyPaymentStatus,
       nextDueDate:
@@ -414,12 +506,14 @@ exports.getEnrolledCourses = async (req, res) => {
     });
 
     if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Student not found" });
     }
 
     const courses = student.enrolledCourses
-      .map((ec) => ec.courseId)
-      .filter((c) => c !== null);
+      .map((course) => course.courseId)
+      .filter((course) => course !== null);
 
     return res.status(200).json({
       success: true,
@@ -438,7 +532,14 @@ exports.getEnrolledCourses = async (req, res) => {
 
 exports.generateInstallmentOrders = async (req, res) => {
   try {
-    const { courseId, sessionType, teacherId, slotId } = req.body;
+    const {
+      courseId,
+      sessionType,
+      teacherId,
+      slotId,
+      deliveryMode,
+      branchId,
+    } = req.body;
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     if (!courseId || !sessionType || !teacherId || !slotId) {
@@ -449,115 +550,83 @@ exports.generateInstallmentOrders = async (req, res) => {
     }
 
     const student = await Student.findOne({ userId });
-    if (!student)
+    if (!student) {
       return res
         .status(404)
         .json({ success: false, message: "Student not found" });
-
-    const course = await Course.findById(courseId);
-    if (!course)
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-
-    const teacher = await Teacher.findById(teacherId);
-    if (!teacher) return res.status(404).json({ message: "Teacher not found" });
-    if (!teacher.course.some((c) => c.toString() === courseId)) {
-      return res
-        .status(400)
-        .json({ message: "This teacher does not teach the selected course" });
     }
 
-    const slot = teacher.weeklyAvailability.find(s => s._id.toString() === slotId);
-    if (!slot) return res.status(404).json({ message: "Slot not found" });
+    const context = await loadValidatedEnrollmentContext({
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+    });
 
-    const parentAvailabilityId = slot.parentAvailabilityId || slot._id;
-
-    if (slot.courseId.toString() !== courseId) {
+    if (context.error) {
       return res
-        .status(400)
-        .json({ message: "This slot is not for the selected course" });
+        .status(context.error.status)
+        .json({ success: false, message: context.error.message });
     }
 
-    if (slot.sessionType !== sessionType)
-      return res.status(400).json({ message: "Slot session type mismatch" });
-
-    if (!slot.students) slot.students = [];
-    if (slot.students.length >= slot.maxStudents)
-      return res.status(400).json({ message: "Selected slot is already full" });
-
-    // Find session price
-    const sessionPrice = course.price.find(
-      (p) => p.sessionType === sessionType
-    );
-    if (!sessionPrice)
-      return res
-        .status(400)
-        .json({ success: false, message: "Session not found" });
-
-    const installments = sessionPrice.installments || 1;
-    const monthlyAmount = sessionPrice.monthlyFee;
-    if (!monthlyAmount || monthlyAmount <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid monthly fee amount" });
+    const pricing = buildPricingForPlan(context.course, sessionType, "monthly");
+    if (pricing.error) {
+      return res.status(400).json({ success: false, message: pricing.error });
     }
 
-    //  Check if all installments already exist
     const existingInstallments = student.payments.filter(
-      (p) =>
-        p.courseId.toString() === courseId &&
-        p.sessionType === sessionType &&
-        p.paymentType === "Installment"
+      (payment) =>
+        payment.courseId?.toString() === courseId &&
+        payment.sessionType === sessionType &&
+        payment.slotId?.toString() === slotId &&
+        payment.paymentType === "Installment"
     );
-    if (existingInstallments.length >= installments) {
+
+    if (existingInstallments.length >= pricing.installmentTotal) {
       return res.status(400).json({
         success: false,
         message: "All installment orders already exist for this course.",
       });
     }
 
-    // Generate orders for installments not yet in payments array
-    let paymentsToCreate = [];
-    for (let i = 1; i <= installments; i++) {
-      const alreadyExists = student.payments.some(
-        (p) =>
-          p.courseId.toString() === courseId &&
-          p.sessionType === sessionType &&
-          p.installmentNo === i
+    const paymentsToCreate = [];
+    for (let installmentNo = 1; installmentNo <= pricing.installmentTotal; installmentNo += 1) {
+      const alreadyExists = existingInstallments.some(
+        (payment) => payment.installmentNo === installmentNo
       );
       if (alreadyExists) continue;
 
-      // Create Razorpay order
       const order = await razorpayInstance.orders.create({
-        amount: monthlyAmount * 100, // in paise
+        amount: pricing.amount * 100,
         currency: "INR",
         receipt: `rcpt_${courseId.slice(-6)}_${userId
           .toString()
-          .slice(-6)}_i${i}`,
-        payment_capture: 1,
+          .slice(-6)}_i${installmentNo}`,
       });
 
       paymentsToCreate.push({
         courseId,
         razorpayOrderId: order.id,
-        amount: monthlyAmount,
+        amount: pricing.amount,
         PaymentStatus: "pending",
         sessionType,
         paymentType: "Installment",
-        installmentNo: i,
-        installmentTotal: installments,
-        installmentAmount: monthlyAmount,
-        dueDate: new Date(new Date().setMonth(new Date().getMonth() + i - 1)), // first installment now, next in future
+        planType: "monthly",
+        installmentNo,
+        installmentTotal: pricing.installmentTotal,
+        installmentAmount: pricing.installmentAmount,
+        dueDate: new Date(
+          new Date().setMonth(new Date().getMonth() + installmentNo - 1)
+        ),
         teacherId,
         slotId,
-        parentAvailabilityId,
+        parentAvailabilityId: context.slot.parentAvailabilityId || null,
+        branchId: context.resolvedBranchId,
+        deliveryMode: context.resolvedMode,
+        monthlyPaymentStatus: "pending",
       });
-    }
-
-    if (!slot.students.includes(student._id)) {
-      slot.students.push(student._id);
-      await teacher.save();
     }
 
     if (paymentsToCreate.length === 0) {
@@ -567,7 +636,6 @@ exports.generateInstallmentOrders = async (req, res) => {
       });
     }
 
-    // Add payments to student
     student.payments.push(...paymentsToCreate);
     await student.save({ validateModifiedOnly: true });
 
@@ -575,11 +643,11 @@ exports.generateInstallmentOrders = async (req, res) => {
       success: true,
       message: "Installment orders generated successfully",
       installments: paymentsToCreate.length,
-      orders: paymentsToCreate.map((p) => ({
-        razorpayOrderId: p.razorpayOrderId,
-        installmentNo: p.installmentNo,
-        amount: p.amount,
-        dueDate: p.dueDate,
+      orders: paymentsToCreate.map((payment) => ({
+        razorpayOrderId: payment.razorpayOrderId,
+        installmentNo: payment.installmentNo,
+        amount: payment.amount,
+        dueDate: payment.dueDate,
       })),
     });
   } catch (error) {

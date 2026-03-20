@@ -3,6 +3,11 @@ const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 
+const getBranchFallbackImage = (branchName = "Branch") =>
+  `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+    String(branchName).trim() || "Branch"
+  )}`;
+
 // Create Branch
 exports.createBranch = async (req, res) => {
   try {
@@ -89,7 +94,7 @@ exports.createBranch = async (req, res) => {
     }
 
     // Handle image upload
-    let branchImagePath = null;
+    let branchImagePath = getBranchFallbackImage(branchName);
     if (req.files && req.files.branchImage) {
       const uploadedFiles = await localFileUpload(req.files.branchImage, [
         "image/png",
@@ -233,6 +238,15 @@ exports.getBranchManagers = async (req, res) => {
 exports.updateBranch = async (req, res) => {
   try {
     const { id } = req.params;
+    const existingBranch = await Branch.findById(id);
+
+    if (!existingBranch) {
+      return res.status(404).json({
+        success: false,
+        message: "Branch not found",
+      });
+    }
+
     let {
       branchName,
       location,
@@ -316,7 +330,7 @@ exports.updateBranch = async (req, res) => {
     }
 
     // Handle image upload for update
-    let branchImagePath = null;
+    let branchImagePath = existingBranch.branchImage || null;
     if (req.files && req.files.branchImage) {
       const uploadedFiles = await localFileUpload(req.files.branchImage, [
         "image/png",
@@ -324,6 +338,8 @@ exports.updateBranch = async (req, res) => {
         "image/jpg",
       ]);
       branchImagePath = uploadedFiles[0].path; // Store image path if uploaded
+    } else if (!branchImagePath) {
+      branchImagePath = getBranchFallbackImage(branchName || existingBranch.branchName);
     }
 
     const updates = {
@@ -341,21 +357,12 @@ exports.updateBranch = async (req, res) => {
       centreFacilities,
     };
 
-    if (branchImagePath) {
-      updates.branchImage = branchImagePath;
-    }
+    updates.branchImage = branchImagePath;
 
     const updatedBranch = await Branch.findByIdAndUpdate(id, updates, {
       new: true, // return the updated document
       runValidators: true, // run schema validators
     });
-
-    if (!updatedBranch) {
-      return res.status(404).json({
-        success: false,
-        message: "Branch not found",
-      });
-    }
 
     res.status(200).json({
       success: true,

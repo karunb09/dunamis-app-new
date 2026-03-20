@@ -4,7 +4,7 @@ import { FaSearch, FaSortAmountDown, FaFilter } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import DataTable from '../../../../components/Table';
 import { useNavigate } from 'react-router-dom';
-import { fetchTeachers, updateTeacher } from '../../../../redux/Intructor/teacherSlice';
+import { fetchTeachers, updateTeacher, deleteTeacher } from '../../../../redux/Intructor/teacherSlice';
 import { updateUser } from '../../../../redux/User/UserSlice';
 import { X } from 'react-feather';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
@@ -27,7 +27,7 @@ const mapTeacherToInstructor = (teacher, index) => {
         name: fullName,
         avatar: teacher.teacherApplication?.profilePicture || '',
         userImage: teacher.user?.image || '',
-        accountStatus: teacher.user?.accountStatus || 'Inactive',
+        accountStatus: (teacher.user?.accountStatus || 'inactive').toLowerCase(),
         courseCategory: teacher.teacherApplication?.areaOfExpertise || '—',
         studentCount: teacher.studentCount || 0,
         mode: teacher.teacherApplication?.mode || '—',
@@ -167,25 +167,13 @@ Mode: ${i.mode}`
             key: 'accountStatus',
             header: 'Account Status',
             render: (value, row) => (
-                <select
-                    value={value}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                        const newStatus = e.target.value;
-                        if (newStatus === row.accountStatus) return;
-                        dispatch(updateUser({
-                            id: row.userId,
-                            userData: { accountStatus: newStatus },
-                            token: localStorage.getItem('token'),
-                        })).unwrap()
-                            .then(() => toast.success(`${row.name}'s status updated to ${newStatus}`))
-                            .catch(() => toast.error(`Failed to update ${row.name}'s status`));
-                    }}
-                    className={`text-xs font-medium rounded-full px-3 py-1 ${value === 'active' ? 'text-green-700' : 'text-red-600'}`}
-                >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
+                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                    value === 'active'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-rose-50 text-rose-700'
+                }`}>
+                    {value === 'active' ? 'Active' : 'Disabled'}
+                </span>
             ),
         },
         {
@@ -240,6 +228,64 @@ Mode: ${i.mode}`
                     <option value="due">Due</option>
                     <option value="paid">Paid</option>
                 </select>
+            ),
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            render: (_, row) => (
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const nextStatus = row.accountStatus === 'active' ? 'inactive' : 'active';
+                            const actionLabel = nextStatus === 'inactive' ? 'disable' : 'enable';
+                            if (!window.confirm(`Do you want to ${actionLabel} ${row.name}?`)) return;
+
+                            dispatch(updateUser({
+                                id: row.userId,
+                                userData: { accountStatus: nextStatus },
+                                token: localStorage.getItem('token'),
+                            })).unwrap()
+                                .then(() => {
+                                    toast.success(`${row.name} is now ${nextStatus === 'active' ? 'enabled' : 'disabled'}`);
+                                    dispatch(fetchTeachers());
+                                })
+                                .catch((error) => {
+                                    toast.error(error?.message || `Failed to update ${row.name}'s status`);
+                                });
+                        }}
+                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                            row.accountStatus === 'active'
+                                ? 'border border-amber-200 text-amber-700 hover:bg-amber-50'
+                                : 'border border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                        }`}
+                    >
+                        {row.accountStatus === 'active' ? 'Disable' : 'Enable'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const confirmed = window.confirm(
+                                `Delete ${row.name}? This only works if the instructor has no live bookings, payments, or occupied slots.`
+                            );
+                            if (!confirmed) return;
+
+                            dispatch(deleteTeacher(row.id)).unwrap()
+                                .then((payload) => {
+                                    toast.success(payload?.message || `${row.name} deleted successfully`);
+                                })
+                                .catch((error) => {
+                                    toast.error(error || `Failed to delete ${row.name}`);
+                                });
+                        }}
+                        className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+                    >
+                        Delete
+                    </button>
+                </div>
             ),
         },
     ];

@@ -29,6 +29,7 @@ export default function GroupSessionModal({ isOpen, onClose, course, teacher, pr
             courseName: course?.name || '',
             code: course?.code || '',
             category: courseCategory || '',
+            deliveryMode: course?.mode || null,
             duration:
                 course?.startDate && course?.endDate
                     ? `${new Date(course.startDate).toLocaleDateString()} - ${new Date(course.endDate).toLocaleDateString()}`

@@ -1,145 +1,187 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 const filterQuestions = [
-    {
-        id: "category",
-        question: "Which category are you interested in?",
-        options: ["Music", "Dance", "Language", "All"],
-    },
-    {
-        id: "mode",
-        question: "Preferred learning mode?",
-        options: ["Online", "Offline", "All"],
-    },
-    {
-        id: "price",
-        question: "Maximum price you're willing to pay?",
-        options: ["₹500", "₹1000", "₹2000", "₹3000"],
-    },
-    {
-        id: "duration",
-        question: "Preferred course duration?",
-        options: ["1-3 months", "3-6 months", "6+ months"],
-    },
-    {
-        id: "goal",
-        question: "What is your learning goal?",
-        options: ["Due to Hobby", "Enhance skills", "Want to make Career"],
-    },
+  {
+    id: "category",
+    question: "What are you interested in learning?",
+    description:
+      "We'll take you to the most relevant courses first so you can keep moving.",
+    options: [
+      { label: "Music", value: "Music" },
+      { label: "Dance", value: "Dance" },
+      { label: "Language", value: "Language" },
+      { label: "Show me all courses", value: "all" },
+    ],
+  },
+  {
+    id: "mode",
+    question: "How would you like to learn?",
+    description:
+      "Choose a preferred mode now. You can still refine the filters on the courses page.",
+    options: [
+      { label: "Online", value: "online" },
+      { label: "Offline", value: "offline" },
+      { label: "I'm open to both", value: "all" },
+    ],
+  },
 ];
 
 const FilterQuestionsModal = ({ isOpen, onClose }) => {
-    const [step, setStep] = useState(0);
-    const [answers, setAnswers] = useState({});
-    const router = useRouter();
+  const [step, setStep] = useState(0);
+  const [answers, setAnswers] = useState({});
+  const router = useRouter();
+  const currentQuestion = filterQuestions[step];
+  const hasAnswer = Object.prototype.hasOwnProperty.call(
+    answers,
+    currentQuestion.id
+  );
 
-    const handleSelect = (value) => {
-        setAnswers({ ...answers, [filterQuestions[step].id]: value });
-    };
+  useEffect(() => {
+    if (!isOpen) return;
+    setStep(0);
+    setAnswers({});
+  }, [isOpen]);
 
-    const handleNext = () => {
-        if (step < filterQuestions.length - 1) {
-            setStep(step + 1);
-        } else {
-            // Redirect with answers as query params
-            const query = new URLSearchParams(answers).toString();
-            router.push(`/courses?${query}`);
-            onClose();
-        }
-    };
+  const handleSelect = (value) => {
+    setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));
+  };
 
-    return (
-        <AnimatePresence>
-            {isOpen && (
+  const handleNext = () => {
+    if (step < filterQuestions.length - 1) {
+      setStep((prev) => prev + 1);
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("intent", "demo");
+
+    if (answers.category && answers.category !== "all") {
+      params.set("category", answers.category);
+    }
+
+    if (answers.mode && answers.mode !== "all") {
+      params.set("mode", answers.mode);
+    }
+
+    router.push(`/courses?${params.toString()}`);
+    onClose?.();
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        >
+          <motion.div
+            initial={{ scale: 0.96, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.96, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl"
+          >
+            <button
+              onClick={onClose}
+              className="absolute right-4 top-4 cursor-pointer text-gray-400 transition hover:text-gray-700"
+              aria-label="Close"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="mt-4">
+              <p className="text-sm font-medium text-orange-500">Book A Demo</p>
+              <div className="mt-3 h-2 w-full rounded-full bg-gray-200">
                 <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                >
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.9, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="bg-white rounded-2xl p-6 w-full max-w-md shadow-lg relative overflow-y-auto max-h-[90vh]"
-                    >
-                        {/* Close button */}
-                        <button
-                            onClick={onClose}
-                            className="cursor-pointer absolute top-4 right-4 text-gray-400 hover:text-gray-700"
-                        >
-                            <X size={24} />
-                        </button>
+                  className="h-2 rounded-full bg-orange-500"
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${((step + 1) / filterQuestions.length) * 100}%`,
+                  }}
+                  transition={{ duration: 0.3 }}
+                />
+              </div>
+              <p className="mt-2 text-sm text-gray-500">
+                Step {step + 1} of {filterQuestions.length}
+              </p>
+            </div>
 
-                        {/* Progress */}
-                        <div className="mb-4 mt-4">
-                            <div className="h-2 w-full bg-gray-200 rounded-full">
-                                <motion.div
-                                    className="h-2 bg-black rounded-full"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${((step + 1) / filterQuestions.length) * 100}%` }}
-                                    transition={{ duration: 0.3 }}
-                                />
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Question {step + 1} of {filterQuestions.length}
-                            </p>
-                        </div>
+            <div className="mt-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {currentQuestion.question}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-gray-500">
+                {currentQuestion.description}
+              </p>
+            </div>
 
-                        {/* Question */}
-                        <h2 className="text-xl font-bold text-black mb-2">
-                            {filterQuestions[step].question}
-                        </h2>
-                        <p className="text-sm text-gray-500 mb-4">
-                            Choose the category that interests you most
-                        </p>
+            <div className="mt-6 space-y-3">
+              {currentQuestion.options.map((option) => {
+                const isSelected = answers[currentQuestion.id] === option.value;
+                return (
+                  <label
+                    key={option.value}
+                    className={`flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-4 transition ${
+                      isSelected
+                        ? "border-orange-500 bg-orange-50"
+                        : "border-gray-200 hover:border-orange-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={currentQuestion.id}
+                      value={option.value}
+                      checked={isSelected}
+                      onChange={() => handleSelect(option.value)}
+                      className="h-5 w-5 cursor-pointer accent-orange-500"
+                    />
+                    <span className="font-medium text-gray-900">
+                      {option.label}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
 
-                        {/* Options */}
-                        <div className="space-y-3 ">
-                            {filterQuestions[step].options.map((option) => (
-                                <label
-                                    key={option}
-                                    className={`flex items-center space-x-3 px-4 py-3 rounded-xl border cursor-pointer ${answers[filterQuestions[step].id] === option
-                                            ? "border-black bg-gray-100"
-                                            : "border-gray-300 hover:bg-gray-50"
-                                        }`}
-                                >
-                                    <input
-                                        type="radio"
-                                        name={filterQuestions[step].id}
-                                        value={option}
-                                        checked={answers[filterQuestions[step].id] === option}
-                                        onChange={() => handleSelect(option)}
-                                        className="accent-black w-5 h-5 cursor-pointer"
-                                    />
-                                    <span className="text-black font-medium">{option}</span>
-                                </label>
-                            ))}
-                        </div>
+            <div className="mt-6 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (step === 0) {
+                    onClose?.();
+                    return;
+                  }
 
-                        {/* Navigation buttons */}
-                        <div className="mt-6 text-center">
-                            <motion.button
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                disabled={!answers[filterQuestions[step].id]}
-                                onClick={handleNext}
-                                className="cursor-pointer px-6 py-2 rounded-xl bg-black text-white disabled:opacity-50"
-                            >
-                                {step === filterQuestions.length - 1 ? "Apply Filters" : "Next"}
-                            </motion.button>
-                        </div>
-                    </motion.div>
-                </motion.div>
-            )}
-        </AnimatePresence>
+                  setStep((prev) => prev - 1);
+                }}
+                className="cursor-pointer rounded-2xl border border-gray-200 px-5 py-2.5 text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+              >
+                {step === 0 ? "Close" : "Back"}
+              </button>
 
-    );
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.98 }}
+                disabled={!hasAnswer}
+                onClick={handleNext}
+                className="cursor-pointer rounded-2xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {step === filterQuestions.length - 1
+                  ? "Show Matching Courses"
+                  : "Next"}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 };
 
 export default FilterQuestionsModal;

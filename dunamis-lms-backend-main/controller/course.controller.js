@@ -3,7 +3,109 @@ const { localFileUpload } = require("../utils/locallyUploader");
 const Teacher = require("../model/teacher.model");
 const updateTeacherStats = require("../utils/updateTeacherStats");
 const Student = require("../model/student.model");
-const Branch = require("../model/branch.model")
+const Branch = require("../model/branch.model");
+const fs = require("fs/promises");
+const path = require("path");
+
+const deleteLocalUpload = async (filePath) => {
+  if (!filePath || !filePath.startsWith("/uploads/")) {
+    return;
+  }
+
+  const absolutePath = path.join(
+    __dirname,
+    "..",
+    filePath.replace(/^\/+/, "")
+  );
+
+  try {
+    await fs.unlink(absolutePath);
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.error("Failed to delete file:", error.message);
+    }
+  }
+};
+
+const formatPublicTeacherForCourse = (teacher) => {
+  if (!teacher) return null;
+
+  return {
+    _id: teacher._id,
+    id: teacher._id,
+    averageRating: Number(teacher.averageRating) || 0,
+    studentCount: Number(teacher.studentCount) || 0,
+    teacherDetail: teacher.teacherDetail
+      ? {
+          _id: teacher.teacherDetail._id,
+          name: teacher.teacherDetail.name,
+          profilePicture: teacher.teacherDetail.profilePicture,
+          profileVideo: teacher.teacherDetail.profileVideo,
+          mode: teacher.teacherDetail.mode,
+          areaOfExpertise: teacher.teacherDetail.areaOfExpertise,
+          currentState: teacher.teacherDetail.currentState,
+          currentCity: teacher.teacherDetail.currentCity,
+          yearOfExperience: teacher.teacherDetail.yearOfExperience,
+          highestQualification: teacher.teacherDetail.highestQualification,
+        }
+      : null,
+    userId: teacher.userId
+      ? {
+          _id: teacher.userId._id,
+          name: teacher.userId.name,
+          image: teacher.userId.image,
+        }
+      : null,
+  };
+};
+
+const publicTeacherPopulate = {
+  path: "teacher",
+  select: "averageRating studentCount teacherDetail userId",
+  populate: [
+    {
+      path: "teacherDetail",
+      model: "TeacherApplication",
+      select:
+        "name profilePicture profileVideo mode areaOfExpertise currentState currentCity yearOfExperience highestQualification",
+    },
+    {
+      path: "userId",
+      model: "user",
+      select: "name image",
+    },
+  ],
+};
+
+const withPublicCourseTotals = async (courses = []) => {
+  if (!courses.length) return [];
+
+  const courseIds = courses.map((course) => course._id);
+  const studentCounts = await Student.aggregate([
+    { $unwind: "$enrolledCourses" },
+    { $match: { "enrolledCourses.courseId": { $in: courseIds } } },
+    {
+      $group: {
+        _id: "$enrolledCourses.courseId",
+        totalStudents: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const studentCountByCourseId = studentCounts.reduce((acc, item) => {
+    acc[String(item._id)] = item.totalStudents;
+    return acc;
+  }, {});
+
+  return courses.map((course) => ({
+    ...course,
+    teacher: Array.isArray(course.teacher)
+      ? course.teacher.map(formatPublicTeacherForCourse).filter(Boolean)
+      : [],
+    branchCount: course.branches?.length || 0,
+    totalStudents: studentCountByCourseId[String(course._id)] || 0,
+  }));
+};
 
 // CREATE COURSE
 exports.createCourse = async (req, res) => {
@@ -150,6 +252,68 @@ exports.createCourse = async (req, res) => {
 // GET ALL COURSES
 exports.getAllCourses = async (req, res) => {
   try {
+    const courses = await Course.find()
+      .populate("category subCategory branches")
+      .populate(publicTeacherPopulate)
+      .lean();
+
+    if (courses.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    const publicCourses = await withPublicCourseTotals(courses);
+
+    res.status(200).json({
+      success: true,
+      count: publicCourses.length,
+      data: publicCourses,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// GET COURSE BY ID
+exports.getCourseById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const course = await Course.findById(id)
+      .populate("category subCategory content branches")
+      .populate(publicTeacherPopulate)
+      .lean();
+
+    if (!course) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+
+    const totalStudents = await Student.countDocuments({
+      "enrolledCourses.courseId": id,
+    });
+
+    const publicCourse = {
+      ...course,
+      teacher: Array.isArray(course.teacher)
+        ? course.teacher.map(formatPublicTeacherForCourse).filter(Boolean)
+        : [],
+      totalStudents,
+      branchCount: course.branches?.length || 0,
+    };
+
+    res.status(200).json({ success: true, data: publicCourse });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getAllCoursesAdmin = async (req, res) => {
+  try {
     let courses = await Course.find()
       .populate("category subCategory content branches")
       .populate({
@@ -158,7 +322,7 @@ exports.getAllCourses = async (req, res) => {
           {
             path: "teacherDetail",
             model: "TeacherApplication",
-            select: "name profilePicture",
+            select: "name profilePicture profileVideo mode areaOfExpertise",
           },
           {
             path: "userId",
@@ -220,8 +384,7 @@ exports.getAllCourses = async (req, res) => {
   }
 };
 
-// GET COURSE BY ID
-exports.getCourseById = async (req, res) => {
+exports.getCourseByIdAdmin = async (req, res) => {
   try {
     const { id } = req.params;
     const course = await Course.findById(id)
@@ -232,7 +395,7 @@ exports.getCourseById = async (req, res) => {
           {
             path: "teacherDetail",
             model: "TeacherApplication",
-            select: "name profilePicture",
+            select: "name profilePicture profileVideo mode areaOfExpertise",
           },
           {
             path: "userId",
@@ -248,26 +411,24 @@ exports.getCourseById = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Course not found" });
     }
-    
+
     const enrolledStudents = await Student.find({
       "enrolledCourses.courseId": id,
     })
-    .populate({
-      path: "userId",
-      model: "user",
-      select: "name email image",
-    })
-    .populate({
-      path: "branch",
-      model: "Branch",
-      select: "branchName city",
-    })
-    .select("userId branch mode enrolledCourses followUps adminActions");
+      .populate({
+        path: "userId",
+        model: "user",
+        select: "name email image",
+      })
+      .populate({
+        path: "branch",
+        model: "Branch",
+        select: "branchName city",
+      })
+      .select("userId branch mode enrolledCourses followUps adminActions");
 
-    // Calculate total
     const totalStudents = enrolledStudents.length;
 
-    // Merge with course data
     const courseWithStudents = {
       ...course,
       totalStudents,
@@ -285,6 +446,7 @@ exports.getCourseById = async (req, res) => {
 exports.updateCourse = async (req, res) => {
   try {
     const { id } = req.params;
+    const removeImage = req.body.removeImage === "true";
 
     // Fetch the existing course
     const existingCourse = await Course.findById(id);
@@ -296,6 +458,7 @@ exports.updateCourse = async (req, res) => {
     }
 
     let updateData = { ...req.body };
+    delete updateData.removeImage;
 
      const parseJSON = (field) => {
        if (!req.body[field]) return null;
@@ -343,6 +506,21 @@ exports.updateCourse = async (req, res) => {
         "image/jpg",
       ]);
       updateData.image = uploadedFiles[0].path;
+    } else if (removeImage) {
+      const nextIsPublished =
+        updateData.isPublished !== undefined
+          ? updateData.isPublished
+          : existingCourse.isPublished;
+
+      if (nextIsPublished) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Published courses require an image. Upload a replacement or save as draft.",
+        });
+      }
+
+      updateData.image = null;
     }
 
     const mergedTeachers = Array.from(
@@ -357,6 +535,14 @@ exports.updateCourse = async (req, res) => {
       new: true,
       runValidators: true,
     });
+
+    if (
+      existingCourse.image &&
+      updatedCourse.image !== existingCourse.image &&
+      (removeImage || req.files?.image)
+    ) {
+      await deleteLocalUpload(existingCourse.image);
+    }
 
     for (const teacherId of mergedTeachers) {
       await Teacher.findByIdAndUpdate(

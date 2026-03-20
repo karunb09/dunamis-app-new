@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/compoents/Navigation";
+import RouteProgress from "@/compoents/RouteProgress";
 import Footer from "@/compoents/Footer";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
@@ -27,6 +29,9 @@ export default function RootLayout({ children }) {
         ></link>
       </head>
       <body className="flex min-h-screen flex-col bg-[#fffaf4] text-slate-900">
+        <Suspense fallback={null}>
+          <RouteProgress />
+        </Suspense>
         <Toaster />
         <Navigation />
 

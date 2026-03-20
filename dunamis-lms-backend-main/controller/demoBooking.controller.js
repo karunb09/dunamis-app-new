@@ -1,28 +1,198 @@
 const DemoBooking = require("../model/demoBooking.model");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
-const Category = require( "../model/category.model")
+const Category = require("../model/category.model");
+const mailSender = require("../utils/mailSender");
+const {
+  instructorDemoBookingEmailTemplate,
+  studentDemoBookingEmailTemplate,
+} = require("../mail/demoBookingEmail");
 
-// Book a demo slot
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const normalizeEmail = (value) => value?.trim().toLowerCase() || "";
+const normalizeText = (value) => value?.trim() || "";
+
+const buildLeadFromStudent = (student) => ({
+  firstName: student?.userId?.name?.firstName || "",
+  lastName: student?.userId?.name?.lastName || "",
+  phone: String(student?.userId?.mobileNo || "").trim(),
+  email: normalizeEmail(student?.userId?.email),
+});
+
+const validateLead = (lead = {}) => {
+  const firstName = normalizeText(lead.firstName);
+  const lastName = normalizeText(lead.lastName);
+  const phone = normalizeText(lead.phone);
+  const email = normalizeEmail(lead.email);
+
+  if (!firstName || !lastName || !phone || !email) {
+    return {
+      valid: false,
+      message: "Guest demo booking requires firstName, lastName, phone, and email",
+    };
+  }
+
+  if (!EMAIL_REGEX.test(email)) {
+    return { valid: false, message: "Enter a valid guest email address" };
+  }
+
+  return {
+    valid: true,
+    lead: { firstName, lastName, phone, email },
+  };
+};
+
+const toIdString = (value) => {
+  if (!value && value !== 0) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return String(value._id || value.id || value);
+};
+
+const sendDemoBookingEmails = async ({
+  booking,
+  slot,
+  student,
+  lead,
+}) => {
+  const payload = {
+    student: student
+      ? {
+          name: student.userId?.name,
+          email: student.userId?.email,
+          phone: student.userId?.mobileNo,
+        }
+      : lead,
+    lead,
+    course: slot.courseId,
+    slot,
+    branch: slot.branchId || null,
+    instructor: slot.createdBy,
+  };
+
+  const deliveries = [];
+  const studentEmail = lead?.email || student?.userId?.email || "";
+  const instructorEmail = slot.createdBy?.userId?.email || "";
+
+  if (studentEmail) {
+    const { subject, html } = studentDemoBookingEmailTemplate(payload);
+    deliveries.push({
+      type: "student",
+      recipient: studentEmail,
+      task: mailSender(studentEmail, subject, html),
+    });
+  }
+
+  if (instructorEmail) {
+    const { subject, html } = instructorDemoBookingEmailTemplate(payload);
+    deliveries.push({
+      type: "instructor",
+      recipient: instructorEmail,
+      task: mailSender(instructorEmail, subject, html),
+    });
+  }
+
+  if (!deliveries.length) {
+    return;
+  }
+
+  const results = await Promise.allSettled(deliveries.map((delivery) => delivery.task));
+
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      return;
+    }
+
+    const delivery = deliveries[index];
+    console.error("Demo booking email failed", {
+      bookingId: booking?._id?.toString?.() || booking?._id || null,
+      type: delivery.type,
+      recipient: delivery.recipient,
+      error: result.reason?.message || result.reason || "Unknown email error",
+    });
+  });
+};
+
+const buildBookingDetails = async (bookingDoc, slot, student) => {
+  const booking = bookingDoc.toObject ? bookingDoc.toObject() : bookingDoc;
+  const categoryId =
+    slot.courseId?.category?._id?.toString() ||
+    slot.courseId?.category?.toString() ||
+    booking.categoryId?.toString() ||
+    null;
+
+  const categoryName =
+    slot.courseId?.category?.name ||
+    (categoryId
+      ? await Category.findById(categoryId).then((cat) => cat?.name || "N/A")
+      : "N/A");
+
+  return {
+    _id: booking._id,
+    student: student
+      ? {
+          id: student._id,
+          name: student.userId?.name,
+          email: student.userId?.email,
+          mobile: student.userId?.mobileNo,
+        }
+      : null,
+    lead: booking.lead || null,
+    course: {
+      id: slot.courseId._id,
+      name: slot.courseId.name,
+      code: slot.courseId.code,
+      category: categoryName,
+      mode: slot.courseId.mode,
+    },
+    slot: {
+      id: slot._id,
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      branchId: slot.branchId?._id || slot.branchId || null,
+    },
+    instructor: {
+      id: slot.createdBy._id,
+      user: slot.createdBy.userId,
+    },
+    deliveryMode: booking.deliveryMode,
+    branchId: booking.branchId,
+    demoStatus: booking.demoStatus,
+    enrollmentStatus: booking.enrollmentStatus,
+    followUp: booking.followUp,
+    response: booking.response,
+  };
+};
+
+// Book a demo slot for either an authenticated student or a guest lead.
 exports.bookDemoSlot = async (req, res) => {
   try {
-    const { slotId, courseId } = req.body;
-    const userId = req.user.userId;
+    const {
+      slotId,
+      courseId,
+      teacherId,
+      deliveryMode,
+      branchId,
+      lead,
+    } = req.body;
 
     if (!courseId || !slotId) {
-      return res
-        .status(400)
-        .json({ message: "courseId and slotId are required" });
+      return res.status(400).json({
+        success: false,
+        message: "courseId and slotId are required",
+      });
     }
 
-    // Find student by logged-in user
-    const studentExists = await Student.findOne({ userId })
-      .populate("userId", "name email mobileNo")
-      .populate("enrolledCourses.courseId", "code name category");
-
-    if (!studentExists) {
-      return res.status(404).json({ message: "Student not found" });
-    }
+    const student =
+      req.user?.userId
+        ? await Student.findOne({ userId: req.user.userId })
+            .populate("userId", "name email mobileNo")
+            .populate("enrolledCourses.courseId", "code name category")
+        : null;
 
     const slot = await Slot.findById(slotId)
       .populate({
@@ -33,17 +203,18 @@ exports.bookDemoSlot = async (req, res) => {
           { path: "teacher", model: "teacher", select: "_id userId" },
         ],
       })
+      .populate("branchId", "branchName city")
       .populate({
         path: "createdBy",
         populate: { path: "userId", select: "name email mobileNo image" },
       });
 
-    if (!slot)
+    if (!slot) {
       return res
         .status(404)
         .json({ success: false, message: "Slot not found" });
+    }
 
-    // Ensure this is a demo slot
     if (slot.slotType !== "demo") {
       return res.status(400).json({
         success: false,
@@ -51,39 +222,97 @@ exports.bookDemoSlot = async (req, res) => {
       });
     }
 
-    // Ensure this slot was created by a teacher
-    if (!slot.createdBy) {
-      return res
-        .status(400)
-        .json({ message: "This slot is not created by any teacher" });
-    }
-
-    // Check if course has teacher assigned
-    if (!slot.courseId.teacher || slot.courseId.teacher.length === 0) {
+    if (!slot.courseId || slot.courseId._id.toString() !== courseId) {
       return res.status(400).json({
         success: false,
-        message: "Slot not assigned to any teacher",
+        message: "Selected slot does not belong to the chosen course",
       });
     }
 
-    // Prevent duplicate booking
-    const existingBooking = await DemoBooking.findOne({
-      studentId: studentExists._id,
-      slotId,
-    });
-    if (existingBooking) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Already booked" });
+    const resolvedTeacherId = teacherId || slot.createdBy?._id?.toString();
+    if (
+      !resolvedTeacherId ||
+      !slot.createdBy ||
+      slot.createdBy._id.toString() !== resolvedTeacherId
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected slot does not belong to the chosen instructor",
+      });
     }
 
-    // Check if student is enrolled in this course
-    const isEnrolled = studentExists.enrolledCourses.some(
-      (course) =>
-        course.courseId?._id?.toString() === slot.courseId._id.toString()
-    );
+    const resolvedDeliveryMode = normalizeText(
+      deliveryMode || slot.courseId?.mode || "online"
+    ).toLowerCase();
+    if (!["online", "offline"].includes(resolvedDeliveryMode)) {
+      return res.status(400).json({
+        success: false,
+        message: "deliveryMode must be either online or offline",
+      });
+    }
 
-    console.log("slot.courseId.category:", slot.courseId?.category);
+    if (
+      slot.courseId?.mode &&
+      slot.courseId.mode !== resolvedDeliveryMode
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery mode does not match the selected course",
+      });
+    }
+
+    const resolvedBranchId = branchId || slot.branchId?._id?.toString() || null;
+    if (resolvedDeliveryMode === "offline") {
+      if (!resolvedBranchId) {
+        return res.status(400).json({
+          success: false,
+          message: "branchId is required for offline demo booking",
+        });
+      }
+
+      if (!slot.branchId || slot.branchId._id.toString() !== resolvedBranchId) {
+        return res.status(400).json({
+          success: false,
+          message: "Selected slot does not belong to the chosen branch",
+        });
+      }
+    }
+
+    if (
+      Array.isArray(slot.students) &&
+      slot.maxStudents &&
+      slot.students.length >= slot.maxStudents
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected demo slot is already full",
+      });
+    }
+
+    const leadPayload = student
+      ? buildLeadFromStudent(student)
+      : validateLead(lead || {});
+
+    if (!student && !leadPayload.valid) {
+      return res.status(400).json({
+        success: false,
+        message: leadPayload.message,
+      });
+    }
+
+    const resolvedLead = student ? leadPayload : leadPayload.lead;
+
+    const duplicateQuery = student?._id
+      ? { slotId, studentId: student._id }
+      : { slotId, "lead.email": resolvedLead.email };
+
+    const existingBooking = await DemoBooking.findOne(duplicateQuery);
+    if (existingBooking) {
+      return res.status(400).json({
+        success: false,
+        message: "A demo booking already exists for this slot",
+      });
+    }
 
     const categoryId =
       slot.courseId?.category?._id?.toString() ||
@@ -97,73 +326,87 @@ exports.bookDemoSlot = async (req, res) => {
       });
     }
 
-    // Create booking
+    const isEnrolled = student
+      ? student.enrolledCourses.some(
+          (course) =>
+            course.courseId?._id?.toString() === slot.courseId._id.toString()
+        )
+      : false;
+
     const booking = await DemoBooking.create({
-      studentId: studentExists._id,
+      studentId: student?._id || null,
       slotId,
       courseId,
-      teacherId: slot.createdBy._id,
+      teacherId: resolvedTeacherId,
       categoryId,
+      branchId: resolvedBranchId,
+      deliveryMode: resolvedDeliveryMode,
+      lead: resolvedLead,
       demoStatus: "Booked",
       enrollmentStatus: isEnrolled ? "Enrolled" : "Not Enrolled",
       followUp: "Pending",
       response: "",
     });
 
-    // Link booking to student
-    studentExists.demoCourse.push(booking._id);
-    await studentExists.save();
+    if (student) {
+      const alreadyLinked = student.demoCourse.some(
+        (bookingId) => bookingId?.toString() === booking._id.toString()
+      );
+      if (!alreadyLinked) {
+        student.demoCourse.push(booking._id);
+        await student.save();
+      }
+    }
 
-    // Get category name (populated or fetch separately)
-    const categoryName =
-      slot.courseId.category?.name ||
-      (await Category.findById(categoryId).then((cat) => cat?.name || "N/A"));
+    const bookingDetails = await buildBookingDetails(booking, slot, student);
 
-    // Structured response
-    const bookingDetails = {
-      _id: booking._id,
-      student: {
-        id: studentExists._id,
-        name: studentExists.userId?.name,
-        email: studentExists.userId?.email,
-        mobile: studentExists.userId?.mobileNo,
-      },
-      course: {
-        id: slot.courseId._id,
-        name: slot.courseId.name,
-        code: slot.courseId.code,
-        category: categoryName,
-        mode: slot.courseId.mode,
-      },
-      slot: {
-        date: slot.date,
-        startTime: slot.startTime,
-        endTime: slot.endTime,
-      },
-      instructor: {
-        id: slot.createdBy._id,
-        user: slot.createdBy.userId,
-      },
-      demoStatus: booking.demoStatus,
-      enrollmentStatus: booking.enrollmentStatus,
-      followUp: booking.followUp,
-      response: booking.response,
-    };
+    void sendDemoBookingEmails({
+      booking,
+      slot,
+      student,
+      lead: resolvedLead,
+    }).catch((emailError) => {
+      console.error("Unexpected demo email dispatch failure", {
+        bookingId: booking?._id?.toString?.() || booking?._id || null,
+        error: emailError?.message || emailError,
+      });
+    });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Demo slot booked successfully",
       booking: bookingDetails,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };
 
 // Get all bookings
 exports.getAllBookings = async (req, res) => {
   try {
-    const bookings = await DemoBooking.find()
+    const {
+      teacherId,
+      demoStatus,
+      followUp,
+      enrollmentStatus,
+      courseId,
+    } = req.query;
+
+    const query = {};
+
+    if (req.user?.accountType === "teacher") {
+      query.teacherId = req.user.roleId;
+    } else if (teacherId) {
+      query.teacherId = teacherId;
+    }
+
+    if (demoStatus) query.demoStatus = demoStatus;
+    if (followUp) query.followUp = followUp;
+    if (enrollmentStatus) query.enrollmentStatus = enrollmentStatus;
+    if (courseId) query.courseId = courseId;
+
+    const bookings = await DemoBooking.find(query)
       .populate({
         path: "studentId",
         select: "followUps demoCourse mode enrolledCourses adminActions",
@@ -180,7 +423,7 @@ exports.getAllBookings = async (req, res) => {
                 path: "roleId",
                 select: "_id name description",
               },
-            ]
+            ],
           },
           {
             path: "enrolledCourses.courseId",
@@ -189,14 +432,15 @@ exports.getAllBookings = async (req, res) => {
               path: "category",
               select: "name",
             },
-          }
-        ]
+          },
+        ],
       })
       .populate({
         path: "slotId",
-        select: "date startTime endTime location",
+        select: "date startTime endTime branchId slotType sessionType",
         populate: [
           { path: "courseId", select: "name code mode category" },
+          { path: "branchId", select: "branchName city" },
           {
             path: "createdBy",
             populate: { path: "userId", select: "name email mobileNo image" },
@@ -204,13 +448,22 @@ exports.getAllBookings = async (req, res) => {
         ],
       })
       .populate({
+        path: "courseId",
+        select: "name code mode category",
+        populate: {
+          path: "category",
+          select: "name",
+        },
+      })
+      .populate({
         path: "teacherId",
         populate: { path: "userId", select: "name email mobileNo image" },
-      });
+      })
+      .sort({ createdAt: -1 });
 
-    res.status(200).json(bookings);
+    return res.status(200).json(bookings);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 };
 
@@ -219,17 +472,12 @@ exports.updateBooking = async (req, res) => {
   try {
     const { demoStatus, enrollmentStatus, followUp, response } = req.body;
 
-    const updateFields = {};
-    if (demoStatus) updateFields.demoStatus = demoStatus;
-    if (enrollmentStatus) updateFields.enrollmentStatus = enrollmentStatus;
-    if (followUp) updateFields.followUp = followUp;
-    if (response !== undefined) updateFields.response = response;
-
-    const booking = await DemoBooking.findByIdAndUpdate(
-      req.params.id,
-      updateFields,
-      { new: true }
-    );
+    const booking = await DemoBooking.findById(req.params.id)
+      .populate({
+        path: "slotId",
+        select: "createdBy",
+      })
+      .select("teacherId slotId");
 
     if (!booking) {
       return res
@@ -237,12 +485,40 @@ exports.updateBooking = async (req, res) => {
         .json({ success: false, message: "Booking not found" });
     }
 
-    res.status(200).json({
+    if (req.user?.accountType === "teacher") {
+      const teacherRoleId = toIdString(req.user.roleId);
+      const assignedTeacherId = toIdString(booking.teacherId);
+      const slotTeacherId = toIdString(booking.slotId?.createdBy);
+
+      if (
+        teacherRoleId &&
+        ![assignedTeacherId, slotTeacherId].includes(teacherRoleId)
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "You can only update demo bookings assigned to you",
+        });
+      }
+    }
+
+    const updateFields = {};
+    if (demoStatus) updateFields.demoStatus = demoStatus;
+    if (enrollmentStatus) updateFields.enrollmentStatus = enrollmentStatus;
+    if (followUp) updateFields.followUp = followUp;
+    if (response !== undefined) updateFields.response = response;
+
+    const updatedBooking = await DemoBooking.findByIdAndUpdate(
+      req.params.id,
+      updateFields,
+      { new: true }
+    );
+
+    return res.status(200).json({
       success: true,
       message: "Booking updated successfully",
-      booking,
+      booking: updatedBooking,
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    return res.status(500).json({ success: false, error: err.message });
   }
 };

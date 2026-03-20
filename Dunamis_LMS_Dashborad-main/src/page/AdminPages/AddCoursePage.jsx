@@ -54,6 +54,7 @@ const AddCoursePage = () => {
         content: [],
         media: null,
         existingImage: null,
+        initialImage: null,
     });
 
     useEffect(() => {
@@ -120,6 +121,7 @@ const AddCoursePage = () => {
                 content: passedCourseData.content || [],
                 media: null,
                 existingImage: passedCourseData.image || null,
+                initialImage: passedCourseData.image || null,
             });
         }
     }, [passedCourseData]);
@@ -209,6 +211,14 @@ const AddCoursePage = () => {
         if (courseData.media instanceof File) {
             formData.append("image", courseData.media);
         }
+        if (
+            courseId &&
+            !courseData.media &&
+            !courseData.existingImage &&
+            courseData.initialImage
+        ) {
+            formData.append("removeImage", "true");
+        }
 
         let resultAction;
 
@@ -275,6 +285,12 @@ const AddCoursePage = () => {
                     media={courseData.media}
                     setMedia={(media) => handleUpdateFormData(media, "media")}
                     existingImage={courseData.existingImage}
+                    onRemoveExistingImage={() =>
+                        setCourseData((prevData) => ({
+                            ...prevData,
+                            existingImage: null,
+                        }))
+                    }
                 />
             </div>
         </>

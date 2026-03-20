@@ -1,8 +1,13 @@
 "use client";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
 
 export default function Testimonials() {
+    const router = useRouter();
+    const [isInterestModalOpen, setInterestModalOpen] = useState(false);
     const testimonials = [
         {
             name: "Rahul Sharma",
@@ -145,13 +150,17 @@ export default function Testimonials() {
                    <motion.button
                         whileHover={{ scale: 1.08 }}
                         whileTap={{ scale: 0.96 }}
-                        onClick={() => router.push("/contact")}
+                        onClick={() => setInterestModalOpen(true)}
                         className="text-[#47c9c4] cursor-pointer border border-[#47c9c4] hover:text-white hover:bg-[#47c9c4] transition-all duration-300 ease-in-out px-6 py-2 rounded-full"
                         >
-                        Get Started Today
+                        Book a Demo
                     </motion.button>
                 </div>
             </motion.section>
+            <FilterQuestionsModal
+                isOpen={isInterestModalOpen}
+                onClose={() => setInterestModalOpen(false)}
+            />
         </div>
     );
 }

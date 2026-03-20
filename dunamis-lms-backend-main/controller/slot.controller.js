@@ -3,6 +3,7 @@ const Course = require("../model/course.model");
 const Branch = require("../model/branch.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
+const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
 
 // Date to minutes for overlap check
 // const timeToMinutes = (date, timeStr) => {
@@ -232,21 +233,61 @@ exports.getAllSlots = async (req, res) => {
 
 exports.getAvailableSlots = async (req, res) => {
   try {
-    const { courseId, teacherId, sessionType } = req.query;
+    const {
+      courseId,
+      teacherId,
+      sessionType,
+      slotType,
+      branchId,
+    } = req.query;
 
     const query = {
-      courseId,
-      createdBy: teacherId,
-      sessionType,
+      date: { $gte: new Date(new Date().setHours(0, 0, 0, 0)) },
+      $expr: {
+        $lt: [{ $size: "$students" }, "$maxStudents"],
+      },
     };
 
-    query.$expr = {
-      $lt: [{ $size: "$students" }, "$maxStudents"],
-    };
+    if (courseId) query.courseId = courseId;
+    if (teacherId) query.createdBy = teacherId;
+    if (sessionType) query.sessionType = sessionType;
+    if (slotType) query.slotType = slotType;
+    if (branchId) query.branchId = branchId;
 
-    const slots = await Slot.find(query)
-      .select("date startTime endTime maxStudents students")
+    const fetchSlots = async () =>
+      Slot.find(query)
+      .populate("branchId", "branchName city")
+      .populate("courseId", "name code mode")
+      .populate({
+        path: "createdBy",
+        select: "_id userId",
+        populate: { path: "userId", select: "name email image" },
+      })
+      .select(
+        "date startTime endTime maxStudents students slotType sessionType branchId parentAvailabilityId courseId createdBy"
+      )
       .sort({ date: 1, startTime: 1 });
+
+    let slots = await fetchSlots();
+
+    if (!slots.length && (courseId || teacherId)) {
+      let teacherIds = [];
+
+      if (teacherId) {
+        teacherIds = [teacherId];
+      } else if (courseId) {
+        const course = await Course.findById(courseId).select("teacher");
+        teacherIds = Array.isArray(course?.teacher)
+          ? course.teacher.map((id) => id.toString())
+          : [];
+      }
+
+      for (const currentTeacherId of teacherIds) {
+        await syncTeacherAvailabilitySlots({ teacherId: currentTeacherId });
+      }
+
+      slots = await fetchSlots();
+    }
 
     res.status(200).json({
       success: true,
@@ -324,6 +365,28 @@ const timeToMinutes = (timeStr) => {
   return h * 60 + m;
 };
 
+const isReplaceAvailabilityRequest = (body = {}) => {
+  const rawFlag =
+    body.replaceWeeklyAvailability ??
+    body.replaceAvailability ??
+    body.replaceExisting ??
+    body.replace ??
+    body.mode ??
+    body.action;
+
+  if (typeof rawFlag === "boolean") {
+    return rawFlag;
+  }
+
+  if (typeof rawFlag === "string") {
+    return ["replace", "overwrite", "reset", "replace-all"].includes(
+      rawFlag.trim().toLowerCase()
+    );
+  }
+
+  return false;
+};
+
 exports.setWeeklyAvailability = async (req, res) => {
   try {
     const teacher = await Teacher.findOne({ userId: req.user.userId });
@@ -332,10 +395,19 @@ exports.setWeeklyAvailability = async (req, res) => {
         .status(403)
         .json({ message: "Only teachers can update availability" });
 
+    const shouldReplaceAvailability = isReplaceAvailabilityRequest(req.body);
     const { availability } = req.body;
-    if (!Array.isArray(availability) || availability.length === 0) {
+    if (!Array.isArray(availability)) {
       return res.status(400).json({ message: "Availability is required" });
     }
+
+    if (!shouldReplaceAvailability && availability.length === 0) {
+      return res.status(400).json({ message: "Availability is required" });
+    }
+
+    const existingAvailability = Array.isArray(teacher.weeklyAvailability)
+      ? teacher.weeklyAvailability.slice()
+      : [];
 
     const validDays = [
       "monday",
@@ -349,8 +421,8 @@ exports.setWeeklyAvailability = async (req, res) => {
 
     for (const slot of availability) {
       if (
-        slot.days.length === 0 ||
         !Array.isArray(slot.days) ||
+        slot.days.length === 0 ||
         !slot.startTime ||
         !slot.endTime
       ) {
@@ -381,7 +453,9 @@ exports.setWeeklyAvailability = async (req, res) => {
 
     const allSlotsByDay = {};
 
-    for (const slot of teacher.weeklyAvailability) {
+    const baseSlots = shouldReplaceAvailability ? [] : existingAvailability;
+
+    for (const slot of baseSlots) {
       for (const d of slot.days) {
         const day = d.toLowerCase();
         if (!allSlotsByDay[day]) allSlotsByDay[day] = [];
@@ -395,6 +469,12 @@ exports.setWeeklyAvailability = async (req, res) => {
     for (const slot of availability) {
       const start = timeToMinutes(slot.startTime);
       const end = timeToMinutes(slot.endTime);
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+        return res.status(400).json({
+          message: `Invalid time range for ${slot.startTime}-${slot.endTime}`,
+        });
+      }
 
       for (const d of slot.days) {
         const day = d.toLowerCase();
@@ -412,18 +492,28 @@ exports.setWeeklyAvailability = async (req, res) => {
       }
     }
 
-    teacher.weeklyAvailability.push(...availability);
+    if (shouldReplaceAvailability) {
+      teacher.weeklyAvailability = availability.map((slot) => ({
+        ...slot,
+        days: slot.days.map((day) => day.toLowerCase()),
+      }));
+    } else {
+      teacher.weeklyAvailability.push(...availability);
+    }
     await teacher.save();
-
-    const updatedAvailability = teacher.weeklyAvailability.slice(
-      -availability.length
-    );
+    const syncResult = await syncTeacherAvailabilitySlots({
+      teacher,
+      replaceExisting: shouldReplaceAvailability,
+    });
 
     res
       .status(200)
       .json({
         message: "Weekly Availability saved",
-        availability: updatedAvailability,
+        replaced: shouldReplaceAvailability,
+        generatedSlots: syncResult.created,
+        removedSlots: syncResult.deleted,
+        availability: teacher.weeklyAvailability,
       });
   } catch (err) {
     res.status(500).json({ error: err.message });

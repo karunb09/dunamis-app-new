@@ -4,7 +4,12 @@ import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
 
-const CourseMediaForm = ({ media, setMedia, existingImage }) => {
+const CourseMediaForm = ({
+    media,
+    setMedia,
+    existingImage,
+    onRemoveExistingImage,
+}) => {
     const [file, setFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
 
@@ -35,6 +40,19 @@ const CourseMediaForm = ({ media, setMedia, existingImage }) => {
         if (previewUrl && previewUrl.startsWith('blob:')) {
             URL.revokeObjectURL(previewUrl);
         }
+
+        if (file) {
+            setFile(null);
+            setMedia(null);
+            if (existingImage) {
+                setPreviewUrl(resolveImageUrl(existingImage, DEFAULT_COURSE_IMAGE));
+            } else {
+                setPreviewUrl(null);
+            }
+            return;
+        }
+
+        onRemoveExistingImage?.();
         setFile(null);
         setMedia(null);
         setPreviewUrl(null);

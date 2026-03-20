@@ -10,7 +10,7 @@ const slotSchema = new mongoose.Schema(
     branchId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Branch",
-      required: true,
+      default: null,
     },
     date: {
       type: Date,

@@ -34,11 +34,29 @@ const allowedOrigins = new Set(
     .filter(Boolean)
 );
 
+const allowedOriginPatterns = [
+  /^https:\/\/([a-z0-9-]+\.)?dunamisindia\.co\.in$/i,
+];
+
+const isAllowedOrigin = (origin) => {
+  const normalizedOrigin = normalizeOrigin(origin);
+
+  if (!normalizedOrigin) {
+    return true;
+  }
+
+  if (allowedOrigins.has(normalizedOrigin)) {
+    return true;
+  }
+
+  return allowedOriginPatterns.some((pattern) =>
+    pattern.test(normalizedOrigin)
+  );
+};
+
 const corsOptions = {
   origin: function (origin, callback) {
-    const normalizedOrigin = normalizeOrigin(origin);
-
-    if (!normalizedOrigin || allowedOrigins.has(normalizedOrigin)) {
+    if (isAllowedOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -88,7 +106,7 @@ app.use(
     useTempFiles: true,
     tempFileDir: "/tmp/",
     createParentPath: true,
-    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+    limits: { fileSize: 300 * 1024 * 1024 }, // 300MB
     abortOnLimit: true,
     responseOnLimit: "File size limit exceeded",
   })

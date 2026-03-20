@@ -28,6 +28,8 @@ import { logoutUser } from "../../redux/authSlice";
 import clsx from "clsx";
 import { getStoredUser } from "../../utils/authSession";
 
+const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
+
 const Sidebar = ({ isOpen, onClose }) => {
   const [isDesktopOpen, setIsDesktopOpen] = useState(true);
   const dispatch = useDispatch();
@@ -318,20 +320,20 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
 
           <div className="shrink-0 border-t border-slate-800 px-4 py-5">
-            <button
-              type="button"
-              onClick={handleLogout}
+            <a
+              href={WEBSITE_URL}
+              onClick={onClose}
               className={clsx(
                 "flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white",
                 isExpanded ? "justify-start gap-3" : "justify-center"
               )}
-              title={!isExpanded ? "Logout" : ""}
+              title={!isExpanded ? "Back to Website" : ""}
             >
               <span className="text-xl">
-                <FiLogOut />
+                <FiChevronLeft />
               </span>
-              {isExpanded && <span>Logout</span>}
-            </button>
+              {isExpanded && <span>Back to Website</span>}
+            </a>
           </div>
         </div>
       </div>

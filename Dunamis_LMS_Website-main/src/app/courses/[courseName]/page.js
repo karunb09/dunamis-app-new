@@ -1,37 +1,73 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Clock, Users } from "lucide-react";
 import BookDemoModal from "@/compoents/PopupModals/BookDemoModal";
 import EnrollTerm from "@/compoents/PopupModals/EnrollTerms";
 import EnrollModal from "@/compoents/PopupModals/EnrollModal";
+import LoginModal from "@/compoents/PopupModals/LoginModal";
 import { IoMdStar } from "react-icons/io";
 import { fetchCourses } from "@/store/courseSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useEffect } from "react";
-import LoginModal from "@/compoents/PopupModals/LoginModal";
-import { resolveImageUrl } from "@/lib/resolveImageUrl";
+import {
+  clearEnrollmentResume,
+  saveEnrollmentResume,
+} from "@/helpers/enrollmentResume";
+import {
+  getCoursePlaceholderImage,
+  getInitialsImage,
+  resolveImageUrl,
+} from "@/lib/resolveImageUrl";
 
 export default function CourseDetailPage() {
   const dispatch = useDispatch();
+  const pathname = usePathname();
   const { courses, loading, error } = useSelector((state) => state.course);
-  const { user, token } = useSelector((s) => s.auth || {});
+  const { token } = useSelector((state) => state.auth || {});
   const { courseName } = useParams();
 
   const [isEnrollTermOpen, setEnrollTermOpen] = useState(false);
   const [isEnrollOpen, setEnrollOpen] = useState(false);
   const [isBookDemoOpen, setBookDemoOpen] = useState(false);
-  const [loginOpen, setLoginOpen] = useState(false);
+  const [isLoginOpen, setLoginOpen] = useState(false);
   const [enrollSelection, setEnrollSelection] = useState(null);
+  const [pendingQueryAction, setPendingQueryAction] = useState(null);
+  const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
 
   const [course, setCourse] = useState(null);
   const [rawCourse, setRawCourse] = useState(null);
+  const courseFallbackImage = getCoursePlaceholderImage();
+
+  const hasActiveAuth = () => {
+    if (typeof window === "undefined") return Boolean(token);
+    return Boolean(token || window.localStorage.getItem("auth_token"));
+  };
 
   useEffect(() => {
     dispatch(fetchCourses());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const action =
+      params.get("action") ||
+      (params.get("intent") === "demo" ? "demo" : null);
+
+    if (!action) return;
+
+    setPendingQueryAction(action);
+    params.delete("action");
+    params.delete("intent");
+
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, []);
 
   useEffect(() => {
     if (courses && courses.length > 0 && courseName) {
@@ -74,9 +110,7 @@ export default function CourseDetailPage() {
           })(),
           image: resolveImageUrl(
             foundCourse.image,
-            `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-              foundCourse.name || "Course"
-            )}`
+            courseFallbackImage
           ),
           rating: foundCourse.rating || 4.8,
           reviewsCount:
@@ -120,11 +154,11 @@ export default function CourseDetailPage() {
               rating: t.averageRating || 0,
               image: resolveImageUrl(
                 t.teacherDetail?.profilePicture || t.userId?.image,
-                `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                getInitialsImage(
                   `${t.teacherDetail?.name?.firstName || ""} ${
                     t.teacherDetail?.name?.lastName || ""
                   }`.trim() || "Instructor"
-                )}`
+                )
               ),
             })) || [],
           feeStructure: {
@@ -196,6 +230,45 @@ export default function CourseDetailPage() {
     }
   }, [courses, courseName]);
 
+  useEffect(() => {
+    if (!pendingQueryAction || !rawCourse) return;
+
+    if (pendingQueryAction === "demo") {
+      setBookDemoOpen(true);
+      setPendingQueryAction(null);
+      return;
+    }
+
+    if (pendingQueryAction === "enroll") {
+      if (hasActiveAuth()) {
+        clearEnrollmentResume();
+        setEnrollTermOpen(true);
+      } else {
+        if (pathname) {
+          saveEnrollmentResume(`${pathname}?action=enroll`);
+        }
+        setPendingEnrollmentAuth(true);
+        setLoginOpen(true);
+      }
+      setPendingQueryAction(null);
+    }
+  }, [pathname, pendingQueryAction, rawCourse, token]);
+
+  const openEnrollmentFlow = () => {
+    if (hasActiveAuth()) {
+      clearEnrollmentResume();
+      setPendingEnrollmentAuth(false);
+      setEnrollTermOpen(true);
+      return;
+    }
+
+    if (pathname) {
+      saveEnrollmentResume(`${pathname}?action=enroll`);
+    }
+    setPendingEnrollmentAuth(true);
+    setLoginOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
@@ -262,9 +335,7 @@ export default function CourseDetailPage() {
             alt={course.title}
             className="w-full h-60 sm:h-72 md:h-96 object-cover"
             onError={(e) => {
-              e.currentTarget.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-                course.title
-              )}`;
+              e.currentTarget.src = courseFallbackImage;
             }}
           />
         </motion.div>
@@ -334,7 +405,7 @@ export default function CourseDetailPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setEnrollTermOpen(true)}
+                  onClick={openEnrollmentFlow}
                   className="w-full sm:w-auto bg-[#FF6B35] text-white py-2 px-6 rounded-xl cursor-pointer font-medium text-sm"
                 >
                   Enroll Now
@@ -343,19 +414,15 @@ export default function CourseDetailPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    const hasToken =
-                      token ||
-                      (typeof window !== "undefined" &&
-                        localStorage.getItem("auth_token"));
-                    if (hasToken) setBookDemoOpen(true);
-                    else setLoginOpen(true);
-                  }}
+                  onClick={() => setBookDemoOpen(true)}
                   className="w-full sm:w-auto border-2 border-gray-400 py-2 px-6 rounded-xl cursor-pointer hover:bg-gray-50 text-sm font-medium"
                 >
-                  Book Demo Slot
+                  Book Demo
                 </motion.button>
               </div>
+              <p className="text-xs text-gray-500">
+                Demo booking starts here without forcing login.
+              </p>
             </div>
           </motion.div>
         </motion.div>
@@ -385,7 +452,22 @@ export default function CourseDetailPage() {
         course={rawCourse}
       />
 
-      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
+      <LoginModal
+        open={isLoginOpen}
+        onClose={() => {
+          setLoginOpen(false);
+          setPendingEnrollmentAuth(false);
+        }}
+        nextHref={pathname ? `${pathname}?action=enroll` : "/courses"}
+        onSuccess={() => {
+          clearEnrollmentResume();
+          setLoginOpen(false);
+          if (pendingEnrollmentAuth) {
+            setPendingEnrollmentAuth(false);
+            setEnrollTermOpen(true);
+          }
+        }}
+      />
     </section>
   );
 }

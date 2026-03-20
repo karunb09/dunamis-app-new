@@ -7,23 +7,7 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOfflineCenters } from "@/store/centerSlice";
-import { IMAGE_BASE_URL } from "@/lib/siteConfig";
-
-const getImageUrl = (
-  imagePath,
-  fallbackUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80"
-) => {
-  if (!imagePath) {
-    return fallbackUrl;
-  }
-
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
-  }
-
-  const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  return `${IMAGE_BASE_URL}${cleanPath}`;
-};
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -82,7 +66,12 @@ export default function Centers() {
           description:
             center.description ||
             `${center.branchName || "This branch"} offers excellent training.`,
-          image: getImageUrl(center.branchImage),
+          image: resolveImageUrl(
+            center.branchImage,
+            `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+              center.branchName || center.name || "Branch"
+            )}`
+          ),
           openingHours: `${openDays}: ${formattedTimings}`,
           capacity: center.branchCapacity
             ? `${center.branchCapacity} students`

@@ -7,8 +7,9 @@ export const fetchMentors = createAsyncThunk(
   "mentors/fetchMentors",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/v1/teachers/`);
-      return Array.isArray(response.data?.data) ? response.data.data : [];
+      const response = await axios.get(`${BASE_URL}/v1/teachers/public`);
+      const payload = response.data?.data ?? response.data;
+      return Array.isArray(payload) ? payload : [];
     } catch (error) {
       if (error.response?.status === 404) {
         return [];

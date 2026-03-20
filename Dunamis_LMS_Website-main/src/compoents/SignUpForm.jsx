@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { HiArrowLeft, HiCheckCircle } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
@@ -9,7 +9,12 @@ import { sendOtp, createStudent, setStep } from "../store/signupSlice";
 import { Country } from "country-state-city";
 import * as Select from "@radix-ui/react-select";
 import { IoMdArrowDropdown } from "react-icons/io";
-import BookDemoModal from "@/compoents/PopupModals/BookDemoModal";
+import LoginModal from "@/compoents/PopupModals/LoginModal";
+import {
+  clearEnrollmentResume,
+  readEnrollmentResume,
+  saveEnrollmentResume,
+} from "@/helpers/enrollmentResume";
 
 const ButtonSpinner = ({ label }) => (
   <span className="inline-flex items-center gap-2">
@@ -35,9 +40,11 @@ const StepBlockingLoader = ({ title, description }) => (
 
 export default function SignUpForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const { step, otpSent, otpStatus, createStatus } = useSelector((state) => state.signup);
-  const [isBookDemoOpen, setBookDemoOpen] = useState(false);
+  const [isLoginOpen, setLoginOpen] = useState(false);
+  const [resumeHref, setResumeHref] = useState("/courses");
 
   // Step 1 Fields
   const [firstName, setFirstName] = useState("");
@@ -63,6 +70,19 @@ export default function SignUpForm() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const nextFromQuery = searchParams?.get("next");
+    const storedResume = readEnrollmentResume();
+    const nextHref = nextFromQuery || storedResume?.nextHref || "/courses";
+    setResumeHref(nextHref);
+
+    if (nextHref && nextHref !== "/courses") {
+      saveEnrollmentResume(nextHref);
+    } else {
+      clearEnrollmentResume();
+    }
+  }, [searchParams]);
 
   // Step 1 continue
   const handleContinueStep1 = (e) => {
@@ -121,6 +141,13 @@ export default function SignUpForm() {
       })
       .catch((err) => toast.error(err || "Signup failed"));
   };
+
+  useEffect(() => {
+    if (step !== 3 || createStatus !== "succeeded") return;
+    if (resumeHref && resumeHref !== "/courses") {
+      setLoginOpen(true);
+    }
+  }, [step, createStatus, resumeHref]);
 
   // OTP Functions
   const handleSendOtp = () => {
@@ -430,18 +457,35 @@ export default function SignUpForm() {
           <HiCheckCircle className="text-green-500 text-5xl mb-4" />
           <h2 className="text-2xl font-bold mb-2">Account Created Successfully!</h2>
           <p className="text-gray-600 text-sm mb-6">
-            Welcome {firstName}! You can now continue with your course enrollment.
+            Welcome {firstName}! You can now sign in and continue your course enrollment.
           </p>
           <button
-             onClick={() => setBookDemoOpen(true)}
+             onClick={() => {
+               if (resumeHref && resumeHref !== "/courses") {
+                 setLoginOpen(true);
+                 return;
+               }
+               router.push("/courses");
+             }}
             className="bg-orange-400 hover:bg-orange-500 text-white font-medium px-6 py-2 rounded-2xl transition"
           >
-            Done
+            {resumeHref && resumeHref !== "/courses" ? "Continue to sign in" : "Done"}
           </button>
         </div>
       )}
-       {isBookDemoOpen && (
-        <BookDemoModal onClose={() => setBookDemoOpen(false)} />
+
+      {isLoginOpen && (
+        <LoginModal
+          open={isLoginOpen}
+          onClose={() => setLoginOpen(false)}
+          nextHref={resumeHref}
+          onSuccess={() => {
+            clearEnrollmentResume();
+            if (resumeHref && resumeHref !== "/courses") {
+              router.replace(resumeHref);
+            }
+          }}
+        />
       )}
     </div>
   );

@@ -8,13 +8,13 @@ const {
   deleteSlot,
   setWeeklyAvailability,
 } = require("../controller/slot.controller");
-const { isAuth } = require("../middleware/auth");
+const { accessToRole, isAuth } = require("../middleware/auth");
 
 // router.post("/",isAuth, createSlot); // Create slot
-router.get("/", getAllSlots); // Get all slots
-router.get("/available",isAuth, getAvailableSlots); // Filter by branch/date
-router.put("/:id", updateSlot); // Update slot
-router.delete("/:id", deleteSlot); // Delete slot
-router.post("/weekly-availability", isAuth, setWeeklyAvailability);
+router.get("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), getAllSlots);
+router.get("/available", getAvailableSlots);
+router.put("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), updateSlot);
+router.delete("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), deleteSlot);
+router.post("/weekly-availability", isAuth, accessToRole(["teacher"]), setWeeklyAvailability);
 
 module.exports = router;

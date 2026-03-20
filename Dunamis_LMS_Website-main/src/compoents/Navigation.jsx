@@ -21,6 +21,7 @@ const secondaryLinks = [
   { label: "FAQs", href: "/faqs" },
   { label: "Contact Us", href: "/contact-us" },
 ];
+const mobileLinks = [...primaryLinks, ...secondaryLinks];
 
 const isActivePath = (pathname, href) => {
   if (href === "/") {
@@ -63,6 +64,32 @@ const Navigation = () => {
     document.addEventListener("mousedown", handlePointerDown);
 
     return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1280) {
+        setIsMobileMenuOpen(false);
+        setIsMoreDropdownOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+        setIsMoreDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   useEffect(() => {
@@ -125,6 +152,27 @@ const Navigation = () => {
       );
     });
 
+  const renderMobileLinks = () =>
+    mobileLinks.map((link) => {
+      const active = isActivePath(pathname, link.href);
+
+      return (
+        <Link
+          key={link.href}
+          href={link.href}
+          onClick={closeMenus}
+          className={[
+            "block rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200",
+            active
+              ? "bg-[#fff1eb] text-[#d9480f]"
+              : "text-slate-700 hover:bg-stone-50 hover:text-slate-950",
+          ].join(" ")}
+        >
+          {link.label}
+        </Link>
+      );
+    });
+
   return (
     <>
       <header
@@ -135,7 +183,7 @@ const Navigation = () => {
             : "border-transparent bg-[rgba(255,250,244,0.96)]",
         ].join(" ")}
       >
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:gap-3 sm:px-6 lg:px-8">
           <Link
             href="/"
             onClick={closeMenus}
@@ -150,17 +198,9 @@ const Navigation = () => {
                 priority
               />
             </div>
-            <div className="hidden min-w-0 sm:block">
-              <p className="truncate text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
-                Creative Learning
-              </p>
-              <p className="truncate text-sm font-semibold text-slate-900">
-                Learn with rhythm
-              </p>
-            </div>
           </Link>
 
-          <div className="hidden flex-1 items-center justify-between rounded-full border border-stone-200 bg-white/90 px-3 py-2 shadow-sm lg:flex">
+          <div className="hidden flex-1 items-center justify-between rounded-full border border-stone-200 bg-white/90 px-3 py-2 shadow-sm xl:flex">
             <nav className="flex items-center gap-1">
               {primaryLinks.map((link) => renderPrimaryLink(link))}
 
@@ -213,20 +253,36 @@ const Navigation = () => {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="ml-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:border-stone-300 hover:bg-stone-50 lg:hidden"
-            aria-label="Open navigation menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          <div className="ml-auto flex items-center gap-2 xl:hidden">
+            <a
+              href="/signup"
+              className="hidden items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50 md:inline-flex"
+            >
+              Sign Up
+            </a>
+
+            <Link
+              href={DASHBOARD_URL}
+              className="hidden items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95b27] sm:inline-flex"
+            >
+              Dashboard
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:border-stone-300 hover:bg-stone-50"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          </div>
         </div>
       </header>
 
       <div
         className={[
-          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 lg:hidden",
+          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 xl:hidden",
           isMobileMenuOpen ? "visible opacity-100" : "invisible opacity-0",
         ].join(" ")}
         onClick={closeMenus}
@@ -234,7 +290,7 @@ const Navigation = () => {
 
       <div
         className={[
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-sm flex-col bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_60%,#fff7ef_100%)] shadow-2xl transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[420px] flex-col bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_60%,#fff7ef_100%)] shadow-2xl transition-transform duration-300 xl:hidden",
           isMobileMenuOpen ? "translate-x-0" : "translate-x-full",
         ].join(" ")}
       >
@@ -263,63 +319,36 @@ const Navigation = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-6">
-          <div className="rounded-[28px] border border-stone-200 bg-white px-4 py-4 shadow-sm">
+          <div className="rounded-[28px] border border-orange-100 bg-gradient-to-br from-white via-[#fff8f3] to-[#fff1e8] px-4 py-4 shadow-sm">
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
-              Explore
+              Quick access
             </p>
-            <div className="mt-3 space-y-1">
-              {primaryLinks.map((link) => renderPrimaryLink(link, true))}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <a
+                href="/signup"
+                className="inline-flex flex-1 items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
+                onClick={closeMenus}
+              >
+                Sign Up
+              </a>
+              <Link
+                href={DASHBOARD_URL}
+                onClick={closeMenus}
+                className="inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
+              >
+                Dashboard
+              </Link>
             </div>
           </div>
 
           <div className="mt-4 rounded-[28px] border border-stone-200 bg-white px-4 py-4 shadow-sm">
-            <button
-              type="button"
-              onClick={() => setIsMoreDropdownOpen((open) => !open)}
-              className="flex w-full items-center justify-between rounded-2xl px-1 py-1 text-left"
-            >
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
-                  More
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Company pages, stories, and support.
-                </p>
-              </div>
-              <ChevronDown
-                className={[
-                  "h-5 w-5 text-slate-500 transition-transform",
-                  isMoreDropdownOpen ? "rotate-180" : "",
-                ].join(" ")}
-              />
-            </button>
-
-            {isMoreDropdownOpen && (
-              <div className="mt-3 space-y-1 border-t border-stone-100 pt-3">
-                {renderSecondaryLinks(true)}
-              </div>
-            )}
+            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-stone-400">
+              Menu
+            </p>
+            <div className="mt-3 space-y-1">
+              {renderMobileLinks()}
+            </div>
           </div>
-        </div>
-
-        <div className="space-y-3 border-t border-stone-200 px-5 py-5">
-          <a
-            href="/signup"
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={closeMenus}
-            className="inline-flex w-full items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-3 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
-          >
-            Sign Up
-          </a>
-
-          <Link
-            href={DASHBOARD_URL}
-            onClick={closeMenus}
-            className="inline-flex w-full items-center justify-center rounded-full bg-[#ef6a32] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
-          >
-            Login | Dashboard
-          </Link>
         </div>
       </div>
     </>

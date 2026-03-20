@@ -50,7 +50,7 @@ const studentSchema = new mongoose.Schema(
         },
         slotId: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "Teacher.weeklyAvailability",
+          ref: "Slot",
           // required: true,
         },
         progress: {
@@ -119,6 +119,35 @@ const studentSchema = new mongoose.Schema(
           type: String,
           enum: ["standard", "premium"],
         },
+        teacherId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "teacher",
+          default: null,
+        },
+        slotId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Slot",
+          default: null,
+        },
+        parentAvailabilityId: {
+          type: mongoose.Schema.Types.ObjectId,
+          default: null,
+        },
+        branchId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Branch",
+          default: null,
+        },
+        deliveryMode: {
+          type: String,
+          enum: ["online", "offline", null],
+          default: null,
+        },
+        planType: {
+          type: String,
+          enum: ["monthly", "full", null],
+          default: null,
+        },
         paymentType: {
           type: String,
           enum: ["Installment", "Full"],
@@ -167,6 +196,11 @@ const studentSchema = new mongoose.Schema(
           type: String,
           enum: ["Due", "Paid"],
           default: "Due",
+        },
+        monthlyPaymentStatus: {
+          type: String,
+          enum: ["pending", "completed", null],
+          default: null,
         },
       },
     ],

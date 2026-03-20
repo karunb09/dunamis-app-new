@@ -3,13 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchBranchById } from "../../../redux/Branch/branchSlice";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 import {
   FaWifi, FaParking, FaSnowflake, FaCoffee, FaDumbbell,
   FaBook, FaProjectDiagram, FaMapMarkerAlt, FaEnvelope,
   FaClock, FaUsers, FaPhoneAlt, FaBriefcase, FaBookOpen
 } from "react-icons/fa";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
 
 const CenterDetailsPage = () => {
   const { id } = useParams();
@@ -83,6 +82,10 @@ const CenterDetailsPage = () => {
     ? centreFacilities.split(",").map((f) => f.trim())
     : [];
 
+  const branchFallbackImage = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+    branchName || "Branch"
+  )}`;
+
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto bg-white rounded-2xl shadow-md min-h-screen text-sm">
       <button
@@ -119,7 +122,7 @@ const CenterDetailsPage = () => {
 
           <div className="w-full md:w-1/2 relative">
             <img
-              src={`${IMAGE}${branchImage}`}
+              src={resolveImageUrl(branchImage, branchFallbackImage)}
               alt={branchName}
               className="rounded-xl w-full h-auto object-cover shadow-md border border-gray-200"
             />
@@ -287,7 +290,12 @@ const CenterDetailsPage = () => {
               const lastName = teacherDetails.name?.lastName || user.name?.lastName || "";
               const teacherName = `${firstName} ${lastName}`.trim() || "Unknown Teacher";
 
-              const profilePicture = teacherDetails.profilePicture || user.image || "/placeholder.png";
+              const profilePicture = resolveImageUrl(
+                teacherDetails.profilePicture || user.image,
+                `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                  teacherName
+                )}`
+              );
               const experience = teacherDetails.yearOfExperience ? `${teacherDetails.yearOfExperience} years` : null;
               const areaOfExpertise = teacherDetails.areaOfExpertise || "No specialization listed";
 
@@ -298,10 +306,14 @@ const CenterDetailsPage = () => {
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <img
-                      src={profilePicture.startsWith("http") ? profilePicture : `${IMAGE}${profilePicture}`}
+                      src={profilePicture}
                       alt={teacherName}
                       className="w-14 h-14 rounded-full object-cover border-2 border-gray-200"
-                      onError={(e) => { e.target.src = "/placeholder.png"; }}
+                      onError={(e) => {
+                        e.target.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
+                          teacherName
+                        )}`;
+                      }}
                     />
                     <div>
                       <h4 className="font-semibold text-sm text-black">{teacherName}</h4>

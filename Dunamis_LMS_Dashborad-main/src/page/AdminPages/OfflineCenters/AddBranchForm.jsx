@@ -11,6 +11,7 @@ import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
 import { Upload } from "phosphor-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 const AddBranch = () => {
     const { id } = useParams();
@@ -46,6 +47,10 @@ const AddBranch = () => {
     const { cities = [], loading: citiesLoading, error: citiesError, listStatus: cityListStatus } = useSelector(
         (state) => state.city
     );
+
+    const branchFallbackImage = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+        formData.branchName || selectedBranch?.branchName || "Branch"
+    )}`;
 
     // Fetch users and cities
     useEffect(() => {
@@ -528,9 +533,12 @@ const AddBranch = () => {
                             alt="Branch Preview"
                             className="w-32 h-32 object-cover rounded-xl mb-2"
                         />
-                    ) : id && selectedBranch?.branchImage ? (
+                    ) : id && selectedBranch ? (
                         <img
-                            src={`${import.meta.env.VITE_IMAGE || ""}${selectedBranch.branchImage}`}
+                            src={resolveImageUrl(
+                                selectedBranch.branchImage,
+                                branchFallbackImage
+                            )}
                             alt="Branch Preview"
                             className="w-32 h-32 object-cover rounded-xl mb-2"
                         />

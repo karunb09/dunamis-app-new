@@ -1,17 +1,20 @@
 "use client";
 import { motion } from "framer-motion";
-import { FaGuitar, FaPiano, FaLanguage } from "react-icons/fa";
-import { GiMusicalNotes } from "react-icons/gi";
 import CourseCard from "../CourseCards";
-import { KeyboardMusic } from "lucide-react";
 import { fetchCourses } from "@/store/courseSlice";
+import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { useState, useEffect } from "react";
-import { resolveImageUrl } from "@/lib/resolveImageUrl";
+import { useEffect } from "react";
+import {
+  getCoursePlaceholderImage,
+  resolveImageUrl,
+} from "@/lib/resolveImageUrl";
 
 export default function PopularCourses() {
   const dispatch = useDispatch();
+  const router = useRouter();
   const { courses, loading, error } = useSelector((state) => state.course);
+  const courseFallbackImage = getCoursePlaceholderImage();
 
   const coursedata = (rawCourses) => {
     if (!Array.isArray(rawCourses)) return [];
@@ -51,17 +54,19 @@ export default function PopularCourses() {
       };
 
       const calculateTotalStudents = () => {
+        if (Number.isFinite(Number(course.totalStudents))) {
+          return Number(course.totalStudents);
+        }
+
         if (!Array.isArray(course.teacher) || course.teacher.length === 0) {
           return 0;
         }
-        const uniqueStudents = new Set();
-        course.teacher.forEach(teacher => {
-          if (Array.isArray(teacher.students)) {
-            teacher.students.forEach(studentId => uniqueStudents.add(studentId));
-          }
-        });
 
-        return uniqueStudents.size;
+        const aggregateCount = course.teacher.reduce((sum, teacher) => {
+          return sum + (Number(teacher?.studentCount) || 0);
+        }, 0);
+
+        return aggregateCount;
       };
 
 
@@ -131,9 +136,7 @@ export default function PopularCourses() {
         installments: activePrice?.installments || 1,
         image: resolveImageUrl(
           course.image,
-          `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-            course.name || "Course"
-          )}`
+          courseFallbackImage
         ),
         rating: parseFloat(courseRating) || 0,
         averageRating: parseFloat(courseRating) || 0,
@@ -208,6 +211,7 @@ export default function PopularCourses() {
           <motion.div key={course.id || index} variants={cardVariants}>
             <CourseCard
               image={course.image}
+              fallbackImage={courseFallbackImage}
               rating={course.averageRating}
               enrolledStudents={course.enrolledStudents}
               studentCount={course.studentCount}
@@ -231,6 +235,8 @@ export default function PopularCourses() {
               branchName={course.branchNames}
               description={course.description}
               certification={course.certification}
+              onViewDetails={() => router.push(`/courses/${course.id}`)}
+              onBookDemo={() => router.push(`/courses/${course.id}?action=demo`)}
               {...course}
             />
           </motion.div>

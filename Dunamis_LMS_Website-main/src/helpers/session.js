@@ -14,6 +14,12 @@ export function upsertEnrollSelection(patch) {
       ...(Object.prototype.hasOwnProperty.call(patch, "branch")
         ? { branch: patch.branch }
         : {}),
+      ...(Object.prototype.hasOwnProperty.call(patch, "branchId")
+        ? { branchId: patch.branchId }
+        : {}),
+      ...(Object.prototype.hasOwnProperty.call(patch, "branchLabel")
+        ? { branchLabel: patch.branchLabel }
+        : {}),
       ...(Object.prototype.hasOwnProperty.call(patch, "instructorId")
         ? { instructorId: patch.instructorId }
         : {}),
@@ -72,6 +78,9 @@ export function getCurrentSelection() {
     if (!sel) return null;
     return {
       ...sel,
+      branchId: sel.branchId ?? null,
+      branchLabel: sel.branchLabel ?? sel.branch ?? null,
+      branch: sel.branchLabel ?? sel.branch ?? null,
       instructorId: sel.instructorId ?? null,
       instructorLabel: sel.instructorLabel ?? sel.instructor ?? null, // backward-compatible
     };

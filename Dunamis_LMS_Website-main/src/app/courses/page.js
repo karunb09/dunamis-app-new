@@ -1,27 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { Search, SlidersHorizontal, X, Star } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCourses } from "@/store/courseSlice";
 import { IoMdStar } from "react-icons/io";
-import { resolveImageUrl } from "@/lib/resolveImageUrl";
+import {
+  getCoursePlaceholderImage,
+  resolveImageUrl,
+} from "@/lib/resolveImageUrl";
 
-export default function CoursesPage() {
+function CoursesPageContent() {
   const dispatch = useDispatch();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const courseState = useSelector((state) => state.course);
   const courses = courseState.courses || [];
   const loading = courseState.loading;
   const error = courseState.error;
+  const hasMountedQuerySync = useRef(false);
+  const isApplyingQueryFilters = useRef(false);
 
-  const [transformedCourses, setTransformedCourses] = useState([]);
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedMode, setSelectedMode] = useState("");
   const [maxPrice, setMaxPrice] = useState(10000);
+  const courseFallbackImage = getCoursePlaceholderImage();
+  const normalizeValue = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase();
+  const readCategoryFromQuery = () => (searchParams.get("category") || "").trim();
+  const readModeFromQuery = () => {
+    const mode = normalizeValue(searchParams.get("mode"));
+    return mode === "online" || mode === "offline" ? mode : "";
+  };
+  const [selectedCategory, setSelectedCategory] = useState(readCategoryFromQuery);
+  const [selectedMode, setSelectedMode] = useState(readModeFromQuery);
+  const searchParamsString = searchParams.toString();
+  const categoryFromQuery = readCategoryFromQuery();
+  const modeFromQuery = readModeFromQuery();
 
   // Transform API data for UI
   const transformCourses = (rawCourses) => {
@@ -35,9 +56,7 @@ export default function CoursesPage() {
 
       const image = resolveImageUrl(
         course.image,
-        `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-          course.name || "Course"
-        )}`
+        courseFallbackImage
       );
 
       return {
@@ -77,14 +96,7 @@ export default function CoursesPage() {
     dispatch(fetchCourses());
   }, [dispatch]);
 
-  // Transform courses when Redux updates
-  useEffect(() => {
-    if (courses && courses.length > 0) {
-      setTransformedCourses(transformCourses(courses));
-    } else {
-      setTransformedCourses([]);
-    }
-  }, [courses]);
+  const transformedCourses = useMemo(() => transformCourses(courses), [courses]);
 
   // Filters
   const filteredCourses = transformedCourses.filter((course) => {
@@ -92,16 +104,83 @@ export default function CoursesPage() {
       .toLowerCase()
       .includes(search.toLowerCase());
     const matchesCategory = selectedCategory
-      ? course.category === selectedCategory
+      ? normalizeValue(course.category) === normalizeValue(selectedCategory)
       : true;
-    const matchesMode = selectedMode ? course.mode === selectedMode : true;
+    const matchesMode = selectedMode
+      ? normalizeValue(course.mode) === normalizeValue(selectedMode)
+      : true;
     const matchesPrice = course.price <= maxPrice;
     return matchesSearch && matchesCategory && matchesMode && matchesPrice;
   });
 
-  const categories = [
-    ...new Set(transformedCourses.map((c) => c.category).filter(Boolean)),
-  ];
+  const categories = useMemo(
+    () => [...new Set(transformedCourses.map((c) => c.category).filter(Boolean))],
+    [transformedCourses]
+  );
+
+  useEffect(() => {
+    if (
+      selectedCategory === categoryFromQuery &&
+      selectedMode === modeFromQuery
+    ) {
+      return;
+    }
+
+    isApplyingQueryFilters.current = true;
+    setSelectedCategory(categoryFromQuery);
+    setSelectedMode(modeFromQuery);
+  }, [categoryFromQuery, modeFromQuery, selectedCategory, selectedMode]);
+
+  useEffect(() => {
+    if (!hasMountedQuerySync.current) {
+      hasMountedQuerySync.current = true;
+      return;
+    }
+
+    if (isApplyingQueryFilters.current) {
+      isApplyingQueryFilters.current = false;
+      return;
+    }
+
+    const nextParams = new URLSearchParams(searchParamsString);
+    const nextCategory = selectedCategory.trim();
+    const nextMode = normalizeValue(selectedMode);
+    const currentCategory = categoryFromQuery;
+    const currentMode = modeFromQuery;
+
+    if (nextCategory) nextParams.set("category", nextCategory);
+    else nextParams.delete("category");
+
+    if (nextMode) nextParams.set("mode", nextMode);
+    else nextParams.delete("mode");
+
+    if (!nextCategory && !nextMode) {
+      nextParams.delete("intent");
+    }
+
+    const nextQuery = nextParams.toString();
+    const currentQuery = searchParamsString;
+
+    if (
+      currentCategory === nextCategory &&
+      currentMode === nextMode &&
+      currentQuery === nextQuery
+    ) {
+      return;
+    }
+
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [
+    categoryFromQuery,
+    modeFromQuery,
+    pathname,
+    router,
+    searchParamsString,
+    selectedCategory,
+    selectedMode,
+  ]);
 
   // Loading state
   if (loading)
@@ -143,6 +222,59 @@ export default function CoursesPage() {
           <SlidersHorizontal className="w-4 h-4" /> Filter
         </button>
       </div>
+
+      {(selectedCategory || selectedMode) && (
+        <div className="mb-6 rounded-2xl border border-orange-100 bg-orange-50/70 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                Showing courses based on your demo interests
+              </p>
+              <p className="mt-1 text-sm text-gray-600">
+                You can remove any selection here or refine things further from
+                the filter panel.
+              </p>
+            </div>
+
+            {(selectedCategory || selectedMode) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory("");
+                  setSelectedMode("");
+                }}
+                className="cursor-pointer text-sm font-medium text-orange-600 transition hover:text-orange-700"
+              >
+                Clear selections
+              </button>
+            )}
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {selectedCategory && (
+              <button
+                type="button"
+                onClick={() => setSelectedCategory("")}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-orange-200 transition hover:bg-orange-100"
+              >
+                Interest: {selectedCategory}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+
+            {selectedMode && (
+              <button
+                type="button"
+                onClick={() => setSelectedMode("")}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium capitalize text-gray-700 ring-1 ring-orange-200 transition hover:bg-orange-100"
+              >
+                Mode: {selectedMode}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Filter Modal */}
       <AnimatePresence>
@@ -268,11 +400,9 @@ export default function CoursesPage() {
                 src={course.image}
                 alt={course.title}
                 className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                // onError={(e) => {
-                //   e.target.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
-                //     course.title
-                //   )}`;
-                // }}
+                onError={(e) => {
+                  e.currentTarget.src = courseFallbackImage;
+                }}
               />
             </div>
 
@@ -315,15 +445,40 @@ export default function CoursesPage() {
                 </span>
               </div>
 
-              <Link href={`/courses/${course.id}`}>
-                <button className="cursor-pointer w-full bg-[#FF6B35] hover:bg-[#ff4400] text-white font-medium py-2 px-4 rounded-xl transition">
-                  View Details
-                </button>
-              </Link>
+              <div className="mt-auto grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Link href={`/courses/${course.id}`}>
+                  <button className="cursor-pointer w-full rounded-xl border border-orange-200 bg-white py-2 px-4 font-medium text-[#FF6B35] transition hover:bg-orange-50">
+                    View Details
+                  </button>
+                </Link>
+
+                <Link href={`/courses/${course.id}?action=demo`}>
+                  <button className="cursor-pointer w-full rounded-xl bg-[#FF6B35] py-2 px-4 font-medium text-white transition hover:bg-[#ff4400]">
+                    Book Demo
+                  </button>
+                </Link>
+              </div>
             </div>
           </motion.div>
         ))}
       </div>
     </section>
+  );
+}
+
+function CoursesPageFallback() {
+  return (
+    <section className="mx-auto flex max-w-7xl flex-col items-center justify-center px-6 py-12">
+      <div className="mb-4 h-16 w-16 animate-spin rounded-full border-4 border-orange-500 border-t-transparent"></div>
+      <p className="text-lg text-gray-600">Loading courses...</p>
+    </section>
+  );
+}
+
+export default function CoursesPage() {
+  return (
+    <Suspense fallback={<CoursesPageFallback />}>
+      <CoursesPageContent />
+    </Suspense>
   );
 }

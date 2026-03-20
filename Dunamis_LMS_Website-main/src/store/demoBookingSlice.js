@@ -3,18 +3,51 @@ import axios from "axios";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = window.localStorage.getItem("auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const createDemoBooking = createAsyncThunk(
   "demoBooking/createDemoBooking",
-  async ({ slotId, courseId }, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
       const res = await axios.post(
         `${BASE_URL}/v1/demoBookings/`,
-        { slotId, courseId },
-        { withCredentials: true }
+        payload,
+        {
+          withCredentials: true,
+          headers: getAuthHeaders(),
+        }
       );
       return res.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
+      return rejectWithValue(
+        error.response?.data || error.message || "Failed to create demo booking"
+      );
+    }
+  }
+);
+
+export const fetchAvailableSlots = createAsyncThunk(
+  "demoBooking/fetchAvailableSlots",
+  async (params, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${BASE_URL}/v1/slots/available`, {
+        params,
+        withCredentials: true,
+        headers: getAuthHeaders(),
+      });
+      if (Array.isArray(res.data?.slots)) return res.data.slots;
+      if (Array.isArray(res.data?.data?.slots)) return res.data.data.slots;
+      if (Array.isArray(res.data)) return res.data;
+      if (Array.isArray(res.data?.data)) return res.data.data;
+      return [];
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data || error.message || "Failed to fetch slots"
+      );
     }
   }
 );
@@ -50,10 +83,13 @@ export const updateDemoBooking = createAsyncThunk(
 const initialState = {
   items: [],
   current: null,
+  availableSlots: [],
   status: "idle",
   createStatus: "idle",
   updateStatus: "idle",
+  slotsStatus: "idle",
   error: null,
+  slotsError: null,
   success: null,
   message: null,
 };
@@ -66,9 +102,11 @@ const demoBookingSlice = createSlice({
       state.error = null;
       state.success = null;
       state.message = null;
+      state.slotsError = null;
       if (state.status !== "loading") state.status = "idle";
       if (state.createStatus !== "loading") state.createStatus = "idle";
       if (state.updateStatus !== "loading") state.updateStatus = "idle";
+      if (state.slotsStatus !== "loading") state.slotsStatus = "idle";
     },
     setCurrentBooking: (state, action) => {
       state.current = action.payload || null;
@@ -100,6 +138,21 @@ const demoBookingSlice = createSlice({
           action.payload ||
           action.error.message ||
           "Failed to create demo booking";
+      })
+      .addCase(fetchAvailableSlots.pending, (state) => {
+        state.slotsStatus = "loading";
+        state.slotsError = null;
+      })
+      .addCase(fetchAvailableSlots.fulfilled, (state, action) => {
+        state.slotsStatus = "succeeded";
+        state.availableSlots = Array.isArray(action.payload)
+          ? action.payload
+          : [];
+      })
+      .addCase(fetchAvailableSlots.rejected, (state, action) => {
+        state.slotsStatus = "failed";
+        state.slotsError =
+          action.payload || action.error.message || "Failed to fetch slots";
       })
       .addCase(getDemoBookings.pending, (state) => {
         state.status = "loading";

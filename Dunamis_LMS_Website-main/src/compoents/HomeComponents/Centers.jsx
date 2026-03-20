@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { fetchOfflineCenters } from "@/store/centerSlice";
-import { IMAGE_BASE_URL } from "@/lib/siteConfig";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function Centers() {
   const router = useRouter();
@@ -40,23 +40,6 @@ export default function Centers() {
   };
 
   const allCenters = Array.isArray(centersData) ? centersData.slice(0, 3) : [];
-
-  // Helper function to process image URLs
-  const getImageUrl = (branchImage) => {
-    // Fallback image if no branchImage provided
-    if (!branchImage) {
-      return "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80";
-    }
-
-    // If already a complete URL, return as-is
-    if (branchImage.startsWith('http://') || branchImage.startsWith('https://')) {
-      return branchImage;
-    }
-
-    // If it's a relative path, prepend base URL
-    const cleanPath = branchImage.startsWith('/') ? branchImage : `/${branchImage}`;
-    return `${IMAGE_BASE_URL}${cleanPath}`;
-  };
 
   if (loading || error || allCenters.length === 0) return null;
 
@@ -106,11 +89,23 @@ export default function Centers() {
               key={center._id || index}
               className="bg-white rounded-2xl shadow-md overflow-hidden text-left hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
               variants={cardVariants}
-              onClick={() => router.push(`/centers/${center._id}`)}
+              onClick={() =>
+                router.push(
+                  `/centers/${(center.branchName || "center")
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")
+                    .replace(/[^\w-]+/g, "")}`
+                )
+              }
             >
               {/* Center Image */}
               <motion.img
-                src={getImageUrl(center.branchImage)}
+                src={resolveImageUrl(
+                  center.branchImage,
+                  `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+                    center.branchName || "Branch"
+                  )}`
+                )}
                 alt={center.branchName || "Branch"}
                 className="w-full h-40 sm:h-48 object-cover"
                 whileHover={{ scale: 1.05 }}

@@ -30,7 +30,9 @@ export default function Mentors() {
     const transformMentors = (rawMentors) => {
         if (!Array.isArray(rawMentors)) return [];
 
-        return rawMentors.map((m) => {
+        const uniqueMentors = new Map();
+
+        rawMentors.forEach((m) => {
             const user = m.user || {};
             const teacherApp = m.teacherApplication || {};
             const course = (m.courses && m.courses[0]) || {};
@@ -50,7 +52,12 @@ export default function Mentors() {
                 speak: teacherApp.language?.speak || []
             };
 
-            return {
+            const mentor = {
+                id:
+                    m._id ||
+                    user._id ||
+                    teacherApp._id ||
+                    `${fullName}-${teacherApp.areaOfExpertise || "mentor"}`,
                 name: fullName || "Unknown",
                 image: profileImage,
                 experience: teacherApp.yearOfExperience
@@ -75,7 +82,13 @@ export default function Mentors() {
                 tags: [teacherApp.areaOfExpertise, attendance.courseCategory].filter(Boolean),
                 description: teacherApp.areaOfExpertise || "No description available",
             };
+
+            if (!uniqueMentors.has(mentor.id)) {
+                uniqueMentors.set(mentor.id, mentor);
+            }
         });
+
+        return Array.from(uniqueMentors.values());
     };
 
     const transformedMentors = transformMentors(mentors);
@@ -103,6 +116,13 @@ export default function Mentors() {
 
     const totalSlides =
         transformedMentors.length > 0 ? Math.max(1, Math.ceil(transformedMentors.length / cardsPerView)) : 1;
+
+    useEffect(() => {
+        if (currentSlide > totalSlides - 1) {
+            setCurrentSlide(0);
+            setSelectedCard(null);
+        }
+    }, [currentSlide, totalSlides]);
 
     useEffect(() => {
         if (totalSlides <= 1 || isHovered) return;
@@ -140,16 +160,18 @@ export default function Mentors() {
     const getCurrentMentors = () => {
         if (!Array.isArray(transformedMentors) || transformedMentors.length === 0) return [];
 
+        if (transformedMentors.length <= cardsPerView) {
+            return transformedMentors;
+        }
+
         const start = currentSlide * cardsPerView;
         const end = start + cardsPerView;
 
-        if (end <= transformedMentors.length) {
-            return transformedMentors.slice(start, end);
-        } else {
-            return transformedMentors
-                .slice(start)
-                .concat(transformedMentors.slice(0, end - transformedMentors.length));
+        if (start >= transformedMentors.length) {
+            return transformedMentors.slice(0, cardsPerView);
         }
+
+        return transformedMentors.slice(start, end);
     };
 
     const variants = {
@@ -217,7 +239,7 @@ export default function Mentors() {
 
                                         return (
                                             <motion.div
-                                                key={mentor.name + idx}
+                                                key={mentor.id}
                                                 className="bg-white group relative flex flex-col w-full max-w-[320px] shadow-sm border border-gray-200 rounded-xl overflow-hidden cursor-pointer"
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}

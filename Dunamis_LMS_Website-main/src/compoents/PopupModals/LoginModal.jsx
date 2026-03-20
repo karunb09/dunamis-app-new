@@ -1,14 +1,20 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { login } from '@/store/authSlice';
 import { HiMail, HiLockClosed } from 'react-icons/hi';
 
-export default function LoginModal({ open, onClose }) {
+export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const dispatch = useDispatch();
+    const router = useRouter();
     const { loading, error } = useSelector((s) => s.auth);
     if (!open) return null;
+
+    const signupHref = nextHref
+        ? `/signup?next=${encodeURIComponent(nextHref)}`
+        : '/signup';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -17,6 +23,14 @@ export default function LoginModal({ open, onClose }) {
         const password = fd.get('password');
         const action = await dispatch(login({ email, password }));
         if (login.fulfilled.match(action)) {
+            const result = await onSuccess?.(action.payload);
+            if (result === false) return;
+
+            if (nextHref && !onSuccess) {
+                router.replace(nextHref);
+                return;
+            }
+
             onClose?.();
         }
     };
@@ -117,7 +131,7 @@ export default function LoginModal({ open, onClose }) {
                                 <p className="text-center text-sm text-gray-600">
                                     Don’t have an account?{' '}
                                     <Link
-                                        href="/signup"
+                                        href={signupHref}
                                         className="font-semibold text-orange-600 hover:text-orange-600 underline underline-offset-4"
                                         aria-label="Go to signup"
                                     >

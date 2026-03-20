@@ -3,18 +3,21 @@ import axios from "axios";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+const getAuthHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = window.localStorage.getItem("auth_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export const createEnrollmentOrder = createAsyncThunk(
   "enrollment/createOrder",
   async (orderData, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("auth_token");
       const response = await axios.post(
         `${BASE_URL}/v1/enrollment/create-order`,
         orderData,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(),
         }
       );
       return response.data;
@@ -30,14 +33,11 @@ export const verifyEnrollmentPayment = createAsyncThunk(
   "enrollment/verifyPayment",
   async (paymentData, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("auth_token");
       const response = await axios.post(
         `${BASE_URL}/v1/enrollment/verify-payment`,
         paymentData,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(),
         }
       );
       return response.data;
@@ -53,13 +53,10 @@ export const fetchEnrolledCourses = createAsyncThunk(
   "enrollment/fetchEnrolled",
   async (_, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("auth_token");
       const response = await axios.get(
         `${BASE_URL}/v1/enrollment/enrolled-courses`,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(),
         }
       );
       return response.data;
@@ -75,14 +72,11 @@ export const generateInstallments = createAsyncThunk(
   "enrollment/generateInstallments",
   async (installmentData, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("auth_token");
       const response = await axios.post(
         `${BASE_URL}/v1/enrollment/generate-installments`,
         installmentData,
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: getAuthHeaders(),
         }
       );
       return response.data;

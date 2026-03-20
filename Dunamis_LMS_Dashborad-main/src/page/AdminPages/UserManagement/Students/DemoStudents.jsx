@@ -13,6 +13,44 @@ const SORT_OPTIONS = [
     { value: "demoStatus-desc", label: "Demo Status Desc" },
 ];
 
+const getBookingStudentMeta = (booking) => {
+    const guest = booking?.lead || {};
+    const studentUser = booking?.studentId?.userId || {};
+    const firstName = guest?.firstName || studentUser?.name?.firstName || "";
+    const lastName = guest?.lastName || studentUser?.name?.lastName || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+
+    return {
+        name: fullName || guest?.email || studentUser?.email || "Guest student",
+        email: guest?.email || studentUser?.email || "No Email",
+        phone: guest?.phone || studentUser?.mobileNo || "No Phone",
+        image: studentUser?.image || "https://api.dicebear.com/9.x/initials/svg?seed=Guest",
+    };
+};
+
+const getBookingCourse = (booking) =>
+    booking?.courseId || booking?.slotId?.courseId || booking?.studentId?.enrolledCourses?.[0]?.courseId || null;
+
+const getBookingTeacherName = (booking) => {
+    const teacherUser = booking?.teacherId?.userId || {};
+    const firstName = teacherUser?.name?.firstName || "";
+    const lastName = teacherUser?.name?.lastName || "";
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName || teacherUser?.email || "Not assigned";
+};
+
+const getBookingMode = (booking) =>
+    booking?.deliveryMode || getBookingCourse(booking)?.mode || booking?.studentId?.mode || "N/A";
+
+const getBookingSlotLabel = (booking) => {
+    if (!booking?.slotId) return "N/A";
+    const date = booking.slotId?.date ? new Date(booking.slotId.date) : null;
+    const dateLabel = date && !Number.isNaN(date.getTime())
+        ? date.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+        : "Date TBD";
+    return `${dateLabel} • ${booking.slotId.startTime || "?"} - ${booking.slotId.endTime || "?"}`;
+};
+
 const DemoStudents = () => {
     const dispatch = useDispatch();
     const { bookings, loading, error } = useSelector((state) => state.demoBookings);
@@ -53,11 +91,22 @@ const DemoStudents = () => {
 
     if (searchTerm) {
         filteredStudents = filteredStudents.filter(row => {
-            const user = row?.studentId?.userId;
-            const firstName = user?.name?.firstName || "";
-            const lastName = user?.name?.lastName || "";
-            const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
-            return fullName.includes(searchTerm.toLowerCase());
+            const student = getBookingStudentMeta(row);
+            const course = getBookingCourse(row);
+            const instructor = getBookingTeacherName(row);
+            const haystack = [
+                student.name,
+                student.email,
+                student.phone,
+                course?.name,
+                course?.code,
+                instructor,
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+
+            return haystack.includes(searchTerm.toLowerCase());
         });
     }
 
@@ -75,16 +124,12 @@ const DemoStudents = () => {
         switch (sortOption) {
             case "name-asc":
                 filteredStudents.sort((a, b) => {
-                    const aName = `${a?.studentId?.userId?.name?.firstName || ""} ${a?.studentId?.userId?.name?.lastName || ""}`;
-                    const bName = `${b?.studentId?.userId?.name?.firstName || ""} ${b?.studentId?.userId?.name?.lastName || ""}`;
-                    return aName.localeCompare(bName);
+                    return getBookingStudentMeta(a).name.localeCompare(getBookingStudentMeta(b).name);
                 });
                 break;
             case "name-desc":
                 filteredStudents.sort((a, b) => {
-                    const aName = `${a?.studentId?.userId?.name?.firstName || ""} ${a?.studentId?.userId?.name?.lastName || ""}`;
-                    const bName = `${b?.studentId?.userId?.name?.firstName || ""} ${b?.studentId?.userId?.name?.lastName || ""}`;
-                    return bName.localeCompare(aName);
+                    return getBookingStudentMeta(b).name.localeCompare(getBookingStudentMeta(a).name);
                 });
                 break;
             case "demoStatus-asc":
@@ -100,19 +145,21 @@ const DemoStudents = () => {
 
     const handleCopyDetails = (selectedRows) => {
         const details = selectedRows.map(s => {
-            const user = s?.studentId?.userId;
-            const firstName = user?.name?.firstName || "";
-            const lastName = user?.name?.lastName || "";
-            const fullName = firstName || lastName ? `${firstName} ${lastName}` : "Unknown";
+            const student = getBookingStudentMeta(s);
+            const course = getBookingCourse(s);
             return `
 Student ID: ${s.mockId || "N/A"}
-Name: ${fullName}
-Mode: ${s?.studentId?.mode || "N/A"}
+Name: ${student.name}
+Email: ${student.email}
+Phone: ${student.phone}
+Course: ${course?.name || "N/A"}
+Assigned Instructor: ${getBookingTeacherName(s)}
+Mode: ${getBookingMode(s)}
 Demo Status: ${s.demoStatus || "N/A"}
 Enrollment Status: ${s.enrollmentStatus || "N/A"}
 Follow Up: ${s.followUp || "N/A"}
 Response: ${s.response || "N/A"}
-Slot: ${s?.slotId ? `${s.slotId.startTime} - ${s.slotId.endTime}` : "N/A"}
+Slot: ${getBookingSlotLabel(s)}
             `.trim();
         }).join("\n\n---\n\n");
         navigator.clipboard.writeText(details).then(() => toast.success("Copied to clipboard!"));
@@ -124,25 +171,28 @@ Slot: ${s?.slotId ? `${s.slotId.startTime} - ${s.slotId.endTime}` : "N/A"}
             key: "user",
             header: "User",
             render: (_, row) => {
-                const user = row?.studentId?.userId;
-                const firstName = user?.name?.firstName || "";
-                const lastName = user?.name?.lastName || "";
-                const fullName = firstName || lastName ? `${firstName} ${lastName}` : "Unknown Student";
+                const student = getBookingStudentMeta(row);
 
                 return (
                     <div className="flex items-center gap-2 min-w-[200px] max-w-[280px]">
                         <img
-                            src={user?.image || "https://api.dicebear.com/9.x/initials/svg?seed=Unknown"}
-                            alt={fullName}
+                            src={student.image}
+                            alt={student.name}
                             className="w-8 h-8 rounded-full flex-shrink-0"
                         />
                         <div className="overflow-hidden">
-                            <div className="font-medium truncate" title={fullName}>{fullName}</div>
+                            <div className="font-medium truncate" title={student.name}>{student.name}</div>
                             <div
                                 className="text-xs text-gray-500 truncate max-w-[220px]"
-                                title={user?.email || "No Email"}
+                                title={student.email}
                             >
-                                {user?.email || "No Email"}
+                                {student.email}
+                            </div>
+                            <div
+                                className="text-xs text-gray-400 truncate max-w-[220px]"
+                                title={student.phone}
+                            >
+                                {student.phone}
                             </div>
                         </div>
                     </div>
@@ -154,48 +204,41 @@ Slot: ${s?.slotId ? `${s.slotId.startTime} - ${s.slotId.endTime}` : "N/A"}
             key: "courseCategory",
             header: "Course Category",
             render: (_, row) => {
-                const enrolled = row?.studentId?.enrolledCourses?.[0]?.courseId;
-                return enrolled?.category?.name || "N/A";
+                const course = getBookingCourse(row);
+                return course?.category?.name || "N/A";
             },
         },
         {
             key: "courseCode",
             header: "Course Code",
             render: (_, row) => {
-                const enrolled = row?.studentId?.enrolledCourses?.[0]?.courseId;
-                return enrolled?.code || "N/A";
+                const course = getBookingCourse(row);
+                return course?.code || "N/A";
             },
         },
         {
             key: "courseName",
             header: "Course Name",
             render: (_, row) => {
-                const enrolled = row?.studentId?.enrolledCourses?.[0]?.courseId;
-                return enrolled?.name || "N/A";
+                const course = getBookingCourse(row);
+                return course?.name || "N/A";
             },
         },
         {
             key: "instructor",
-            header: "Instructor",
+            header: "Assigned Instructor",
             render: (_, row) => {
-                const teacher = row?.teacherId?.userId;
-                if (!teacher) return "N/A";
-
-                const firstName = teacher.name?.firstName || "";
-                const lastName = teacher.name?.lastName || "";
-                const fullName = `${firstName} ${lastName}`.trim();
-
                 return (
                     <div className="flex items-center gap-2 min-w-[150px] max-w-[220px]">
-                        <span className="truncate" title={fullName}>
-                            {fullName || "Unknown"}
+                        <span className="truncate" title={getBookingTeacherName(row)}>
+                            {getBookingTeacherName(row)}
                         </span>
                     </div>
                 );
             },
         },
-        { key: "mode", header: "Mode", render: (_, row) => row?.studentId?.mode || "N/A" },
-        { key: "slot", header: "Slot", render: (_, row) => row?.slotId ? `${row.slotId.startTime} - ${row.slotId.endTime}` : "N/A" },
+        { key: "mode", header: "Mode", render: (_, row) => getBookingMode(row) || "N/A" },
+        { key: "slot", header: "Slot", render: (_, row) => getBookingSlotLabel(row) },
         {
             key: "demoStatus", header: "Demo Status", render: (_, row) => (
                 <select value={row.demoStatus || ""} onChange={(e) => updateStudent(row._id, "demoStatus", e.target.value)} className="text-sm border rounded px-2 py-1">
@@ -237,10 +280,15 @@ Slot: ${s?.slotId ? `${s.slotId.startTime} - ${s.slotId.endTime}` : "N/A"}
 
     return (
         <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">Demo Students</h2>
+            <h2 className="text-lg font-semibold mb-4">Demo Requests</h2>
+            <div className="mb-4 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                Demo bookings are automatically assigned to the instructor whose
+                slot the learner selected. Admin does not need to manually assign
+                a fresh request unless it needs to be rescheduled later.
+            </div>
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="relative w-full md:w-1/3">
-                    <input type="text" placeholder="Search by name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full border rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-black" />
+                    <input type="text" placeholder="Search by learner, email, course, or instructor..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full border rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-black" />
                     <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
 

@@ -19,24 +19,7 @@ import {
   FaPhoneAlt,
 } from "react-icons/fa";
 import Link from "next/link";
-
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL || "http://localhost:5000";
-
-const getImageUrl = (
-  imagePath,
-  fallbackUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80"
-) => {
-  if (!imagePath) {
-    return fallbackUrl;
-  }
-
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
-  }
-
-  const cleanPath = imagePath.startsWith("/") ? imagePath : `/${imagePath}`;
-  return `${IMAGE}${cleanPath}`;
-};
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function CenterDetailsPage({ params }) {
   const dispatch = useDispatch();
@@ -67,7 +50,12 @@ export default function CenterDetailsPage({ params }) {
       apiCenter.city?.cityName ? ", " + apiCenter.city.cityName : ""
     }`,
     description: `${apiCenter.branchName} offers quality education with modern facilities and expert instructors.`,
-    image: getImageUrl(apiCenter.branchImage),
+    image: resolveImageUrl(
+      apiCenter.branchImage,
+      `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
+        apiCenter.branchName || "Branch"
+      )}`
+    ),
     isFeatured: apiCenter.status === "active",
     openingHours:
       apiCenter.branchTimings?.length >= 2
@@ -193,10 +181,6 @@ export default function CenterDetailsPage({ params }) {
           <p className="text-gray-600 text-base leading-relaxed mb-8">
             {description}
           </p>
-
-          <button className="bg-[#FF6B35] hover:bg-[#ff5722] text-white px-8 py-3 rounded-full font-medium transition-colors">
-            View All Courses
-          </button>
         </div>
 
         <div className="relative h-[400px] lg:h-[500px] rounded-3xl overflow-hidden shadow-2xl">

@@ -8,6 +8,7 @@ import offlineCenterReducer from "./centerSlice";
 import authReducer from "./authSlice";
 import enquiryReducer from "./enquirySlice";
 import enrollmentReducer from "./enrollmentSlice";
+import demoBookingReducer from "./demoBookingSlice";
 const store = configureStore({
   reducer: {
     application: applicationReducer,
@@ -19,6 +20,7 @@ const store = configureStore({
     enquiry: enquiryReducer,
     auth: authReducer,
     enrollment: enrollmentReducer,
+    demoBooking: demoBookingReducer,
   },
 });
 

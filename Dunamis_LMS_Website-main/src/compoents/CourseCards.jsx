@@ -4,6 +4,7 @@ import { IoMdStar } from "react-icons/io";
 
 export default function CourseCard({
   image,
+  fallbackImage,
   icon,
   tags,
   title,
@@ -13,13 +14,23 @@ export default function CourseCard({
   rating,
   type,
   price,
-  branchName, 
+  branchName,
   onViewDetails,
+  onBookDemo,
 }) {
   return (
     <div className="bg-white border border-gray-300 rounded-xl shadow-md overflow-hidden max-w-sm">
       {/* Course Image */}
-      <img src={image} alt={title} className="w-full h-40 object-cover" />
+      <img
+        src={image}
+        alt={title}
+        className="w-full h-40 object-cover"
+        onError={(e) => {
+          if (fallbackImage) {
+            e.currentTarget.src = fallbackImage;
+          }
+        }}
+      />
 
       <div className="p-4 space-y-3">
         {/* Tags & Icon */}
@@ -92,13 +103,22 @@ export default function CourseCard({
           </span>
         </div>
 
-        {/* View Details Button */}
-        <button
-          onClick={onViewDetails}
-          className="cursor-pointer w-full mt-2 bg-[#FF6B35] hover:bg-[#fd5a1f] text-white font-medium py-2 px-4 rounded-2xl"
-        >
-          View Details
-        </button>
+        <div className={`mt-2 grid gap-3 ${onBookDemo ? "grid-cols-2" : "grid-cols-1"}`}>
+          <button
+            onClick={onViewDetails}
+            className="cursor-pointer w-full bg-[#FF6B35] hover:bg-[#fd5a1f] text-white font-medium py-2 px-4 rounded-2xl"
+          >
+            View Details
+          </button>
+          {onBookDemo ? (
+            <button
+              onClick={onBookDemo}
+              className="cursor-pointer w-full border border-[#FF6B35] bg-white text-[#FF6B35] font-medium py-2 px-4 rounded-2xl hover:bg-[#fff3ed]"
+            >
+              Book Demo
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

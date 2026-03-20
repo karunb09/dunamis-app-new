@@ -7,8 +7,8 @@ const SignInNavbar = () => {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="bg-white shadow px-4 sm:px-6 py-4">
-      <div className="flex justify-between items-center">
+    <nav className="border-b border-orange-100 bg-white/95 px-4 py-4 shadow-sm backdrop-blur sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
         {/* Logo */}
         <img
           src="/dunamisMusic.png"
@@ -28,12 +28,10 @@ const SignInNavbar = () => {
         </button>
 
         {/* Menu Items (desktop) */}
-        <div className="hidden sm:flex gap-3 items-center">
+        <div className="hidden items-center gap-3 sm:flex">
           <a
             href={WEBSITE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100"
+            className="inline-flex items-center justify-center rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_18px_40px_-22px_rgba(239,106,50,0.95)] transition hover:bg-orange-400"
           >
             Back to Website
           </a>
@@ -45,9 +43,7 @@ const SignInNavbar = () => {
         <div className="flex flex-col gap-3 mt-4 sm:hidden">
           <a
             href={WEBSITE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 rounded-full w-full text-center border border-gray-300 text-gray-700"
+            className="w-full rounded-full bg-orange-500 px-4 py-2 text-center text-sm font-semibold text-white shadow-[0_18px_40px_-22px_rgba(239,106,50,0.95)] transition hover:bg-orange-400"
             onClick={() => setOpen(false)}
           >
             Back to Website

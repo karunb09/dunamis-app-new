@@ -4,7 +4,6 @@ import { getUserById } from "../../redux/User/UserSlice";
 import toast from "react-hot-toast";
 import PersonalInfo from "./PersonalInfo";
 import BankDetails from "./BankDetails";
-import Availability from "./Availability";
 
 const Profile = () => {
   const dispatch = useDispatch();
@@ -53,15 +52,6 @@ const Profile = () => {
           >
             Bank Details
           </button>
-          <button
-            onClick={() => setActiveTab("availability")}
-            className={`pb-2 ${activeTab === "availability"
-                ? "border-b-2 border-black font-semibold"
-                : "text-gray-500"
-              }`}
-          >
-            Availability
-          </button>
         </div>
 
         <div className="mt-4">
@@ -70,9 +60,6 @@ const Profile = () => {
           )}
           {activeTab === "bank" && (
             <BankDetails user={selectedUser} loading={loading} />
-          )}
-          {activeTab === "availability" && (
-            <Availability user={selectedUser} loading={loading} />
           )}
         </div>
       </div>

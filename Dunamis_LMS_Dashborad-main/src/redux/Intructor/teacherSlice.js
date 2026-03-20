@@ -1,16 +1,38 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { getStoredToken } from "../../utils/authSession";
+import { getStoredToken, getStoredUser } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const resolveAccountType = () => {
+  const user = getStoredUser();
+  return user?.accountType || user?.role || user?.roleId?.accountType || "";
+};
+
+const isPrivilegedTeacherOrAdmin = () => {
+  const accountType = String(resolveAccountType()).toLowerCase();
+  return ["admin", "superadmin", "teacher"].includes(accountType);
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Fetch all teachers
 export const fetchTeachers = createAsyncThunk(
   "teachers/fetchTeachers",
   async (_, { rejectWithValue }) => {
     try {
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        return rejectWithValue("Authentication required");
+      }
+
       const response = await axios.get(`${BASE_URL}/teachers/`, {
         params: { limit: 1000 },
+        headers,
+        withCredentials: true,
       });
       return response.data.data || [];
     } catch (error) {
@@ -40,7 +62,15 @@ export const fetchTeacherById = createAsyncThunk(
   "teachers/fetchTeacherById",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/teachers/${id}`);
+      const isPrivileged = isPrivilegedTeacherOrAdmin();
+      const endpoint = isPrivileged
+        ? `${BASE_URL}/teachers/${id}`
+        : `${BASE_URL}/teachers/public/${id}`;
+      const headers = isPrivileged ? getAuthHeaders() : {};
+      const response = await axios.get(endpoint, {
+        headers,
+        withCredentials: isPrivileged,
+      });
       return response.data; // { success, data }
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -78,6 +108,26 @@ export const addBankDetails = createAsyncThunk(
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+export const deleteTeacher = createAsyncThunk(
+  "teachers/deleteTeacher",
+  async (id, { rejectWithValue }) => {
+    try {
+      const token = getStoredToken();
+      const response = await axios.delete(`${BASE_URL}/teachers/${id}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message ||
+          error.response?.data?.error ||
+          error.message
+      );
     }
   }
 );
@@ -200,6 +250,34 @@ const teacherSlice = createSlice({
         }
       })
       .addCase(addBankDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+      .addCase(deleteTeacher.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteTeacher.fulfilled, (state, action) => {
+        state.loading = false;
+        const deletedTeacherId = action.payload?.deletedTeacherId;
+        if (deletedTeacherId) {
+          state.teachers = state.teachers.filter(
+            (teacher) =>
+              String(teacher.id || teacher._id) !== String(deletedTeacherId)
+          );
+          delete state.byId[deletedTeacherId];
+          delete state.loadingById[deletedTeacherId];
+          delete state.errorById[deletedTeacherId];
+
+          if (
+            String(state.selectedTeacher?.id || state.selectedTeacher?._id) ===
+            String(deletedTeacherId)
+          ) {
+            state.selectedTeacher = null;
+          }
+        }
+      })
+      .addCase(deleteTeacher.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
       });
