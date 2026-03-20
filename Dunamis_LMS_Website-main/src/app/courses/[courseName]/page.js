@@ -99,7 +99,7 @@ export default function CourseDetailPage() {
                   "en-GB",
                   { day: "2-digit", month: "short", year: "numeric" }
                 )}`
-              : "Duration not specified",
+              : "",
           price: (() => {
             const priceObj =
               foundCourse.price?.find((p) => p.isSelected) ||

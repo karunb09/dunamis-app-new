@@ -218,7 +218,7 @@ const CenterDetailsPage = () => {
                 }
               }
 
-              let courseDuration = "Duration not specified";
+              let courseDuration = "";
               if (course.content?.[0]?.modules?.[0]?.duration) {
                 courseDuration = course.content[0].modules[0].duration;
               }

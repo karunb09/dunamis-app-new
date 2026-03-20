@@ -74,7 +74,7 @@ function CoursesPageContent() {
                 month: "short",
                 year: "numeric",
               })}`
-            : "Duration not specified",
+            : "",
         price: selectedPrice?.monthlyFee || selectedPrice?.fullPayment || 0,
         image,
         rating: course.rating || 4.8,

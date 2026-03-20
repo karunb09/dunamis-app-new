@@ -125,7 +125,7 @@ export default function PopularCourses() {
         certification: course.certification || "",
         duration: startDate && endDate
           ? `${startDate} - ${endDate}`
-          : "Duration not specified",
+          : "",
         startDate: startDate,
         endDate: endDate,
         price: activePrice,
