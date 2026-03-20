@@ -36,6 +36,7 @@ export default function CourseDetailPage() {
   const [enrollSelection, setEnrollSelection] = useState(null);
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
+  const [activeTab, setActiveTab] = useState("Overview");
 
   const [course, setCourse] = useState(null);
   const [rawCourse, setRawCourse] = useState(null);
@@ -426,6 +427,193 @@ export default function CourseDetailPage() {
             </div>
           </motion.div>
         </motion.div>
+      </div>
+
+      <div className="mt-10 border-b border-gray-200 flex gap-4 sm:gap-8 overflow-x-auto text-xs sm:text-sm font-medium relative">
+        {["Overview", "Curriculum", "Instructors", "Fee Structure"].map(
+          (tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`cursor-pointer shrink-0 pb-3 relative ${
+                activeTab === tab
+                  ? "text-black font-semibold"
+                  : "text-gray-500"
+              }`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+              {activeTab === tab && (
+                <span className="absolute bottom-0 left-0 w-full h-0.5 bg-black rounded-full" />
+              )}
+            </button>
+          )
+        )}
+      </div>
+
+      <div className="mt-6 sm:mt-8">
+        {activeTab === "Overview" && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold mb-3">About the Course</h2>
+              <p className="text-gray-600 leading-relaxed">
+                {course.description}
+              </p>
+            </div>
+
+            <div>
+              <h3 className="text-xl font-semibold mb-3">What You&apos;ll Learn</h3>
+              {course.learn?.length ? (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {course.learn.map((item, index) => (
+                    <li
+                      key={`${item}-${index}`}
+                      className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-700"
+                    >
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-600">No learning objectives added yet.</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "Curriculum" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-3">Curriculum</h2>
+            {course.curriculum?.length ? (
+              <div className="space-y-4">
+                {course.curriculum.map((module, index) => (
+                  <div
+                    key={`${module.module}-${index}`}
+                    className="rounded-2xl border border-gray-200 bg-white p-5"
+                  >
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-lg font-semibold">{module.module}</h3>
+                      {module.duration ? (
+                        <span className="text-sm text-gray-500">
+                          {module.duration}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {module.topics?.length ? (
+                      <ul className="mt-4 space-y-2 text-sm text-gray-700">
+                        {module.topics.map((topic, topicIndex) => (
+                          <li key={`${topic}-${topicIndex}`}>{topic}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-4 text-sm text-gray-600">
+                        No topics added for this module yet.
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600">No curriculum added yet.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Instructors" && (
+          <div>
+            <h2 className="text-2xl font-bold mb-3">Instructors</h2>
+            {course.instructors?.length ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {course.instructors.map((instructor, index) => (
+                  <div
+                    key={`${instructor.name}-${index}`}
+                    className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4"
+                  >
+                    <img
+                      src={instructor.image}
+                      alt={instructor.name}
+                      className="h-14 w-14 rounded-full object-cover"
+                    />
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {instructor.name}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {instructor.exp}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {instructor.branch}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-600">No instructors listed yet.</p>
+            )}
+          </div>
+        )}
+
+        {activeTab === "Fee Structure" && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-bold mb-3">Monthly Plans</h2>
+              {course.feeStructure.monthly?.length ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {course.feeStructure.monthly.map((plan, index) => (
+                    <div
+                      key={`${plan.plan}-${index}`}
+                      className="rounded-2xl border border-gray-200 bg-white p-5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-lg font-semibold">{plan.plan}</h3>
+                        <p className="text-xl font-bold text-[#FF6B35]">
+                          {plan.price}
+                        </p>
+                      </div>
+                      <ul className="mt-4 space-y-2 text-sm text-gray-700">
+                        {plan.features.map((feature, featureIndex) => (
+                          <li key={`${feature}-${featureIndex}`}>{feature}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-600">No monthly plans available.</p>
+              )}
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-bold mb-3">Full Payment Plans</h2>
+              {course.feeStructure.full?.length ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {course.feeStructure.full.map((plan, index) => (
+                    <div
+                      key={`${plan.plan}-${index}`}
+                      className="rounded-2xl border border-gray-200 bg-white p-5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-lg font-semibold">{plan.plan}</h3>
+                        <p className="text-xl font-bold text-[#FF6B35]">
+                          {plan.price}
+                        </p>
+                      </div>
+                      <ul className="mt-4 space-y-2 text-sm text-gray-700">
+                        {plan.features.map((feature, featureIndex) => (
+                          <li key={`${feature}-${featureIndex}`}>{feature}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-600">No full payment plans available.</p>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <EnrollTerm
