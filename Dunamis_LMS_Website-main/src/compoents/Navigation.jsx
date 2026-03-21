@@ -336,7 +336,7 @@ const Navigation = () => {
                 onClick={closeMenus}
                 className="inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
               >
-                Dashboard
+                Login | Dashboard
               </Link>
             </div>
           </div>

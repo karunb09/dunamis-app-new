@@ -12,11 +12,10 @@ import { IMAGE_BASE_URL } from "@/lib/siteConfig";
 export default function Mentors() {
     const dispatch = useDispatch();
     const { mentors, loading, error } = useSelector((state) => state.mentor);
+    const [failedImages, setFailedImages] = useState({});
 
     const getImageUrl = (imagePath, fallbackName = "Unknown") => {
-        if (!imagePath) {
-            return `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(fallbackName)}`;
-        }
+        if (!imagePath) return null;
 
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
             return imagePath;
@@ -25,6 +24,15 @@ export default function Mentors() {
         const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
         return `${IMAGE_BASE_URL}${cleanPath}`;
     };
+
+    const getInitials = (name = "Unknown") =>
+        name
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase() || "")
+            .join("") || "U";
 
     // Transform mentors with API data
     const transformMentors = (rawMentors) => {
@@ -249,13 +257,25 @@ export default function Mentors() {
                                             >
                                                 {/* Image block */}
                                                 <div className="flex justify-center items-center w-full h-[220px] p-6 transition-all duration-500">
-                                                    <div className="h-[140px] w-[140px] rounded-full overflow-hidden border-4 border-blue-50 transition-all duration-500">
-                                                        <img
-                                                            src={mentor.image}
-                                                            alt={mentor.name}
-                                                            className="object-cover h-full w-full"
-                                                            loading="lazy"
-                                                        />
+                                                    <div className="h-[140px] w-[140px] shrink-0 rounded-full overflow-hidden border-4 border-blue-50 bg-gradient-to-br from-amber-100 via-orange-50 to-blue-50 transition-all duration-500">
+                                                        {mentor.image && !failedImages[mentor.id] ? (
+                                                            <img
+                                                                src={mentor.image}
+                                                                alt={mentor.name}
+                                                                className="block h-full w-full object-cover"
+                                                                loading="lazy"
+                                                                onError={() =>
+                                                                    setFailedImages((prev) => ({
+                                                                        ...prev,
+                                                                        [mentor.id]: true,
+                                                                    }))
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#FF6B35]">
+                                                                {getInitials(mentor.name)}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
 
