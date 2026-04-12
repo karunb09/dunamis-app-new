@@ -369,11 +369,9 @@ function CreateAssignment({ onClose }) {
     <div>
       <h2 className="text-lg font-semibold mb-6">Create Assignment</h2>
       <div className="flex items-center gap-4 mb-4">
-        <img
-          src="https://i.pravatar.cc/40?u=1"
-          alt="profile"
-          className="w-10 h-10 rounded-full"
-        />
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
+          S
+        </div>
         <div>
           <p className="font-medium">Select Student</p>
           <div className="flex gap-2 mt-1 text-sm text-black-500">

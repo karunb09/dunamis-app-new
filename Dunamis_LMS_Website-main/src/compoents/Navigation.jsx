@@ -17,7 +17,7 @@ const secondaryLinks = [
   { label: "About Us", href: "/about-us" },
   { label: "Testimonials", href: "/testimonials" },
   { label: "Success Stories", href: "/success-stories" },
-  { label: "Become a Teacher", href: "/become-teacher" },
+  { label: "Become an Instructor", href: "/become-teacher" },
   { label: "FAQs", href: "/faqs" },
   { label: "Contact Us", href: "/contact-us" },
 ];

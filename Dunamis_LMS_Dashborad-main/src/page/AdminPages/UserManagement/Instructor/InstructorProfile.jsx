@@ -14,6 +14,7 @@ import {
   FiMoreHorizontal,
 } from "react-icons/fi";
 import { FaMusic, FaLanguage, FaPersonBooth } from "react-icons/fa";
+import toast from "react-hot-toast";
 
 import DataTable from "../../../../components/Table";
 import EditInstructorModal from "./EditInstructorModal";
@@ -23,7 +24,7 @@ import StudentsTab from "./TabContent/StudentsTab";
 import ReviewsTab from "./TabContent/ReviewsTab";
 import OrientationsTab from "./TabContent/Orientationstab";
 import RemunerationTab from "./TabContent/RemunerationTab";
-import { fetchTeacherById } from "../../../../redux/Intructor/teacherSlice";
+import { fetchTeacherById, updateTeacher } from "../../../../redux/Intructor/teacherSlice";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../../../utils/resolveImageUrl";
 
 const InstructorProfile = () => {
@@ -37,7 +38,9 @@ const InstructorProfile = () => {
     mode: selectedTeacher?.teacherDetails?.mode,
     branch: selectedTeacher?.teacherDetails?.branch,
     courses: selectedTeacher?.courses?.map((c) => c.name) || [],
+    profilePicture: selectedTeacher?.teacherDetails?.profilePicture,
   });
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Courses");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,6 +51,20 @@ const InstructorProfile = () => {
       dispatch(fetchTeacherById(instructorId));
     }
   }, [dispatch, instructorId]);
+
+  useEffect(() => {
+    if (!selectedTeacher) return;
+
+    setEditData({
+      mode: selectedTeacher.teacherDetails?.mode || "online",
+      branch: selectedTeacher.teacherDetails?.branch || "",
+      courses: selectedTeacher.courses?.map((c) => c.name) || [],
+      profilePicture:
+        selectedTeacher.teacherDetails?.profilePicture ||
+        selectedTeacher.user?.image ||
+        "",
+    });
+  }, [selectedTeacher]);
 
   if (loading) return <div className="p-6 text-gray-500">Loading...</div>;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
@@ -107,6 +124,37 @@ const InstructorProfile = () => {
         data.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
         data.status.toLowerCase().includes(searchTerm.toLowerCase())
     ) || [];
+
+  const handleSaveInstructor = async (updated) => {
+    const payload = new FormData();
+    payload.append(
+      "teacherDetails",
+      JSON.stringify({
+        mode: updated.mode || instructor?.mode || "online",
+      })
+    );
+
+    if (updated.profilePictureFile) {
+      payload.append("profilePicture", updated.profilePictureFile);
+    }
+
+    setIsSavingProfile(true);
+    try {
+      await dispatch(
+        updateTeacher({
+          id: instructorId,
+          updatedData: payload,
+        })
+      ).unwrap();
+      await dispatch(fetchTeacherById(instructorId)).unwrap();
+      toast.success("Instructor profile updated successfully.");
+      setIsEditing(false);
+    } catch (saveError) {
+      toast.error(saveError || "Failed to update instructor profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -197,12 +245,12 @@ const InstructorProfile = () => {
                 {isEditing && (
                   <EditInstructorModal
                     open={isEditing}
-                    onClose={() => setIsEditing(false)}
-                    data={editData}
-                    onSave={(updated) => {
-                      setEditData(updated);
-                      setIsEditing(false);
+                    onClose={() => {
+                      if (!isSavingProfile) setIsEditing(false);
                     }}
+                    data={editData}
+                    onSave={handleSaveInstructor}
+                    saving={isSavingProfile}
                   />
                 )}
               </div>

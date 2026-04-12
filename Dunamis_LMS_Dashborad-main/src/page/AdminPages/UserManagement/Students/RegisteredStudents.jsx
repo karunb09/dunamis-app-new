@@ -1,11 +1,15 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getAllUsers } from "../../../../redux/User/UserSlice";
+import { getAllUsers, updateUser } from "../../../../redux/User/UserSlice";
 import DataTable from "../../../../components/Table";
 import toast from "react-hot-toast";
-import { FaEllipsisH, FaFilter, FaSearch, FaSortAmountDown } from "react-icons/fa";
+import { FaArchive, FaBan, FaFilter, FaFlag, FaSearch, FaSortAmountDown, FaUserSlash } from "react-icons/fa";
 import { X } from "react-feather";
 import { getStoredToken } from "../../../../utils/authSession";
+import Swal from "sweetalert2";
+import ActionProgressBar from "../../../../components/ActionProgressBar";
+import IconActionButton from "../../../../components/IconActionButton";
+import { FaCheckCircle } from "react-icons/fa";
 
 const IMAGE = import.meta.env.VITE_IMAGE;
 
@@ -23,12 +27,16 @@ const RegisteredStudents = () => {
     const authToken = useSelector((state) => state.auth.token);
     const token = authToken || getStoredToken();
 
-    const [dropdownOpen, setDropdownOpen] = useState(null);
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
     const [filterOpen, setFilterOpen] = useState(false);
     const [filters, setFilters] = useState({ status: "", followUp: "", dateFrom: "", dateTo: "" });
-    const dropdownRef = useRef(null);
+    const [processingAction, setProcessingAction] = useState(null);
+
+    const getErrorMessage = (error, fallback) => {
+        if (typeof error === "string") return error;
+        return error?.message || error?.error || error?.data?.message || fallback;
+    };
 
     useEffect(() => {
         if (token && listStatus === "idle") {
@@ -37,16 +45,6 @@ const RegisteredStudents = () => {
             toast.error("No token found. Please login.");
         }
     }, [dispatch, listStatus, token]);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setDropdownOpen(null);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
 
     const getImageUrl = (imagePath) => {
         if (!imagePath) return "https://i.pravatar.cc/150?img=32";
@@ -68,7 +66,8 @@ const RegisteredStudents = () => {
                 followUp1: user.followUp1 || "Pending",
                 followUp2: user.followUp2 || "Pending",
                 followUp3: user.followUp3 || "Pending",
-                status: user.status || "Active",
+                status: user.status || user.accountStatus || "Active",
+                accountStatus: (user.accountStatus || "active").toLowerCase(),
             }))
         : [];
 
@@ -131,13 +130,61 @@ Follow-up 3: ${s.followUp3}`
             .catch(() => toast.error("Failed to copy details!"));
     };
 
+    const handleStudentAction = async (row, actionLabel) => {
+        const actionKey = `${row.id}-${actionLabel.toLowerCase()}`;
+        setProcessingAction({
+            key: actionKey,
+            label: `${actionLabel} request for ${row.name} is being processed...`,
+        });
+        const toastId = toast.loading(`${actionLabel} request started for ${row.name}`);
+
+        try {
+            if (actionLabel === "Disable") {
+                const nextStatus = row.accountStatus === "active" ? "inactive" : "active";
+                await dispatch(updateUser({
+                    id: row.id,
+                    userData: { accountStatus: nextStatus },
+                    token,
+                })).unwrap();
+                await dispatch(getAllUsers(token));
+                toast.dismiss(toastId);
+                await Swal.fire({
+                    icon: "success",
+                    title: "Student status updated",
+                    text: `${row.name} is now ${nextStatus === "active" ? "enabled" : "disabled"}.`,
+                    confirmButtonColor: "#0f172a",
+                });
+                return;
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 900));
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: "info",
+                title: `${actionLabel} not available yet`,
+                text: `${actionLabel} for ${row.name} is not connected to the backend yet.`,
+                confirmButtonColor: "#0f172a",
+            });
+        } catch (error) {
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: "error",
+                title: "Action failed",
+                text: getErrorMessage(error, `We could not process ${actionLabel.toLowerCase()} for ${row.name}.`),
+                confirmButtonColor: "#dc2626",
+            });
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
     const columns = [
         { key: "studentId", header: "Student ID" },
         {
             key: "name",
             header: "User",
             render: (_, row) => (
-                <div className="flex items-center gap-2 min-w-[180px] max-w-[250px]">
+                <div className="flex items-center gap-2 min-w-0">
                     <img
                         src={row.avatar}
                         alt={row.name}
@@ -146,41 +193,61 @@ Follow-up 3: ${s.followUp3}`
                             e.target.src = "https://i.pravatar.cc/150?img=32";
                         }}
                     />
-                    <span className="truncate max-w-[200px]" title={row.name}>
+                    <span className="truncate" title={row.name}>
                         {row.name}
                     </span>
                 </div>
             ),
         },
-        { key: "email", header: "Email" },
+        {
+            key: "email",
+            header: "Email",
+            render: (value) => (
+                <span className="block truncate" title={value}>
+                    {value}
+                </span>
+            ),
+        },
         { key: "mobileNumber", header: "Mobile Number" },
         { key: "registrationDate", header: "Registration Date" },
         {
-            key: "action",
-            header: "Action",
+            key: "status",
+            header: "Status",
             render: (_, row) => (
-                <div className="relative">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setDropdownOpen(dropdownOpen === row.id ? null : row.id);
-                        }}
-                    >
-                        <FaEllipsisH className="text-gray-600 text-lg cursor-pointer" />
-                    </button>
-                    {dropdownOpen === row.id && (
-                        <div
-                            ref={dropdownRef}
-                            className="absolute right-0 mt-2 w-40 bg-white border shadow-lg rounded-md z-10"
-                        >
-                            <ul className="text-sm">
-                                <li className="px-4 py-2 hover:bg-gray-200 cursor-pointer">Block</li>
-                                <li className="px-4 py-2 hover:bg-gray-200 cursor-pointer">Report</li>
-                                <li className="px-4 py-2 hover:bg-gray-200 cursor-pointer">Disable Account</li>
-                                <li className="px-4 py-2 hover:bg-gray-200 cursor-pointer">Archive</li>
-                            </ul>
-                        </div>
-                    )}
+                <div className="flex justify-center">
+                    <IconActionButton
+                        label={row.accountStatus === "active" ? "Student is active" : "Student is disabled"}
+                        icon={<FaCheckCircle />}
+                        tone={row.accountStatus === "active" ? "emerald" : "rose"}
+                        disabled
+                    />
+                </div>
+            ),
+        },
+        {
+            key: "action",
+            header: "Actions",
+            render: (_, row) => (
+                <div className="flex flex-wrap justify-end gap-1.5">
+                    {[
+                        { label: "Block", tone: "amber", icon: <FaBan /> },
+                        { label: "Report", tone: "sky", icon: <FaFlag /> },
+                        { label: "Disable", tone: "rose", icon: <FaUserSlash /> },
+                        { label: "Archive", tone: "slate", icon: <FaArchive /> },
+                    ].map((action) => (
+                        <IconActionButton
+                            key={action.label}
+                            label={action.label}
+                            icon={action.icon}
+                            tone={action.tone}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleStudentAction(row, action.label);
+                            }}
+                            disabled={Boolean(processingAction)}
+                            isLoading={processingAction?.key === `${row.id}-${action.label.toLowerCase()}`}
+                        />
+                    ))}
                 </div>
             ),
         },
@@ -199,6 +266,7 @@ Follow-up 3: ${s.followUp3}`
             <h2 className="text-lg font-semibold mb-4">Registered Students</h2>
             {loading && <p>Loading users...</p>}
             {error && <p className="text-red-500">Error: {error}</p>}
+            <ActionProgressBar active={Boolean(processingAction)} label={processingAction?.label} />
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="relative w-full md:w-1/3">

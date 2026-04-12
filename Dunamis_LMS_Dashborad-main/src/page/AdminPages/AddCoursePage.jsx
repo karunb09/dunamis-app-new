@@ -30,6 +30,15 @@ const AddCoursePage = () => {
         return `${y}-${m}-${d}`;
     };
 
+    const resolveInstallments = (pricingItem) => {
+        const raw =
+            pricingItem?.installments ??
+            pricingItem?.totalInstallments ??
+            pricingItem?.total_installments;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : 6;
+    };
+
     const [courseData, setCourseData] = useState({
         info: {},
         instructors: [],
@@ -39,14 +48,14 @@ const AddCoursePage = () => {
                 monthlyFee: "",
                 fullPayment: "",
                 discount: "",
-                totalInstallments: 1,
+                totalInstallments: 6,
             },
             premium: {
                 enabled: false,
                 monthlyFee: "",
                 fullPayment: "",
                 discount: "",
-                totalInstallments: 1,
+                totalInstallments: 6,
             },
         },
         objectives: [],
@@ -99,8 +108,8 @@ const AddCoursePage = () => {
                 })),
                 pricing: (() => {
                     const pricing = {
-                        standard: { enabled: false, monthlyFee: "", fullPayment: "", discount: "", totalInstallments: 1 },
-                        premium: { enabled: false, monthlyFee: "", fullPayment: "", discount: "", totalInstallments: 1 },
+                        standard: { enabled: false, monthlyFee: "", fullPayment: "", discount: "", totalInstallments: 6 },
+                        premium: { enabled: false, monthlyFee: "", fullPayment: "", discount: "", totalInstallments: 6 },
                     };
                     (passedCourseData.price || []).forEach((p) => {
                         if (pricing[p.sessionType]) {
@@ -109,7 +118,8 @@ const AddCoursePage = () => {
                                 monthlyFee: p.monthlyFee || "",
                                 fullPayment: p.fullPayment || "",
                                 discount: p.discount || "",
-                                totalInstallments: p.totalInstallments || 1,
+                                totalInstallments: resolveInstallments(p),
+                                installments: resolveInstallments(p),
                             };
                         }
                     });
@@ -179,13 +189,14 @@ const AddCoursePage = () => {
                 ? courseData.branches.map(b => b.value || b)
                 : [],
             price: Object.entries(courseData.pricing || {})
-                .filter(([_, session]) => session.enabled)
+                .filter(([, session]) => session.enabled)
                 .map(([type, session]) => ({
                     sessionType: type,
                     monthlyFee: parseFloat(session.monthlyFee) || 0,
                     fullPayment: parseFloat(session.fullPayment) || 0,
                     discount: parseFloat(session.discount) || 0,
-                    totalInstallments: parseInt(session.totalInstallments, 10) || 1,
+                    totalInstallments: parseInt(session.totalInstallments ?? session.installments, 10) || 1,
+                    installments: parseInt(session.totalInstallments ?? session.installments, 10) || 1,
                     isActive: true,
                     isSelected: type === "standard",
                 })),

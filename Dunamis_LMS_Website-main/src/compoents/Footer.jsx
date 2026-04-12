@@ -19,8 +19,7 @@ import {
   ShieldCheck,
   Heart,
 } from "lucide-react";
-import { Linkedin, Instagram } from "lucide-react";
-import { FaWhatsapp } from "react-icons/fa";
+import { FaFacebookF, FaInstagram, FaPhoneAlt, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 const Footer = () => {
   return (
@@ -47,34 +46,47 @@ const Footer = () => {
             {/* Social Icons */}
             <div className="flex space-x-4">
               <a
-                href="https://www.linkedin.com"
+                href="https://www.youtube.com/@dunamisschoolofmusic4481"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-gray-500 hover:text-[#FF6B35] transition-colors"
+                className="text-gray-500 hover:text-red-500 transition-colors"
+                aria-label="YouTube"
               >
-                <Linkedin className="w-5 h-5" />
+                <FaYoutube className="w-5 h-5" />
               </a>
               <a
-                href="https://www.instagram.com"
+                href="https://www.instagram.com/dunamis_schoolofmusic/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 hover:text-pink-500 transition-colors"
+                aria-label="Instagram"
               >
-                <Instagram className="w-5 h-5" />
+                <FaInstagram className="w-5 h-5" />
               </a>
               <a
-                href="https://wa.me/1234567890"
+                href="https://www.facebook.com/dunamismusic2021/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-blue-600 transition-colors"
+                aria-label="Facebook"
+              >
+                <FaFacebookF className="w-5 h-5" />
+              </a>
+              <a
+                href="https://wa.me/+919398246083"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-500 hover:text-green-500 transition-colors"
+                aria-label="WhatsApp"
               >
                 <FaWhatsapp className="w-5 h-5" />
               </a>
               <a
-                href="tel:+911234567890"
+                href="tel:+919398246083"
                 className="text-gray-500 hover:text-blue-500 transition-colors"
+                aria-label="Call Dunamis"
               >
-                <PhoneCall className="w-5 h-5" />
+                <FaPhoneAlt className="w-5 h-5" />
               </a>
             </div>
           </div>
@@ -133,7 +145,7 @@ const Footer = () => {
                 { icon: Users, label: "Success Stories", href: "/success-stories" },
                 {
                   icon: BriefcaseBusiness,
-                  label: "Become a Trainer",
+                  label: "Become an Instructor",
                   href: "/become-teacher",
                 },
                 { icon: PhoneCall, label: "Contact", href: "/contact-us" },

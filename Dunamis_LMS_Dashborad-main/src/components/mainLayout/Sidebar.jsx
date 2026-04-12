@@ -151,6 +151,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           text: "Updates",
           permission: "updates",
         },
+        {
+          to: "/admin/site-content",
+          icon: <FiFileText />,
+          text: "Website Content",
+          permission: "contentManagement",
+        },
       ],
     },
   ];

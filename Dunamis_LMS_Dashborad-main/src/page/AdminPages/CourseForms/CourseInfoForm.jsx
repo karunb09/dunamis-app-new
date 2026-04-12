@@ -84,15 +84,120 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
         });
     };
 
-    const handleBranchesChange = (selectedOptions) => {
-        const selectedBranchObjects = selectedOptions
-            ? selectedOptions.map(option => ({
-                label: option.label,
-                value: option.value
-            }))
-            : [];
+    const getBranchCityName = (branch) =>
+        branch?.city?.cityName || branch?.city?.name || "Unassigned city";
 
-        setBranches(selectedBranchObjects);
+    const getBranchCityId = (branch) =>
+        branch?.city?._id || branch?.city || "unassigned";
+
+    const branchOptions = Array.isArray(allBranches)
+        ? allBranches
+            .filter((branch) => branch?._id)
+            .map((branch) => {
+                const cityName = getBranchCityName(branch);
+                return {
+                    value: branch._id,
+                    label: `${branch.branchName || "Unnamed Branch"} · ${cityName}`,
+                    branchName: branch.branchName || "Unnamed Branch",
+                    cityName,
+                    cityId: getBranchCityId(branch),
+                    optionType: "branch",
+                };
+            })
+        : [];
+
+    const branchOptionsByCity = branchOptions.reduce((acc, option) => {
+        if (!acc[option.cityId]) {
+            acc[option.cityId] = {
+                cityId: option.cityId,
+                cityName: option.cityName,
+                branches: [],
+            };
+        }
+        acc[option.cityId].branches.push(option);
+        return acc;
+    }, {});
+
+    const branchSelectOptions = branchOptions.length
+        ? [
+            {
+                label: "Quick select",
+                options: [
+                    {
+                        value: "__all_branches__",
+                        label: `All cities (${branchOptions.length} branches)`,
+                        optionType: "all",
+                    },
+                ],
+            },
+            ...Object.values(branchOptionsByCity)
+                .sort((a, b) => a.cityName.localeCompare(b.cityName))
+                .map((cityGroup) => ({
+                    label: cityGroup.cityName,
+                    options: [
+                        {
+                            value: `__city_${cityGroup.cityId}__`,
+                            label: `All branches in ${cityGroup.cityName}`,
+                            cityId: cityGroup.cityId,
+                            optionType: "city",
+                        },
+                        ...cityGroup.branches.sort((a, b) =>
+                            a.branchName.localeCompare(b.branchName)
+                        ),
+                    ],
+                })),
+        ]
+        : [];
+
+    const toBranchSelection = (option) => ({
+        label: option.label,
+        value: option.value,
+        cityName: option.cityName,
+    });
+
+    const selectedBranchOptions = Array.isArray(branches)
+        ? branches
+            .map((branch) => {
+                const value = branch?.value || branch;
+                return (
+                    branchOptions.find((option) => option.value === value) || {
+                        value,
+                        label: branch?.label || "Selected branch",
+                        optionType: "branch",
+                    }
+                );
+            })
+            .filter((branch) => branch?.value)
+        : [];
+
+    const handleBranchesChange = (selectedOptions) => {
+        const selected = selectedOptions || [];
+
+        if (selected.some((option) => option.optionType === "all")) {
+            setBranches(branchOptions.map(toBranchSelection));
+            return;
+        }
+
+        const selectedBranchIds = new Set();
+
+        selected.forEach((option) => {
+            if (option.optionType === "branch") {
+                selectedBranchIds.add(option.value);
+                return;
+            }
+
+            if (option.optionType === "city") {
+                branchOptions
+                    .filter((branch) => branch.cityId === option.cityId)
+                    .forEach((branch) => selectedBranchIds.add(branch.value));
+            }
+        });
+
+        setBranches(
+            branchOptions
+                .filter((option) => selectedBranchIds.has(option.value))
+                .map(toBranchSelection)
+        );
     };
 
     if (contentLoading) return <div>Loading content...</div>;
@@ -245,20 +350,57 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             {showBranchField && (
-                <div>
-                    <label className="block text-sm font-medium mb-1">Branch</label>
+                <div className="col-span-full">
+                    <label className="block text-sm font-medium mb-1">Branches</label>
                     <ReactSelect
                         isMulti
                         name="branches"
-                        options={Array.isArray(allBranches) ? allBranches.map((branch) => ({
-                            value: branch._id,
-                            label: branch.branchName,
-                        })) : []}
-                        value={branches || []}
+                        options={branchSelectOptions}
+                        value={selectedBranchOptions}
                         onChange={handleBranchesChange}
                         className="w-full pr-10"
-                        placeholder="Select branches"
+                        placeholder="Select all cities, a full city, or individual branches"
+                        closeMenuOnSelect={false}
+                        isDisabled={branchListStatus === "loading"}
+                        noOptionsMessage={() => "No branches available"}
+                        styles={{
+                            control: (base, state) => ({
+                                ...base,
+                                minHeight: 48,
+                                borderRadius: 16,
+                                borderColor: state.isFocused ? "#111827" : "#e5e7eb",
+                                boxShadow: state.isFocused ? "0 0 0 1px #111827" : "none",
+                                "&:hover": {
+                                    borderColor: "#111827",
+                                },
+                            }),
+                            groupHeading: (base) => ({
+                                ...base,
+                                color: "#111827",
+                                fontWeight: 700,
+                                letterSpacing: "0.02em",
+                            }),
+                            option: (base, state) => ({
+                                ...base,
+                                backgroundColor: state.isFocused ? "#f3f4f6" : "white",
+                                color: "#111827",
+                                fontWeight: state.data.optionType !== "branch" ? 700 : 400,
+                            }),
+                            multiValue: (base) => ({
+                                ...base,
+                                borderRadius: 999,
+                                backgroundColor: "#f3f4f6",
+                            }),
+                            multiValueLabel: (base) => ({
+                                ...base,
+                                color: "#111827",
+                                fontWeight: 500,
+                            }),
+                        }}
                     />
+                    <p className="mt-2 text-xs text-gray-500">
+                        Choose “All cities” for every branch, or use a city group to add all branches in that city.
+                    </p>
                 </div>
             )}
 

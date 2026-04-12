@@ -7,6 +7,8 @@ const otpTemplate= require("../mail/emailVerification");
 require("dotenv").config();
 const AdminNotice = require("../model/adminNotice.model");
 const { localFileUpload } = require("../utils/locallyUploader");
+const Teacher = require("../model/teacher.model");
+const TeacherDetail = require("../model/teacherApplication.model");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -537,6 +539,7 @@ exports.updateUser = async (req, res) => {
 
         // Handle file upload if present
         let imagePath = user.image; // Keep existing image by default
+        let didUploadProfileImage = false;
         
         if (req.files && req.files.profileImage) {
             console.log("Processing image upload...");
@@ -552,6 +555,7 @@ exports.updateUser = async (req, res) => {
                 // Extract path from first result (since it returns an array)
                 if (uploadResults && uploadResults.length > 0 && uploadResults[0].path) {
                     imagePath = uploadResults[0].path;
+                    didUploadProfileImage = true;
                     console.log("Image path updated:", imagePath);
                 }
             } catch (uploadError) {
@@ -600,6 +604,15 @@ exports.updateUser = async (req, res) => {
         user.image = imagePath;
 
         await user.save();
+
+        if (didUploadProfileImage && user.accountType === "teacher" && user.roleId) {
+            const teacher = await Teacher.findById(user.roleId).select("teacherDetail");
+            if (teacher?.teacherDetail) {
+                await TeacherDetail.findByIdAndUpdate(teacher.teacherDetail, {
+                    profilePicture: imagePath,
+                });
+            }
+        }
 
         console.log("User saved with image:", user.image);
 

@@ -71,6 +71,7 @@ const clearDraft = (courseId) => {
 const formatTime = (value) => {
   const raw = String(value || '').trim();
   if (!raw) return 'Time TBD';
+  if (raw === '24:00') return '12:00 AM';
 
   if (/\b(AM|PM)\b/i.test(raw)) {
     return raw.toUpperCase();
@@ -141,10 +142,22 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(null);
   const [hydrated, setHydrated] = useState(false);
+  const [videoPreview, setVideoPreview] = useState(null);
+
+  const visibleInstructors = useMemo(() => {
+    return instructors.filter(
+      (instructor) =>
+        filterCourseSlots(instructor.slots, {
+          deliveryMode: form.deliveryMode,
+          branchId: form.branchId,
+        }).length > 0
+    );
+  }, [form.branchId, form.deliveryMode, instructors]);
 
   const selectedInstructor = useMemo(
-    () => instructors.find((item) => item.id === form.instructorId) || null,
-    [form.instructorId, instructors]
+    () =>
+      visibleInstructors.find((item) => item.id === form.instructorId) || null,
+    [form.instructorId, visibleInstructors]
   );
 
   const availableSlots = useMemo(() => {
@@ -265,9 +278,9 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
 
   useEffect(() => {
     if (!form.instructorId) return;
-    if (instructors.some((item) => item.id === form.instructorId)) return;
+    if (visibleInstructors.some((item) => item.id === form.instructorId)) return;
     setForm((prev) => ({ ...prev, instructorId: '', slotId: '' }));
-  }, [form.instructorId, instructors]);
+  }, [form.instructorId, visibleInstructors]);
 
   useEffect(() => {
     if (!form.instructorId) return;
@@ -281,6 +294,12 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
       setForm((prev) => ({ ...prev, branchId: '' }));
     }
   }, [form.branchId, form.deliveryMode]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setVideoPreview(null);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -602,7 +621,7 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                             })
                           }
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
-                          placeholder="+91 98765 43210"
+                          placeholder="+91 93982 46083"
                         />
                       </div>
                       <div>
@@ -645,6 +664,7 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                               onClick={() =>
                                 updateForm({
                                   deliveryMode: mode,
+                                  instructorId: '',
                                   slotId: '',
                                   ...(mode !== 'offline' ? { branchId: '' } : {}),
                                 })
@@ -680,6 +700,7 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                           onChange={(e) =>
                             updateForm({
                               branchId: e.target.value,
+                              instructorId: '',
                               slotId: '',
                             })
                           }
@@ -708,17 +729,33 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                       <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
                         Loading instructors and demo slots...
                       </div>
-                    ) : instructors.length > 0 ? (
-                      instructors.map((instructor) => {
+                    ) : visibleInstructors.length > 0 ? (
+                      visibleInstructors.map((instructor) => {
                             const isSelected = form.instructorId === instructor.id;
                         const hasVideo = Boolean(instructor.profileVideo);
                         return (
                           <div
                             key={instructor.id}
-                            className={`rounded-3xl border p-4 transition ${
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              updateForm({
+                                instructorId: instructor.id,
+                                slotId: '',
+                              })
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter' && event.key !== ' ') return;
+                              event.preventDefault();
+                              updateForm({
+                                instructorId: instructor.id,
+                                slotId: '',
+                              });
+                            }}
+                            className={`cursor-pointer rounded-3xl border p-4 transition ${
                               isSelected
                                 ? 'border-orange-500 bg-orange-50'
-                                : 'border-gray-200 bg-white'
+                                : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
                             }`}
                           >
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
@@ -749,12 +786,13 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                                   </div>
                                   <button
                                     type="button"
-                                    onClick={() =>
+                                    onClick={(event) => {
+                                      event.stopPropagation();
                                       updateForm({
                                         instructorId: instructor.id,
                                         slotId: '',
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
                                       isSelected
                                         ? 'bg-[#FF6B35] text-white'
@@ -770,14 +808,19 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                                     {instructor.mode || 'online'}
                                   </span>
                                   {hasVideo ? (
-                                    <a
-                                      href={instructor.profileVideo}
-                                      target="_blank"
-                                      rel="noreferrer"
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setVideoPreview({
+                                          url: instructor.profileVideo,
+                                          title: `${instructor.name} demo video`,
+                                        });
+                                      }}
                                       className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-gray-700"
                                     >
                                       Watch demo video
-                                    </a>
+                                    </button>
                                   ) : (
                                     <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
                                       Demo video not uploaded yet
@@ -792,6 +835,9 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
                     ) : (
                       <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
                         No instructors are available for this course yet.
+                        {deliveryIsOffline && form.branchId
+                          ? ' Try another branch or ask the branch admin to publish demo slots.'
+                          : ''}
                       </div>
                     )}
                   </div>
@@ -950,6 +996,51 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
           </div>
         </div>
       </div>
+
+      {videoPreview ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setVideoPreview(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setVideoPreview(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white transition hover:bg-black"
+              aria-label="Close video preview"
+            >
+              <HiX className="text-xl" />
+            </button>
+
+            <div className="bg-black">
+              <video
+                key={videoPreview.url}
+                src={videoPreview.url}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                className="aspect-video w-full bg-black"
+              >
+                Your browser cannot preview this video format.
+              </video>
+            </div>
+
+            <div className="space-y-2 p-5">
+              <p className="text-sm font-semibold text-gray-900">
+                {videoPreview.title}
+              </p>
+              <p className="text-xs leading-5 text-gray-500">
+                If the video does not play inline, upload the instructor demo as
+                an MP4/WebM file encoded for browser playback.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

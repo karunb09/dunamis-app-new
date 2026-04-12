@@ -7,7 +7,7 @@ import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 import {
   FaWifi, FaParking, FaSnowflake, FaCoffee, FaDumbbell,
   FaBook, FaProjectDiagram, FaMapMarkerAlt, FaEnvelope,
-  FaClock, FaUsers, FaPhoneAlt, FaBriefcase, FaBookOpen
+  FaClock, FaUsers, FaPhoneAlt, FaBriefcase, FaBookOpen, FaCity
 } from "react-icons/fa";
 
 const CenterDetailsPage = () => {
@@ -75,8 +75,12 @@ const CenterDetailsPage = () => {
     branchManager,
     branchAdminEmail,
     branchAdminContact,
+    city,
+    zone,
     centreFacilities = "",
   } = center;
+
+  const cityName = city?.cityName || city?.name || "City not assigned";
 
   const facilities = centreFacilities
     ? centreFacilities.split(",").map((f) => f.trim())
@@ -112,6 +116,22 @@ const CenterDetailsPage = () => {
             <p className="text-gray-700 text-sm leading-relaxed max-w-3xl break-words">
               {branchManager?.name?.firstName} {branchManager?.name?.lastName}
             </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-800">
+                <FaCity className="text-gray-500" />
+                {cityName}
+              </span>
+              {zone && (
+                <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-800">
+                  Zone {zone}
+                </span>
+              )}
+              {status && (
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-medium capitalize text-emerald-800">
+                  {status}
+                </span>
+              )}
+            </div>
             <button
               className="mt-4 px-5 py-2 bg-gray-700 text-white rounded-xl text-sm font-medium shadow hover:bg-gray-800 transition"
               onClick={() => toast.success("Viewing all courses")}
@@ -136,6 +156,11 @@ const CenterDetailsPage = () => {
             icon: <FaMapMarkerAlt className="text-gray-600 w-6 h-6" />,
             title: "Location",
             value: location,
+          },
+          {
+            icon: <FaCity className="text-gray-600 w-6 h-6" />,
+            title: "City",
+            value: cityName,
           },
           {
             icon: <FaClock className="text-gray-600 w-6 h-6" />,

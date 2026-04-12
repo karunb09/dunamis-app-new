@@ -84,11 +84,15 @@ export const updateTeacher = createAsyncThunk(
   async ({ id, updatedData }, { rejectWithValue }) => {
     try {
       const token = getStoredToken();
+      const isFormData = updatedData instanceof FormData;
       const response = await axios.put(`${BASE_URL}/teachers/${id}`, updatedData, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        },
         withCredentials: true,
       });
-      return response.data;
+      return response.data.data || response.data.teacher || response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }

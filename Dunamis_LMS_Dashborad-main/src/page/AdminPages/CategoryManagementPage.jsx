@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FaSortAmountDown, FaFilter, FaPlus, FaSearch, FaEllipsisV, FaTimes } from "react-icons/fa";
+import { FaSortAmountDown, FaFilter, FaPlus, FaSearch, FaEllipsisV, FaTimes, FaLayerGroup, FaTags, FaRegClock } from "react-icons/fa";
 import { deleteCategory, fetchCategories, updateCategory } from "../../redux/Category/CategorySlice";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -31,6 +31,17 @@ const CategoryManagement = () => {
     dateTo: "",
   });
   const [activeMenu, setActiveMenu] = useState(null);
+
+  const categoryStats = {
+    total: categories?.length || 0,
+    active: categories?.filter((category) => category.status === "published").length || 0,
+    drafts: categories?.filter((category) => category.status === "draft").length || 0,
+    subcategories:
+      categories?.reduce(
+        (sum, category) => sum + (category.subcategories?.length || 0),
+        0
+      ) || 0,
+  };
 
   useEffect(() => {
     if (status === "idle") {
@@ -145,7 +156,43 @@ const CategoryManagement = () => {
   if (status === "failed") return <div>Error: {error}</div>;
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-6 bg-[#f6f3ee] min-h-screen">
+      <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#181512] via-[#3d3026] to-[#8b5e34] p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-200">
+              Learning Management
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold">Category Library</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/75">
+              Organize course families, subcategories, and publishing status from one clean workspace.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/admin/add-category")}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-orange-50"
+          >
+            <FaPlus /> Add Category
+          </button>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Total", value: categoryStats.total, icon: <FaLayerGroup /> },
+            { label: "Active", value: categoryStats.active, icon: <FaTags /> },
+            { label: "Drafts", value: categoryStats.drafts, icon: <FaRegClock /> },
+            { label: "Subcategories", value: categoryStats.subcategories, icon: <FaLayerGroup /> },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
+              <div className="flex items-center justify-between text-white/70">
+                <span className="text-xs uppercase tracking-[0.18em]">{stat.label}</span>
+                {stat.icon}
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="relative w-full md:w-1/3">
@@ -267,13 +314,7 @@ const CategoryManagement = () => {
             </div>
           )}
 
-          {/* Add Category Button */}
-          <button
-            onClick={() => navigate("/admin/add-category")}
-            className="flex items-center bg-black text-white gap-2 px-4 py-2 rounded-2xl hover:bg-gray-700 transition whitespace-nowrap"
-          >
-            <FaPlus /> Add Category
-          </button>
+          {/* Add Category lives in the hero CTA */}
         </div>
       </div>
 
@@ -299,23 +340,27 @@ const CategoryManagement = () => {
           No Available Categories
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {sortedCategories.map((category) => (
             <div
               key={category._id}
-              className="bg-white rounded-lg p-4 hover:shadow-lg transition-shadow border border-gray-200 relative"
+              className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
-              <div className="flex items-center justify-between mb-2">
+              <div
+                className="absolute inset-x-0 top-0 h-1.5"
+                style={{ backgroundColor: category.color || "#111827" }}
+              />
+              <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-2">
                   {category.icon?.startsWith("http") ? (
-                    <img src={category.icon} alt={category.name} className="w-6 h-6 rounded-full object-cover" />
+                    <img src={category.icon} alt={category.name} className="w-12 h-12 rounded-2xl object-cover" />
                   ) : (
-                    <span className="text-md text-gray-500">{category.icon}</span>
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-xl text-gray-700">{category.icon || "✦"}</span>
                   )}
-                  <span
-                    className="w-6 h-6 rounded-full border border-gray-300"
-                    style={{ backgroundColor: category.color }}
-                  />
+                  <div>
+                    <span className="text-xs font-medium uppercase tracking-[0.18em] text-gray-400">Category</span>
+                    <h3 className="text-lg font-semibold text-gray-950">{category.name}</h3>
+                  </div>
                 </div>
                 <FaEllipsisV
                   className="text-gray-400 cursor-pointer hover:text-black"
@@ -325,42 +370,61 @@ const CategoryManagement = () => {
                   <div className="absolute right-0 top-8 bg-white shadow-lg border border-gray-200 rounded-lg w-40 z-50">
                     <div className="flex justify-between items-center p-2">
                       <h3 className="text-sm text-gray-600">Options</h3>
-                      <FaTimes
-                        className="text-gray-400 cursor-pointer hover:text-black"
+                      <button
+                        type="button"
+                        className="rounded-lg p-1 text-gray-400 transition hover:bg-gray-100 hover:text-black"
                         onClick={() => setActiveMenu(null)}
-                      />
+                        aria-label="Close category actions"
+                      >
+                        <FaTimes />
+                      </button>
                     </div>
-                    <ul className="text-sm text-gray-600">
-                      <li
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                    <div className="space-y-1 p-2 text-sm text-gray-600">
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-100"
                         onClick={() => handleEdit(category)}
                       >
                         Edit
-                      </li>
-                      <li
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left transition hover:bg-gray-100"
                         onClick={() => handleStatusToggle(category)}
                       >
                         {category.status === "draft" ? "Publish Category" : "Move to Drafts"}
-                      </li>
-                      <li
-                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-red-500"
+                      </button>
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-3 py-2 text-left text-red-500 transition hover:bg-red-50"
                         onClick={() => handleDelete(category._id)}
                       >
                         Delete
-                      </li>
-                    </ul>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-              <h3 className="text-lg text-gray-400">Category</h3>
-              <p className="text-gray-800 font-medium">{category.name}</p>
-              <h4 className="text-md font-medium mt-2 text-gray-400">Sub-category</h4>
-              <ul className="list-disc list-inside text-gray-600">
-                {(category.subcategories || []).map((sub, index) => (
-                  <li key={index}>{sub.name}</li>
+              <div className="mb-4 flex items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${category.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                  {category.status === "published" ? "Active" : "Draft"}
+                </span>
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                  {(category.subcategories || []).length} subcategories
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(category.subcategories || []).slice(0, 6).map((sub, index) => (
+                  <span key={index} className="rounded-full bg-[#f6f3ee] px-3 py-1 text-xs text-gray-700">
+                    {sub.name}
+                  </span>
                 ))}
-              </ul>
+                {(category.subcategories || []).length > 6 && (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-500">
+                    +{category.subcategories.length - 6} more
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>

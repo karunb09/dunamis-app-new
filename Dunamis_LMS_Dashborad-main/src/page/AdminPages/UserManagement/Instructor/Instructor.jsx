@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaSearch, FaSortAmountDown, FaFilter } from 'react-icons/fa';
+import { FaCheckCircle, FaClock, FaFilter, FaSearch, FaSortAmountDown, FaTrash, FaUserCheck, FaUserSlash } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
 import DataTable from '../../../../components/Table';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,9 @@ import { fetchTeachers, updateTeacher, deleteTeacher } from '../../../../redux/I
 import { updateUser } from '../../../../redux/User/UserSlice';
 import { X } from 'react-feather';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
+import Swal from 'sweetalert2';
+import ActionProgressBar from '../../../../components/ActionProgressBar';
+import IconActionButton from '../../../../components/IconActionButton';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -18,7 +21,6 @@ const SORT_OPTIONS = [
 
 const mapTeacherToInstructor = (teacher, index) => {
     const fullName = `${teacher.user?.name?.firstName || ''} ${teacher.user?.name?.lastName || ''}`.trim();
-    const firstCourse = teacher.courses?.[0];
 
     return {
         id: teacher.id,
@@ -50,8 +52,14 @@ const Instructor = () => {
         salaryStatus: '',
         mode: '',
     });
+    const [processingAction, setProcessingAction] = useState(null);
 
     const dropdownRef = useRef(null);
+
+    const getErrorMessage = (error, fallback) => {
+        if (typeof error === 'string') return error;
+        return error?.message || error?.error || error?.data?.message || fallback;
+    };
 
     useEffect(() => {
         dispatch(fetchTeachers());
@@ -132,19 +140,32 @@ Mode: ${i.mode}`
             .then(() => toast.success("Instructor details copied!"))
             .catch(() => toast.error("Failed to copy"));
     };
-    // Utility: Convert HEX to RGBA
-    const hexToRGBA = (hex, opacity) => {
-        let r = 0, g = 0, b = 0;
-        if (hex.length === 4) {
-            r = parseInt(hex[1] + hex[1], 16);
-            g = parseInt(hex[2] + hex[2], 16);
-            b = parseInt(hex[3] + hex[3], 16);
-        } else if (hex.length === 7) {
-            r = parseInt(hex[1] + hex[2], 16);
-            g = parseInt(hex[3] + hex[4], 16);
-            b = parseInt(hex[5] + hex[6], 16);
+    const runInstructorAction = async ({ actionKey, progressLabel, loadingMessage, action, successTitle, successText, errorFallback }) => {
+        setProcessingAction({ key: actionKey, label: progressLabel });
+        const toastId = toast.loading(loadingMessage);
+
+        try {
+            const result = await action();
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: 'success',
+                title: successTitle,
+                text: successText,
+                confirmButtonColor: '#0f172a',
+            });
+            return result;
+        } catch (error) {
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Action failed',
+                text: getErrorMessage(error, errorFallback),
+                confirmButtonColor: '#dc2626',
+            });
+            throw error;
+        } finally {
+            setProcessingAction(null);
         }
-        return `rgba(${r}, ${g}, ${b}, ${opacity})`;
     };
 
     const columns = [
@@ -153,39 +174,38 @@ Mode: ${i.mode}`
             key: 'name',
             header: 'Instructor',
             render: (value, row) => (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                     <img
                         src={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR)}
                         alt={row.name}
                         className="w-8 h-8 rounded-full object-cover"
                     />
-                    <span>{row.name}</span>
+                    <span className="truncate" title={row.name}>{row.name}</span>
                 </div>
             ),
         },
         {
             key: 'accountStatus',
             header: 'Account Status',
-            render: (value, row) => (
-                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                    value === 'active'
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-rose-50 text-rose-700'
-                }`}>
-                    {value === 'active' ? 'Active' : 'Disabled'}
-                </span>
+            render: (value) => (
+                <div className="flex justify-center">
+                    <IconActionButton
+                        label={value === 'active' ? 'Instructor is active' : 'Instructor is disabled'}
+                        icon={<FaCheckCircle />}
+                        tone={value === 'active' ? 'emerald' : 'rose'}
+                        disabled
+                    />
+                </div>
             ),
         },
         {
             key: 'courseCategory',
             header: 'Course Category',
-            render: (value, row) => (
+            render: (value) => (
                 <span
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs"
                     style={{
-                        backgroundColor: row.courseCategoryColor
-                            ? hexToRGBA(row.courseCategoryColor, 0.2)
-                            : 'rgba(229, 231, 235, 0.2)'
+                        backgroundColor: 'rgba(229, 231, 235, 0.2)'
                     }}
                 >
                     {/* <span className="text-lg">{row.courseCategoryIcon}</span> */}
@@ -210,24 +230,34 @@ Mode: ${i.mode}`
             key: 'salaryStatus',
             header: 'Salary Status',
             render: (value, row) => (
-                <select
-                    value={value}
-                    onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => {
-                        const newStatus = e.target.value;
-                        if (newStatus === row.salaryStatus) return;
-                        dispatch(updateTeacher({
-                            id: row.id,
-                            updatedData: { salaryStatus: newStatus },
-                        })).unwrap()
-                            .then(() => toast.success(`${row.name}'s salary status updated to ${newStatus}`))
-                            .catch(() => toast.error(`Failed to update ${row.name}'s salary status`));
+                <div className="flex justify-center">
+                <IconActionButton
+                    label={value === 'paid' ? 'Mark salary as due' : 'Mark salary as paid'}
+                    icon={value === 'paid' ? <FaCheckCircle /> : <FaClock />}
+                    tone={value === 'paid' ? 'emerald' : 'amber'}
+                    disabled={Boolean(processingAction)}
+                    isLoading={processingAction?.key === `salary-${row.id}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        const newStatus = value === 'paid' ? 'due' : 'paid';
+                        runInstructorAction({
+                            actionKey: `salary-${row.id}`,
+                            progressLabel: `Updating salary status for ${row.name}...`,
+                            loadingMessage: `Saving salary status for ${row.name}`,
+                            action: async () => {
+                                await dispatch(updateTeacher({
+                                    id: row.id,
+                                    updatedData: { salaryStatus: newStatus },
+                                })).unwrap();
+                                await dispatch(fetchTeachers());
+                            },
+                            successTitle: 'Salary status updated',
+                            successText: `${row.name}'s salary status is now ${newStatus}.`,
+                            errorFallback: `Failed to update ${row.name}'s salary status.`,
+                        }).catch(() => {});
                     }}
-                    className={`text-xs font-medium rounded-full px-3 py-1 ${value === 'paid' ? 'text-green-700' : 'text-red-600'}`}
-                >
-                    <option value="due">Due</option>
-                    <option value="paid">Paid</option>
-                </select>
+                />
+                </div>
             ),
         },
         {
@@ -235,56 +265,61 @@ Mode: ${i.mode}`
             header: 'Actions',
             render: (_, row) => (
                 <div className="flex flex-wrap gap-2">
-                    <button
-                        type="button"
+                    <IconActionButton
+                        label={row.accountStatus === 'active' ? 'Disable instructor' : 'Enable instructor'}
+                        icon={row.accountStatus === 'active' ? <FaUserSlash /> : <FaUserCheck />}
+                        tone={row.accountStatus === 'active' ? 'amber' : 'emerald'}
+                        disabled={Boolean(processingAction)}
+                        isLoading={processingAction?.key === `status-${row.id}`}
                         onClick={(e) => {
                             e.stopPropagation();
                             const nextStatus = row.accountStatus === 'active' ? 'inactive' : 'active';
                             const actionLabel = nextStatus === 'inactive' ? 'disable' : 'enable';
                             if (!window.confirm(`Do you want to ${actionLabel} ${row.name}?`)) return;
-
-                            dispatch(updateUser({
-                                id: row.userId,
-                                userData: { accountStatus: nextStatus },
-                                token: localStorage.getItem('token'),
-                            })).unwrap()
-                                .then(() => {
-                                    toast.success(`${row.name} is now ${nextStatus === 'active' ? 'enabled' : 'disabled'}`);
-                                    dispatch(fetchTeachers());
-                                })
-                                .catch((error) => {
-                                    toast.error(error?.message || `Failed to update ${row.name}'s status`);
-                                });
+                            runInstructorAction({
+                                actionKey: `status-${row.id}`,
+                                progressLabel: `Updating account status for ${row.name}...`,
+                                loadingMessage: `Applying status change for ${row.name}`,
+                                action: async () => {
+                                    await dispatch(updateUser({
+                                        id: row.userId,
+                                        userData: { accountStatus: nextStatus },
+                                        token: localStorage.getItem('token'),
+                                    })).unwrap();
+                                    await dispatch(fetchTeachers());
+                                },
+                                successTitle: 'Instructor status updated',
+                                successText: `${row.name} is now ${nextStatus === 'active' ? 'enabled' : 'disabled'}.`,
+                                errorFallback: `Failed to update ${row.name}'s status.`,
+                            }).catch(() => {});
                         }}
-                        className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                            row.accountStatus === 'active'
-                                ? 'border border-amber-200 text-amber-700 hover:bg-amber-50'
-                                : 'border border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                        }`}
-                    >
-                        {row.accountStatus === 'active' ? 'Disable' : 'Enable'}
-                    </button>
-                    <button
-                        type="button"
+                    />
+                    <IconActionButton
+                        label="Delete instructor"
+                        icon={<FaTrash />}
+                        tone="rose"
+                        disabled={Boolean(processingAction)}
+                        isLoading={processingAction?.key === `delete-${row.id}`}
                         onClick={(e) => {
                             e.stopPropagation();
                             const confirmed = window.confirm(
                                 `Delete ${row.name}? This only works if the instructor has no live bookings, payments, or occupied slots.`
                             );
                             if (!confirmed) return;
-
-                            dispatch(deleteTeacher(row.id)).unwrap()
-                                .then((payload) => {
-                                    toast.success(payload?.message || `${row.name} deleted successfully`);
-                                })
-                                .catch((error) => {
-                                    toast.error(error || `Failed to delete ${row.name}`);
-                                });
+                            runInstructorAction({
+                                actionKey: `delete-${row.id}`,
+                                progressLabel: `Deleting ${row.name}...`,
+                                loadingMessage: `Deleting ${row.name}`,
+                                action: async () => {
+                                    await dispatch(deleteTeacher(row.id)).unwrap();
+                                    await dispatch(fetchTeachers());
+                                },
+                                successTitle: 'Instructor deleted',
+                                successText: `${row.name} has been removed successfully.`,
+                                errorFallback: `Failed to delete ${row.name}.`,
+                            }).catch(() => {});
                         }}
-                        className="rounded-full border border-rose-200 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
-                    >
-                        Delete
-                    </button>
+                    />
                 </div>
             ),
         },
@@ -295,6 +330,7 @@ Mode: ${i.mode}`
 
     return (
         <div>
+            <ActionProgressBar active={Boolean(processingAction)} label={processingAction?.label} />
             {/* Search + Sort + Filter */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                 <div className="relative w-full md:w-1/3">

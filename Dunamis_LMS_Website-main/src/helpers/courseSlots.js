@@ -1,3 +1,5 @@
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
+
 const DAY_ORDER = [
   "Sunday",
   "Monday",
@@ -33,6 +35,11 @@ export const normalizeMode = (value) => {
 const normalizeSlotType = (value) =>
   String(value || "").trim().toLowerCase();
 
+const normalizeDays = (days = []) =>
+  (Array.isArray(days) ? days : [])
+    .map((day) => String(day || "").trim().toLowerCase())
+    .filter(Boolean);
+
 const buildTeacherName = (teacher) => {
   const structuredName =
     teacher?.teacherDetail?.name ||
@@ -54,6 +61,7 @@ const buildTeacherName = (teacher) => {
 export const formatTimeLabel = (value) => {
   const raw = String(value || "").trim();
   if (!raw) return "Time TBD";
+  if (raw === "24:00") return "12:00 AM";
   if (/\b(AM|PM)\b/i.test(raw)) return raw.toUpperCase();
 
   const parts = raw.split(":");
@@ -120,6 +128,23 @@ const buildNormalizedSlot = (slot, branchLookup) => {
   const startTime = slot?.startTime || "";
   const endTime = slot?.endTime || "";
   const deliveryMode = branchId ? "offline" : "online";
+  const studentCount = Array.isArray(slot?.students)
+    ? slot.students.length
+    : Number(slot?.studentCount) || 0;
+  const maxStudents =
+    Number(slot?.maxStudents) ||
+    (slot?.slotType === "demo" ? 1 : slot?.sessionType === "premium" ? 1 : 4);
+  const bookingTag =
+    slot?.bookingTag ||
+    (slot?.slotType === "enrolled" && slot?.sessionType === "standard"
+      ? studentCount >= 3
+        ? "Filling fast"
+        : studentCount >= 1
+          ? "Learner's choice"
+          : ""
+      : "");
+  const recurringDays = normalizeDays(slot?.recurringDays);
+  const availabilityDays = normalizeDays(slot?.availabilityDays);
 
   return {
     id: slotId,
@@ -132,6 +157,14 @@ const buildNormalizedSlot = (slot, branchLookup) => {
     endTime,
     sessionType: slot?.sessionType || null,
     slotType: normalizeSlotType(slot?.slotType) || null,
+    studentCount,
+    maxStudents,
+    availableSeats:
+      Number(slot?.availableSeats) || Math.max(maxStudents - studentCount, 0),
+    bookingTag,
+    recurringDays,
+    availabilityDays,
+    dayPairLabel: slot?.dayPairLabel || "",
     branchId: branchId || null,
     branchLabel,
     teacherId: normalizeEntityId(
@@ -179,10 +212,14 @@ export const buildInstructorOptions = (course, slots = [], slotType) => {
     teacherMeta.set(id, {
       id,
       name: buildTeacherName(teacher),
-      profilePicture:
+      profilePicture: resolveImageUrl(
         teacher?.teacherDetail?.profilePicture || teacher?.userId?.image || "",
-      profileVideo:
+        ""
+      ),
+      profileVideo: resolveImageUrl(
         teacher?.teacherDetail?.profileVideo || teacher?.profileVideo || "",
+        ""
+      ),
       averageRating: teacher?.averageRating || 0,
       studentCount: teacher?.studentCount || 0,
       mode:
@@ -210,11 +247,16 @@ export const buildInstructorOptions = (course, slots = [], slotType) => {
     const existing = teacherMeta.get(teacherId) || {
       id: teacherId,
       name: buildTeacherName(teacherSource),
-      profilePicture:
-        teacherSource?.userId?.image ||
-        teacherSource?.image ||
-        "",
-      profileVideo: "",
+      profilePicture: resolveImageUrl(
+        teacherSource?.userId?.image || teacherSource?.image || "",
+        ""
+      ),
+      profileVideo: resolveImageUrl(
+        teacherSource?.teacherDetail?.profileVideo ||
+          teacherSource?.profileVideo ||
+          "",
+        ""
+      ),
       averageRating: 0,
       studentCount: 0,
       mode: normalizedSlot.deliveryMode,

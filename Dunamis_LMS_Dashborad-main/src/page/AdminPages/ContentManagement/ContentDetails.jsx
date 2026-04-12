@@ -90,45 +90,61 @@ const ContentDetails = () => {
   const style = getCategoryStyle(content.category);
 
   return (
-    <div className="bg-[#F9F9F9] p-0">
+    <div className="min-h-screen rounded-[2rem] bg-[#f6f3ee] p-4 sm:p-6">
       {/* Top Action Buttons */}
-      <div className="flex justify-end mb-4 gap-5">
-        <button
-          onClick={handleDelete}
-          className="px-4 py-2 rounded-2xl border border-red-500 text-red-600 flex items-center gap-2"
-        >
-          <FaTrash /> Delete Content
-        </button>
+      <div className="mb-5 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#181512] via-[#3d3026] to-[#8b5e34] p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-200">
+              Learning Content
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold">{content.courseName}</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/75">
+              Review modules, lessons, publishing state, and curriculum structure.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-200/50 bg-white/10 px-4 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500 hover:text-white"
+            >
+              <FaTrash /> Delete Content
+            </button>
 
-        {/* Toggle Status Button */}
-        <button
-          onClick={handleStatusToggle}
-          className="ml-4 px-4 py-2 rounded-2xl border border-black flex items-center gap-2 text-black"
-          disabled={isProcessing}
-        >
-          {isProcessing ? (
-            <span>Processing...</span>
-          ) : content.status === "published" ? (
-            <>
-              <FaRegClock /> Move to Draft
-            </>
-          ) : (
-            <>
-              <FaRegClock /> Publish Content
-            </>
-          )}
-        </button>
+            {/* Toggle Status Button */}
+            <button
+              type="button"
+              onClick={handleStatusToggle}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/40 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white hover:text-gray-950 disabled:opacity-60"
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <span>Processing...</span>
+              ) : content.status === "published" ? (
+                <>
+                  <FaRegClock /> Move to Draft
+                </>
+              ) : (
+                <>
+                  <FaRegClock /> Publish Content
+                </>
+              )}
+            </button>
 
-        {/* Edit Button */}
-        <Link to={`/admin/content/add/${content._id}`}>
-          <button className="px-4 py-2 bg-black text-white rounded-2xl flex items-center gap-2">
-            <FaEdit /> Edit Content
-          </button>
-        </Link>
+            {/* Edit Button */}
+            <Link
+              to={`/admin/content/edit/${content._id}`}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-gray-950 transition hover:bg-orange-50"
+            >
+              <FaEdit /> Edit Content
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Main Content Area */}
-      <div className="bg-white rounded-lg p-6 shadow-sm">
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm ring-1 ring-orange-100">
         {/* Category and Subcategory */}
         <div className="flex items-center gap-3 mb-2">
           <span

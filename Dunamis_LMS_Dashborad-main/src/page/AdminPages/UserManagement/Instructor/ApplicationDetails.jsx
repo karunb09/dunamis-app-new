@@ -2,13 +2,34 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
+    deleteApplication,
     fetchApplicationById,
     updateApplicationStatus,
 } from "../../../../redux/Intructor/teacherApplication";
 import { toast } from "react-hot-toast";
 import { X } from "react-feather";
 import { FileDoc, FilePdf, FileVideo } from "phosphor-react";
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { FaTrash } from "react-icons/fa";
+import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+
+const resolveAssetUrl = (path) => resolveImageUrl(path, "");
+
+const getFileExtension = (path = "") => {
+    const cleanPath = String(path || "").split("?")[0].split("#")[0];
+    const extension = cleanPath.split(".").pop();
+    return extension ? extension.toLowerCase() : "";
+};
+
+const isPdfFile = (path = "") => getFileExtension(path) === "pdf";
+const isVideoFile = (path = "") =>
+    ["mp4", "mpeg", "mpg", "avi", "mov", "webm", "m4v"].includes(
+        getFileExtension(path)
+    );
+const isImageFile = (path = "") =>
+    ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp", "avif"].includes(
+        getFileExtension(path)
+    );
+
 const ApplicationDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -18,9 +39,8 @@ const ApplicationDetails = () => {
         (state) => state.application
     );
 
-    const [showImageModal, setShowImageModal] = useState(false);
-    const [showVideoModal, setShowVideoModal] = useState(false);
-    const [showPdfModal, setShowPdfModal] = useState(false);
+    const [previewAsset, setPreviewAsset] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         dispatch(fetchApplicationById(id));
@@ -44,6 +64,33 @@ const ApplicationDetails = () => {
         }
     };
 
+    const handleDeleteApplication = async () => {
+        const fullName = `${application?.name?.firstName || ""} ${
+            application?.name?.lastName || ""
+        }`.trim() || "this applicant";
+        const linkedWarning =
+            application?.status === "selected"
+                ? "\n\nIf this application is already linked to an instructor, delete will be blocked. Delete the instructor from the Instructor tab instead."
+                : "";
+
+        const confirmed = window.confirm(
+            `Delete application for ${fullName}? This cannot be undone.${linkedWarning}`
+        );
+
+        if (!confirmed) return;
+
+        setIsDeleting(true);
+        try {
+            await dispatch(deleteApplication(id)).unwrap();
+            toast.success("Application deleted successfully.");
+            navigate("/applications", { replace: true });
+        } catch (deleteError) {
+            toast.error(deleteError || "Failed to delete application.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return "—";
         const date = new Date(dateStr);
@@ -58,9 +105,7 @@ const ApplicationDetails = () => {
     const handleEscClose = useCallback(
         (e) => {
             if (e.key === "Escape") {
-                setShowImageModal(false);
-                setShowVideoModal(false);
-                setShowPdfModal(false);
+                setPreviewAsset(null);
             }
         },
         []
@@ -90,11 +135,58 @@ const ApplicationDetails = () => {
         relevantCertificate,
         cv,
         profileVideo,
+        profilePicture,
     } = application;
+
+    const certificateUrl = resolveAssetUrl(relevantCertificate);
+    const cvUrl = resolveAssetUrl(cv);
+    const profileVideoUrl = resolveAssetUrl(profileVideo);
+    const profilePictureUrl = resolveAssetUrl(profilePicture);
+
+    const openPreview = (type, src, title) => {
+        if (!src) return;
+        setPreviewAsset({ type, src, title });
+    };
+
+    const DocumentLink = ({ icon, label, src, onPreview }) => {
+        if (!src) return <p>—</p>;
+
+        return (
+            <div className="flex flex-wrap items-center gap-3">
+                <button
+                    type="button"
+                    onClick={onPreview}
+                    className="inline-flex items-center gap-2 rounded text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                    {icon}
+                    <span>{label}</span>
+                </button>
+                <a
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-gray-600 underline underline-offset-2 hover:text-gray-900"
+                >
+                    Open file
+                </a>
+            </div>
+        );
+    };
 
     return (
         <div className="max-w-7xl mx-auto p-4">
-            <h2 className="text-2xl font-semibold mb-6">Application Details</h2>
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="text-2xl font-semibold">Application Details</h2>
+                <button
+                    type="button"
+                    disabled={isDeleting}
+                    onClick={handleDeleteApplication}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                    <FaTrash className="text-xs" />
+                    {isDeleting ? "Deleting..." : "Delete Application"}
+                </button>
+            </div>
 
             {/* Status Dropdown */}
             <div className="mb-6">
@@ -201,104 +293,115 @@ const ApplicationDetails = () => {
                 <section className="bg-white p-4 rounded-md border mb-6">
                     <h3 className="text-lg font-semibold mb-4">Documents</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Certificate */}
                         <div>
-                            <label className="text-sm text-gray-600 block mb-1">Relevant Certificate</label>
-                            {relevantCertificate ? (
-                                <p
-                                    onClick={() => setShowImageModal(true)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            e.preventDefault();
-                                            setShowImageModal(true);
+                            <label className="text-sm text-gray-600 block mb-1">Profile Picture</label>
+                            {profilePictureUrl ? (
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            openPreview("image", profilePictureUrl, "Profile Picture")
                                         }
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    aria-label="View Certificate"
-                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-900 cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-400 rounded"
-                                >
-                                    <FileDoc className="text-black text-2xl" />
-                                    <span>View Certificate</span>
-                                </p>
+                                        className="inline-flex items-center gap-2 rounded text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                    >
+                                        <FileDoc className="text-black text-2xl" />
+                                        <span>View Profile Picture</span>
+                                    </button>
+                                    <a
+                                        href={profilePictureUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm font-medium text-gray-600 underline underline-offset-2 hover:text-gray-900"
+                                    >
+                                        Open file
+                                    </a>
+                                </div>
                             ) : (
                                 <p>—</p>
                             )}
+                        </div>
+
+                        {/* Certificate */}
+                        <div>
+                            <label className="text-sm text-gray-600 block mb-1">Relevant Certificate</label>
+                            <DocumentLink
+                                icon={<FileDoc className="text-black text-2xl" />}
+                                label="View Certificate"
+                                src={certificateUrl}
+                                onPreview={() =>
+                                    openPreview(
+                                        isPdfFile(relevantCertificate) ? "pdf" : "image",
+                                        certificateUrl,
+                                        "Relevant Certificate"
+                                    )
+                                }
+                            />
                         </div>
 
                         {/* CV */}
                         <div>
                             <label className="text-sm text-gray-600 block mb-1">CV</label>
-                            {cv ? (
-                                <p
-                                    onClick={() => setShowPdfModal(true)}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            e.preventDefault();
-                                            setShowPdfModal(true);
-                                        }
-                                    }}
-                                    role="button"
-                                    aria-label="View CV"
-                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-900 cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-400 rounded"
-                                >
-                                    <FilePdf className="text-black text-2xl" />
-                                    <span>View CV</span>
-                                </p>
-                            ) : (
-                                <p>—</p>
-                            )}
+                            <DocumentLink
+                                icon={<FilePdf className="text-black text-2xl" />}
+                                label="View CV"
+                                src={cvUrl}
+                                onPreview={() =>
+                                    openPreview(
+                                        isPdfFile(cv) ? "pdf" : isImageFile(cv) ? "image" : "file",
+                                        cvUrl,
+                                        "Curriculum Vitae"
+                                    )
+                                }
+                            />
                         </div>
 
                         {/* Profile Video */}
                         <div>
                             <label className="text-sm text-gray-600 block mb-1">Profile Video</label>
-                            {profileVideo ? (
-                                <p
-                                    onClick={() => setShowVideoModal(true)}
-                                    tabIndex={0}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            e.preventDefault();
-                                            setShowVideoModal(true);
-                                        }
-                                    }}
-                                    role="button"
-                                    aria-label="View Profile Video"
-                                    className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-900 cursor-pointer select-none outline-none focus:ring-2 focus:ring-blue-400 rounded"
-                                >
-                                    <FileVideo className="text-black text-2xl" />
-                                    <span>View Video</span>
-                                </p>
-                            ) : (
-                                <p>—</p>
-                            )}
+                            <DocumentLink
+                                icon={<FileVideo className="text-black text-2xl" />}
+                                label="View Video"
+                                src={profileVideoUrl}
+                                onPreview={() =>
+                                    openPreview(
+                                        isVideoFile(profileVideo) ? "video" : "file",
+                                        profileVideoUrl,
+                                        "Profile Video"
+                                    )
+                                }
+                            />
                         </div>
                     </div>
                 </section>
             </div>
 
             {/* Modals */}
-            {showImageModal && (
+            {previewAsset?.type === "image" && (
                 <ImageModal
-                    src={`${IMAGE}${relevantCertificate}`}
-                    onClose={() => setShowImageModal(false)}
-                    title="Relevant Certificate"
+                    src={previewAsset.src}
+                    onClose={() => setPreviewAsset(null)}
+                    title={previewAsset.title}
                 />
             )}
-            {showPdfModal && (
+            {previewAsset?.type === "pdf" && (
                 <PdfModal
-                    src={`${IMAGE}${cv}`}
-                    onClose={() => setShowPdfModal(false)}
-                    title="Curriculum Vitae"
+                    src={previewAsset.src}
+                    onClose={() => setPreviewAsset(null)}
+                    title={previewAsset.title}
                 />
             )}
-            {showVideoModal && (
+            {previewAsset?.type === "video" && (
                 <VideoModal
-                    src={`${IMAGE}${profileVideo}`}
-                    onClose={() => setShowVideoModal(false)}
-                    title="Profile Video"
+                    src={previewAsset.src}
+                    onClose={() => setPreviewAsset(null)}
+                    title={previewAsset.title}
+                />
+            )}
+            {previewAsset?.type === "file" && (
+                <FileModal
+                    src={previewAsset.src}
+                    onClose={() => setPreviewAsset(null)}
+                    title={previewAsset.title}
                 />
             )}
         </div>
@@ -377,6 +480,26 @@ const VideoModal = ({ src, onClose, title }) => {
             >
                 Your browser does not support the video tag.
             </video>
+        </ModalWrapper>
+    );
+};
+
+const FileModal = ({ src, onClose, title }) => {
+    return (
+        <ModalWrapper onClose={onClose} title={title}>
+            <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                    Preview is not available for this file type. Open it in a new tab to view or download it.
+                </p>
+                <a
+                    href={src}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                    Open file
+                </a>
+            </div>
         </ModalWrapper>
     );
 };

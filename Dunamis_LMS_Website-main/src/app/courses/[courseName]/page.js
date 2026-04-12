@@ -205,9 +205,7 @@ export default function CourseDetailPage() {
                     "Full course access",
                     "All course materials",
                     p.discount > 0
-                      ? `Save ${p.discount}% (₹${Math.round(
-                          p.monthlyFee * (p.installments || 3) - p.fullPayment
-                        )})`
+                      ? `Save ${p.discount}%`
                       : "One-time payment",
                     "Lifetime access",
                     p.sessionType === "premium"

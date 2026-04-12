@@ -18,14 +18,10 @@ const categoryIcons = {
 };
 
 const CourseCard = ({ course }) => {
-    if (!course) {
-        return (
-            <div className="bg-gray-200 p-6 text-center text-gray-500 font-semibold">
-                Course Not Found
-            </div>
-        );
-    }
-
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef();
     const {
         _id,
         image,
@@ -35,21 +31,15 @@ const CourseCard = ({ course }) => {
         isPublished,
         mode,
         description,
-        students,
         totalStudents,
         // locations,
         price,
         teacher = [],
-    } = course;
+    } = course || {};
 
     const avatars = teacher.map((item) =>
         resolveImageUrl(item?.teacherDetail?.profilePicture || item?.userId?.image, DEFAULT_AVATAR)
     );
-
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const [menuOpen, setMenuOpen] = useState(false);
-    const menuRef = useRef();
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -97,7 +87,7 @@ const CourseCard = ({ course }) => {
                 }
                 break;
 
-            case 'Delete':
+            case 'Delete': {
                 const result = await Swal.fire({
                     title: 'Are you sure?',
                     text: `Do you want to delete the course "${title}"? This action cannot be undone.`,
@@ -118,6 +108,7 @@ const CourseCard = ({ course }) => {
                     }
                 }
                 break;
+            }
 
             default:
                 break;
@@ -125,19 +116,38 @@ const CourseCard = ({ course }) => {
         setMenuOpen(false);
     };
 
+    if (!course) {
+        return (
+            <div className="bg-gray-200 p-6 text-center text-gray-500 font-semibold">
+                Course Not Found
+            </div>
+        );
+    }
+
     return (
         <div
-            className="cursor-pointer relative bg-white rounded-xl border border-gray-200 shadow-sm p-4 w-full max-w-sm
-        hover:shadow-lg transition-shadow duration-200"
+            className="group cursor-pointer relative overflow-hidden bg-white rounded-3xl border border-orange-100 shadow-sm w-full
+        hover:-translate-y-1 hover:shadow-xl transition duration-200"
             onClick={handleCardClick}
         >
-            <img
-                src={resolveImageUrl(image, DEFAULT_COURSE_IMAGE)}
-                alt={title}
-                className="rounded-md w-full h-40 object-cover mb-4"
-                draggable={false}
-            />
-            <div className="flex items-center justify-between mb-2">
+            <div className="relative h-44 overflow-hidden bg-gray-100">
+                <img
+                    src={resolveImageUrl(image, DEFAULT_COURSE_IMAGE)}
+                    alt={title}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    draggable={false}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                <span className={`absolute bottom-4 left-4 text-xs font-semibold px-3 py-1 rounded-full select-none 
+                    ${mode === 'online' ? 'bg-emerald-100 text-emerald-800'
+                        : mode === 'offline' ? 'bg-orange-100 text-orange-800'
+                            : 'bg-gray-100 text-gray-700'}`}>
+                    {mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : 'Offline'}
+                </span>
+            </div>
+
+            <div className="p-5">
+            <div className="flex items-center justify-between mb-3">
                 <div className="flex gap-2 items-center">
                     <span className={`text-xs px-2.5 py-0.5 rounded-full flex items-center select-none
                         ${category === 'Music' ? 'bg-blue-100 text-blue-600'
@@ -157,59 +167,68 @@ const CourseCard = ({ course }) => {
                     </span>
                 </div>
 
-                <div
-                    ref={menuRef}
-                    className="relative"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpen(!menuOpen);
-                    }}
-                    aria-label="Course options menu"
-                >
-                    <FiMoreHorizontal
-                        className="text-gray-500 hover:text-black"
-                        size={20}
+                <div ref={menuRef} className="relative">
+                    <button
+                        type="button"
+                        className="rounded-full p-2 text-gray-500 transition hover:bg-gray-100 hover:text-black"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpen(!menuOpen);
+                        }}
+                        aria-label="Course options menu"
                         aria-haspopup="true"
                         aria-expanded={menuOpen}
-                    />
+                    >
+                        <FiMoreHorizontal size={20} />
+                    </button>
                     {menuOpen && (
-                        <ul className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 text-sm font-medium">
-                            <li
-                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                onClick={() => handleMenuAction('Edit')}
+                        <div className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-gray-200 bg-white p-2 text-sm font-medium shadow-lg">
+                            <button
+                                type="button"
+                                className="w-full rounded-xl px-3 py-2 text-left text-gray-700 transition hover:bg-gray-100"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMenuAction('Edit');
+                                }}
                             >
                                 Edit
-                            </li>
-                            <li
-                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                onClick={() => handleMenuAction(isPublished ? 'Move to drafts' : 'Publish')}
+                            </button>
+                            <button
+                                type="button"
+                                className="w-full rounded-xl px-3 py-2 text-left text-gray-700 transition hover:bg-gray-100"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMenuAction(isPublished ? 'Move to drafts' : 'Publish');
+                                }}
                             >
                                 {isPublished ? 'Move to drafts' : 'Publish Course'}
-                            </li>
-                            <li
-                                className="px-4 py-2 text-red-600 hover:bg-red-100 cursor-pointer"
-                                onClick={() => handleMenuAction('Delete')}
+                            </button>
+                            <button
+                                type="button"
+                                className="w-full rounded-xl px-3 py-2 text-left text-red-600 transition hover:bg-red-50"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMenuAction('Delete');
+                                }}
                             >
                                 Delete
-                            </li>
-                        </ul>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-md text-gray-900">{title}</h3>
-                <span className={`text-xs font-semibold px-3 py-0.5 rounded-full select-none 
-                    ${mode === 'online' ? 'bg-green-100 text-green-700'
-                        : mode === 'offline' ? 'bg-gray-200 text-gray-700'
-                            : 'bg-gray-100 text-gray-600'}`}>
-                    {mode ? mode.charAt(0).toUpperCase() + mode.slice(1) : 'Offline'}
+            <div className="mb-2">
+                <h3 className="font-semibold text-lg text-gray-950 leading-tight">{title}</h3>
+                <span className={`mt-2 inline-flex text-xs font-semibold px-3 py-1 rounded-full select-none 
+                    ${isPublished ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                    {isPublished ? 'Published' : 'Draft'}
                 </span>
             </div>
 
             <p className="text-sm text-gray-500 line-clamp-2 mb-4">{description}</p>
 
-            <div className="flex items-center justify-between text-sm select-none">
+            <div className="flex items-center justify-between rounded-2xl bg-gray-50 p-3 text-sm select-none">
                 <div className="flex -space-x-2">
                     {avatars.map((avatar, idx) => (
                         <img
@@ -236,6 +255,7 @@ const CourseCard = ({ course }) => {
                         <FaRupeeSign className="text-xs text-green-500" /> {getSelectedMonthlyFee(price)}/month
                     </span>
                 </div>
+            </div>
             </div>
         </div>
     );

@@ -1,144 +1,180 @@
-import { Music, Activity, BookOpen } from "react-feather";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { Link } from "react-router-dom";
+import { getStoredToken } from "../../utils/authSession";
 
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const recentActivities = [
-    {
-        id: 1,
-        name: "Aarti Sharma",
-        avatar: "https://randomuser.me/api/portraits/women/65.jpg",
-        activity: "New enrollment in Carnatic Vocal Beginner.",
-        time: "41m ago",
-    },
-    {
-        id: 2,
-        name: "Jean-Pierre Dubois",
-        avatar: "https://randomuser.me/api/portraits/men/32.jpg",
-        activity: "Completed French Intermediate certification.",
-        time: "2h ago",
-    },
-    {
-        id: 3,
-        name: "Raj Patel",
-        avatar: "https://randomuser.me/api/portraits/men/45.jpg",
-        activity: "Updated Guitar lessons material.",
-        time: "2h ago",
-    },
-    {
-        id: 4,
-        name: "Kirthi Rajesh",
-        avatar: "https://randomuser.me/api/portraits/women/44.jpg",
-        activity: "Instructor Onboarding complete.",
-        time: "2h ago",
-    },
+const quickLinks = [
+  {
+    title: "Courses",
+    description: "Manage live course records, pricing, content, and media.",
+    to: "/admin/course-management",
+  },
+  {
+    title: "Students",
+    description: "Review registered, demo, and enrolled student records.",
+    to: "/admin/student-management",
+  },
+  {
+    title: "Instructors",
+    description: "Manage instructors and teacher applications.",
+    to: "/admin/instructor-management",
+  },
+  {
+    title: "Offline Centres",
+    description: "Maintain cities, zones, branches, and centre details.",
+    to: "/admin/centers",
+  },
+  {
+    title: "Website Content",
+    description: "Edit FAQs, testimonials, and success stories.",
+    to: "/admin/site-content",
+  },
+  {
+    title: "Enquiries",
+    description: "Respond to website contact form submissions.",
+    to: "/admin/enquiries",
+  },
 ];
+
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
 export default function AdminHomePage() {
-    return (
-        <main className="flex-1 p-4 lg:p-6 overflow-y-auto w-full">
-            {/* Heading */}
-            <h2 className="text-lg md:text-2xl font-semibold mb-6">
-                Welcome back, Admin!
-            </h2>
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard title="Total Students" value="1,752" subtitle="+15% from last month" />
-                <StatCard title="Active Courses" value="38" subtitle="+3 from last month" />
-                <StatCard title="Instructors" value="62" subtitle="+4 from last month" />
-                <StatCard title="Revenue" value="₹12,94,730" subtitle="+12% from last month" />
-            </div>
+  useEffect(() => {
+    let isMounted = true;
 
-            {/* Charts Section (using Images) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <div className="bg-white rounded-2xl shadow p-4 h-72 flex items-center justify-center">
-                    <img
-                        src="/Line Chart.png"
-                        alt="Monthly Revenue"
-                        className="h-full object-contain"
-                    />
-                </div>
-                <div className="bg-white rounded-2xl shadow p-4 h-72 flex items-center justify-center">
-                    <img
-                        src="/BarChart.png"
-                        alt="Student Enrollment"
-                        className="h-full object-contain"
-                    />
-                </div>
-            </div>
+    const loadSummary = async () => {
+      try {
+        setLoading(true);
+        const token = getStoredToken();
+        const response = await axios.get(`${BASE_URL}/dashboard/admin-summary`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          withCredentials: true,
+        });
 
-            {/* Student Distribution */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                <SmallCard icon={<Music size={20} />} title="Music Students" value="647" subtitle="53.9% of total" />
-                <SmallCard icon={<Activity size={20} />} title="Dance Students" value="276" subtitle="23% of total" />
-                <SmallCard icon={<BookOpen size={20} />} title="Language Students" value="212" subtitle="17% from last month" />
-            </div>
+        if (isMounted) {
+          setSummary(response.data?.data || {});
+          setError("");
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err.response?.data?.message || err.message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-            {/* Tasks & Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-4 rounded-2xl shadow">
-                    <h3 className="text-lg font-semibold mb-3">Upcoming Tasks</h3>
-                    <Link
-                        to="/admin/instructor-management/"
-                        onClick={() => {
-                            localStorage.setItem('instructorManagementActiveTab', 'Applications');
-                        }}
-                    >
-                        <div className="p-3 border rounded-lg bg-yellow-50 hover:bg-yellow-100 cursor-pointer transition">
-                            <p className="font-medium">Review music instructor application</p>
-                            <p className="text-sm text-gray-600">
-                                8 new Carnatic music teacher applications pending
-                            </p>
-                            <span className="text-xs bg-yellow-200 px-2 py-1 rounded mt-2 inline-block">
-                                Due Today
-                            </span>
-                        </div>
-                    </Link>
-                </div>
-                <div>
-                    <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-                    <ul className="space-y-6">
-                        {recentActivities.map(({ id, name, avatar, activity, time }) => (
-                            <li key={id} className="flex items-center justify-between">
-                                <div className="flex items-center space-x-4">
-                                    <img
-                                        src={avatar}
-                                        alt={name}
-                                        className="w-10 h-10 rounded-full object-cover"
-                                    />
-                                    <div>
-                                        <p className="font-semibold text-gray-900">{name}</p>
-                                        <p className="text-sm text-gray-500">{activity}</p>
-                                    </div>
-                                </div>
-                                <span className="text-xs text-gray-400 whitespace-nowrap">{time}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </div>
-        </main>
-    );
-}
+    loadSummary();
 
-function StatCard({ title, value, subtitle }) {
-    return (
-        <div className="bg-white p-4 rounded-2xl shadow">
-            <h4 className="text-gray-500 text-sm">{title}</h4>
-            <p className="text-xl md:text-2xl font-semibold">{value}</p>
-            <p className="text-xs text-green-600 mt-1">{subtitle}</p>
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const metrics = useMemo(
+    () => [
+      {
+        label: "Total Students",
+        value: summary?.totalStudents ?? 0,
+      },
+      {
+        label: "Active Courses",
+        value: summary?.activeCourses ?? 0,
+      },
+      {
+        label: "Instructors",
+        value: summary?.totalInstructors ?? 0,
+      },
+      {
+        label: "Revenue",
+        value: formatCurrency(summary?.revenue),
+      },
+      {
+        label: "New Enquiries",
+        value: summary?.newEnquiries ?? 0,
+      },
+      {
+        label: "Pending Applications",
+        value: summary?.pendingApplications ?? 0,
+      },
+      {
+        label: "Booked Demos",
+        value: summary?.bookedDemos ?? 0,
+      },
+      {
+        label: "Active Branches",
+        value: summary?.activeBranches ?? 0,
+      },
+    ],
+    [summary]
+  );
+
+  return (
+    <main className="flex-1 p-4 lg:p-6 overflow-y-auto w-full">
+      <div className="mb-6">
+        <h2 className="text-lg md:text-2xl font-semibold">
+          Welcome back, Admin!
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm text-gray-600">
+          Dashboard summaries now come from backend counts instead of static
+          numbers.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-6 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">
+          {error}
         </div>
-    );
-}
+      )}
 
-function SmallCard({ icon, title, value, subtitle }) {
-    return (
-        <div className="bg-white p-4 rounded-2xl shadow flex items-center space-x-4">
-            <div className="p-3 bg-gray-100 rounded-xl">{icon}</div>
-            <div>
-                <h4 className="font-semibold">{title}</h4>
-                <p className="text-lg md:text-xl font-bold">{value}</p>
-                <p className="text-xs text-gray-500">{subtitle}</p>
-            </div>
+      <section className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <div
+            key={metric.label}
+            className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+          >
+            <p className="text-sm text-gray-500">{metric.label}</p>
+            <p className="mt-2 text-2xl font-semibold text-gray-900">
+              {loading ? "..." : metric.value}
+            </p>
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h3 className="mb-4 text-lg font-semibold text-gray-900">
+          Live Management Areas
+        </h3>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {quickLinks.map((item) => (
+            <Link
+              key={item.to}
+              to={item.to}
+              className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
+            >
+              <h4 className="text-base font-semibold text-gray-900">
+                {item.title}
+              </h4>
+              <p className="mt-2 text-sm leading-6 text-gray-600">
+                {item.description}
+              </p>
+            </Link>
+          ))}
         </div>
-    );
+      </section>
+    </main>
+  );
 }

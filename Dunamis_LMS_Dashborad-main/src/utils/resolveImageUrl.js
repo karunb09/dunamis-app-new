@@ -11,7 +11,8 @@ const normalizeBaseUrl = (value) => {
 };
 
 export const resolveImageUrl = (path, fallback = DEFAULT_IMAGE) => {
-  const value = typeof path === "string" ? path.trim() : "";
+  const value =
+    typeof path === "string" ? path.trim().replace(/\\/g, "/") : "";
 
   if (!value) {
     return fallback;

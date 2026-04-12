@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { createTeacher } from "../../../../redux/Intructor/teacherSlice";
 
+const getTodayDateString = () => {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+};
+
 const INITIAL_FORM = {
   firstName: "",
   lastName: "",
@@ -20,7 +26,7 @@ const INITIAL_FORM = {
   highestQualification: "",
   currentCTC: "",
   expectedCTC: "",
-  noticePeriod: "1 month",
+  noticePeriod: getTodayDateString(),
   availability: "Flexible",
   mode: "online",
   specialization: "",
@@ -57,6 +63,7 @@ const AddInstructorForm = () => {
       ["Highest qualification", formData.highestQualification],
       ["Current CTC", formData.currentCTC],
       ["Expected CTC", formData.expectedCTC],
+      ["When will you Join", formData.noticePeriod],
     ];
 
     const missing = requiredFields.find(([, value]) => !String(value || "").trim());
@@ -77,6 +84,11 @@ const AddInstructorForm = () => {
 
     if (Number(formData.yearOfExperience) < 0) {
       toast.error("Years of experience cannot be negative");
+      return false;
+    }
+
+    if (formData.noticePeriod < getTodayDateString()) {
+      toast.error("Join date cannot be in the past");
       return false;
     }
 
@@ -358,18 +370,18 @@ const AddInstructorForm = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Notice Period</label>
-              <select
+              <label className="block text-sm font-medium mb-2">
+                When will you Join
+              </label>
+              <input
+                type="date"
                 name="noticePeriod"
                 value={formData.noticePeriod}
                 onChange={handleChange}
+                min={getTodayDateString()}
                 className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-black"
-              >
-                <option value="15 days">15 days</option>
-                <option value="1 month">1 month</option>
-                <option value="2 month">2 month</option>
-                <option value="3 month">3 month</option>
-              </select>
+                required
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Availability</label>

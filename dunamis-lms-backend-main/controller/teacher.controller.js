@@ -10,6 +10,7 @@ const DemoBooking = require("../model/demoBooking.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
+const { localFileUpload } = require("../utils/locallyUploader");
 
 const normalizeStringArray = (value) => {
   if (Array.isArray(value)) {
@@ -26,6 +27,35 @@ const normalizeStringArray = (value) => {
   }
 
   return [];
+};
+
+const getTodayDateString = () => {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+};
+
+const isValidCurrentOrFutureDate = (value) => {
+  const dateValue = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return false;
+
+  const parsedDate = new Date(`${dateValue}T00:00:00.000Z`);
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  return parsedDate.toISOString().slice(0, 10) === dateValue &&
+    dateValue >= getTodayDateString();
+};
+
+const parseObjectField = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
 };
 
 const canManageTeacher = (requestUser, teacherDoc) => {
@@ -231,6 +261,13 @@ exports.createTeacher = async (req, res) => {
       });
     }
 
+    if (!isValidCurrentOrFutureDate(noticePeriod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Join date must be today or a future date",
+      });
+    }
+
     if (!/^\d{10}$/.test(normalizedMobileNo)) {
       return res.status(400).json({
         success: false,
@@ -299,7 +336,7 @@ exports.createTeacher = async (req, res) => {
       highestQualification: highestQualification.trim(),
       currentCTC: String(currentCTC).trim(),
       expectedCTC: String(expectedCTC).trim(),
-      noticePeriod,
+      noticePeriod: noticePeriod.trim(),
       availability,
       mode,
       status: "selected",
@@ -914,7 +951,10 @@ exports.getTeacherById = async (req, res) => {
 exports.updateTeacher = async (req, res) => {
   try {
     const { id } = req.params;
-    const { salaryStatus, user, teacherDetails, courses } = req.body;
+    const { salaryStatus } = req.body;
+    const user = parseObjectField(req.body.user);
+    const teacherDetails = parseObjectField(req.body.teacherDetails);
+    const courses = parseObjectField(req.body.courses) || req.body.courses;
 
     // 1 Find
     const teacher = await Teacher.findById(id);
@@ -947,11 +987,25 @@ exports.updateTeacher = async (req, res) => {
       await User.findByIdAndUpdate(teacher.userId, user, { new: true });
     }
 
+    const teacherDetailsUpdate = teacherDetails ? { ...teacherDetails } : {};
+    const profilePictureFile = req.files?.profilePicture || req.files?.profileImage;
+
+    if (profilePictureFile) {
+      const uploadedFiles = await localFileUpload(profilePictureFile, [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ]);
+      teacherDetailsUpdate.profilePicture = uploadedFiles[0].path;
+    }
+
     // 5. teacher info
-    if (teacherDetails && teacher.teacherDetail) {
+    if (teacher.teacherDetail && Object.keys(teacherDetailsUpdate).length) {
       await TeacherDetail.findByIdAndUpdate(
         teacher.teacherDetail,
-        teacherDetails,
+        teacherDetailsUpdate,
         { new: true }
       );
     }
@@ -959,12 +1013,15 @@ exports.updateTeacher = async (req, res) => {
     // 6. Save
     await teacher.save();
 
-    const updatedTeacher = await Teacher.findById(id).populate("teacherDetail");
+    const updatedTeacher = await Teacher.findById(id)
+      .populate({ path: "userId", select: "name email mobileNo accountType accountStatus image _id" })
+      .populate({ path: "teacherDetail" })
+      .populate({ path: "course", select: "_id name code mode level image category" });
 
     res.status(200).json({
       success: true,
       message: "Teacher updated successfully",
-      teacher: updatedTeacher,
+      data: formatPublicTeacherDetails(updatedTeacher),
     });
   } catch (error) {
     console.error("Error updating teacher:", error);

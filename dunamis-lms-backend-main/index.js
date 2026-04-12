@@ -87,6 +87,8 @@ const remunerationRoutes = require("./routes/remuneration.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
+const siteContentRoutes = require("./routes/siteContent.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -136,6 +138,8 @@ app.use("/api/v1/remuneration", remunerationRoutes);
 app.use("/api/v1/assignment", assignmentRoutes);
 app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);
+app.use("/api/v1/siteContent", siteContentRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

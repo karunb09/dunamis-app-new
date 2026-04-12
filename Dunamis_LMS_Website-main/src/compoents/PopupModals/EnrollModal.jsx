@@ -12,6 +12,7 @@ const toTimeLabel = (value) => {
     if (!value && value !== 0) return '—';
 
     const raw = String(value).trim();
+    if (raw === '24:00') return '12:00 AM';
     if (/\b(AM|PM)\b/i.test(raw)) {
         return raw.toUpperCase();
     }
@@ -36,6 +37,9 @@ const toMoney = (value) => {
     if (!Number.isFinite(amount) || amount <= 0) return null;
     return `₹${amount.toLocaleString('en-IN')}`;
 };
+
+const hasPositivePrice = (price) =>
+    Boolean(toMoney(price?.monthlyFee) || toMoney(price?.fullPayment));
 
 const normalizeCourseCategory = (course) => {
     if (!course?.category) return '';
@@ -92,7 +96,10 @@ export default function EnrollModal({
 
     const groupPrice = useMemo(() => {
         const items = prices.filter(
-            (price) => price.isActive !== false && price.sessionType === 'standard'
+            (price) =>
+                price.isActive !== false &&
+                price.sessionType === 'standard' &&
+                hasPositivePrice(price)
         );
 
         return items.find((price) => price.isSelected) || items[0] || null;
@@ -100,7 +107,10 @@ export default function EnrollModal({
 
     const premiumPrice = useMemo(() => {
         const items = prices.filter(
-            (price) => price.isActive !== false && price.sessionType === 'premium'
+            (price) =>
+                price.isActive !== false &&
+                price.sessionType === 'premium' &&
+                hasPositivePrice(price)
         );
 
         return items.find((price) => price.isSelected) || items[0] || null;
@@ -179,6 +189,12 @@ export default function EnrollModal({
         : selectedSessionType
             ? `Your selected slot is a ${selectedSessionType} session.`
             : '';
+    const unavailableSelectedPlanMessage =
+        selectedSessionType === 'premium' && !premiumPrice
+            ? 'Premium pricing is not available for this course, so individual enrollment is hidden.'
+            : selectedSessionType === 'standard' && !groupPrice
+                ? 'Group pricing is not available for this course.'
+                : '';
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -219,6 +235,12 @@ export default function EnrollModal({
                 {selectionLockedMessage ? (
                     <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-700">
                         {selectionLockedMessage}
+                    </div>
+                ) : null}
+
+                {unavailableSelectedPlanMessage ? (
+                    <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        {unavailableSelectedPlanMessage}
                     </div>
                 ) : null}
 
@@ -270,47 +292,49 @@ export default function EnrollModal({
                     />
                 )}
 
-                <div
-                    onClick={handleOpenPremium}
-                    className={`rounded-lg border p-5 transition-all ${
-                        !canChoosePremium
-                            ? 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60'
-                            : 'cursor-pointer border-green-300 hover:shadow-md'
-                    }`}
-                >
-                    <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Premium Sessions</h3>
-                        <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
-                            Personalized
-                        </span>
-                    </div>
-                    <div className="mb-1 mt-2">
-                        <p className="text-2xl font-bold">
-                            {premiumMonthly || '—'}{' '}
-                            <span className="text-sm font-medium text-gray-600">/month</span>
+                {premiumPrice ? (
+                    <div
+                        onClick={handleOpenPremium}
+                        className={`rounded-lg border p-5 transition-all ${
+                            !canChoosePremium
+                                ? 'cursor-not-allowed border-gray-100 bg-gray-50 opacity-60'
+                                : 'cursor-pointer border-green-300 hover:shadow-md'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-semibold">Premium Sessions</h3>
+                            <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                                Personalized
+                            </span>
+                        </div>
+                        <div className="mb-1 mt-2">
+                            <p className="text-2xl font-bold">
+                                {premiumMonthly || '—'}{' '}
+                                <span className="text-sm font-medium text-gray-600">/month</span>
+                            </p>
+                        </div>
+                        <p className="mb-3 text-xs text-gray-500">
+                            Full: {toMoney(premiumPrice?.fullPayment) || '—'} • Discount:{' '}
+                            {premiumPrice?.discount ?? 0}%
                         </p>
+                        <ul className="space-y-2 text-sm text-gray-700">
+                            <li className="flex items-center gap-2">
+                                <FaUser className="text-gray-600" />
+                                Max {premiumSlotSummary.maxStudents ?? 1} student
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <HiClock className="text-gray-600" />
+                                {premiumSlotSummary.timeRange}
+                            </li>
+                            <li className="flex items-center gap-2">
+                                <HiCheckCircle className="text-green-600" />
+                                Customized learning pace
+                            </li>
+                        </ul>
                     </div>
-                    <p className="mb-3 text-xs text-gray-500">
-                        Full: {toMoney(premiumPrice?.fullPayment) || '—'} • Discount:{' '}
-                        {premiumPrice?.discount ?? 0}%
-                    </p>
-                    <ul className="space-y-2 text-sm text-gray-700">
-                        <li className="flex items-center gap-2">
-                            <FaUser className="text-gray-600" />
-                            Max {premiumSlotSummary.maxStudents ?? 1} student
-                        </li>
-                        <li className="flex items-center gap-2">
-                            <HiClock className="text-gray-600" />
-                            {premiumSlotSummary.timeRange}
-                        </li>
-                        <li className="flex items-center gap-2">
-                            <HiCheckCircle className="text-green-600" />
-                            Customized learning pace
-                        </li>
-                    </ul>
-                </div>
+                ) : null}
 
-                {isIndividualModalOpen && (
+                {isIndividualModalOpen && premiumPrice ? (
                     <IndividualSessionModal
                         isOpen
                         onClose={() => setIsIndividualModalOpen(false)}
@@ -318,7 +342,7 @@ export default function EnrollModal({
                         price={premiumPrice}
                         courseCategory={courseCategory}
                     />
-                )}
+                ) : null}
 
                 <p className="mt-6 text-center text-xs text-gray-500">
                     Click any option to continue with plan selection

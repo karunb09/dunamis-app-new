@@ -180,6 +180,21 @@ export default function ExploreCourseDetails() {
     type: slot.sessionType?.charAt(0).toUpperCase() + slot.sessionType?.slice(1) || "Standard"
   })) || [];
 
+  const demoSlots = Object.values(
+    scheduleData.reduce((groups, slot) => {
+      const date = slot.day || "Available slots";
+      if (!groups[date]) {
+        groups[date] = { date, slots: [] };
+      }
+
+      if (slot.time && !groups[date].slots.includes(slot.time)) {
+        groups[date].slots.push(slot.time);
+      }
+
+      return groups;
+    }, {})
+  );
+
   const scheduleNote =
     "Schedule may vary based on instructor availability and student preferences. Final schedule will be confirmed after enrollment.";
 
@@ -380,6 +395,8 @@ export default function ExploreCourseDetails() {
         selectedSlot={selectedSlot}
         setSelectedSlot={setSelectedSlot}
         handleBooking={handleBooking}
+        branches={branches}
+        demoSlots={demoSlots}
       />
 
       <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row bg-white px-8 py-6 gap-8 md:gap-12">

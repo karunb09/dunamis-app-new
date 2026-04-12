@@ -7,23 +7,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { GoArrowUpRight } from "react-icons/go";
 import { IoMdStar } from "react-icons/io";
 import { fetchMentors } from "@/store/mentorSlice";
-import { IMAGE_BASE_URL } from "@/lib/siteConfig";
+import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function Mentors() {
     const dispatch = useDispatch();
     const { mentors, loading, error } = useSelector((state) => state.mentor);
     const [failedImages, setFailedImages] = useState({});
-
-    const getImageUrl = (imagePath, fallbackName = "Unknown") => {
-        if (!imagePath) return null;
-
-        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-            return imagePath;
-        }
-
-        const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
-        return `${IMAGE_BASE_URL}${cleanPath}`;
-    };
 
     const getInitials = (name = "Unknown") =>
         name
@@ -52,7 +41,7 @@ export default function Mentors() {
 
             // Get profile picture from teacherApplication or fallback to user image
             const rawImage = teacherApp.profilePicture || user.image;
-            const profileImage = getImageUrl(rawImage, fullName || "Unknown");
+            const profileImage = resolveImageUrl(rawImage, "");
 
             // Format languages
             const languages = {

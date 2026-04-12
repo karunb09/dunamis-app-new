@@ -99,7 +99,7 @@ const teacherApplicationSchema = new mongoose.Schema(
     },
     noticePeriod: {
       type: String,
-      enum: ["15 days", "1 month", "2 month", "3 month"],
+      trim: true,
       required: true,
     },
     availability: {

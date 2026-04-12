@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import Select from "react-select";
 import {
     createBranch,
+    fetchAllBranches,
     fetchBranchById,
     updateBranch,
 } from "../../../redux/Branch/branchSlice";
 import { getAllUsers } from "../../../redux/User/UserSlice";
+import { fetchTeachers } from "../../../redux/Intructor/teacherSlice";
 import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
 import { Upload } from "phosphor-react";
 import toast from "react-hot-toast";
@@ -33,6 +36,7 @@ const AddBranch = () => {
         branchCapacity: "",
         centreFacilities: "",
         branchImage: null,
+        teachers: [],
     });
 
     const [showDaysDropdown, setShowDaysDropdown] = useState(false);
@@ -44,9 +48,14 @@ const AddBranch = () => {
     const { users = [], loading: usersLoading, error: usersError, listStatus: userListStatus } = useSelector(
         (state) => state.user
     );
-    const { cities = [], loading: citiesLoading, error: citiesError, listStatus: cityListStatus } = useSelector(
+    const { cities = [], loading: citiesLoading, listStatus: cityListStatus } = useSelector(
         (state) => state.city
     );
+    const {
+        teachers: instructorRecords = [],
+        loading: instructorsLoading,
+        error: instructorsError,
+    } = useSelector((state) => state.teachers);
 
     const branchFallbackImage = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
         formData.branchName || selectedBranch?.branchName || "Branch"
@@ -64,6 +73,10 @@ const AddBranch = () => {
             dispatch(getAllCities());
         }
     }, [dispatch, cityListStatus]);
+
+    useEffect(() => {
+        dispatch(fetchTeachers());
+    }, [dispatch]);
 
     useEffect(() => {
         if (id) {
@@ -94,6 +107,10 @@ const AddBranch = () => {
                 branchCapacity: String(selectedBranch.branchCapacity || ""),
                 centreFacilities: selectedBranch.centreFacilities || "",
                 branchImage: null,
+                teachers: (selectedBranch.teachers || []).map((teacher) => ({
+                    value: teacher._id || teacher.id,
+                    label: getInstructorLabel(teacher),
+                })).filter((teacher) => teacher.value),
             });
         }
     }, [id, selectedBranch]);
@@ -166,6 +183,7 @@ const AddBranch = () => {
             branchCapacity: "",
             centreFacilities: "",
             branchImage: null,
+            teachers: [],
         });
         navigate("/admin/centers");
     };
@@ -219,6 +237,10 @@ const AddBranch = () => {
         payload.append("branchOpenDays", JSON.stringify(formData.branchOpenDays));
         payload.append("branchCapacity", formData.branchCapacity);
         payload.append("centreFacilities", formData.centreFacilities || "");
+        payload.append(
+            "teachers",
+            JSON.stringify((formData.teachers || []).map((teacher) => teacher.value || teacher))
+        );
         payload.append("status", status);
         if (formData.branchImage) {
             payload.append("branchImage", formData.branchImage);
@@ -228,9 +250,10 @@ const AddBranch = () => {
     };
 
     const saveBranch = async (status) => {
+        let toastId;
         try {
             const payload = buildPayload(status);
-            const toastId = toast.loading(
+            toastId = toast.loading(
                 id
                     ? status === "draft"
                         ? "Updating draft..."
@@ -239,12 +262,15 @@ const AddBranch = () => {
                         ? "Saving draft..."
                         : "Saving branch..."
             );
+
             if (id) {
                 await dispatch(updateBranch({ id, branchData: payload })).unwrap();
             } else {
                 await dispatch(createBranch(payload)).unwrap();
             }
-            toast.dismiss(toastId);
+
+            dispatch(fetchAllBranches());
+
             toast.success(
                 id
                     ? status === "draft"
@@ -256,7 +282,15 @@ const AddBranch = () => {
             );
             navigate("/admin/centers");
         } catch (saveError) {
-            toast.error(saveError?.message || "Failed to save branch");
+            const message =
+                typeof saveError === "string"
+                    ? saveError
+                    : saveError?.message || "Failed to save branch";
+            toast.error(message);
+        } finally {
+            if (toastId) {
+                toast.dismiss(toastId);
+            }
         }
     };
 
@@ -295,6 +329,37 @@ const AddBranch = () => {
             }
         });
     };
+
+    function getInstructorLabel(instructor) {
+        const detailName = instructor?.teacherDetail?.name;
+        const userName = instructor?.user?.name || instructor?.userId?.name;
+        const nameSource = detailName || userName || instructor?.name;
+
+        if (typeof nameSource === "string" && nameSource.trim()) {
+            return nameSource.trim();
+        }
+
+        const fullName = `${nameSource?.firstName || ""} ${nameSource?.lastName || ""}`.trim();
+        const expertise =
+            instructor?.teacherApplication?.areaOfExpertise ||
+            instructor?.teacherDetail?.areaOfExpertise;
+
+        return `${fullName || "Instructor"}${expertise ? ` (${expertise})` : ""}`;
+    }
+
+    const instructorOptions = (instructorRecords || [])
+        .filter((instructor) => {
+            const mode =
+                instructor?.teacherApplication?.mode ||
+                instructor?.teacherDetail?.mode ||
+                "";
+            return !mode || String(mode).toLowerCase() === "offline";
+        })
+        .map((instructor) => ({
+            value: instructor.id || instructor._id,
+            label: getInstructorLabel(instructor),
+        }))
+        .filter((option) => option.value);
 
     return (
         <div className="p-6 bg-gray-50 rounded-2xl">
@@ -410,6 +475,51 @@ const AddBranch = () => {
                         )}
                     </select>
                 </label>
+
+                <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-2">
+                        Branch Instructors
+                    </label>
+                    <Select
+                        isMulti
+                        options={instructorOptions}
+                        value={formData.teachers}
+                        onChange={(selectedOptions) =>
+                            setFormData((prev) => ({
+                                ...prev,
+                                teachers: selectedOptions || [],
+                            }))
+                        }
+                        isDisabled={instructorsLoading}
+                        placeholder={
+                            instructorsLoading
+                                ? "Loading offline instructors..."
+                                : "Select instructors for this branch"
+                        }
+                        noOptionsMessage={() =>
+                            instructorsError || "No offline instructors found"
+                        }
+                        className="w-full"
+                        styles={{
+                            control: (base, state) => ({
+                                ...base,
+                                minHeight: 48,
+                                borderRadius: 16,
+                                borderColor: state.isFocused ? "#111827" : "#e5e7eb",
+                                boxShadow: state.isFocused ? "0 0 0 1px #111827" : "none",
+                                "&:hover": { borderColor: "#111827" },
+                            }),
+                            multiValue: (base) => ({
+                                ...base,
+                                borderRadius: 999,
+                                backgroundColor: "#f3f4f6",
+                            }),
+                        }}
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                        These instructors will appear as branch instructors and can be used for offline scheduling.
+                    </p>
+                </div>
 
                 {/* Branch Admin Contact */}
                 {formData.branchAdminContact && (

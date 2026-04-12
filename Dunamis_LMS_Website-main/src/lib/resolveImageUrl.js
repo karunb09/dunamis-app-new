@@ -15,11 +15,12 @@ const normalizeBaseUrl = (value) => {
     return "";
   }
 
-  return trimmed.replace(/\/api\/v\d+$/, "");
+  return trimmed.replace(/\/api(?:\/v\d+)?$/, "");
 };
 
 export const resolveImageUrl = (path, fallback = DEFAULT_IMAGE) => {
-  const value = typeof path === "string" ? path.trim() : "";
+  const value =
+    typeof path === "string" ? path.trim().replace(/\\/g, "/") : "";
 
   if (!value) {
     return fallback;

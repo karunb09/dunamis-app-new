@@ -27,6 +27,25 @@ const deleteLocalUpload = async (filePath) => {
   }
 };
 
+const normalizeInstallments = (price = {}) => {
+  const parsed = Number(
+    price.installments ??
+      price.totalInstallments ??
+      price.total_installments
+  );
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+};
+
+const normalizePricePayload = (price = {}) => ({
+  sessionType: price.sessionType,
+  monthlyFee: Number(price.monthlyFee) || 0,
+  fullPayment: Number(price.fullPayment) || 0,
+  discount: Number(price.discount) || 0,
+  isActive: price.isActive ?? true,
+  isSelected: price.isSelected ?? true,
+  installments: normalizeInstallments(price),
+});
+
 const formatPublicTeacherForCourse = (teacher) => {
   if (!teacher) return null;
 
@@ -153,15 +172,7 @@ exports.createCourse = async (req, res) => {
     let parsedPrice = [];
     try {
       parsedPrice = price ? JSON.parse(price) : [];
-      parsedPrice = parsedPrice.map((p) => ({
-        sessionType: p.sessionType,
-        monthlyFee: p.monthlyFee,
-        fullPayment: p.fullPayment,
-        discount: p.discount || 0,
-        isActive: p.isActive ?? true,
-        isSelected: p.isSelected ?? true,
-        installments: p.totalInstallments || 1,
-      }));
+      parsedPrice = parsedPrice.map(normalizePricePayload);
     } catch {
       parsedPrice = [];
     }
@@ -480,7 +491,10 @@ exports.updateCourse = async (req, res) => {
     updateData.content = parseJSON("content") || existingCourse.content;
     updateData.objectives =
       parseJSON("objectives") || existingCourse.objectives;
-    updateData.price = parseJSON("price") || existingCourse.price;
+    const parsedPrice = parseJSON("price");
+    updateData.price = parsedPrice
+      ? parsedPrice.map(normalizePricePayload)
+      : existingCourse.price;
     if (req.body.isPublished !== undefined) {
       updateData.isPublished =
         typeof req.body.isPublished === "string"

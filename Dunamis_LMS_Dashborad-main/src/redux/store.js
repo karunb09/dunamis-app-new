@@ -20,6 +20,7 @@ import feedbackReducer from "./Feedback/FeedbackSlice";
 import assignmentReducer from "./Assignment/AssignmentSlice";
 import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSlice";
 import assessmentReducer from "./Assesment/AssesmentSlice";
+import siteContentReducer from "./SiteContent/SiteContentSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -43,5 +44,6 @@ export const store = configureStore({
     assignment: assignmentReducer,
     attendanceHomework: attendanceHomeworkReducer,
     assessment: assessmentReducer,
+    siteContent: siteContentReducer,
   },
 });

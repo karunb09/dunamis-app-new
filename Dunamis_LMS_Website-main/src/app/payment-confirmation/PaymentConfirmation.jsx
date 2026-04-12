@@ -8,13 +8,12 @@ import LoginModal from '@/compoents/PopupModals/LoginModal';
 import PaymentModal from '@/compoents/PopupModals/PaymentModal';
 import { createEnrollmentOrder, verifyEnrollmentPayment, clearOrder } from '@/store/enrollmentSlice';
 import { getCurrentSelection, clearEnrollSelection } from '@/helpers/session';
+import { resolveImageUrl } from '@/lib/resolveImageUrl';
 import {
   clearEnrollmentResume,
   resolveEnrollmentResumeHref,
   saveEnrollmentResume,
 } from '@/helpers/enrollmentResume';
-
-const IMAGE = process.env.NEXT_PUBLIC_IMAGE_URL;
 
 const asMoney = (n) => {
   const v = Number(n);
@@ -127,8 +126,7 @@ export default function PaymentConfirmation() {
   }, [selectedSessionType, planType, monthlyFee, fullPayment, discount]);
 
   const srcImage = useMemo(() => {
-    if (!courseImageParam) return null;
-    return courseImageParam.startsWith('http') ? courseImageParam : `${IMAGE || ''}${courseImageParam}`;
+    return resolveImageUrl(courseImageParam, '');
   }, [courseImageParam]);
 
   const handleBackToCourse = () => router.push('/courses');

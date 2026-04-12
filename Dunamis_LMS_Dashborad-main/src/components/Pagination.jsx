@@ -27,45 +27,59 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         return pages;
     };
 
+    const goToPage = (page) => {
+        if (page < 1 || page > totalPages || page === currentPage) return;
+        onPageChange(page);
+    };
+
     return (
-        <div className="flex items-center justify-center gap-3 mt-6">
-            {/* Prev Button */}
+        <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <button
-                onClick={() => onPageChange(currentPage - 1)}
+                onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 text-gray-600 hover:text-black disabled:opacity-30"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
                 <FaArrowLeft />
+                Previous
             </button>
 
-            {/* Page Numbers */}
-            {generatePages().map((page, idx) =>
-                page === "..." ? (
-                    <span key={idx} className="px-2 text-gray-500 font-medium">
-                        ...
-                    </span>
-                ) : (
-                    <button
-                        key={idx}
-                        onClick={() => onPageChange(page)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium transition ${page === currentPage
-                            ? "bg-gray-200 text-black"
-                            : "text-gray-700 hover:bg-gray-100"
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-2 shadow-sm">
+                {generatePages().map((page, idx) =>
+                    page === "..." ? (
+                        <span
+                            key={idx}
+                            className="px-2 text-sm font-medium text-slate-400"
+                        >
+                            ...
+                        </span>
+                    ) : (
+                        <button
+                            key={idx}
+                            onClick={() => goToPage(page)}
+                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
+                                page === currentPage
+                                    ? "bg-slate-900 text-white shadow-sm"
+                                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                             }`}
-                    >
-                        {page}
-                    </button>
-                )
-            )}
+                        >
+                            {page}
+                        </button>
+                    )
+                )}
+            </div>
 
-            {/* Next Button */}
             <button
-                onClick={() => onPageChange(currentPage + 1)}
+                onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 text-gray-600 hover:text-black disabled:opacity-30"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
             >
+                Next
                 <FaArrowRight />
             </button>
+
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                Page {currentPage} of {totalPages}
+            </span>
         </div>
     );
 };

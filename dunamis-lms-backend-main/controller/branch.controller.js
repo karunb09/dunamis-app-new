@@ -1,12 +1,28 @@
 const User = require("../model/user.model");
 const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
+const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 
 const getBranchFallbackImage = (branchName = "Branch") =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
     String(branchName).trim() || "Branch"
   )}`;
+
+const parseOptionalArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [parsed].filter(Boolean);
+  } catch {
+    return String(value)
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+};
 
 // Create Branch
 exports.createBranch = async (req, res) => {
@@ -24,6 +40,7 @@ exports.createBranch = async (req, res) => {
       branchOpenDays,
       branchCapacity,
       centreFacilities,
+      teachers,
     } = req.body;
 
     // Parse inputs if needed
@@ -33,6 +50,7 @@ exports.createBranch = async (req, res) => {
       branchOpenDays = JSON.parse(branchOpenDays);
     if (typeof branchCapacity === "string")
       branchCapacity = Number(branchCapacity);
+    const teacherIds = parseOptionalArray(teachers);
 
     // Validate required fields including zone and city
     if (
@@ -93,6 +111,16 @@ exports.createBranch = async (req, res) => {
       });
     }
 
+    if (teacherIds.length > 0) {
+      const teacherCount = await Teacher.countDocuments({ _id: { $in: teacherIds } });
+      if (teacherCount !== teacherIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more selected instructors are invalid.",
+        });
+      }
+    }
+
     // Handle image upload
     let branchImagePath = getBranchFallbackImage(branchName);
     if (req.files && req.files.branchImage) {
@@ -118,6 +146,7 @@ exports.createBranch = async (req, res) => {
       branchOpenDays,
       branchCapacity,
       centreFacilities,
+      teachers: teacherIds,
       branchImage: branchImagePath, // Save image path if uploaded
     });
 
@@ -153,7 +182,14 @@ exports.getAllBranches = async (req, res) => {
       })
       .populate({
         path: "teachers",
-        populate: { path: "userId", select: "name email" },
+        populate: [
+          { path: "userId", select: "name email image" },
+          {
+            path: "teacherDetail",
+            model: "TeacherApplication",
+            select: "name profilePicture mode areaOfExpertise yearOfExperience highestQualification",
+          },
+        ],
       })
       .sort({ createdAt: -1 });
 
@@ -189,7 +225,14 @@ exports.getBranchById = async (req, res) => {
       })
       .populate({
         path: "teachers",
-        populate: { path: "userId", select: "name email" },
+        populate: [
+          { path: "userId", select: "name email image" },
+          {
+            path: "teacherDetail",
+            model: "TeacherApplication",
+            select: "name profilePicture mode areaOfExpertise yearOfExperience highestQualification",
+          },
+        ],
       })
       .populate("centreFacilities")
       .select("-__v");
@@ -260,6 +303,7 @@ exports.updateBranch = async (req, res) => {
       branchOpenDays,
       branchCapacity,
       centreFacilities,
+      teachers,
     } = req.body;
 
     // Parse branchTimings and branchOpenDays if they are strings
@@ -269,6 +313,7 @@ exports.updateBranch = async (req, res) => {
       branchOpenDays = JSON.parse(branchOpenDays);
     if (typeof branchCapacity === "string")
       branchCapacity = Number(branchCapacity);
+    const teacherIds = parseOptionalArray(teachers);
 
     // Validate required fields
     if (
@@ -329,6 +374,16 @@ exports.updateBranch = async (req, res) => {
       });
     }
 
+    if (teacherIds.length > 0) {
+      const teacherCount = await Teacher.countDocuments({ _id: { $in: teacherIds } });
+      if (teacherCount !== teacherIds.length) {
+        return res.status(400).json({
+          success: false,
+          message: "One or more selected instructors are invalid.",
+        });
+      }
+    }
+
     // Handle image upload for update
     let branchImagePath = existingBranch.branchImage || null;
     if (req.files && req.files.branchImage) {
@@ -355,6 +410,7 @@ exports.updateBranch = async (req, res) => {
       branchOpenDays,
       branchCapacity,
       centreFacilities,
+      teachers: teacherIds,
     };
 
     updates.branchImage = branchImagePath;

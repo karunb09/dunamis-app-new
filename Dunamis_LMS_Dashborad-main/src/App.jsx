@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
 // Layout
@@ -25,7 +25,6 @@ import Upload from "./page/StudentPages/upload";
 import AdminHomePage from "./page/AdminPages/AdminHomePage";
 import ContentDetails from "./page/AdminPages/ContentManagement/ContentDetails";
 import ContentCreate from "./page/AdminPages/ContentManagement/ContentCreate";
-import ContentEdit from "./page/AdminPages/ContentManagement/ContentEdit";
 // Learning Management
 import CourseManagementPage from "./page/AdminPages/CourseManagementPage";
 import ContentManagementPage from "./page/AdminPages/ContentManagementPage";
@@ -40,6 +39,7 @@ import OffilineCentersPage from "./page/AdminPages/OffilineCentersPage";
 import UpdatesPage from "./page/AdminPages/UpdatesPage";
 import FinancialPage from "./page/AdminPages/FinancialPage";
 import EnquiriesPage from "./page/AdminPages/EnquiriesPage";
+import SiteContentPage from "./page/AdminPages/SiteContentPage";
 // Hot Toast
 import { Toaster } from "react-hot-toast";
 // Page Import
@@ -68,10 +68,8 @@ import CreateUpdateForm from "./page/AdminPages/Updates/CreateUpdateForm";
 import AdminProfile from "./page/AdminPages/AdminProfile";
 import AddCategory from "./page/AdminPages/CategoryManagement/AddCategory";
 import CenterDetailsPage from "./page/AdminPages/OfflineCentersDetail/CenterDetailsPage";
-import ApplicationDetail from "./page/AdminPages/UserManagement/Instructor/ApplicationDetails";
 import ApplicationDetails from "./page/AdminPages/UserManagement/Instructor/ApplicationDetails";
 import CourseDetails from "./page/AdminPages/CourseDetails";
-import ContentForm from "./page/AdminPages/ContentManagement/ContentCreate";
 
 
 
@@ -135,7 +133,8 @@ const App = () => {
               element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentDetails /></RequireAuth>}
             />
             <Route path="/admin/content/create" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentCreate /></RequireAuth>} />
-            <Route path="/admin/content/add/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentForm /></RequireAuth>} />
+            <Route path="/admin/content/edit/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentCreate /></RequireAuth>} />
+            <Route path="/admin/content/add/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><ContentCreate /></RequireAuth>} />
             {/* Learning Management */}
             <Route
               path="/admin/course-management"
@@ -201,6 +200,7 @@ const App = () => {
             <Route path="/admin/financials" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><FinancialPage /></RequireAuth>} />
             <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><EnquiriesPage /></RequireAuth>} />
             <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><UpdatesPage /></RequireAuth>} />
+            <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><SiteContentPage /></RequireAuth>} />
             <Route
               path="/admin/updates/create-updates"
               element={<RequireAuth allowedRoles={["admin", "superadmin"]}><CreateUpdateForm /></RequireAuth>}

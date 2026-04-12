@@ -1,71 +1,49 @@
 "use client";
+
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-
-const stories = [
-  {
-    title: "Ananya Gupta, 16",
-    subtitle: "Trinity College Grade 8 Distinction",
-    desc: "Started as a complete beginner, Ananya’s dedication and our structured curriculum helped her achieve Grade 8 with distinction in just 2 years.",
-    tag: "Western Vocals",
-    date: "December 2023",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Ananya%20Gupta",
-  },
-  {
-    title: "Arjun Mehta, 22",
-    subtitle: "Professional Guitarist",
-    desc: "From learning basic chords to becoming a professional session musician, Arjun credits DUNAMIS for providing him with both technical skills and confidence.",
-    tag: "Guitar",
-    date: "March 2024",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Arjun%20Mehta",
-  },
-  {
-    title: "Kavya Nair, 25",
-    subtitle: "State Level Competition Winner",
-    desc: "After 3 years of Carnatic music training, Kavya won the state-level classical music competition. Her journey from novice to competition winner is inspiring.",
-    tag: "Carnatic Vocals",
-    date: "August 2023",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Kavya%20Nair",
-  },
-  {
-    title: "Rohan Singh, 14",
-    subtitle: "School District Champion",
-    desc: "Rohan became the youngest district champion in his school’s history and now represents his state in national competitions.",
-    tag: "Chess",
-    date: "October 2023",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Rohan%20Singh",
-  },
-  {
-    title: "Priya Sharma, 28",
-    subtitle: "Certified Zumba Instructor",
-    desc: "Priya is now a certified instructor running her own Zumba classes and has built a community of 200+ regular participants.",
-    tag: "Zumba",
-    date: "January 2024",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Priya%20Sharma",
-  },
-  {
-    title: "Aditya Kumar, 19",
-    subtitle: "College Band Leader",
-    desc: "Aditya formed his college band after mastering drums at DUNAMIS and has performed at multiple inter-college festivals and won competitions.",
-    tag: "Drums",
-    date: "November 2023",
-    image:
-      "https://api.dicebear.com/9.x/initials/svg?seed=Aditya%20Kumar",
-  },
-];
+import { fetchPublicSiteContent } from "@/lib/siteContent";
+import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function SuccessStories() {
   const router = useRouter();
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadStories = async () => {
+      try {
+        setLoading(true);
+        const items = await fetchPublicSiteContent("successStory");
+        if (mounted) {
+          setStories(items);
+          setError("");
+        }
+      } catch (err) {
+        if (mounted) {
+          setError(err.response?.data?.message || err.message);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadStories();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <section className="py-16">
       <div className="max-w-8xl mx-auto px-6 text-center">
-        {/* Title */}
         <motion.p
           className="text-[#FF6B35] font-medium"
           initial={{ opacity: 0, y: 30 }}
@@ -93,78 +71,75 @@ export default function SuccessStories() {
           transition={{ duration: 0.6, delay: 0.4 }}
           viewport={{ once: false }}
         >
-          Inspiring journeys of our students who have achieved remarkable
-          milestones with DUNAMIS. Their success is our greatest achievement.
+          Inspiring journeys of students who have achieved meaningful
+          milestones with DUNAMIS.
         </motion.p>
-        
-      <section className="md:grid-cols-3 gap-6 px-2 md:px-12 pb-16 mt-12">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-12 max-w-3xl mx-auto">
-    
-    {/* Box 1 */}
-    <div className="flex flex-col items-center">
-      <h3 className="text-3xl md:text-3xl font-bold text-orange-600">150+</h3>
-      <p className="text-gray-600 text-sm md:text-base">Certifications Earned</p>
-    </div>
 
-    {/* Box 2 */}
-    <div className="flex flex-col items-center">
-      <h3 className="text-3xl md:text-3xl font-bold text-[#47c9c4]">85%</h3>
-      <p className="text-gray-600 text-sm md:text-base">Trinity Exam Pass Rate</p>
-    </div>
+        {loading && (
+          <p className="py-12 text-center text-gray-500">
+            Loading success stories...
+          </p>
+        )}
 
-    {/* Box 3 */}
-    <div className="flex flex-col items-center">
-      <h3 className="text-3xl md:text-3xl font-bold text-green-500">50+</h3>
-      <p className="text-gray-600 text-sm md:text-base">Competition Winners</p>
-    </div>
+        {!loading && error && (
+          <p className="py-12 text-center text-red-600">{error}</p>
+        )}
 
-  </div>
-</section>
-        {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-8 -mt-20 px-2 pl-10 pr-10">
-          {stories.map((story, i) => (
-            <motion.div
-              key={i}
-              className="bg-white border rounded-2xl shadow-md hover:shadow-xl transition overflow-hidden flex flex-col"
-              initial={{ opacity: 0, y: 40 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: i * 0.2 }}
-              viewport={{ once: false }}
-            >
-              {/* Image */}
-              <div className="relative h-48 w-full overflow-hidden">
-                <img
-                  src={story.image}
-                  alt={story.title}
-                  className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
-                />
-                <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs px-3 py-1 rounded-full shadow">
-                  {story.tag}
-                </span>
-              </div>
+        {!loading && !error && stories.length === 0 && (
+          <div className="mx-auto mt-12 max-w-2xl rounded-2xl border border-dashed border-gray-300 p-10">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Success stories are being updated
+            </h3>
+            <p className="mt-2 text-gray-600">
+              Published stories will appear here once they are added from the
+              admin dashboard.
+            </p>
+          </div>
+        )}
 
-              {/* Content */}
-              <div className="p-5 flex flex-col flex-grow">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-gray-500">{story.date}</span>
+        {!loading && !error && stories.length > 0 && (
+          <div className="grid md:grid-cols-3 gap-8 mt-12 px-2 pl-10 pr-10">
+            {stories.map((story, i) => (
+              <motion.div
+                key={story._id || i}
+                className="bg-white border rounded-2xl shadow-md hover:shadow-xl transition overflow-hidden flex flex-col"
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: i * 0.2 }}
+                viewport={{ once: false }}
+              >
+                <div className="relative h-48 w-full overflow-hidden">
+                  <img
+                    src={resolveImageUrl(story.image, getInitialsImage(story.title))}
+                    alt={story.title}
+                    className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
+                  />
+                  {story.tag && (
+                    <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs px-3 py-1 rounded-full shadow">
+                      {story.tag}
+                    </span>
+                  )}
                 </div>
-                <h3 className="font-bold text-lg">{story.title}</h3>
-                <p className="text-orange-600 text-sm font-medium mb-2">
-                  {story.subtitle}
-                </p>
-                <p className="text-gray-600 text-sm flex-grow">{story.desc}</p>
-                <a
-                  href="#"
-                  className="mt-4 inline-block text-orange-500 font-medium text-sm hover:underline"
-                >
-                  Read Full Story →
-                </a>
-              </div>
-            </motion.div>
-          ))}
-        </div>
 
-        {/* CTA */}
+                <div className="p-5 flex flex-col flex-grow text-left">
+                  {story.displayDate && (
+                    <span className="text-xs text-gray-500">
+                      {story.displayDate}
+                    </span>
+                  )}
+                  <h3 className="font-bold text-lg mt-2">{story.title}</h3>
+                  {story.subtitle && (
+                    <p className="text-orange-600 text-sm font-medium mb-2">
+                      {story.subtitle}
+                    </p>
+                  )}
+                  <p className="text-gray-600 text-sm flex-grow">{story.body}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
         <motion.div
           className="mt-16 bg-orange-50 rounded-xl py-10 px-6"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -176,8 +151,7 @@ export default function SuccessStories() {
             Your Success Story Starts Here
           </h3>
           <p className="text-gray-600 mt-2">
-            Join our community and become the next success story. With
-            dedication and our guidance, achieve your creative goals.
+            Join our community and build toward your own creative goals.
           </p>
           <div className="mt-6 flex flex-wrap gap-4 justify-center">
             <motion.button

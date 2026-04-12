@@ -3,8 +3,7 @@ import { useDispatch } from "react-redux";
 import { FaEdit, FaCamera } from "react-icons/fa";
 import { updateUser } from "../../redux/User/UserSlice";
 import toast from "react-hot-toast";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const PersonalInfo = ({ user, loading }) => {
     const dispatch = useDispatch();
@@ -109,9 +108,25 @@ const PersonalInfo = ({ user, loading }) => {
         }
 
         try {
-            await dispatch(
+            const result = await dispatch(
                 updateUser({ id: user._id, userData: formData, token })
             ).unwrap();
+            const updatedUser = result.user;
+
+            if (updatedUser) {
+                const profileData = {
+                    firstName: updatedUser.name?.firstName || "",
+                    lastName: updatedUser.name?.lastName || "",
+                    email: updatedUser.email || "",
+                    mobile: updatedUser.mobileNo || "",
+                    password: "**********",
+                    bio: updatedUser.bio || "",
+                    location: updatedUser.location || "",
+                    image: updatedUser.image || "",
+                };
+                setProfile(profileData);
+                setEditForm(profileData);
+            }
 
             toast.success("Profile updated successfully!");
             setEditMode(false);
@@ -123,7 +138,7 @@ const PersonalInfo = ({ user, loading }) => {
         }
     };
 
-    const displayImage = imagePreview || (editForm.image ? `${IMAGE}${editForm.image}` : "/profile-photo.png");
+    const displayImage = imagePreview || resolveImageUrl(editForm.image, DEFAULT_AVATAR);
 
     return (
         <div>

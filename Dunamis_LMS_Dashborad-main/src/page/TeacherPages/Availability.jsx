@@ -66,35 +66,127 @@ const SECTION_CONFIG = {
   },
 };
 
+const DAY_PAIR_OPTIONS = [
+  {
+    id: "mon-thu",
+    label: "Mon - Thu",
+    helper: "Weekday pair",
+    days: ["monday", "thursday"],
+  },
+  {
+    id: "tue-fri",
+    label: "Tue - Fri",
+    helper: "Weekday pair",
+    days: ["tuesday", "friday"],
+  },
+  {
+    id: "wed-sat",
+    label: "Wed - Sat",
+    helper: "Weekday pair",
+    days: ["wednesday", "saturday"],
+  },
+  {
+    id: "sat-sun",
+    label: "Sat - Sun",
+    helper: "Weekend slot",
+    days: ["saturday", "sunday"],
+  },
+];
+
+const SLOT_DURATION_MINUTES = {
+  group: 60,
+  individual: 40,
+  demo: 20,
+};
+
+const SLOT_MAX_STUDENTS = {
+  group: 4,
+  individual: 1,
+  demo: 1,
+};
+
 const createLocalId = () =>
   `slot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 const emptySlot = (courseId = "", sectionId = "group") => {
   const section = SECTION_CONFIG[sectionId] || SECTION_CONFIG.group;
   const sessionType = section.sessionType || "standard";
+  const startTime =
+    sectionId === "individual" ? "15:20" : sectionId === "demo" ? "10:00" : "16:00";
+  const endTime = addMinutesToTime(
+    startTime,
+    SLOT_DURATION_MINUTES[sectionId] || SLOT_DURATION_MINUTES.group
+  );
 
   return {
     localId: createLocalId(),
-    days: [],
-    startTime: sectionId === "individual" ? "15:20" : "16:00",
-    endTime: sectionId === "individual" ? "16:00" : "17:00",
+    days: DAY_PAIR_OPTIONS[0].days,
+    startTime,
+    endTime,
     sessionType,
     slotType: section.slotType,
-    maxStudents: sessionType === "premium" ? 1 : 4,
+    maxStudents: SLOT_MAX_STUDENTS[sectionId] || 4,
     courseId,
     isActive: true,
   };
 };
 
 const toMinutes = (time) => {
-  if (!time || !String(time).includes(":")) return NaN;
-  const [hours, minutes] = String(time).split(":").map(Number);
+  const match = String(time || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return NaN;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 24 ||
+    minutes < 0 ||
+    minutes > 59 ||
+    (hours === 24 && minutes !== 0)
+  ) {
+    return NaN;
+  }
   return hours * 60 + minutes;
+};
+
+const toTimeValue = (minutes) => {
+  const boundedMinutes = Math.max(0, Math.min(minutes, 1440));
+  const hours = Math.floor(boundedMinutes / 60);
+  const mins = boundedMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+};
+
+const addMinutesToTime = (time, minutesToAdd) =>
+  toTimeValue(toMinutes(time) + minutesToAdd);
+
+const getDurationForSection = (sectionId) =>
+  SLOT_DURATION_MINUTES[sectionId] || SLOT_DURATION_MINUTES.group;
+
+const getSectionDurationLabel = (sectionId) =>
+  `${getDurationForSection(sectionId)} min`;
+
+const buildTimeOptions = (duration) =>
+  Array.from({ length: 1440 / duration }, (_, index) => {
+    const start = index * duration;
+    const end = start + duration;
+    return {
+      id: `${toTimeValue(start)}-${toTimeValue(end)}`,
+      startTime: toTimeValue(start),
+      endTime: toTimeValue(end),
+    };
+  });
+
+const TIME_OPTIONS_BY_SECTION = {
+  group: buildTimeOptions(SLOT_DURATION_MINUTES.group),
+  individual: buildTimeOptions(SLOT_DURATION_MINUTES.individual),
+  demo: buildTimeOptions(SLOT_DURATION_MINUTES.demo),
 };
 
 const convertTo12Hour = (value) => {
   const time = String(value || "").trim();
   if (!time) return "";
+  if (time === "24:00") return "12:00 AM";
   if (time.includes("AM") || time.includes("PM")) return time;
   const [hours, minutes] = time.split(":");
   const hour = Number(hours);
@@ -103,6 +195,22 @@ const convertTo12Hour = (value) => {
   const hour12 = hour % 12 || 12;
   return `${hour12}:${minutes} ${period}`;
 };
+
+const getDayPairForDays = (days = []) => {
+  const sortedDays = sortDays(days);
+  return (
+    DAY_PAIR_OPTIONS.find((option) => {
+      const sortedOptionDays = sortDays(option.days);
+      return (
+        sortedOptionDays.length === sortedDays.length &&
+        sortedOptionDays.every((day, index) => day === sortedDays[index])
+      );
+    }) || null
+  );
+};
+
+const getDayPairIdForDays = (days = []) =>
+  getDayPairForDays(days)?.id || DAY_PAIR_OPTIONS[0].id;
 
 const normalizeCourseOptions = (source) => {
   const rawCourses =
@@ -144,7 +252,7 @@ const normalizeAvailabilitySlots = (sourceSlots = []) =>
     slotType: slot?.slotType || "demo",
     maxStudents:
       Number(slot?.maxStudents) ||
-      (slot?.sessionType === "premium" ? 1 : 4),
+      (slot?.slotType === "demo" ? 1 : slot?.sessionType === "premium" ? 1 : 4),
     courseId: String(slot?.courseId?._id || slot?.courseId || "").trim(),
     isActive:
       typeof slot?.isActive === "boolean"
@@ -268,22 +376,25 @@ const Availability = ({
     const nextSlot =
       slot ||
       emptySlot(courseOptions[0]?.id || "", sectionId || activeSectionId);
+    const nextSectionId = sectionId || activeSectionId;
+    const duration = getDurationForSection(nextSectionId);
+    const startTime = nextSlot.startTime || emptySlot("", nextSectionId).startTime;
 
-    setActiveSectionId(sectionId);
+    setActiveSectionId(nextSectionId);
     setEditingSlotId(slot?.localId || null);
     setDraftSlot({
       ...nextSlot,
-      days: sortDays(nextSlot.days || []),
-      maxStudents:
-        Number(nextSlot.maxStudents) ||
-        (nextSlot.sessionType === "premium" ? 1 : 4),
-      slotType: sectionId === "demo" ? "demo" : "enrolled",
+      days: getDayPairForDays(nextSlot.days)?.days || DAY_PAIR_OPTIONS[0].days,
+      startTime,
+      endTime: addMinutesToTime(startTime, duration),
+      maxStudents: SLOT_MAX_STUDENTS[nextSectionId] || 4,
+      slotType: nextSectionId === "demo" ? "demo" : "enrolled",
       sessionType:
-        sectionId === "group"
+        nextSectionId === "group"
           ? "standard"
-          : sectionId === "individual"
+          : nextSectionId === "individual"
             ? "premium"
-            : nextSlot.sessionType || "standard",
+            : "standard",
     });
   };
 
@@ -294,46 +405,63 @@ const Availability = ({
   const updateDraft = (patch) => {
     setDraftSlot((prev) => {
       const next = { ...prev, ...patch };
+      const duration = getDurationForSection(activeSectionId);
 
       if (activeSectionId === "group") {
         next.slotType = "enrolled";
         next.sessionType = "standard";
-        if (!next.maxStudents || next.maxStudents < 2) {
-          next.maxStudents = 4;
-        }
+        next.maxStudents = SLOT_MAX_STUDENTS.group;
       } else if (activeSectionId === "individual") {
         next.slotType = "enrolled";
         next.sessionType = "premium";
-        next.maxStudents = 1;
-      } else if (
-        activeSectionId === "demo" &&
-        Object.prototype.hasOwnProperty.call(patch, "sessionType")
-      ) {
+        next.maxStudents = SLOT_MAX_STUDENTS.individual;
+      } else if (activeSectionId === "demo") {
         next.slotType = "demo";
-        next.maxStudents =
-          patch.sessionType === "premium"
-            ? 1
-            : Number(next.maxStudents) || 4;
+        next.sessionType = "standard";
+        next.maxStudents = SLOT_MAX_STUDENTS.demo;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(patch, "startTime")) {
+        next.endTime = addMinutesToTime(patch.startTime, duration);
       }
 
       return next;
     });
   };
 
-  const toggleDay = (day) => {
-    setDraftSlot((prev) => ({
-      ...prev,
-      days: sortDays(
-        prev.days.includes(day)
-          ? prev.days.filter((item) => item !== day)
-          : [...prev.days, day]
-      ),
-    }));
+  const updateDayPair = (pairId) => {
+    const pair =
+      DAY_PAIR_OPTIONS.find((option) => option.id === pairId) ||
+      DAY_PAIR_OPTIONS[0];
+    updateDraft({ days: pair.days });
+  };
+
+  const getTimeOptionDisabledReason = (option, days = draftSlot.days) => {
+    const overlappingSlot = slots.find((slot) => {
+      if (slot.localId === editingSlotId) return false;
+      if (slot.isActive === false) return false;
+
+      const sharesDay = slot.days.some((day) => days.includes(day));
+      if (!sharesDay) return false;
+
+      const start = toMinutes(option.startTime);
+      const end = toMinutes(option.endTime);
+      const existingStart = toMinutes(slot.startTime);
+      const existingEnd = toMinutes(slot.endTime);
+
+      return start < existingEnd && end > existingStart;
+    });
+
+    return overlappingSlot
+      ? `${buildDaySummary(overlappingSlot.days)} ${convertTo12Hour(
+          overlappingSlot.startTime
+        )} - ${convertTo12Hour(overlappingSlot.endTime)} is already used`
+      : "";
   };
 
   const validateDraftSlot = () => {
-    if (!draftSlot.days.length) {
-      toast.error("Select at least one day");
+    if (!getDayPairForDays(draftSlot.days)) {
+      toast.error("Select a valid weekday pair or weekend slot");
       return false;
     }
 
@@ -344,6 +472,18 @@ const Availability = ({
 
     if (toMinutes(draftSlot.startTime) >= toMinutes(draftSlot.endTime)) {
       toast.error("End time must be later than start time");
+      return false;
+    }
+
+    const duration = toMinutes(draftSlot.endTime) - toMinutes(draftSlot.startTime);
+    const expectedDuration = getDurationForSection(activeSectionId);
+
+    if (duration !== expectedDuration) {
+      toast.error(
+        `${activeSection.title} must use a ${getSectionDurationLabel(
+          activeSectionId
+        )} slot`
+      );
       return false;
     }
 
@@ -382,11 +522,10 @@ const Availability = ({
       ...draftSlot,
       days: sortDays(draftSlot.days),
       localId: editingSlotId || draftSlot.localId || createLocalId(),
-      maxStudents:
-        activeSectionId === "individual"
-          ? 1
-          : Number(draftSlot.maxStudents) ||
-            (draftSlot.sessionType === "premium" ? 1 : 4),
+      slotType: activeSectionId === "demo" ? "demo" : "enrolled",
+      sessionType:
+        activeSectionId === "individual" ? "premium" : "standard",
+      maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
       isActive: draftSlot.isActive !== false,
     };
 
@@ -455,11 +594,14 @@ const Availability = ({
       days: slot.days.map((day) => day.toLowerCase()),
       startTime: slot.startTime,
       endTime: slot.endTime,
-      sessionType: slot.sessionType,
+      sessionType: slot.slotType === "demo" ? "standard" : slot.sessionType,
       slotType: slot.slotType,
       maxStudents:
-        Number(slot.maxStudents) ||
-        (slot.sessionType === "premium" ? 1 : 4),
+        slot.slotType === "demo"
+          ? SLOT_MAX_STUDENTS.demo
+          : slot.sessionType === "premium"
+            ? SLOT_MAX_STUDENTS.individual
+            : SLOT_MAX_STUDENTS.group,
       ...(slot.courseId ? { courseId: slot.courseId } : {}),
     }));
 
@@ -497,12 +639,17 @@ const Availability = ({
   };
 
   const renderSectionEditor = () => {
-    const isDemoSection = activeSectionId === "demo";
     const isIndividualSection = activeSectionId === "individual";
+    const timeOptions =
+      TIME_OPTIONS_BY_SECTION[activeSectionId] || TIME_OPTIONS_BY_SECTION.group;
+    const selectedPairId = getDayPairIdForDays(draftSlot.days);
+    const selectedPair =
+      DAY_PAIR_OPTIONS.find((option) => option.id === selectedPairId) ||
+      DAY_PAIR_OPTIONS[0];
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_0.9fr_0.9fr]">
+        <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
           <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-900">
               Select Course
@@ -521,98 +668,119 @@ const Availability = ({
             </select>
           </label>
 
-          <div>
+          <label className="block">
             <span className="mb-2 block text-sm font-medium text-slate-900">
-              Select Days
+              Select Day Pair
             </span>
-            <div className="flex min-h-[52px] flex-wrap gap-2 rounded-2xl border border-slate-200 px-3 py-3">
-              {DAYS.map((day) => (
-                <button
-                  key={day}
-                  type="button"
-                  onClick={() => toggleDay(day)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                    draftSlot.days.includes(day)
-                      ? "bg-slate-900 text-white"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  {DAY_LABELS[day]}
-                </button>
+            <select
+              value={selectedPairId}
+              onChange={(event) => updateDayPair(event.target.value)}
+              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
+            >
+              {DAY_PAIR_OPTIONS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label} ({option.helper})
+                </option>
               ))}
+            </select>
+          </label>
+
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <span className="block text-sm font-medium text-slate-900">
+              Slot Rule
+            </span>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                {getSectionDurationLabel(activeSectionId)}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                {timeOptions.length} daily slots
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                Max {SLOT_MAX_STUDENTS[activeSectionId]}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
+                Select {getSectionDurationLabel(activeSectionId)} time slot
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Disabled slots overlap with another group, individual, or demo
+                schedule entry for {selectedPair.label}.
+              </p>
+            </div>
+            <div className="text-xs font-medium text-slate-500">
+              Selected:{" "}
+              <span className="text-slate-800">
+                {convertTo12Hour(draftSlot.startTime)} -{" "}
+                {convertTo12Hour(draftSlot.endTime)}
+              </span>
             </div>
           </div>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              Start Time
-            </span>
-            <input
-              type="time"
-              value={draftSlot.startTime}
-              onChange={(event) => updateDraft({ startTime: event.target.value })}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
-            />
-          </label>
+          <div className="grid max-h-72 gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {timeOptions.map((option) => {
+              const disabledReason = getTimeOptionDisabledReason(
+                option,
+                selectedPair.days
+              );
+              const isSelected =
+                draftSlot.startTime === option.startTime &&
+                draftSlot.endTime === option.endTime;
+              const isDisabled = Boolean(disabledReason);
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              End Time
-            </span>
-            <input
-              type="time"
-              value={draftSlot.endTime}
-              onChange={(event) => updateDraft({ endTime: event.target.value })}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
-            />
-          </label>
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  disabled={isDisabled}
+                  title={disabledReason || undefined}
+                  onClick={() =>
+                    updateDraft({
+                      startTime: option.startTime,
+                      endTime: option.endTime,
+                    })
+                  }
+                  className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition ${
+                    isSelected
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : isDisabled
+                        ? "cursor-not-allowed border-slate-200 bg-white text-slate-300"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-100"
+                  }`}
+                >
+                  {convertTo12Hour(option.startTime)} -{" "}
+                  {convertTo12Hour(option.endTime)}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1fr_auto]">
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              Session Type
-            </span>
-            {isDemoSection ? (
-              <select
-                value={draftSlot.sessionType}
-                onChange={(event) =>
-                  updateDraft({ sessionType: event.target.value })
-                }
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
-              >
-                <option value="standard">Standard demo</option>
-                <option value="premium">Premium demo</option>
-              </select>
-            ) : (
-              <div className="flex h-[50px] items-center rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-medium text-slate-700">
-                {isIndividualSection ? "Premium 1:1 session" : "Standard group session"}
-              </div>
-            )}
-          </label>
-
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              Max Students
-            </span>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              disabled={isIndividualSection}
-              value={draftSlot.maxStudents}
-              onChange={(event) =>
-                updateDraft({
-                  maxStudents: Number(event.target.value) || 1,
-                })
-              }
-              className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${
-                isIndividualSection
-                  ? "cursor-not-allowed border-slate-200 bg-slate-50 text-slate-500"
-                  : "border-slate-200 bg-white text-slate-700 focus:border-slate-300"
-              }`}
-            />
-          </label>
+        <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_auto]">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+            <p>
+              Selected days:{" "}
+              <span className="font-medium text-slate-700">
+                {buildDaySummary(draftSlot.days)}
+              </span>
+            </p>
+            <p className="mt-1">
+              Session:{" "}
+              <span className="font-medium text-slate-700">
+                {activeSectionId === "demo"
+                  ? "20 min demo"
+                  : isIndividualSection
+                    ? "40 min premium 1:1"
+                    : "60 min standard group"}
+              </span>
+            </p>
+          </div>
 
           <div className="flex items-end gap-3">
             {editingSlotId ? (
@@ -639,13 +807,6 @@ const Availability = ({
               {editingSlotId ? "Update slot" : "Add slot"}
             </button>
           </div>
-        </div>
-
-        <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
-          Selected days:{" "}
-          <span className="font-medium text-slate-700">
-            {buildDaySummary(draftSlot.days)}
-          </span>
         </div>
       </div>
     );
@@ -696,9 +857,9 @@ const Availability = ({
         <div className="mt-6 rounded-[28px] border border-sky-100 bg-sky-50/70 p-5 text-sm text-slate-600">
           <p className="font-semibold text-slate-900">How this schedule works</p>
           <div className="mt-2 space-y-1">
-            <p>`demo` slots feed instructor demo booking availability.</p>
-            <p>`enrolled` slots feed regular class scheduling for paid enrollments.</p>
-            <p>These rows are online-only, so branch selection is intentionally skipped here.</p>
+            <p>Choose one fixed day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun.</p>
+            <p>Group slots are 60 min, individual slots are 40 min, and demo slots are 20 min.</p>
+            <p>Overlapping slots are disabled across group, individual, and demo schedules.</p>
           </div>
         </div>
 

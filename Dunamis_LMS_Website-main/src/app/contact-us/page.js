@@ -7,11 +7,12 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   FaClock,
   FaEnvelope,
+  FaFacebookF,
   FaInstagram,
-  FaLinkedin,
   FaMapMarkerAlt,
   FaPhoneAlt,
-  FaTelegram,
+  FaWhatsapp,
+  FaYoutube,
 } from "react-icons/fa";
 import { HiChatAlt2, HiMail, HiPencilAlt, HiUser } from "react-icons/hi";
 import toast from "react-hot-toast";
@@ -21,19 +22,19 @@ const CONTACT_CARDS = [
   {
     icon: FaPhoneAlt,
     title: "Call Us",
-    lines: ["+91 98765 43210", "+91 98765 43211"],
+    lines: ["+91 93982 46083"],
     note: "Mon-Sat: 9 AM - 9 PM",
   },
   {
     icon: FaEnvelope,
     title: "Write To Us",
-    lines: ["info@dunamis.in", "support@dunamis.in"],
+    lines: ["contact@dunamisindia.co.in"],
     note: "We usually reply within 24 hours",
   },
   {
     icon: FaMapMarkerAlt,
-    title: "Visit The Studio",
-    lines: ["DUNAMIS Creative Hub", "Bandra West, Mumbai - 400050"],
+    title: "Visit Us",
+    lines: ["Plot 249, 4th Floor, Kushaiguda", "Hyderabad, Telangana 500062"],
     note: "Walk-ins are welcome",
   },
   {
@@ -50,6 +51,24 @@ const INITIAL_FORM = {
   subject: "",
   message: "",
 };
+
+const SOCIAL_LINKS = [
+  {
+    href: "https://www.youtube.com/@dunamisschoolofmusic4481",
+    icon: FaYoutube,
+    label: "YouTube",
+  },
+  {
+    href: "https://www.instagram.com/dunamis_schoolofmusic/",
+    icon: FaInstagram,
+    label: "Instagram",
+  },
+  {
+    href: "https://www.facebook.com/dunamismusic2021/",
+    icon: FaFacebookF,
+    label: "Facebook",
+  },
+];
 
 export default function ContactPage() {
   const dispatch = useDispatch();
@@ -144,7 +163,7 @@ export default function ContactPage() {
                 href="/become-teacher"
                 className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-700 transition hover:border-orange-200 hover:text-orange-700"
               >
-                Become a Teacher
+                Become an Instructor
               </Link>
             </div>
 
@@ -173,14 +192,12 @@ export default function ContactPage() {
             </div>
 
             <div className="mt-8 flex items-center gap-3 text-gray-500">
-              {[
-                { href: "#", icon: FaLinkedin, label: "LinkedIn" },
-                { href: "#", icon: FaInstagram, label: "Instagram" },
-                { href: "#", icon: FaTelegram, label: "Telegram" },
-              ].map(({ href, icon: Icon, label }) => (
+              {SOCIAL_LINKS.map(({ href, icon: Icon, label }) => (
                 <a
                   key={label}
                   href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   aria-label={label}
                   className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-gray-200 bg-white transition hover:border-orange-200 hover:text-orange-600"
                 >
@@ -218,9 +235,6 @@ export default function ContactPage() {
                     support follow-ups, and general questions.
                   </p>
                 </div>
-                <p className="text-xs uppercase tracking-[0.18em] text-white/75">
-                  Human reply. No bot maze.
-                </p>
               </div>
 
               <div className="pointer-events-none absolute -bottom-8 -left-10 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
@@ -359,6 +373,16 @@ export default function ContactPage() {
           </div>
         </motion.section>
       </div>
+
+      <a
+        href="https://wa.me/+919398246083"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat with us on WhatsApp"
+        className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-green-400 to-green-600 text-white shadow-[0_18px_30px_-10px_rgba(22,163,74,0.85)] ring-4 ring-white/80 transition hover:-translate-y-1 hover:scale-105 hover:shadow-[0_24px_38px_-12px_rgba(22,163,74,0.9)]"
+      >
+        <FaWhatsapp className="h-8 w-8 drop-shadow" />
+      </a>
     </div>
   );
 }

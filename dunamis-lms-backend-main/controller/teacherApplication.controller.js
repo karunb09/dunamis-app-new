@@ -7,6 +7,23 @@ const sendApplicationStatus = require("../mail/sendApplicationStatus");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
 
+const getTodayDateString = () => {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+};
+
+const isValidCurrentOrFutureDate = (value) => {
+  const dateValue = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return false;
+
+  const parsedDate = new Date(`${dateValue}T00:00:00.000Z`);
+  if (Number.isNaN(parsedDate.getTime())) return false;
+
+  return parsedDate.toISOString().slice(0, 10) === dateValue &&
+    dateValue >= getTodayDateString();
+};
+
 exports.createTeacherApplication = async (req, res) => {
   try {
     // Extract form data
@@ -64,6 +81,13 @@ exports.createTeacherApplication = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `Missing required fields: ${missingFields.join(", ")}`,
+      });
+    }
+
+    if (!isValidCurrentOrFutureDate(noticePeriod)) {
+      return res.status(400).json({
+        success: false,
+        message: "Join date must be today or a future date",
       });
     }
 
@@ -181,7 +205,7 @@ exports.createTeacherApplication = async (req, res) => {
       profilePicture: profilePictureUrl,
       currentCTC: currentCTC.trim(),
       expectedCTC: expectedCTC.trim(),
-      noticePeriod,
+      noticePeriod: noticePeriod.trim(),
       mode,
       status: "new",
     };
@@ -474,7 +498,7 @@ exports.deleteTeacherApplication = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const application = await TeacherApplication.findByIdAndDelete(id);
+        const application = await TeacherApplication.findById(id);
 
         if (!application) {
             return res.status(404).json({
@@ -482,6 +506,16 @@ exports.deleteTeacherApplication = async (req, res) => {
                 message: "Teacher application not found"
             });
         }
+
+        const linkedTeacher = await Teacher.findOne({ teacherDetail: id }).select("_id");
+        if (linkedTeacher) {
+            return res.status(409).json({
+                success: false,
+                message: "This application is linked to an instructor. Delete the instructor from the Instructor tab instead."
+            });
+        }
+
+        await TeacherApplication.findByIdAndDelete(id);
 
         res.status(200).json({
             success: true,

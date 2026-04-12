@@ -10,6 +10,7 @@ import {
 } from 'react-icons/hi';
 import { fetchAvailableSlots } from '@/store/demoBookingSlice';
 import { getCurrentSelection, upsertEnrollSelection } from '@/helpers/session';
+import { getInitialsImage } from '@/lib/resolveImageUrl';
 import {
   buildBranchOptions,
   buildInstructorOptions,
@@ -17,6 +18,108 @@ import {
   filterSlotsForSelection,
   normalizeMode,
 } from '@/helpers/courseSlots';
+
+const DAY_PAIR_OPTIONS = [
+  { id: 'mon-thu', label: 'Mon - Thu', days: ['monday', 'thursday'] },
+  { id: 'tue-fri', label: 'Tue - Fri', days: ['tuesday', 'friday'] },
+  { id: 'wed-sat', label: 'Wed - Sat', days: ['wednesday', 'saturday'] },
+  { id: 'sat-sun', label: 'Sat - Sun', days: ['saturday', 'sunday'] },
+];
+
+const STEPS = ['Delivery', 'Instructor', 'Schedule'];
+
+const hasPositivePrice = (price) => {
+  const monthly = Number(price?.monthlyFee);
+  const full = Number(price?.fullPayment);
+  return (
+    (Number.isFinite(monthly) && monthly > 0) ||
+    (Number.isFinite(full) && full > 0)
+  );
+};
+
+const getPricedSessionTypes = (course) => {
+  const prices = Array.isArray(course?.price)
+    ? course.price
+    : course?.price
+      ? [course.price]
+      : [];
+
+  return new Set(
+    prices
+      .filter((price) => price?.isActive !== false && hasPositivePrice(price))
+      .map((price) => price?.sessionType)
+      .filter(Boolean)
+  );
+};
+
+const normalizeDays = (days = []) =>
+  (Array.isArray(days) ? days : [])
+    .map((day) => String(day || '').trim().toLowerCase())
+    .filter(Boolean);
+
+const getWeekdayFromDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return date
+    .toLocaleDateString('en-US', { weekday: 'long' })
+    .toLowerCase();
+};
+
+const getPairForDays = (days = []) => {
+  const normalizedDays = normalizeDays(days).sort();
+  if (!normalizedDays.length) return null;
+
+  return (
+    DAY_PAIR_OPTIONS.find((option) => {
+      const normalizedPair = option.days.slice().sort();
+      return (
+        normalizedPair.length === normalizedDays.length &&
+        normalizedPair.every((day, index) => day === normalizedDays[index])
+      );
+    }) || null
+  );
+};
+
+const getPairForSlot = (slot) => {
+  const sourceDays =
+    normalizeDays(slot?.availabilityDays).length > 0
+      ? normalizeDays(slot.availabilityDays)
+      : normalizeDays(slot?.recurringDays).length > 0
+        ? normalizeDays(slot.recurringDays)
+        : normalizeDays(slot?.raw?.availabilityDays).length > 0
+          ? normalizeDays(slot.raw.availabilityDays)
+          : normalizeDays(slot?.raw?.recurringDays);
+
+  const exactPair = getPairForDays(sourceDays);
+  if (exactPair) return exactPair;
+
+  const dateDay = getWeekdayFromDate(slot?.date);
+  return (
+    DAY_PAIR_OPTIONS.find((option) => option.days.includes(dateDay)) ||
+    DAY_PAIR_OPTIONS[0]
+  );
+};
+
+const groupSlotsByDayPair = (slots = []) => {
+  const groups = new Map(
+    DAY_PAIR_OPTIONS.map((option) => [
+      option.id,
+      { ...option, slots: [] },
+    ])
+  );
+
+  slots.forEach((slot) => {
+    const pair = getPairForSlot(slot);
+    const group = groups.get(pair.id);
+    if (group) {
+      group.slots.push(slot);
+    }
+  });
+
+  return Array.from(groups.values()).filter((group) => group.slots.length > 0);
+};
 
 export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
   const dispatch = useDispatch();
@@ -40,11 +143,15 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
     () => buildInstructorOptions(course, availableSlots, 'enrolled'),
     [availableSlots, course]
   );
+  const pricedSessionTypes = useMemo(() => getPricedSessionTypes(course), [course]);
+  const shouldLimitByPricing = pricedSessionTypes.size > 0;
 
+  const [step, setStep] = useState(0);
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState('online');
   const [selectedBranchId, setSelectedBranchId] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
+  const [videoPreview, setVideoPreview] = useState(null);
 
   useEffect(() => {
     if (!isOpen || !courseId) return;
@@ -61,10 +168,12 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
       normalizeMode(course?.mode) ||
       'online';
 
+    setStep(0);
     setSelectedDeliveryMode(initialMode);
     setSelectedBranchId(current.branchId || '');
     setSelectedInstructorId(current.instructorId || '');
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
+    setVideoPreview(null);
   }, [course?.mode, isOpen, modeOptions]);
 
   useEffect(() => {
@@ -88,33 +197,55 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
     }
   }, [branchOptions, selectedBranchId]);
 
-  const visibleInstructors = useMemo(() => {
-    return instructors.filter((instructor) =>
-      filterSlotsForSelection(instructor.slots, {
+  const filterPricedSlots = (slots = []) =>
+    slots.filter(
+      (slot) =>
+        !shouldLimitByPricing ||
+        pricedSessionTypes.has(slot.sessionType || 'standard')
+    );
+
+  const getVisibleSlotsForInstructor = (instructor) =>
+    filterPricedSlots(
+      filterSlotsForSelection(instructor?.slots || [], {
         deliveryMode: selectedDeliveryMode,
         branchId: selectedBranchId,
-      }).length > 0
+      })
     );
-  }, [instructors, selectedBranchId, selectedDeliveryMode]);
+
+  const visibleInstructors = useMemo(
+    () =>
+      instructors.filter(
+        (instructor) => getVisibleSlotsForInstructor(instructor).length > 0
+      ),
+    [
+      instructors,
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      shouldLimitByPricing,
+    ]
+  );
 
   const selectedInstructor = useMemo(
     () =>
       visibleInstructors.find(
         (instructor) => instructor.id === selectedInstructorId
-      ) ||
-      instructors.find((instructor) => instructor.id === selectedInstructorId) ||
-      null,
-    [instructors, selectedInstructorId, visibleInstructors]
+      ) || null,
+    [selectedInstructorId, visibleInstructors]
   );
 
   const visibleSlots = useMemo(
-    () =>
-      filterSlotsForSelection(selectedInstructor?.slots || [], {
-        deliveryMode: selectedDeliveryMode,
-        branchId: selectedBranchId,
-      }),
-    [selectedBranchId, selectedDeliveryMode, selectedInstructor]
+    () => getVisibleSlotsForInstructor(selectedInstructor),
+    [
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      selectedInstructor,
+      shouldLimitByPricing,
+    ]
   );
+
+  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
 
   const selectedSlot = useMemo(
     () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
@@ -145,18 +276,19 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
     branchOptions.find((branch) => branch.id === selectedBranchId) || null;
   const shouldPickBranch =
     selectedDeliveryMode === 'offline' && branchOptions.length > 0;
-  const canProceed =
-    Boolean(selectedInstructorId) &&
-    Boolean(selectedSlot?.slotId) &&
-    (!shouldPickBranch || Boolean(selectedBranchId)) &&
-    slotsStatus !== 'loading';
   const slotsErrorMessage =
     typeof slotsError === 'string'
       ? slotsError
       : slotsError?.message || slotsError?.error || '';
+  const canContinue =
+    step === 0
+      ? Boolean(selectedDeliveryMode) && (!shouldPickBranch || Boolean(selectedBranchId))
+      : step === 1
+        ? Boolean(selectedInstructorId) && slotsStatus !== 'loading'
+        : Boolean(selectedSlot?.slotId) && slotsStatus !== 'loading';
 
-  const handleNext = () => {
-    if (!canProceed) return;
+  const persistSelectionAndContinue = () => {
+    if (!selectedSlot) return;
 
     upsertEnrollSelection({
       courseId,
@@ -184,188 +316,436 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
     });
   };
 
+  const handlePrimaryAction = () => {
+    if (!canContinue) return;
+
+    if (step < STEPS.length - 1) {
+      setStep((currentStep) => currentStep + 1);
+      return;
+    }
+
+    persistSelectionAndContinue();
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+      <div className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl lg:p-8">
         <button
+          type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 cursor-pointer text-xl text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 cursor-pointer rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
           aria-label="Close"
         >
-          <HiX />
+          <HiX className="text-xl" />
         </button>
 
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold">Confirm Enrolment Details</h2>
-          <p className="mt-1 text-gray-500">
-            Choose delivery mode, instructor, and your preferred class slot.
+        <div className="pr-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
+            Enrollment setup
           </p>
-          <p className="mt-1 text-sm text-gray-600">Course: {courseTitle}</p>
+          <h2 className="mt-2 text-2xl font-bold text-gray-900">
+            Choose your instructor and class schedule
+          </h2>
+          <p className="mt-1 text-sm text-gray-500">Course: {courseTitle}</p>
         </div>
 
-        {modeOptions.length > 1 ? (
-          <div className="mb-6">
-            <label className="mb-3 block text-sm font-medium text-gray-700">
-              Select Delivery Mode
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {modeOptions.map((mode) => {
-                const active = selectedDeliveryMode === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDeliveryMode(mode);
-                      setSelectedSlotId('');
-                    }}
-                    className={`rounded-xl border px-4 py-3 text-left transition ${
-                      active
-                        ? 'border-purple-300 bg-purple-50 text-purple-700'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <p className="font-semibold capitalize">{mode}</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {mode === 'offline'
-                        ? 'Attend at the selected branch.'
-                        : 'Attend the session online.'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="mb-6 rounded-xl border border-purple-100 bg-purple-50 px-4 py-3 text-sm text-purple-700">
-            Delivery mode: <span className="font-semibold capitalize">{selectedDeliveryMode}</span>
-          </div>
-        )}
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {STEPS.map((label, index) => {
+            const active = step === index;
+            const completed = step > index;
 
-        {shouldPickBranch ? (
-          <div className="mb-6">
-            <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
-              <HiOutlineLocationMarker />
-              Select Branch
-            </label>
-            <select
-              value={selectedBranchId}
-              onChange={(event) => {
-                setSelectedBranchId(event.target.value);
-                setSelectedSlotId('');
-              }}
-              className="w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
-            >
-              <option value="">Choose a branch</option>
-              {branchOptions.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.label}
-                </option>
-              ))}
-            </select>
+            return (
+              <button
+                key={label}
+                type="button"
+                disabled={index > step}
+                onClick={() => setStep(index)}
+                className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                  active
+                    ? 'border-orange-500 bg-orange-50 text-orange-700'
+                    : completed
+                      ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                      : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                }`}
+              >
+                <span className="text-xs font-semibold uppercase tracking-[0.18em]">
+                  Step {index + 1}
+                </span>
+                <p className="mt-1 font-semibold">{label}</p>
+              </button>
+            );
+          })}
+        </div>
+
+        {step === 0 ? (
+          <div className="mt-7 space-y-6">
+            {modeOptions.length > 1 ? (
+              <div>
+                <label className="mb-3 block text-sm font-medium text-gray-700">
+                  Select Delivery Mode
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {modeOptions.map((mode) => {
+                    const active = selectedDeliveryMode === mode;
+                    return (
+                      <button
+                        key={mode}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDeliveryMode(mode);
+                          setSelectedInstructorId('');
+                          setSelectedSlotId('');
+                          if (mode !== 'offline') setSelectedBranchId('');
+                        }}
+                        className={`rounded-2xl border px-4 py-4 text-left transition ${
+                          active
+                            ? 'border-orange-500 bg-orange-50'
+                            : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        <p className="font-semibold capitalize text-gray-900">
+                          {mode}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {mode === 'offline'
+                            ? 'Attend at the selected branch.'
+                            : 'Attend the session online.'}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-700">
+                Delivery mode:{' '}
+                <span className="font-semibold capitalize">
+                  {selectedDeliveryMode}
+                </span>
+              </div>
+            )}
+
+            {shouldPickBranch ? (
+              <div>
+                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <HiOutlineLocationMarker />
+                  Select Branch
+                </label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(event) => {
+                    setSelectedBranchId(event.target.value);
+                    setSelectedInstructorId('');
+                    setSelectedSlotId('');
+                  }}
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                >
+                  <option value="">Choose a branch</option>
+                  {branchOptions.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </div>
         ) : null}
 
-        <div className="mb-6">
-          <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <HiUser />
-            Select Instructor
-          </label>
-          <select
-            value={selectedInstructorId}
-            onChange={(event) => {
-              setSelectedInstructorId(event.target.value);
-              setSelectedSlotId('');
-            }}
-            disabled={slotsStatus === 'loading' || visibleInstructors.length === 0}
-            className={`w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 ${
-              slotsStatus === 'loading' || visibleInstructors.length === 0
-                ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                : 'bg-gray-50 focus:ring-purple-300'
-            }`}
-          >
-            <option value="">
-              {slotsStatus === 'loading'
-                ? 'Loading instructors...'
-                : visibleInstructors.length === 0
-                  ? 'No instructors available'
-                  : 'Choose an instructor'}
-            </option>
-            {visibleInstructors.map((instructor) => (
-              <option key={instructor.id} value={instructor.id}>
-                {instructor.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mb-6">
-          <label className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <HiOutlineCalendar />
-            Select Date & Time
-          </label>
-
-          {slotsStatus === 'loading' ? (
-            <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-500">
-              Loading available class slots...
+        {step === 1 ? (
+          <div className="mt-7 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <HiUser />
+                Select Instructor
+              </label>
+              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                {visibleInstructors.length} available
+              </span>
             </div>
-          ) : selectedInstructorId && visibleSlots.length > 0 ? (
-            <div className="space-y-3">
-              {visibleSlots.map((slot) => {
-                const active = selectedSlotId === slot.id;
-                return (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => setSelectedSlotId(slot.id)}
-                    className={`w-full rounded-xl border p-4 text-left transition ${
-                      active
-                        ? 'border-purple-300 bg-purple-50 text-purple-700'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    <p className="font-semibold">{slot.label}</p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {slot.branchLabel
-                        ? `Branch: ${slot.branchLabel}`
-                        : 'Online class'}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Session: {slot.sessionType || 'standard'}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="rounded-lg bg-gray-100 p-4 text-sm text-gray-500">
-              {selectedInstructorId
-                ? 'No slots are currently available for this instructor and delivery mode.'
-                : 'Choose an instructor first to view available slots.'}
-            </div>
-          )}
-        </div>
 
-        <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-500">
-            {slotsErrorMessage ? (
-              <span className="text-red-500">{slotsErrorMessage}</span>
-            ) : null}
+            {slotsStatus === 'loading' ? (
+              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                Loading instructors and class slots...
+              </div>
+            ) : visibleInstructors.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {visibleInstructors.map((instructor) => {
+                  const isSelected = selectedInstructorId === instructor.id;
+                  const hasVideo = Boolean(instructor.profileVideo);
+
+                  return (
+                    <div
+                      key={instructor.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setSelectedInstructorId(instructor.id);
+                        setSelectedSlotId('');
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter' && event.key !== ' ') return;
+                        event.preventDefault();
+                        setSelectedInstructorId(instructor.id);
+                        setSelectedSlotId('');
+                      }}
+                      className={`cursor-pointer rounded-3xl border p-4 transition ${
+                        isSelected
+                          ? 'border-orange-500 bg-orange-50'
+                          : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
+                      }`}
+                    >
+                      <div className="flex gap-4">
+                        <img
+                          src={instructor.profilePicture}
+                          alt={instructor.name}
+                          className="h-20 w-20 rounded-2xl object-cover"
+                          onError={(event) => {
+                            event.currentTarget.src = getInitialsImage(
+                              instructor.name
+                            );
+                          }}
+                        />
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-lg font-semibold text-gray-900">
+                                {instructor.name}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {instructor.averageRating
+                                  ? `${instructor.averageRating.toFixed(1)} rating`
+                                  : 'Course instructor'}
+                                {' • '}
+                                {instructor.studentCount || 0} students taught
+                              </p>
+                            </div>
+
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                isSelected
+                                  ? 'bg-orange-500 text-white'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}
+                            >
+                              {isSelected ? 'Selected' : 'Select'}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-gray-600 ring-1 ring-gray-200">
+                              {instructor.mode || selectedDeliveryMode}
+                            </span>
+                            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+                              {getVisibleSlotsForInstructor(instructor).length} slots
+                            </span>
+                            {hasVideo ? (
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setVideoPreview({
+                                    url: instructor.profileVideo,
+                                    title: `${instructor.name} demo video`,
+                                  });
+                                }}
+                                className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-gray-700"
+                              >
+                                Watch demo video
+                              </button>
+                            ) : (
+                              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                                Demo video not uploaded yet
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                No instructors are currently available for this course and
+                delivery mode.
+              </div>
+            )}
           </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="mt-7 space-y-5">
+            <div>
+              <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
+                <HiOutlineCalendar />
+                Select Class Schedule
+              </label>
+              <p className="text-xs text-gray-500">
+                Showing the day pairs published by {selectedInstructor?.name || 'the selected instructor'}.
+              </p>
+            </div>
+
+            {slotsStatus === 'loading' ? (
+              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                Loading available class slots...
+              </div>
+            ) : selectedInstructorId && slotGroups.length > 0 ? (
+              <div className="space-y-5">
+                {slotGroups.map((group) => (
+                  <section
+                    key={group.id}
+                    className="rounded-3xl border border-gray-200 bg-gray-50 p-4"
+                  >
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-gray-900">{group.label}</p>
+                        <p className="text-xs text-gray-500">
+                          {group.slots.length} available class slot
+                          {group.slots.length === 1 ? '' : 's'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+                        Day pair
+                      </span>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {group.slots.map((slot) => {
+                        const active = selectedSlotId === slot.id;
+                        return (
+                          <button
+                            key={slot.id}
+                            type="button"
+                            onClick={() => setSelectedSlotId(slot.id)}
+                            className={`rounded-2xl border p-4 text-left transition ${
+                              active
+                                ? 'border-orange-500 bg-orange-50'
+                                : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
+                            }`}
+                          >
+                            <p className="font-semibold text-gray-900">
+                              {slot.label}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {slot.branchLabel
+                                ? `Branch: ${slot.branchLabel}`
+                                : 'Online class'}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-gray-600 ring-1 ring-gray-200">
+                                {slot.sessionType === 'premium'
+                                  ? 'Individual'
+                                  : 'Group'}
+                              </span>
+                              {slot.bookingTag ? (
+                                <span
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                    slot.bookingTag === 'Filling fast'
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : 'bg-emerald-100 text-emerald-700'
+                                  }`}
+                                >
+                                  {slot.bookingTag}
+                                </span>
+                              ) : null}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                {selectedInstructorId
+                  ? 'No class slots are currently available for this instructor and delivery mode.'
+                  : 'Choose an instructor first to view available slots.'}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {slotsErrorMessage ? (
+          <p className="mt-5 text-sm text-red-500">{slotsErrorMessage}</p>
+        ) : null}
+
+        <div className="mt-8 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (step === 0) {
+                onClose?.();
+                return;
+              }
+              setStep((currentStep) => currentStep - 1);
+            }}
+            className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            {step === 0 ? 'Close' : 'Back'}
+          </button>
 
           <button
-            onClick={handleNext}
-            disabled={!canProceed}
-            className={`rounded-full px-6 py-2 font-medium transition ${
-              !canProceed
-                ? 'cursor-not-allowed bg-gray-200 text-gray-500'
-                : 'bg-purple-500 text-white hover:bg-purple-600'
+            type="button"
+            onClick={handlePrimaryAction}
+            disabled={!canContinue}
+            className={`rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${
+              canContinue
+                ? 'bg-[#FF6B35] hover:bg-[#fd5a1f]'
+                : 'cursor-not-allowed bg-gray-300'
             }`}
           >
-            Next
+            {step === STEPS.length - 1 ? 'Continue to plans' : 'Continue'}
           </button>
         </div>
       </div>
+
+      {videoPreview ? (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setVideoPreview(null)}
+        >
+          <div
+            className="relative w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setVideoPreview(null)}
+              className="absolute right-4 top-4 z-10 rounded-full bg-black/60 p-2 text-white transition hover:bg-black"
+              aria-label="Close video preview"
+            >
+              <HiX className="text-xl" />
+            </button>
+
+            <div className="bg-black">
+              <video
+                key={videoPreview.url}
+                src={videoPreview.url}
+                controls
+                autoPlay
+                playsInline
+                preload="metadata"
+                className="aspect-video w-full bg-black"
+              >
+                Your browser cannot preview this video format.
+              </video>
+            </div>
+
+            <div className="space-y-2 p-5">
+              <p className="text-sm font-semibold text-gray-900">
+                {videoPreview.title}
+              </p>
+              <p className="text-xs leading-5 text-gray-500">
+                If the video does not play inline, upload the instructor demo as
+                an MP4/WebM file encoded for browser playback.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

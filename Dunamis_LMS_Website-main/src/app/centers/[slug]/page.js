@@ -64,7 +64,7 @@ export default function CenterDetailsPage({ params }) {
           } - ${apiCenter.branchTimings[1]}`
         : "Mon - Sat: 9 AM - 6 PM",
     capacity: `${apiCenter.branchCapacity || 100} students`,
-    contactPhone: apiCenter.branchAdminContact || "+91 98765 43210",
+    contactPhone: apiCenter.branchAdminContact || "+91 93982 46083",
     email: apiCenter.branchAdminEmail || "contact@example.com",
     facilities: apiCenter.centreFacilities
       ? apiCenter.centreFacilities.split(",").map((f) => f.trim())
@@ -74,11 +74,7 @@ export default function CenterDetailsPage({ params }) {
       ? [
           {
             name: `${apiCenter.branchManager.name.firstName} ${apiCenter.branchManager.name.lastName}`,
-            avatar: "https://randomuser.me/api/portraits/men/45.jpg",
             tags: ["Branch Manager"],
-            rating: "4.8",
-            experience: "10+ years",
-            bio: "Experienced branch manager dedicated to student success.",
           },
         ]
       : [],

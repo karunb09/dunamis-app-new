@@ -12,6 +12,12 @@ import Step2Contact from "./Step2Contact";
 import Step3Professional from "./Step3Professional";
 import Step4Preferences from "./Step4Preferences";
 
+const getTodayDateString = () => {
+    const today = new Date();
+    today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+    return today.toISOString().slice(0, 10);
+};
+
 export default function MultiStepForm() {
     const [step, setStep] = useState(1);
     const [fieldErrors, setFieldErrors] = useState({});
@@ -156,7 +162,11 @@ export default function MultiStepForm() {
         if (currentStep === 4) {
             if (!formData.currentCTC.trim()) errors.currentCTC = "Current CTC is required";
             if (!formData.expectedCTC.trim()) errors.expectedCTC = "Expected CTC is required";
-            if (!formData.noticePeriod) errors.noticePeriod = "Please select your notice period";
+            if (!formData.noticePeriod) {
+                errors.noticePeriod = "Please select when you can join";
+            } else if (formData.noticePeriod < getTodayDateString()) {
+                errors.noticePeriod = "Join date cannot be in the past";
+            }
             if (!formData.mode) errors.mode = "Please select your teaching mode";
             if (!formData.availability) errors.availability = "Please select your availability";
         }

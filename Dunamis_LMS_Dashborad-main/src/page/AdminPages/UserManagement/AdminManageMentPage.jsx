@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { FaSearch, FaFilter, FaSortAmountDown, FaPlus } from 'react-icons/fa';
+import { FaCheckCircle, FaEdit, FaPlus, FaSearch, FaFilter, FaSortAmountDown } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import DataTable from '../../../components/Table';
-import { FaPencil } from 'react-icons/fa6';
 import { useDispatch, useSelector } from 'react-redux';
 import { deleteAdmin, fetchAdmins } from '../../../redux/Admin/AdminSlice';
 import Swal from 'sweetalert2';
 import { updateUser } from '../../../redux/User/UserSlice';
 import { X } from 'react-feather';
+import ActionProgressBar from '../../../components/ActionProgressBar';
+import IconActionButton from '../../../components/IconActionButton';
 
 const IMAGE = import.meta.env.VITE_IMAGE;
 
@@ -29,7 +30,13 @@ const AdminManageMentPage = () => {
     const [sortOption, setSortOption] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
     const [filters, setFilters] = useState({ status: '', department: '' });
+    const [processingAction, setProcessingAction] = useState(null);
     const dropdownRef = useRef(null);
+
+    const getErrorMessage = (error, fallback) => {
+        if (typeof error === 'string') return error;
+        return error?.message || error?.error || error?.data?.message || fallback;
+    };
 
     useEffect(() => {
         dispatch(fetchAdmins());
@@ -50,6 +57,34 @@ const AdminManageMentPage = () => {
         if (!imagePath) return "https://i.pravatar.cc/150?img=32";
         if (imagePath.startsWith("http")) return imagePath;
         return `${IMAGE}${imagePath}`;
+    };
+
+    const runAdminAction = async ({ actionKey, progressLabel, loadingMessage, action, successTitle, successText, errorFallback }) => {
+        setProcessingAction({ key: actionKey, label: progressLabel });
+        const toastId = toast.loading(loadingMessage);
+
+        try {
+            const result = await action();
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: 'success',
+                title: successTitle,
+                text: successText,
+                confirmButtonColor: '#0f172a',
+            });
+            return result;
+        } catch (error) {
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: 'error',
+                title: 'Action failed',
+                text: getErrorMessage(error, errorFallback),
+                confirmButtonColor: '#dc2626',
+            });
+            throw error;
+        } finally {
+            setProcessingAction(null);
+        }
     };
 
     // Filter + Search
@@ -86,7 +121,7 @@ const AdminManageMentPage = () => {
         }
     }
 
-    const handleDeleteAdmin = (adminId, adminName) => {
+    const _handleDeleteAdmin = (adminId, adminName) => {
         if (!adminId || adminId === "0") {
             toast.error("Invalid Admin ID");
             return;
@@ -102,20 +137,18 @@ const AdminManageMentPage = () => {
             confirmButtonText: "Yes, delete it!"
         }).then((result) => {
             if (result.isConfirmed) {
-                dispatch(deleteAdmin(adminId))
-                    .unwrap()
-                    .then(() => {
-                        Swal.fire({
-                            title: "Deleted!",
-                            text: `${adminName} has been deleted.`,
-                            icon: "success"
-                        });
-                        toast.success(`${adminName} deleted successfully`);
-                        dispatch(fetchAdmins());
-                    })
-                    .catch((error) => {
-                        toast.error(`Failed to delete ${adminName}: ${error}`);
-                    });
+                runAdminAction({
+                    actionKey: `delete-${adminId}`,
+                    progressLabel: `Deleting ${adminName}...`,
+                    loadingMessage: `Deleting ${adminName}`,
+                    action: async () => {
+                        await dispatch(deleteAdmin(adminId)).unwrap();
+                        await dispatch(fetchAdmins());
+                    },
+                    successTitle: "Admin deleted",
+                    successText: `${adminName} has been deleted.`,
+                    errorFallback: `Failed to delete ${adminName}.`,
+                }).catch(() => {});
             }
         });
     };
@@ -140,19 +173,18 @@ const AdminManageMentPage = () => {
             confirmButtonText: ids.length === 1 ? "Yes, delete it!" : "Yes, delete them!"
         }).then((result) => {
             if (result.isConfirmed) {
-                Promise.all(ids.map(id => dispatch(deleteAdmin(id)).unwrap()))
-                    .then(() => {
-                        Swal.fire({
-                            title: "Deleted!",
-                            text: `${ids.length} admin${ids.length === 1 ? '' : 's'} have been deleted.`,
-                            icon: "success"
-                        });
-                        toast.success(`${ids.length} admin${ids.length === 1 ? '' : 's'} deleted successfully`);
-                        dispatch(fetchAdmins());
-                    })
-                    .catch((error) => {
-                        toast.error("Failed to delete some admins: " + error);
-                    });
+                runAdminAction({
+                    actionKey: 'bulk-delete-admins',
+                    progressLabel: `Deleting ${ids.length} admin${ids.length === 1 ? '' : 's'}...`,
+                    loadingMessage: `Deleting ${ids.length} admin${ids.length === 1 ? '' : 's'}`,
+                    action: async () => {
+                        await Promise.all(ids.map(id => dispatch(deleteAdmin(id)).unwrap()));
+                        await dispatch(fetchAdmins());
+                    },
+                    successTitle: "Admins deleted",
+                    successText: `${ids.length} admin${ids.length === 1 ? '' : 's'} have been deleted.`,
+                    errorFallback: "Failed to delete one or more admins.",
+                }).catch(() => {});
             }
         });
     };
@@ -163,7 +195,7 @@ const AdminManageMentPage = () => {
             key: 'name',
             header: 'User',
             render: (value, row) => (
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                     <img
                         src={getImageUrl(row.userId.image)}
                         alt={row.userId.name.firstName}
@@ -172,55 +204,91 @@ const AdminManageMentPage = () => {
                             e.target.src = "https://i.pravatar.cc/150?img=32";
                         }}
                     />
-                    <span>{row.userId.name.firstName} {row.userId.name.lastName}</span>
+                    <span className="truncate" title={`${row.userId.name.firstName} ${row.userId.name.lastName}`}>
+                        {row.userId.name.firstName} {row.userId.name.lastName}
+                    </span>
                 </div>
             )
         },
         { key: 'role', header: 'Role' },
-        { key: 'permissions', header: 'Permissions', render: (_, row) => row.permission.join(', ') || 'No Permissions' },
+        {
+            key: 'permissions',
+            header: 'Permissions',
+            render: (_, row) => (
+                <span className="block truncate" title={row.permission.join(', ') || 'No Permissions'}>
+                    {row.permission.join(', ') || 'No Permissions'}
+                </span>
+            ),
+        },
         { key: 'department', header: 'Department' },
         {
             key: 'status',
             header: 'Status',
             render: (_, row) => (
-                <select
-                    value={row.userId.accountStatus}
-                    onClick={e => e.stopPropagation()}
-                    onChange={e => {
-                        const newStatus = e.target.value;
-                        dispatch(updateUser({
-                            id: row.userId._id,
-                            userData: { accountStatus: newStatus },
-                            token: localStorage.getItem('token')
-                        }))
-                            .unwrap()
-                            .then(() => {
-                                toast.success(`${row.userId.name.firstName} is now ${newStatus}`);
-                                dispatch(fetchAdmins());
-                            })
-                            .catch(() => toast.error('Failed to update status'));
+                <div className="flex justify-center">
+                <IconActionButton
+                    label={row.userId.accountStatus === 'active' ? 'Disable admin' : 'Enable admin'}
+                    icon={<FaCheckCircle />}
+                    tone={row.userId.accountStatus === 'active' ? 'emerald' : 'rose'}
+                    disabled={Boolean(processingAction)}
+                    isLoading={processingAction?.key === `status-${row._id}`}
+                    onClick={e => {
+                        e.stopPropagation();
+                        const newStatus = row.userId.accountStatus === 'active' ? 'inactive' : 'active';
+                        runAdminAction({
+                            actionKey: `status-${row._id}`,
+                            progressLabel: `Updating account status for ${row.userId.name.firstName} ${row.userId.name.lastName}...`,
+                            loadingMessage: `Saving status for ${row.userId.name.firstName}`,
+                            action: async () => {
+                                await dispatch(updateUser({
+                                    id: row.userId._id,
+                                    userData: { accountStatus: newStatus },
+                                    token: localStorage.getItem('token')
+                                })).unwrap();
+                                await dispatch(fetchAdmins());
+                            },
+                            successTitle: 'Admin status updated',
+                            successText: `${row.userId.name.firstName} is now ${newStatus}.`,
+                            errorFallback: 'Failed to update status.',
+                        }).catch(() => {});
                     }}
-                    className={`text-xs font-medium rounded-full px-3 py-1 ${row.userId.accountStatus === 'active' ? 'text-green-700' : 'text-red-600'}`}
-                >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
+                />
+                </div>
             )
         },
-        { key: 'createdAt', header: 'Created At', render: value => new Date(value).toLocaleString() },
+        {
+            key: 'createdAt',
+            header: 'Created At',
+            render: value => (
+                <div>
+                    <p className="font-medium text-slate-800">{new Date(value).toLocaleDateString()}</p>
+                    <p className="text-xs text-slate-500">{new Date(value).toLocaleTimeString()}</p>
+                </div>
+            ),
+        },
         {
             key: 'action',
-            header: 'Action',
+            header: 'Actions',
             render: (_, row) => (
-                <button onClick={() => navigate(`/admin/add-admin/${row._id}`)}>
-                    <FaPencil />
-                </button>
+                <div className="flex justify-end">
+                    <IconActionButton
+                        label="Edit admin"
+                        icon={<FaEdit />}
+                        tone="slate"
+                        disabled={Boolean(processingAction)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/add-admin/${row._id}`);
+                        }}
+                    />
+                </div>
             )
         }
     ];
 
     return (
         <div className="p-6 bg-white min-h-screen">
+            <ActionProgressBar active={Boolean(processingAction)} label={processingAction?.label} />
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div className="relative w-full md:w-1/3">
                     <input
@@ -315,6 +383,7 @@ const AdminManageMentPage = () => {
                 itemsPerPage={10}
                 emptyMessage="No admins found."
                 onDeleteSelected={(ids, selectedAdmins) => handleDeleteSelectedAdmins(ids, selectedAdmins)}
+                bulkDeleteLoading={processingAction?.key === 'bulk-delete-admins'}
             />
         </div>
     );

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCourses } from "@/store/courseSlice";
 import { IoMdStar } from "react-icons/io";
@@ -22,8 +22,6 @@ function CoursesPageContent() {
   const courses = courseState.courses || [];
   const loading = courseState.loading;
   const error = courseState.error;
-  const hasMountedQuerySync = useRef(false);
-  const isApplyingQueryFilters = useRef(false);
 
   const [search, setSearch] = useState("");
   const [showFilter, setShowFilter] = useState(false);
@@ -43,6 +41,52 @@ function CoursesPageContent() {
   const searchParamsString = searchParams.toString();
   const categoryFromQuery = readCategoryFromQuery();
   const modeFromQuery = readModeFromQuery();
+
+  const writeFiltersToUrl = ({
+    category = selectedCategory,
+    mode = selectedMode,
+  } = {}) => {
+    const nextParams = new URLSearchParams(searchParamsString);
+    const nextCategory = String(category || "").trim();
+    const nextMode = normalizeValue(mode);
+
+    if (nextCategory) nextParams.set("category", nextCategory);
+    else nextParams.delete("category");
+
+    if (nextMode) nextParams.set("mode", nextMode);
+    else nextParams.delete("mode");
+
+    if (!nextCategory && !nextMode) {
+      nextParams.delete("intent");
+    }
+
+    const nextQuery = nextParams.toString();
+    const nextHref = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+    const currentHref = searchParamsString
+      ? `${pathname}?${searchParamsString}`
+      : pathname;
+
+    if (nextHref !== currentHref) {
+      router.replace(nextHref, { scroll: false });
+    }
+  };
+
+  const updateCategoryFilter = (category) => {
+    setSelectedCategory(category);
+    writeFiltersToUrl({ category, mode: selectedMode });
+  };
+
+  const updateModeFilter = (mode) => {
+    const normalizedMode = normalizeValue(mode);
+    setSelectedMode(normalizedMode);
+    writeFiltersToUrl({ category: selectedCategory, mode: normalizedMode });
+  };
+
+  const clearSelectedFilters = () => {
+    setSelectedCategory("");
+    setSelectedMode("");
+    writeFiltersToUrl({ category: "", mode: "" });
+  };
 
   // Transform API data for UI
   const transformCourses = (rawCourses) => {
@@ -119,68 +163,15 @@ function CoursesPageContent() {
   );
 
   useEffect(() => {
-    if (
-      selectedCategory === categoryFromQuery &&
-      selectedMode === modeFromQuery
-    ) {
-      return;
-    }
-
-    isApplyingQueryFilters.current = true;
-    setSelectedCategory(categoryFromQuery);
-    setSelectedMode(modeFromQuery);
-  }, [categoryFromQuery, modeFromQuery, selectedCategory, selectedMode]);
-
-  useEffect(() => {
-    if (!hasMountedQuerySync.current) {
-      hasMountedQuerySync.current = true;
-      return;
-    }
-
-    if (isApplyingQueryFilters.current) {
-      isApplyingQueryFilters.current = false;
-      return;
-    }
-
-    const nextParams = new URLSearchParams(searchParamsString);
-    const nextCategory = selectedCategory.trim();
-    const nextMode = normalizeValue(selectedMode);
-    const currentCategory = categoryFromQuery;
-    const currentMode = modeFromQuery;
-
-    if (nextCategory) nextParams.set("category", nextCategory);
-    else nextParams.delete("category");
-
-    if (nextMode) nextParams.set("mode", nextMode);
-    else nextParams.delete("mode");
-
-    if (!nextCategory && !nextMode) {
-      nextParams.delete("intent");
-    }
-
-    const nextQuery = nextParams.toString();
-    const currentQuery = searchParamsString;
-
-    if (
-      currentCategory === nextCategory &&
-      currentMode === nextMode &&
-      currentQuery === nextQuery
-    ) {
-      return;
-    }
-
-    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
-      scroll: false,
-    });
-  }, [
-    categoryFromQuery,
-    modeFromQuery,
-    pathname,
-    router,
-    searchParamsString,
-    selectedCategory,
-    selectedMode,
-  ]);
+    setSelectedCategory((currentCategory) =>
+      currentCategory === categoryFromQuery
+        ? currentCategory
+        : categoryFromQuery
+    );
+    setSelectedMode((currentMode) =>
+      currentMode === modeFromQuery ? currentMode : modeFromQuery
+    );
+  }, [categoryFromQuery, modeFromQuery, searchParamsString]);
 
   // Loading state
   if (loading)
@@ -239,10 +230,7 @@ function CoursesPageContent() {
             {(selectedCategory || selectedMode) && (
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedCategory("");
-                  setSelectedMode("");
-                }}
+                onClick={clearSelectedFilters}
                 className="cursor-pointer text-sm font-medium text-orange-600 transition hover:text-orange-700"
               >
                 Clear selections
@@ -254,7 +242,7 @@ function CoursesPageContent() {
             {selectedCategory && (
               <button
                 type="button"
-                onClick={() => setSelectedCategory("")}
+                onClick={() => updateCategoryFilter("")}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium text-gray-700 ring-1 ring-orange-200 transition hover:bg-orange-100"
               >
                 Interest: {selectedCategory}
@@ -265,7 +253,7 @@ function CoursesPageContent() {
             {selectedMode && (
               <button
                 type="button"
-                onClick={() => setSelectedMode("")}
+                onClick={() => updateModeFilter("")}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-sm font-medium capitalize text-gray-700 ring-1 ring-orange-200 transition hover:bg-orange-100"
               >
                 Mode: {selectedMode}
@@ -309,7 +297,7 @@ function CoursesPageContent() {
                 </label>
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e) => updateCategoryFilter(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">All Categories</option>
@@ -326,7 +314,7 @@ function CoursesPageContent() {
                 <label className="block text-sm font-medium mb-1">Mode</label>
                 <select
                   value={selectedMode}
-                  onChange={(e) => setSelectedMode(e.target.value)}
+                  onChange={(e) => updateModeFilter(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500"
                 >
                   <option value="">All Modes</option>
@@ -358,8 +346,7 @@ function CoursesPageContent() {
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    setSelectedCategory("");
-                    setSelectedMode("");
+                    clearSelectedFilters();
                     setMaxPrice(10000);
                   }}
                   className="flex-1 border text-gray-700 py-2 rounded-2xl hover:bg-gray-50"

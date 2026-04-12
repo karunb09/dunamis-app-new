@@ -7,6 +7,12 @@ import {
   baseInputClassName,
 } from "./FormFields";
 
+const getTodayDateString = () => {
+  const today = new Date();
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+  return today.toISOString().slice(0, 10);
+};
+
 export default function Step4Preferences({ formData, setFormData, errors = {} }) {
   const handleCTCChange = (field, value) => {
     const formatted = value.replace(/[^0-9,]/g, "");
@@ -36,22 +42,18 @@ export default function Step4Preferences({ formData, setFormData, errors = {} })
           required
         />
 
-        <SelectInput
-          id="teacher-notice-period"
-          label="Notice Period"
+        <TextInput
+          id="teacher-join-date"
+          label="When will you Join"
+          type="date"
+          min={getTodayDateString()}
           value={formData.noticePeriod}
           onChange={(e) =>
             setFormData({ ...formData, noticePeriod: e.target.value })
           }
           error={errors.noticePeriod}
           required
-        >
-          <option value="">Select notice period</option>
-          <option value="15 days">15 Days</option>
-          <option value="1 month">1 Month</option>
-          <option value="2 month">2 Months</option>
-          <option value="3 month">3 Months</option>
-        </SelectInput>
+        />
 
         <SelectInput
           id="teacher-mode"

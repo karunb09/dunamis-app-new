@@ -2,35 +2,38 @@
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
+import { fetchPublicSiteContent } from "@/lib/siteContent";
+import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
 export default function Testimonials() {
     const router = useRouter();
     const [isInterestModalOpen, setInterestModalOpen] = useState(false);
-    const testimonials = [
-        {
-            name: "Rahul Sharma",
-            course: "Guitar Fundamentals",
-            feedback:
-                "Alex makes learning guitar so easy and enjoyable. I went from zero to playing my favorite songs in just 3 months! The structured approach and personal attention made all the difference.",
-            avatar: "https://i.pravatar.cc/100?img=12",
-        },
-        {
-            name: "Priya Patel",
-            course: "Piano Mastery",
-            feedback:
-                "Sarah's teaching method is exceptional. The combination of classical and modern pieces kept me motivated throughout. I never thought I could play piano at this level.",
-            avatar: "https://i.pravatar.cc/100?img=48",
-        },
-        {
-            name: "Kavya Dubey",
-            course: "Contemporary Dance",
-            feedback:
-                "Maya helped me discover my artistic voice through movement. The classes are challenging but incredibly rewarding. I feel more confident and expressive.",
-            avatar: "https://i.pravatar.cc/100?img=47",
-        },
-    ];
+    const [testimonials, setTestimonials] = useState([]);
+
+    useEffect(() => {
+        let mounted = true;
+
+        const loadTestimonials = async () => {
+            try {
+                const items = await fetchPublicSiteContent("testimonial");
+                if (mounted) {
+                    setTestimonials(items.slice(0, 3));
+                }
+            } catch {
+                if (mounted) {
+                    setTestimonials([]);
+                }
+            }
+        };
+
+        loadTestimonials();
+
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -86,28 +89,32 @@ export default function Testimonials() {
                     className=" grid md:grid-cols-3 gap-6 max-w-7xl mx-auto"
                     variants={containerVariants}
                 >
-                    {testimonials.map((item, index) => (
+                    {testimonials.length === 0 ? (
+                        <p className="col-span-full text-center text-gray-500">
+                            Student stories are being updated.
+                        </p>
+                    ) : testimonials.map((item, index) => (
                         <motion.div
-                            key={index}
+                            key={item._id || index}
                             className="bg-[#ff6b3514] rounded-xl border border-[#FF6B35] shadow p-6 text-left flex flex-col justify-between hover:shadow-lg hover:-translate-y-2 transition-transform duration-300"
                             variants={cardVariants}
                         >
                             <div className="flex text-[#FF6B35] mb-3">
-                                {[...Array(5)].map((_, i) => (
+                                {[...Array(Math.round(item.rating || 5))].map((_, i) => (
                                     <Star key={i} className="h-4 w-4 fill-[#FF6B35] text-[#FF6B35]" />
                                 ))}
                             </div>
-                            <p className="text-gray-700 mb-6 text-sm">"{item.feedback}"</p>
+                            <p className="text-gray-700 mb-6 text-sm">"{item.body}"</p>
 
                             <div className="flex items-center gap-3 mt-auto">
                                 <img
-                                    src={item.avatar}
-                                    alt={item.name}
+                                    src={resolveImageUrl(item.image, getInitialsImage(item.title))}
+                                    alt={item.title}
                                     className="h-10 w-10 rounded-full object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold text-sm">{item.name}</p>
-                                    <p className="text-gray-500 text-sm">{item.course}</p>
+                                    <p className="font-semibold text-sm">{item.title}</p>
+                                    <p className="text-gray-500 text-sm">{item.subtitle}</p>
                                 </div>
                             </div>
                         </motion.div>

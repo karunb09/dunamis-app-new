@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { FaSearch, FaFilter, FaSortAmountDown, FaPlus, FaMapMarkerAlt, FaTrash, FaEllipsisV } from "react-icons/fa";
+import { FaSearch, FaFilter, FaSortAmountDown, FaPlus, FaMapMarkerAlt, FaTrash, FaEllipsisV, FaClock, FaUsers, FaCity } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllBranches, deleteBranch } from "../../redux/Branch/branchSlice";
@@ -7,6 +7,7 @@ import { X } from "phosphor-react";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 import { Menu } from "@headlessui/react";
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const TABS = ["Active", "Drafts"];
 const SORT_OPTIONS = [
@@ -51,7 +52,7 @@ const OfflineCentersPage = () => {
     };
 
     // Single delete
-    const handleDeleteSingle = (id, name) => {
+    const handleDeleteSingle = (id) => {
         Swal.fire({
             title: "Are you sure?",
             text: `You won't be able to revert this!`,
@@ -167,6 +168,17 @@ const OfflineCentersPage = () => {
 
     const slugify = (text) =>
         (text || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+    const getBranchFallbackImage = (branchName = "Branch") =>
+        `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(branchName)}`;
+
+    const getBranchCityName = (branch) =>
+        branch?.city?.cityName || branch?.city?.name || "City not assigned";
+
+    const getBranchTimings = (branch) =>
+        Array.isArray(branch?.branchTimings) && branch.branchTimings.length === 2
+            ? branch.branchTimings.join(" - ")
+            : "Hours not set";
 
     const uniqueCities = [
         ...new Map(branches.map((b) => b.city).filter(Boolean).map((c) => [c._id, c])).values(),
@@ -310,7 +322,7 @@ const OfflineCentersPage = () => {
             {error && <p className="text-red-500">{error}</p>}
 
             {/* Branches Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {!loading && filteredBranches.length === 0 && (
                     <p className="text-gray-500 col-span-full">No branches found.</p>
                 )}
@@ -318,7 +330,7 @@ const OfflineCentersPage = () => {
                     filteredBranches.map((branch) => (
                         <div
                             key={branch._id}
-                            className={`bg-gray-50 border rounded-xl p-4 shadow-sm hover:shadow-md transition relative ${selectedBranches.includes(branch._id) ? "ring-2 ring-gray-800" : ""
+                            className={`group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl relative ${selectedBranches.includes(branch._id) ? "ring-2 ring-black" : ""
                                 }`}
                         >
                             {/* Checkbox */}
@@ -326,25 +338,16 @@ const OfflineCentersPage = () => {
                                 type="checkbox"
                                 checked={selectedBranches.includes(branch._id)}
                                 onChange={() => handleSelectBranch(branch._id)}
-                                className="absolute top-4 left-4 cursor-pointer w-4 h-4"
+                                className="absolute top-4 left-4 z-20 cursor-pointer w-4 h-4 accent-black"
+                                aria-label={`Select ${branch.branchName || "branch"}`}
                             />
 
                             {/* Three-dot menu */}
-                            <Menu as="div" className="absolute top-4 right-4">
-                                <Menu.Button className="p-1 hover:bg-gray-200 rounded-full transition">
-                                    <FaEllipsisV className="text-gray-600" />
+                            <Menu as="div" className="absolute top-4 right-4 z-20">
+                                <Menu.Button className="p-2 bg-white/90 hover:bg-white rounded-full transition shadow-sm">
+                                    <FaEllipsisV className="text-gray-700" />
                                 </Menu.Button>
-                                <Menu.Items className="absolute right-0 mt-2 w-32 bg-white border rounded-lg shadow-lg z-10">
-                                    {/* <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                onClick={() => navigate(`/admin/centers/edit/${branch._id}`)}
-                                                className={`w-full text-left px-4 py-2 text-sm ${active ? "bg-gray-100" : ""}`}
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
-                                    </Menu.Item> */}
+                                <Menu.Items className="absolute right-0 mt-2 w-36 bg-white border rounded-2xl shadow-xl z-30 overflow-hidden">
                                     <Menu.Item>
                                         {({ active }) => (
                                             <button
@@ -368,26 +371,66 @@ const OfflineCentersPage = () => {
                                 </Menu.Items>
                             </Menu>
 
-                            <div className="mt-6">
-                                <h3 className="font-semibold text-lg mb-2">
-                                    {branch.branchName || "Unnamed Branch"}
-                                </h3>
-                                <p className="text-gray-600 text-sm flex items-start gap-2">
-                                    <FaMapMarkerAlt className="mt-1" />
-                                    {branch.location || "Location not available"}
-                                </p>
-                                <div className="mt-4">
-                                    <button
-                                        onClick={() =>
-                                            navigate(`/admin/centers/${slugify(branch._id)}`, {
-                                                state: { branch },
-                                            })
-                                        }
-                                        className="px-4 py-2 text-sm border rounded-full hover:bg-gray-100"
-                                    >
-                                        View Details →
-                                    </button>
+                            <div className="relative h-44 bg-gray-100">
+                                <img
+                                    src={resolveImageUrl(
+                                        branch.branchImage,
+                                        getBranchFallbackImage(branch.branchName || "Branch")
+                                    )}
+                                    alt={branch.branchName || "Branch"}
+                                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+                                <span className={`absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold capitalize ${branch.status === "active"
+                                    ? "bg-emerald-100 text-emerald-800"
+                                    : "bg-amber-100 text-amber-800"
+                                    }`}>
+                                    {branch.status || "draft"}
+                                </span>
+                            </div>
+
+                            <div className="p-5">
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-950">
+                                        {branch.branchName || "Unnamed Branch"}
+                                    </h3>
+                                    <p className="mt-2 text-gray-600 text-sm flex items-start gap-2">
+                                        <FaMapMarkerAlt className="mt-1 shrink-0 text-gray-400" />
+                                        <span>{branch.location || "Location not available"}</span>
+                                    </p>
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                                    <div className="rounded-2xl bg-gray-50 p-3">
+                                        <p className="flex items-center gap-2 font-medium text-gray-900">
+                                            <FaCity className="text-gray-400" /> City
+                                        </p>
+                                        <p className="mt-1 truncate">{getBranchCityName(branch)}</p>
+                                    </div>
+                                    <div className="rounded-2xl bg-gray-50 p-3">
+                                        <p className="flex items-center gap-2 font-medium text-gray-900">
+                                            <FaUsers className="text-gray-400" /> Capacity
+                                        </p>
+                                        <p className="mt-1">{branch.branchCapacity || "N/A"}</p>
+                                    </div>
+                                    <div className="col-span-2 rounded-2xl bg-gray-50 p-3">
+                                        <p className="flex items-center gap-2 font-medium text-gray-900">
+                                            <FaClock className="text-gray-400" /> Timings
+                                        </p>
+                                        <p className="mt-1">{getBranchTimings(branch)}</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={() =>
+                                        navigate(`/admin/centers/${slugify(branch._id)}`, {
+                                            state: { branch },
+                                        })
+                                    }
+                                    className="mt-5 w-full rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+                                >
+                                    View Details
+                                </button>
                             </div>
                         </div>
                     ))}

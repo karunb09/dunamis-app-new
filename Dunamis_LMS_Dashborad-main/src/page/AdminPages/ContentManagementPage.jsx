@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { FaFilter, FaSortAmountDown, FaPlus, FaSearch, FaCopy, FaBook, FaTrash } from "react-icons/fa";
+import { FaFilter, FaSortAmountDown, FaPlus, FaSearch, FaCopy, FaBook, FaTrash, FaLayerGroup, FaRegClock, FaStream, FaEdit } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { deleteContent, fetchAllContent } from "../../redux/Content/ContentSlice";
 import Swal from "sweetalert2";
@@ -32,6 +32,17 @@ const ContentManagementPage = () => {
 
   const [subcategoriesForSelectedCategory, setSubcategoriesForSelectedCategory] = useState([]);
 
+  const contentStats = {
+    total: contentList?.length || 0,
+    active: contentList?.filter((content) => content.status === "published").length || 0,
+    drafts: contentList?.filter((content) => content.status !== "published").length || 0,
+    modules:
+      contentList?.reduce(
+        (sum, content) => sum + (content.modules?.length || 0),
+        0
+      ) || 0,
+  };
+
   // Fetch all content on mount
   useEffect(() => {
     dispatch(fetchAllContent());
@@ -40,10 +51,6 @@ const ContentManagementPage = () => {
   const allCategories = Array.from(
     new Set(contentList.map(c => c.category?.name).filter(Boolean))
   );
-
-  const onSortChange = (value) => {
-    setSortOption(value);
-  };
 
   const onFilterChange = (field, value) => {
     setFilters((prev) => ({ ...prev, [field]: value }));
@@ -150,7 +157,43 @@ const ContentManagementPage = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+    <div className="p-4 md:p-6 bg-[#f5f7fb] min-h-screen">
+      <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#0f172a] via-[#1e3a5f] to-[#0f766e] p-6 text-white shadow-lg">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
+              Learning Management
+            </p>
+            <h1 className="mt-3 text-3xl font-semibold">Content Studio</h1>
+            <p className="mt-2 max-w-2xl text-sm text-white/75">
+              Build and curate course content, modules, categories, and publishing readiness.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate("/admin/content/create")}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-cyan-50"
+          >
+            <FaPlus /> Add Content
+          </button>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            { label: "Total", value: contentStats.total, icon: <FaLayerGroup /> },
+            { label: "Active", value: contentStats.active, icon: <FaStream /> },
+            { label: "Drafts", value: contentStats.drafts, icon: <FaRegClock /> },
+            { label: "Modules", value: contentStats.modules, icon: <FaBook /> },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
+              <div className="flex items-center justify-between text-white/70">
+                <span className="text-xs uppercase tracking-[0.18em]">{stat.label}</span>
+                {stat.icon}
+              </div>
+              <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Top Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div className="relative w-full md:w-1/3">
@@ -266,13 +309,7 @@ const ContentManagementPage = () => {
             </div>
           )}
 
-          {/* Add Content Button */}
-          <button
-            onClick={() => navigate("/admin/content/create")}
-            className="flex items-center bg-black text-white gap-2 px-4 py-2 rounded-2xl hover:bg-gray-700 transition whitespace-nowrap"
-          >
-            <FaPlus /> Add Content
-          </button>
+          {/* Add Content lives in the hero CTA */}
         </div>
       </div>
 
@@ -307,48 +344,70 @@ const ContentManagementPage = () => {
 
             return (
               <Link to={`/admin/content/details/${course._id}`} key={course._id} className="block">
-                <div className="bg-white rounded-lg p-4 hover:shadow-xl transition-shadow border border-gray-200 h-full flex flex-col">
+                <div className="group h-full overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl flex flex-col">
                   <div className="flex flex-col items-start">
                     <span
-                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${style.class}`}
+                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${style.class}`}
                     >
                       {style.icon} {categoryObj.name || "Uncategorized"}
                     </span>
-                    <h3 className="text-lg [font-weight:300] mt-3">{course.courseName}</h3>
+                    <h3 className="text-xl font-semibold text-gray-950 mt-4">{course.courseName}</h3>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1 flex-grow">
+                  <p className="text-sm text-gray-600 mt-2 flex-grow line-clamp-3">
                     {course.courseDescription || "No description provided."}
                   </p>
-                  <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-                    <div className="grid grid-cols-3 items-center gap-4 text-gray-500 text-sm">
-                      <div className="flex items-center gap-2">
-                        <FaBook />
-                        <span>{course.modules?.length || 0}</span>
-                      </div>
+                  <div className="mt-5 grid grid-cols-2 gap-3 text-xs text-gray-600">
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <p className="font-medium text-gray-900">Modules</p>
+                      <p className="mt-1 flex items-center gap-2">
+                        <FaBook /> {course.modules?.length || 0}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50 p-3">
+                      <p className="font-medium text-gray-900">Status</p>
+                      <p className="mt-1 capitalize">{course.status || "draft"}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center mt-5 pt-4 border-t border-gray-100">
+                    <span className="text-xs text-gray-400">
+                      ID: {course._id?.slice(-6)}
+                    </span>
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                      <button
+                        className="rounded-full border border-gray-200 p-2 transition hover:bg-gray-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          copyToClipboard(course._id);
+                        }}
+                        aria-label="Copy content ID"
+                      >
+                        <FaCopy />
+                      </button>
 
-                      <div className="flex justify-center">
-                        <FaCopy
-                          className="cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            copyToClipboard(course._id);
-                          }}
-                        />
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          navigate(`/admin/content/edit/${course._id}`);
+                        }}
+                        className="rounded-full border border-gray-200 p-2 text-gray-700 transition hover:bg-gray-100"
+                        aria-label="Edit content"
+                      >
+                        <FaEdit />
+                      </button>
 
-                      <div className="flex justify-end">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            handleDelete(course._id);
-                          }}
-                          className="text-red-500"
-                        >
-                          <FaTrash />
-                        </button>
-                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDelete(course._id);
+                        }}
+                        className="rounded-full border border-red-100 p-2 text-red-500 transition hover:bg-red-50"
+                        aria-label="Delete content"
+                      >
+                        <FaTrash />
+                      </button>
                     </div>
                   </div>
                 </div>

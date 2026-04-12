@@ -75,7 +75,7 @@ export default function BecomeTeacher() {
           className="text-2xl sm:text-3xl md:text-3xl font-bold text-[#2D2D2D] mb-4"
           variants={sectionVariant}
         >
-          Become a Trainer
+          Become an Instrctor
         </motion.h1>
         <motion.p className="text-xl text-gray-500" variants={sectionVariant}>
           Share your expertise and passion with aspiring learners. Join{" "}

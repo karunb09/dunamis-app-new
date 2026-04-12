@@ -84,6 +84,27 @@ export const updateApplicationStatus = createAsyncThunk(
   }
 );
 
+export const deleteApplication = createAsyncThunk(
+  "application/delete",
+  async (id, thunkAPI) => {
+    try {
+      const token = getStoredToken();
+      const res = await fetch(`${BASE_URL}/teacherApplication/delete/${id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.message || "Failed to delete application");
+      }
+      return id;
+    } catch (err) {
+      return thunkAPI.rejectWithValue(err.message);
+    }
+  }
+);
+
 //Slice
 const applicationSlice = createSlice({
   name: "application",
@@ -135,6 +156,18 @@ const applicationSlice = createSlice({
         state.allApplications = state.allApplications.map((app) =>
           app._id === id ? { ...app, status } : app
         );
+      })
+
+      // Delete application
+      .addCase(deleteApplication.fulfilled, (state, action) => {
+        state.allApplications = state.allApplications.filter(
+          (app) => app._id !== action.payload
+        );
+
+        if (state.data?._id === action.payload) {
+          state.data = null;
+          state.status = "";
+        }
       });
   },
 });

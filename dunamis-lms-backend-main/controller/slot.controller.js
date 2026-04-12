@@ -5,6 +5,69 @@ const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
 
+const SLOT_DURATION_RULES = {
+  enrolled: {
+    standard: 60,
+    premium: 40,
+  },
+  demo: {
+    standard: 20,
+    premium: 20,
+  },
+};
+
+const DAY_PAIR_OPTIONS = [
+  { label: "Mon - Thu", days: ["monday", "thursday"] },
+  { label: "Tue - Fri", days: ["tuesday", "friday"] },
+  { label: "Wed - Sat", days: ["wednesday", "saturday"] },
+  { label: "Sat - Sun", days: ["saturday", "sunday"] },
+];
+
+const ALLOWED_DAY_PAIRS = DAY_PAIR_OPTIONS.map((option) => option.days);
+
+const getExpectedDurationMinutes = (slot = {}) =>
+  SLOT_DURATION_RULES[slot.slotType]?.[slot.sessionType] || null;
+
+const getMaxStudentsForScheduleSlot = (slot = {}) => {
+  if (slot.slotType === "demo") return 1;
+  return slot.sessionType === "premium" ? 1 : 4;
+};
+
+const isAllowedDayPair = (days = []) => {
+  const normalizedDays = days.map((day) => String(day).toLowerCase()).sort();
+  return ALLOWED_DAY_PAIRS.some((pair) => {
+    const normalizedPair = pair.slice().sort();
+    return (
+      normalizedPair.length === normalizedDays.length &&
+      normalizedPair.every((day, index) => day === normalizedDays[index])
+    );
+  });
+};
+
+const getDayPairLabel = (days = []) => {
+  const normalizedDays = days.map((day) => String(day).toLowerCase()).sort();
+  const match = DAY_PAIR_OPTIONS.find((option) => {
+    const normalizedPair = option.days.slice().sort();
+    return (
+      normalizedPair.length === normalizedDays.length &&
+      normalizedPair.every((day, index) => day === normalizedDays[index])
+    );
+  });
+
+  return match?.label || "";
+};
+
+const getGroupSlotTag = (slot = {}) => {
+  if (slot.slotType !== "enrolled" || slot.sessionType !== "standard") {
+    return null;
+  }
+
+  const studentCount = Array.isArray(slot.students) ? slot.students.length : 0;
+  if (studentCount >= 1 && studentCount <= 2) return "Learner's choice";
+  if (studentCount >= 3) return "Filling fast";
+  return null;
+};
+
 // Date to minutes for overlap check
 // const timeToMinutes = (date, timeStr) => {
 //   const [hours, minutes] = timeStr.split(":").map(Number);
@@ -264,7 +327,7 @@ exports.getAvailableSlots = async (req, res) => {
         populate: { path: "userId", select: "name email image" },
       })
       .select(
-        "date startTime endTime maxStudents students slotType sessionType branchId parentAvailabilityId courseId createdBy"
+        "date startTime endTime maxStudents students slotType sessionType branchId parentAvailabilityId recurringDays courseId createdBy"
       )
       .sort({ date: 1, startTime: 1 });
 
@@ -289,10 +352,55 @@ exports.getAvailableSlots = async (req, res) => {
       slots = await fetchSlots();
     }
 
+    const teacherIds = [
+      ...new Set(
+        slots
+          .map((slot) => slot.createdBy?._id || slot.createdBy)
+          .filter(Boolean)
+          .map((id) => id.toString())
+      ),
+    ];
+    const teachers = teacherIds.length
+      ? await Teacher.find({ _id: { $in: teacherIds } }).select(
+          "weeklyAvailability"
+        )
+      : [];
+    const availabilityDaysById = new Map();
+
+    teachers.forEach((teacher) => {
+      (teacher.weeklyAvailability || []).forEach((availability) => {
+        availabilityDaysById.set(
+          availability._id.toString(),
+          availability.days || []
+        );
+      });
+    });
+
+    const decoratedSlots = slots.map((slot) => {
+      const plainSlot = slot.toObject ? slot.toObject() : slot;
+      const studentCount = Array.isArray(plainSlot.students)
+        ? plainSlot.students.length
+        : 0;
+      const maxStudents = Number(plainSlot.maxStudents) || 0;
+      const availabilityDays =
+        availabilityDaysById.get(String(plainSlot.parentAvailabilityId || "")) ||
+        plainSlot.recurringDays ||
+        [];
+
+      return {
+        ...plainSlot,
+        availabilityDays,
+        dayPairLabel: getDayPairLabel(availabilityDays),
+        studentCount,
+        availableSeats: Math.max(maxStudents - studentCount, 0),
+        bookingTag: getGroupSlotTag(plainSlot),
+      };
+    });
+
     res.status(200).json({
       success: true,
       message: "Available slots fetched successfully",
-      slots,
+      slots: decoratedSlots,
     });
   } catch (err) {
     console.error("Error fetching available slots:", err);
@@ -361,8 +469,24 @@ exports.deleteSlot = async (req, res) => {
 };
 
 const timeToMinutes = (timeStr) => {
-  const [h, m] = timeStr.split(":").map(Number);
-  return h * 60 + m;
+  const match = String(timeStr || "").match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return NaN;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    minutes < 0 ||
+    minutes > 59 ||
+    hours < 0 ||
+    hours > 24 ||
+    (hours === 24 && minutes !== 0)
+  ) {
+    return NaN;
+  }
+
+  return hours * 60 + minutes;
 };
 
 const isReplaceAvailabilityRequest = (body = {}) => {
@@ -438,6 +562,13 @@ exports.setWeeklyAvailability = async (req, res) => {
         }
       }
 
+      if (!isAllowedDayPair(slot.days)) {
+        return res.status(400).json({
+          message:
+            "Slots must use one allowed day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun",
+        });
+      }
+
       if (!["demo", "enrolled"].includes(slot.slotType)) {
         return res
           .status(400)
@@ -447,6 +578,27 @@ exports.setWeeklyAvailability = async (req, res) => {
       if (!["standard", "premium"].includes(slot.sessionType)) {
         return res.status(400).json({
           message: "Invalid sessionType; must be 'standard' or 'premium'",
+        });
+      }
+
+      const expectedDuration = getExpectedDurationMinutes(slot);
+      const start = timeToMinutes(slot.startTime);
+      const end = timeToMinutes(slot.endTime);
+
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
+        return res.status(400).json({
+          message: `Invalid time range for ${slot.startTime}-${slot.endTime}`,
+        });
+      }
+
+      if (!expectedDuration || end - start !== expectedDuration) {
+        return res.status(400).json({
+          message:
+            slot.slotType === "demo"
+              ? "Demo slots must be exactly 20 minutes"
+              : slot.sessionType === "premium"
+                ? "Individual class slots must be exactly 40 minutes"
+                : "Group class slots must be exactly 60 minutes",
         });
       }
     }
@@ -496,9 +648,16 @@ exports.setWeeklyAvailability = async (req, res) => {
       teacher.weeklyAvailability = availability.map((slot) => ({
         ...slot,
         days: slot.days.map((day) => day.toLowerCase()),
+        maxStudents: getMaxStudentsForScheduleSlot(slot),
       }));
     } else {
-      teacher.weeklyAvailability.push(...availability);
+      teacher.weeklyAvailability.push(
+        ...availability.map((slot) => ({
+          ...slot,
+          days: slot.days.map((day) => day.toLowerCase()),
+          maxStudents: getMaxStudentsForScheduleSlot(slot),
+        }))
+      );
     }
     await teacher.save();
     const syncResult = await syncTeacherAvailabilitySlots({

@@ -14,6 +14,11 @@ const DAY_NAMES = [
 
 const ACTIVE_DEMO_STATUSES = ["Booked", "Rescheduled"];
 
+const getMaxStudentsForSlot = (slot = {}) => {
+  if (slot.slotType === "demo") return 1;
+  return slot.sessionType === "premium" ? 1 : 4;
+};
+
 const startOfDay = (value) => {
   const date = new Date(value || new Date());
   date.setHours(0, 0, 0, 0);
@@ -58,9 +63,7 @@ const normalizeAvailabilityEntry = (slot) => ({
   endTime: slot?.endTime || "",
   sessionType: slot?.sessionType || "",
   slotType: slot?.slotType || "",
-  maxStudents:
-    Number(slot?.maxStudents) ||
-    (slot?.sessionType === "premium" ? 1 : 4),
+  maxStudents: getMaxStudentsForSlot(slot),
   courseId: toIdString(slot?.courseId),
   branchId: toIdString(slot?.branchId) || null,
 });
@@ -119,7 +122,7 @@ const buildDesiredSlotDocs = ({
         createdBy: teacherId,
         slotType: slot.slotType,
         sessionType: slot.sessionType,
-        recurringDays: [weekday],
+        recurringDays: slot.days,
         isRecurring: true,
         maxStudents: slot.maxStudents,
         parentAvailabilityId: slot._id,

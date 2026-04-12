@@ -1,15 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import CourseCard from '../../components/CourseCard';
-import { FaTh, FaList, FaSortAmountDown, FaFilter, FaPlus, FaSearch } from 'react-icons/fa';
+import { FaTh, FaList, FaSortAmountDown, FaFilter, FaPlus, FaSearch, FaEdit, FaTrash, FaCloudUploadAlt, FaRegClock } from 'react-icons/fa';
 import Pagination from '../../components/Pagination';
 import { useNavigate } from 'react-router-dom';
-import { FiMoreHorizontal } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { deleteCourse, getCourses, updateCourse } from '../../redux/Course/CourseSlice';
 import Swal from 'sweetalert2';
-import { X } from 'react-feather';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../utils/resolveImageUrl';
+import IconActionButton from '../../components/IconActionButton';
 
 const TABS = ['Active Courses', 'Draft Courses'];
 const SORT_OPTIONS = [
@@ -26,7 +25,6 @@ const CourseManagement = () => {
     const { courseList, status, error } = useSelector((state) => state.course);
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [menuOpen, setMenuOpen] = useState(null);
 
     const [isGridView, setIsGridView] = useState(() => {
         const savedView = localStorage.getItem('courseView');
@@ -74,7 +72,6 @@ const CourseManagement = () => {
         localStorage.setItem('activeTab', tab);
         setGridPage(1);
         setListPage(1);
-        setMenuOpen(null);
     };
 
     // utils
@@ -182,7 +179,7 @@ const CourseManagement = () => {
                     toast.error(`Failed to move to drafts: ${err.message || err}`);
                 }
                 break;
-            case 'Delete':
+            case 'Delete': {
                 const result = await Swal.fire({
                     title: 'Are you sure?',
                     text: `Do you want to delete the course "${course.name}"? This action cannot be undone.`,
@@ -203,15 +200,11 @@ const CourseManagement = () => {
                     }
                 }
                 break;
+            }
 
             default:
                 break;
         }
-        setMenuOpen(null);
-    };
-
-    const handleMenuToggle = (index) => {
-        setMenuOpen(menuOpen === index ? null : index);
     };
 
     // Handle sort option change
@@ -243,9 +236,48 @@ const CourseManagement = () => {
     const categories = Array.from(new Set(courseList?.map(c => c.category?.name).filter(Boolean) || []));
     const levels = Array.from(new Set(courseList?.map(c => c.level).filter(Boolean) || []));
     const modes = Array.from(new Set(courseList?.map(c => c.mode).filter(Boolean) || []));
+    const courseStats = {
+        total: courseList?.length || 0,
+        active: courseList?.filter((course) => course.isPublished).length || 0,
+        drafts: courseList?.filter((course) => !course.isPublished).length || 0,
+        offline: courseList?.filter((course) => course.mode === "offline").length || 0,
+    };
 
     return (
-        <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+        <div className="p-4 md:p-6 bg-[#f7f4ef] min-h-screen">
+            <div className="mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#111827] via-[#213547] to-[#b45309] p-6 text-white shadow-lg">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.28em] text-orange-200">
+                            Learning Management
+                        </p>
+                        <h1 className="mt-3 text-3xl font-semibold">Course Command Center</h1>
+                        <p className="mt-2 max-w-2xl text-sm text-white/75">
+                            Review course readiness, pricing, instructors, offline branches, and draft/publish status.
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/admin/add-course')}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-gray-950 transition hover:bg-orange-50"
+                    >
+                        <FaPlus /> Add Course
+                    </button>
+                </div>
+                <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    {[
+                        { label: "Total", value: courseStats.total },
+                        { label: "Active", value: courseStats.active },
+                        { label: "Drafts", value: courseStats.drafts },
+                        { label: "Offline", value: courseStats.offline },
+                    ].map((stat) => (
+                        <div key={stat.label} className="rounded-2xl bg-white/10 p-4 ring-1 ring-white/10">
+                            <span className="text-xs uppercase tracking-[0.18em] text-white/65">{stat.label}</span>
+                            <p className="mt-2 text-2xl font-semibold">{stat.value}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             {/* Tabs */}
             <div className="flex gap-4 border-b border-gray-300 mb-4">
                 {TABS.map(tab => (
@@ -290,12 +322,7 @@ const CourseManagement = () => {
                     >
                         <FaList />
                     </button>
-                    <button
-                        onClick={() => navigate('/admin/add-course')}
-                        className="flex items-center bg-black text-white gap-2 px-4 py-2 rounded-2xl hover:bg-gray-700 transition whitespace-nowrap"
-                    >
-                        <FaPlus /> Add Course
-                    </button>
+                    {/* Add course lives in the hero CTA */}
                 </div>
             </div>
 
@@ -516,7 +543,7 @@ const CourseManagement = () => {
                             </thead>
                             <tbody>
                                 {paginatedListCourses.length > 0 ? (
-                                    paginatedListCourses.map((course, idx) => (
+                                    paginatedListCourses.map((course) => (
                                         <tr
                                             key={course._id}
                                             className="border-t hover:bg-gray-50 cursor-pointer"
@@ -553,66 +580,36 @@ const CourseManagement = () => {
                                             </td>
                                             <td className="px-4 py-3">{course.totalStudents || 0}</td>
                                             <td className="px-4 py-3">{getSelectedMonthlyFee(course.price)}</td>
-                                            <td className="px-4 py-3 relative">
-                                                <button
-                                                    className="action-menu p-1 hover:bg-gray-100 rounded"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleMenuToggle(idx);
-                                                    }}
-                                                    aria-label="More actions"
-                                                    aria-haspopup="true"
-                                                    aria-expanded={menuOpen === idx}
-                                                >
-                                                    <FiMoreHorizontal />
-                                                </button>
-                                                {menuOpen === idx && (
-                                                    <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30">
-                                                        {/* Close Icon */}
-                                                        <div className="flex justify-between items-center px-4 py-2 border-b">
-                                                            <span className="text-xs font-semibold">Actions</span>
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setMenuOpen(null);
-                                                                }}
-                                                                aria-label="Close menu"
-                                                                className="text-gray-500 hover:text-gray-800"
-                                                            >
-                                                                <X size={16} />
-                                                            </button>
-                                                        </div>
-                                                        <ul className="text-sm font-medium">
-                                                            <li
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleMenuAction('Edit', course);
-                                                                }}
-                                                            >
-                                                                Edit
-                                                            </li>
-                                                            <li
-                                                                className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleMenuAction(course.isPublished ? 'Move to drafts' : 'Publish', course);
-                                                                }}
-                                                            >
-                                                                {course.isPublished ? 'Move to drafts' : 'Publish'}
-                                                            </li>
-                                                            <li
-                                                                className="px-4 py-2 text-red-600 hover:bg-red-100 cursor-pointer"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleMenuAction('Delete', course);
-                                                                }}
-                                                            >
-                                                                Delete
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                )}
+                                            <td className="px-4 py-3">
+                                                <div className="flex flex-wrap justify-end gap-1.5">
+                                                    <IconActionButton
+                                                        label="Edit"
+                                                        icon={<FaEdit />}
+                                                        tone="sky"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMenuAction('Edit', course);
+                                                        }}
+                                                    />
+                                                    <IconActionButton
+                                                        label={course.isPublished ? 'Move to Drafts' : 'Publish'}
+                                                        icon={course.isPublished ? <FaRegClock /> : <FaCloudUploadAlt />}
+                                                        tone={course.isPublished ? 'amber' : 'emerald'}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMenuAction(course.isPublished ? 'Move to drafts' : 'Publish', course);
+                                                        }}
+                                                    />
+                                                    <IconActionButton
+                                                        label="Delete"
+                                                        icon={<FaTrash />}
+                                                        tone="rose"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleMenuAction('Delete', course);
+                                                        }}
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     ))

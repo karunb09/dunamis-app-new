@@ -22,39 +22,6 @@ const Curriculum = ({ modules = [] }) => {
     );
   };
 
-  const activity = [
-    {
-      avatar: "https://i.pravatar.cc/40?img=2",
-      name: "Aarti Sharma",
-      desc: "New enrollment in Carnatic Vocal Beginner.",
-      time: "41m ago",
-    },
-    {
-      avatar: "https://i.pravatar.cc/40?img=7",
-      name: "Jean-Pierre Dubois",
-      desc: "Completed French Intermediate certification.",
-      time: "2h ago",
-    },
-    {
-      avatar: "https://i.pravatar.cc/40?img=7",
-      name: "Jean-Pierre Dubois",
-      desc: "Completed French Intermediate certification.",
-      time: "2h ago",
-    },
-    {
-      avatar: "https://i.pravatar.cc/40?img=8",
-      name: "Raj Patel",
-      desc: "Updated Guitar lessons material.",
-      time: "2h ago",
-    },
-    {
-      avatar: "/profile.jpg",
-      name: "Kirthi Rajesh",
-      desc: "Instructor Onboarding complete.",
-      time: "2h ago",
-    },
-  ];
-
   return (
     <div className="bg-white rounded-lg p-4 shadow-sm">
       {/* Header */}
@@ -156,25 +123,6 @@ const Curriculum = ({ modules = [] }) => {
           ))}
         </>
       )}
-
-      {/* Activity Section */}
-      <div className="mt-6 pt-4 border-t border-gray-200">
-        <h4 className="text-lg font-semibold text-gray-900 mb-3">Activity (Dummy)</h4>
-        {activity.map((act, aIndex) => (
-          <div key={aIndex} className="flex items-start mb-3 last:mb-0 hover:bg-gray-50 p-2 rounded transition">
-            <img
-              src={act.avatar}
-              alt={act.name}
-              className="w-8 h-8 rounded-full mr-3 flex-shrink-0"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900">{act.name}</p>
-              <p className="text-xs text-gray-500 line-clamp-1">{act.desc}</p>
-            </div>
-            <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{act.time}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
