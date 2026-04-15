@@ -10,8 +10,7 @@ import Swal from "sweetalert2";
 import ActionProgressBar from "../../../../components/ActionProgressBar";
 import IconActionButton from "../../../../components/IconActionButton";
 import { FaCheckCircle } from "react-icons/fa";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -46,11 +45,7 @@ const RegisteredStudents = () => {
         }
     }, [dispatch, listStatus, token]);
 
-    const getImageUrl = (imagePath) => {
-        if (!imagePath) return "https://i.pravatar.cc/150?img=32";
-        if (imagePath.startsWith("http")) return imagePath;
-        return `${IMAGE}${imagePath}`;
-    };
+    const getImageUrl = (imagePath) => resolveImageUrl(imagePath, "/profile-photo.png");
 
     let students = Array.isArray(users)
         ? users
@@ -190,7 +185,7 @@ Follow-up 3: ${s.followUp3}`
                         alt={row.name}
                         className="w-8 h-8 rounded-full object-cover flex-shrink-0"
                         onError={(e) => {
-                            e.target.src = "https://i.pravatar.cc/150?img=32";
+                            e.target.src = "/profile-photo.png";
                         }}
                     />
                     <span className="truncate" title={row.name}>

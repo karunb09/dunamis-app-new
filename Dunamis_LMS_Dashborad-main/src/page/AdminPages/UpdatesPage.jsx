@@ -6,8 +6,7 @@ import DataTable from "../../components/Table";
 import moment from "moment";
 import { getAllNotices } from "../../redux/AdminNotice/AdminNoticeSlice";
 import { X } from "phosphor-react";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const SORT_OPTIONS = [
     { value: "date-asc", label: "Date Ascending" },
@@ -50,11 +49,7 @@ const UpdatesPage = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const getImageUrl = (imagePath) => {
-        if (!imagePath) return "https://i.pravatar.cc/150?img=32";
-        if (imagePath.startsWith("http")) return imagePath;
-        return `${IMAGE}${imagePath}`;
-    };
+    const getImageUrl = (imagePath) => resolveImageUrl(imagePath, "/profile-photo.png");
 
     const formattedUpdates = (notices || []).map((n) => ({
         id: n._id,
@@ -160,7 +155,7 @@ const UpdatesPage = () => {
                         alt={row.creator}
                         className="w-9 h-9 rounded-full object-cover border border-gray-200"
                         onError={(e) => {
-                            e.target.src = "https://i.pravatar.cc/150?img=32";
+                            e.target.src = "/profile-photo.png";
                         }}
                     />
                     <span className="font-medium text-gray-900">{row.creator}</span>

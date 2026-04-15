@@ -4,8 +4,7 @@ import { FaUser, FaEnvelope, FaLock, FaPhone, FaMapMarkerAlt, FaEdit, FaCamera, 
 import { getUserById, updateUser } from "../../redux/User/UserSlice";
 import toast from "react-hot-toast";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const AdminProfile = () => {
     const dispatch = useDispatch();
@@ -59,7 +58,7 @@ const AdminProfile = () => {
                 location: selectedUser.location || "N/A",
                 password: "**********",
                 bio: selectedUser.bio || "N/A",
-                image: selectedUser.image || "https://i.pravatar.cc/150?img=32",
+                image: selectedUser.image || "",
             };
 
             setProfile(profileData);
@@ -194,10 +193,7 @@ const AdminProfile = () => {
         setIsPasswordModalOpen(true);
     };
 
-    const displayImage = imagePreview ||
-        (profile.image?.startsWith('http')
-            ? profile.image
-            : `${IMAGE}${profile.image}`);
+    const displayImage = imagePreview || resolveImageUrl(profile.image, "/profile-photo.png");
 
     // Loading state
     if (loading && !selectedUser) {
@@ -233,7 +229,7 @@ const AdminProfile = () => {
                             alt="Profile"
                             className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
                             onError={(e) => {
-                                e.target.src = "https://i.pravatar.cc/150?img=32";
+                                e.target.src = "/profile-photo.png";
                             }}
                         />
                     ) : (

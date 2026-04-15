@@ -10,8 +10,7 @@ import { updateUser } from '../../../redux/User/UserSlice';
 import { X } from 'react-feather';
 import ActionProgressBar from '../../../components/ActionProgressBar';
 import IconActionButton from '../../../components/IconActionButton';
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from '../../../utils/resolveImageUrl';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -52,12 +51,7 @@ const AdminManageMentPage = () => {
 
     const uniqueDepartments = [...new Set(admins.map(admin => admin.department).filter(Boolean))];
 
-    // Helper function to get correct image URL
-    const getImageUrl = (imagePath) => {
-        if (!imagePath) return "https://i.pravatar.cc/150?img=32";
-        if (imagePath.startsWith("http")) return imagePath;
-        return `${IMAGE}${imagePath}`;
-    };
+    const getImageUrl = (imagePath) => resolveImageUrl(imagePath, "/profile-photo.png");
 
     const runAdminAction = async ({ actionKey, progressLabel, loadingMessage, action, successTitle, successText, errorFallback }) => {
         setProcessingAction({ key: actionKey, label: progressLabel });
@@ -202,7 +196,7 @@ const AdminManageMentPage = () => {
                         alt={row.userId.name.firstName}
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
-                            e.target.src = "https://i.pravatar.cc/150?img=32";
+                            e.target.src = "/profile-photo.png";
                         }}
                     />
                     <span className="truncate" title={`${row.userId.name.firstName} ${row.userId.name.lastName}`}>

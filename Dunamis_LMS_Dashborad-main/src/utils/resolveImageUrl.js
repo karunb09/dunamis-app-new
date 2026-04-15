@@ -1,4 +1,4 @@
-const DEFAULT_IMAGE = "https://i.pravatar.cc/150?u=dunamis-default";
+const DEFAULT_IMAGE = "/profile-photo.png";
 
 const normalizeBaseUrl = (value) => {
   const trimmed = typeof value === "string" ? value.trim().replace(/\/+$/, "") : "";
