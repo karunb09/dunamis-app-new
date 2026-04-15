@@ -28,6 +28,12 @@ export const fetchCourses = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.message || "Failed to fetch courses");
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { course } = getState();
+      return !course.loading && course.courses.length === 0;
+    },
   }
 );
 

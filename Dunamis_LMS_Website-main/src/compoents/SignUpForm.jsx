@@ -38,6 +38,167 @@ const StepBlockingLoader = ({ title, description }) => (
   </div>
 );
 
+const STUDENT_TERMS_SECTIONS = [
+  {
+    title: "1. Musical Instruments",
+    items: [
+      "You must have a musical instrument to begin classes.",
+      "You are required to carry your own instrument to all music classes.",
+      "We can assist you in purchasing an instrument, either from our music school or an external store.",
+      "If you have not yet purchased an instrument, you may rent one from our music school by following our rental policy.",
+    ],
+  },
+  {
+    title: "2. Sessions / Classes",
+    items: [
+      "Regular courses include 8 sessions per month (2 sessions per week).",
+      "Additional sessions beyond the standard 8 per month will be charged on a prorated basis.",
+    ],
+  },
+  {
+    title: "3. Schedule & Duration",
+    items: [
+      "Your class schedule will be decided at the time of joining, based on mutual convenience with your trainer.",
+      "You are expected to maintain regular attendance.",
+      "Each session will last between 45 to 60 minutes.",
+    ],
+  },
+  {
+    title: "4. Class Compensation",
+    items: [
+      "As classes are conducted twice a week, missed sessions by students will not be compensated, except in cases of documented medical emergencies.",
+      "If a trainer misses a session, the class will be compensated within the same month.",
+    ],
+  },
+  {
+    title: "5. Examinations",
+    items: [
+      "Internal assessments will be conducted periodically through video performances and presentations.",
+      "Successful learners will receive DSM Level Certificates and be promoted to the next level.",
+    ],
+  },
+  {
+    title: "6. Study Material / Syllabus Books",
+    items: [
+      "You are required to purchase study materials as instructed by your teacher/trainer/administrator in a timely manner.",
+    ],
+  },
+  {
+    title: "7. Course Duration & Fees",
+    items: [
+      "Monthly fees must be paid in advance each month.",
+      "Fees once paid are non-refundable.",
+      "For Grade Exams from Trinity College London (TCL), an additional exam fee will apply. Please refer to the TCL manual for details.",
+    ],
+  },
+  {
+    title: "8. Consent for Use of Content",
+    items: [
+      "You consent to the school recording, storing, and using your assignment videos or performance recordings for promotional purposes.",
+      "These may be posted on the school's website, social media platforms, or other brand marketing channels.",
+      "Materials will not be sold to third parties and will be used solely for educational and promotional purposes.",
+    ],
+  },
+];
+
+const StudentTermsModal = ({
+  isOpen,
+  onClose,
+  onAgree,
+  hasReadTerms,
+  onReadTerms,
+}) => {
+  const contentRef = useRef(null);
+
+  if (!isOpen) return null;
+
+  const handleScroll = (event) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 8) {
+      onReadTerms();
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4 py-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="student-terms-title"
+    >
+      <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4">
+          <div>
+            <h3 id="student-terms-title" className="text-xl font-semibold text-gray-900">
+              Student Terms & Conditions
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Scroll to the bottom to enable the agree button.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close terms and conditions"
+            className="rounded-lg px-2 py-1 text-2xl leading-none text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div
+          ref={contentRef}
+          onScroll={handleScroll}
+          className="max-h-[58vh] space-y-5 overflow-y-auto px-5 py-5 text-sm leading-6 text-gray-700"
+        >
+          <p className="font-medium text-gray-900">
+            By signing up as a student, you agree to the following:
+          </p>
+          {STUDENT_TERMS_SECTIONS.map((section) => (
+            <section key={section.title} className="space-y-2">
+              <h4 className="font-semibold text-gray-900">{section.title}</h4>
+              <ul className="list-disc space-y-1 pl-5">
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-3 border-t border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-500">
+            {hasReadTerms
+              ? ""
+              : "Please read to the bottom before agreeing."}
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={onAgree}
+              disabled={!hasReadTerms}
+              className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+                hasReadTerms
+                  ? "bg-orange-400 text-white hover:bg-orange-500"
+                  : "cursor-not-allowed bg-gray-200 text-gray-500"
+              }`}
+            >
+              I Agree
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function SignUpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +206,9 @@ export default function SignUpForm() {
   const { step, otpSent, otpStatus, createStatus } = useSelector((state) => state.signup);
   const [isLoginOpen, setLoginOpen] = useState(false);
   const [resumeHref, setResumeHref] = useState("/courses");
+  const [isTermsOpen, setTermsOpen] = useState(false);
+  const [hasReadTerms, setHasReadTerms] = useState(false);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
   // Step 1 Fields
   const [firstName, setFirstName] = useState("");
@@ -122,6 +286,10 @@ export default function SignUpForm() {
     }
     if (!otp) {
       toast.error("Please enter the OTP");
+      return;
+    }
+    if (!hasAcceptedTerms) {
+      toast.error("Please read and agree to the Terms & Conditions");
       return;
     }
 
@@ -409,21 +577,25 @@ export default function SignUpForm() {
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
-                required
                 id="terms"
+                checked={hasAcceptedTerms}
+                onChange={() => {
+                  if (!isStep2Busy) setTermsOpen(true);
+                }}
                 disabled={isStep2Busy}
-                className="h-4 w-4"
+                className="h-4 w-4 cursor-pointer"
               />
-              <label htmlFor="terms" className="text-sm text-gray-600">
-                I accept the{" "}
-                <a
-                  href="/term-condition"
-                  target="_blank"
+              <div className="text-sm text-gray-600">
+                <span>I accept the </span>
+                <button
+                  type="button"
+                  onClick={() => setTermsOpen(true)}
+                  disabled={isStep2Busy}
                   className="text-[#47c9c4] underline hover:text-[#47c9c4]"
                 >
                   Terms & Conditions
-                </a>
-              </label>
+                </button>
+              </div>
             </div>
 
             <div className="flex items-center justify-between pt-4">
@@ -437,9 +609,19 @@ export default function SignUpForm() {
               </button>
               <button
                 type="submit"
-                disabled={isStep2Busy || !password || !confirmPassword || !otp}
+                disabled={
+                  isStep2Busy ||
+                  !password ||
+                  !confirmPassword ||
+                  !otp ||
+                  !hasAcceptedTerms
+                }
                 className={`inline-flex min-w-[164px] items-center justify-center gap-2 rounded-2xl px-6 py-2 font-medium transition ${
-                  isStep2Busy || !password || !confirmPassword || !otp
+                  isStep2Busy ||
+                  !password ||
+                  !confirmPassword ||
+                  !otp ||
+                  !hasAcceptedTerms
                     ? "cursor-not-allowed bg-gray-300 text-gray-500"
                     : "bg-orange-400 text-white hover:bg-orange-500"
                 }`}
@@ -487,6 +669,17 @@ export default function SignUpForm() {
           }}
         />
       )}
+
+      <StudentTermsModal
+        isOpen={isTermsOpen}
+        onClose={() => setTermsOpen(false)}
+        hasReadTerms={hasReadTerms}
+        onReadTerms={() => setHasReadTerms(true)}
+        onAgree={() => {
+          setHasAcceptedTerms(true);
+          setTermsOpen(false);
+        }}
+      />
     </div>
   );
 }

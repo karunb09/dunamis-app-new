@@ -9,7 +9,7 @@
         <li><strong>Temporary Password:</strong> ${password}</li>
       </ul>
       <p>Please log in using the above credentials and <strong>change your password</strong> immediately after your first login for security purposes.</p>
-      <p>👉 <a href="${process.env.BASE_URL}/login">Click here to login</a></p>
+      <p>👉 <a href="https://dashboard.dunamisindia.co.in/">Click here to login</a></p>
       <p>Thank you,<br>Dunamis Team</p>
     `;
 

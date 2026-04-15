@@ -62,6 +62,19 @@ const DataTable = ({
     const getColumnHeader = (col) => col.header || col.Header;
     const getSelectedRows = () =>
         data.filter((row) => selectedRows.includes(row._id ?? row.id));
+    const defaultColumnWidth = 164;
+    const tableMinWidth = Math.max(
+        760,
+        columns.reduce((total, col) => {
+            const configuredWidth = Number.parseInt(col.minWidth || col.width, 10);
+            return total + (Number.isFinite(configuredWidth) ? configuredWidth : defaultColumnWidth);
+        }, selectable ? 64 : 0)
+    );
+    const getColumnStyle = (col = {}) => ({
+        minWidth: col.minWidth || col.width || `${defaultColumnWidth}px`,
+        ...(col.width ? { width: col.width } : {}),
+        ...(col.maxWidth ? { maxWidth: col.maxWidth } : {}),
+    });
 
     return (
         <div className="w-full">
@@ -108,13 +121,16 @@ const DataTable = ({
                 ) : null}
             </div>
 
-            <div className="relative overflow-visible rounded-[30px] border border-slate-200 bg-white shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)]">
-                <div className="overflow-visible rounded-[30px]">
-                    <table className="w-full table-fixed border-collapse text-sm">
+            <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)]">
+                <div className="overflow-x-auto rounded-[30px]">
+                    <table
+                        className="w-full border-collapse text-sm"
+                        style={{ minWidth: `${tableMinWidth}px` }}
+                    >
                         <thead className="bg-gradient-to-r from-slate-50 to-white text-left">
                         <tr>
                             {selectable && (
-                                <th className="px-5 py-4">
+                                <th className="w-16 min-w-16 px-5 py-4">
                                     <input
                                         type="checkbox"
                                         checked={isAllSelected}
@@ -126,7 +142,8 @@ const DataTable = ({
                             {columns.map((col, colIndex) => (
                                 <th
                                     key={getColumnKey(col) || colIndex}
-                                    className="px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+                                    className={`whitespace-nowrap px-4 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 ${col.headerClassName || ""}`}
+                                    style={getColumnStyle(col)}
                                 >
                                     {getColumnHeader(col)}
                                 </th>
@@ -155,7 +172,7 @@ const DataTable = ({
                                             onClick={() => onRowClick && onRowClick(row)}
                                         >
                                             {selectable && (
-                                                <td className="px-5 py-4 align-middle">
+                                                <td className="w-16 min-w-16 px-5 py-4 align-middle">
                                                     <input
                                                         type="checkbox"
                                                         checked={isRowSelected(rowId)}
@@ -171,7 +188,10 @@ const DataTable = ({
                                                 return (
                                                     <td
                                                         key={`${rowId}-${cellKey}`}
-                                                        className="px-4 py-4 align-middle text-slate-600 break-words"
+                                                        className={`px-4 py-4 align-middle text-slate-600 ${
+                                                            col.nowrap ? "whitespace-nowrap" : "whitespace-normal break-words"
+                                                        } ${col.cellClassName || ""}`}
+                                                        style={getColumnStyle(col)}
                                                     >
                                                         {col.render
                                                             ? col.render(value, row)

@@ -1,9 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import toast from "react-hot-toast";
 import CourseCard from "./CoursePage";
 import { GoBook } from "react-icons/go";
 import { PiFlagCheckered } from "react-icons/pi";
 import { X } from "react-feather";
+import { getStoredToken, getStoredUser } from "../../utils/authSession";
 
 // SVG/emoji icons for stat cards
 const StatIcon = ({ name }) => {
@@ -56,7 +59,15 @@ const StatIcon = ({ name }) => {
 };
 
 // Feedback Modal
-function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
+function FeedbackModal({
+  open,
+  feedback,
+  courseName,
+  submitting,
+  onInput,
+  onSubmit,
+  onClose,
+}) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
@@ -70,9 +81,9 @@ function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
           <X size={18} />
         </button>
         <h2 className="text-xl font-bold text-center mb-5">
-          Give us your feedback
+          Monthly feedback
           <br />
-          Keyboard Fundamentals
+          {courseName}
         </h2>
         <div className="mb-4">
           <label className="block font-semibold mb-1">
@@ -86,6 +97,7 @@ function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
           <div className="flex justify-between mb-4">
             {[1, 2, 3, 4, 5].map((v) => (
               <button
+                type="button"
                 key={v}
                 onClick={() => onInput({ ...feedback, ratingCourse: v })}
               >
@@ -115,6 +127,7 @@ function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
           <div className="flex justify-between mb-4">
             {[1, 2, 3, 4, 5].map((v) => (
               <button
+                type="button"
                 key={v}
                 onClick={() => onInput({ ...feedback, ratingInstructor: v })}
               >
@@ -144,14 +157,12 @@ function FeedbackModal({ open, feedback, onInput, onSubmit, onClose }) {
           />
         </div>
         <button
+          type="button"
           className="w-full mt-2 bg-black text-white font-semibold py-2 rounded hover:bg-black/80 disabled:opacity-60"
-          disabled={
-            !feedback.ratingCourse || !feedback.ratingInstructor
-            // !feedback.comment.trim()
-          }
+          disabled={!feedback.ratingCourse || !feedback.ratingInstructor || submitting}
           onClick={onSubmit}
         >
-          Submit
+          {submitting ? "Submitting..." : "Submit"}
         </button>
       </div>
     </div>
@@ -312,18 +323,64 @@ export default function StudentHomePage() {
       progress: 20,
     },
   ]);
+  const user = getStoredUser() || {};
+  const studentId = user?._id || user?.id || user?.userId || "student";
+  const featuredCourseName = courses[0]?.title || "Your course";
+  const feedbackMonthKey = `student-feedback:${studentId}:${new Date()
+    .toISOString()
+    .slice(0, 7)}`;
+
   // Feedback Modal state
-  const [showFeedback, setShowFeedback] = useState(true);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [feedback, setFeedback] = useState({
     ratingCourse: 0,
     ratingInstructor: 0,
     comment: "",
   });
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   // Reschedule Modal state
   const [showReschedule, setShowReschedule] = useState(false);
 
-  function handleFeedbackSubmit() {
-    setShowFeedback(false);
+  useEffect(() => {
+    try {
+      setShowFeedback(!window.localStorage.getItem(feedbackMonthKey));
+    } catch {
+      setShowFeedback(true);
+    }
+  }, [feedbackMonthKey]);
+
+  async function handleFeedbackSubmit() {
+    const token = getStoredToken();
+
+    if (!token) {
+      toast.error("Please sign in again to submit feedback");
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    try {
+      await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/siteContent/student-feedback`,
+        {
+          ...feedback,
+          courseName: featuredCourseName,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true,
+        }
+      );
+
+      window.localStorage.setItem(feedbackMonthKey, "submitted");
+      setShowFeedback(false);
+      toast.success("Thanks for your feedback");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Failed to submit feedback"
+      );
+    } finally {
+      setFeedbackSubmitting(false);
+    }
   }
 
   return (
@@ -573,6 +630,8 @@ export default function StudentHomePage() {
       <FeedbackModal
         open={showFeedback}
         feedback={feedback}
+        courseName={featuredCourseName}
+        submitting={feedbackSubmitting}
         onInput={setFeedback}
         onSubmit={handleFeedbackSubmit}
         onClose={() => setShowFeedback(false)}

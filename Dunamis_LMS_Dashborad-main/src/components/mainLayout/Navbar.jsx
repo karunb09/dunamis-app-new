@@ -1,25 +1,33 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiBell,
+  FiCheck,
   FiChevronDown,
   FiClock,
   FiLogOut,
   FiMenu,
   FiSettings,
+  FiTrash2,
 } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { getStoredUser } from "../../utils/authSession";
-import { logoutUser } from "../../redux/authSlice";
+import {
+  clearUserDashboardNotices,
+  deleteUserDashboardNotice,
+  getUserDashboardNotices,
+  logoutUser,
+  markAllUserDashboardNoticesRead,
+  markUserDashboardNoticeRead,
+} from "../../redux/authSlice";
 import { getAllBookings } from "../../redux/DemoBooking/DemoBookingSlice";
 import {
   getTeacherRoleId,
   getUserDisplayName,
   normalizeEntityId,
 } from "../../utils/roleIdentity";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const formatDateLabel = (value) => {
   if (!value) return "Date pending";
@@ -57,6 +65,48 @@ const getBookingStudentName = (booking) => {
   return name || guest?.email || studentUser?.email || "Guest student";
 };
 
+const getInitials = (name = "", email = "") => {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return String(email || "U").slice(0, 2).toUpperCase();
+};
+
+const getUploadedProfileImage = (user = {}) =>
+  [
+    user.image,
+    user.profilePicture,
+    user.teacherDetails?.profilePicture,
+    user.teacherDetail?.profilePicture,
+    user.teacherApplication?.profilePicture,
+    user.adminDetails?.profilePicture,
+    user.studentDetails?.profilePicture,
+  ].find((value) => typeof value === "string" && value.trim());
+
+const readStoredIds = (key) => {
+  try {
+    return JSON.parse(window.localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+};
+
+const writeStoredIds = (key, ids) => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify([...new Set(ids)]));
+  } catch {}
+};
+
 const Navigation = ({ onMenuClick }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -65,18 +115,33 @@ const Navigation = ({ onMenuClick }) => {
   const notificationMenuRef = useRef(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
+  const [readTeacherNotificationIds, setReadTeacherNotificationIds] = useState([]);
+  const [deletedTeacherNotificationIds, setDeletedTeacherNotificationIds] =
+    useState([]);
 
-  const user = getStoredUser() || {};
+  const authUser = useSelector((state) => state.auth?.user);
+  const updatedProfileUser = useSelector((state) => state.user?.user);
+  const storedUser = getStoredUser() || {};
+  const baseUser = authUser || storedUser;
+  const user =
+    updatedProfileUser &&
+    normalizeEntityId(updatedProfileUser) === normalizeEntityId(baseUser)
+      ? { ...baseUser, ...updatedProfileUser }
+      : baseUser;
   const fullName = getUserDisplayName(user, "User");
   const accountType = user?.accountType || "guest";
   const teacherId = getTeacherRoleId(user);
   const { bookings = [] } = useSelector((state) => state.demoBookings || {});
+  const { notices = [] } = useSelector((state) => state.auth || {});
 
-  const profileImage = user?.image
-    ? user.image.startsWith("http")
-      ? user.image
-      : `${IMAGE}${user.image}`
-    : "https://i.pravatar.cc/300";
+  const uploadedProfileImage = getUploadedProfileImage(user);
+  const profileImage = resolveImageUrl(uploadedProfileImage, "");
+  const profileInitials = getInitials(fullName, user?.email);
+  const shouldShowProfileImage = Boolean(profileImage) && !profileImageFailed;
+  const teacherNotificationStorageKey = `teacher-demo-notifications:${
+    teacherId || normalizeEntityId(user)
+  }`;
 
   const generateTitle = (path) => {
     const cleanPath = path.replace(/^\/|\/$/g, "").split("/");
@@ -138,6 +203,14 @@ const Navigation = ({ onMenuClick }) => {
 
     return (Array.isArray(bookings) ? bookings : [])
       .filter((booking) => {
+        const notificationId = normalizeEntityId(booking?._id || booking?.id);
+        if (
+          notificationId &&
+          deletedTeacherNotificationIds.includes(notificationId)
+        ) {
+          return false;
+        }
+
         const assignedTeacherId =
           normalizeEntityId(booking?.teacherId) ||
           normalizeEntityId(booking?.slotId?.createdBy);
@@ -157,13 +230,65 @@ const Navigation = ({ onMenuClick }) => {
         const rightDate =
           getBookingDate(right)?.getTime() || Number.MAX_SAFE_INTEGER;
         return leftDate - rightDate;
+      })
+      .map((booking) => {
+        const notificationId = normalizeEntityId(booking?._id || booking?.id);
+
+        return {
+          ...booking,
+          notificationId,
+          isRead:
+            Boolean(notificationId) &&
+            readTeacherNotificationIds.includes(notificationId),
+        };
       });
-  }, [accountType, bookings, teacherId]);
+  }, [
+    accountType,
+    bookings,
+    deletedTeacherNotificationIds,
+    readTeacherNotificationIds,
+    teacherId,
+  ]);
+
+  const dashboardNotifications = useMemo(
+    () =>
+      (Array.isArray(notices) ? notices : []).map((notice) => ({
+        id: notice._id || notice.id,
+        title: notice.title || "Notification",
+        message: notice.message || "",
+        isRead: Boolean(notice.isRead),
+        createdAt: notice.createdAt,
+      })),
+    [notices]
+  );
+
+  const unreadDashboardCount = dashboardNotifications.filter(
+    (notice) => !notice.isRead
+  ).length;
+  const unreadTeacherCount = teacherNotifications.filter(
+    (notice) => !notice.isRead
+  ).length;
+  const totalNotificationCount =
+    unreadDashboardCount + (accountType === "teacher" ? unreadTeacherCount : 0);
+  const hasAnyNotifications =
+    dashboardNotifications.length > 0 || teacherNotifications.length > 0;
 
   useEffect(() => {
     setIsProfileMenuOpen(false);
     setIsNotificationMenuOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    setProfileImageFailed(false);
+  }, [profileImage]);
+
+  useEffect(() => {
+    if (accountType === "guest") {
+      return;
+    }
+
+    dispatch(getUserDashboardNotices());
+  }, [accountType, dispatch]);
 
   useEffect(() => {
     if (accountType !== "teacher" || !teacherId) {
@@ -172,6 +297,21 @@ const Navigation = ({ onMenuClick }) => {
 
     dispatch(getAllBookings({ teacherId }));
   }, [accountType, dispatch, teacherId]);
+
+  useEffect(() => {
+    if (accountType !== "teacher") {
+      setReadTeacherNotificationIds([]);
+      setDeletedTeacherNotificationIds([]);
+      return;
+    }
+
+    setReadTeacherNotificationIds(
+      readStoredIds(`${teacherNotificationStorageKey}:read`)
+    );
+    setDeletedTeacherNotificationIds(
+      readStoredIds(`${teacherNotificationStorageKey}:deleted`)
+    );
+  }, [accountType, teacherNotificationStorageKey]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -214,18 +354,105 @@ const Navigation = ({ onMenuClick }) => {
 
   const handleNotificationsClick = () => {
     setIsProfileMenuOpen(false);
-
-    if (accountType !== "teacher") {
-      toast("Notifications panel is not wired yet.");
-      return;
-    }
-
     setIsNotificationMenuOpen((open) => !open);
   };
 
   const handleViewTeacherDemos = () => {
     setIsNotificationMenuOpen(false);
     navigate("/teacher");
+  };
+
+  const persistTeacherNotificationIds = (kind, updater) => {
+    const key = `${teacherNotificationStorageKey}:${kind}`;
+    const current =
+      kind === "read"
+        ? readTeacherNotificationIds
+        : deletedTeacherNotificationIds;
+    const next = typeof updater === "function" ? updater(current) : updater;
+
+    writeStoredIds(key, next);
+
+    if (kind === "read") {
+      setReadTeacherNotificationIds([...new Set(next)]);
+    } else {
+      setDeletedTeacherNotificationIds([...new Set(next)]);
+    }
+  };
+
+  const handleMarkNoticeRead = async (noticeId) => {
+    if (!noticeId) return;
+
+    try {
+      await dispatch(markUserDashboardNoticeRead(noticeId)).unwrap();
+    } catch (err) {
+      toast.error(err || "Failed to mark notification as read");
+    }
+  };
+
+  const handleDeleteNotice = async (noticeId) => {
+    if (!noticeId) return;
+
+    try {
+      await dispatch(deleteUserDashboardNotice(noticeId)).unwrap();
+      toast.success("Notification removed");
+    } catch (err) {
+      toast.error(err || "Failed to remove notification");
+    }
+  };
+
+  const handleMarkTeacherNotificationRead = (notificationId) => {
+    if (!notificationId) return;
+
+    persistTeacherNotificationIds("read", (ids) => [...ids, notificationId]);
+  };
+
+  const handleDeleteTeacherNotification = (notificationId) => {
+    if (!notificationId) return;
+
+    persistTeacherNotificationIds("deleted", (ids) => [...ids, notificationId]);
+    toast.success("Notification removed");
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      if (dashboardNotifications.length > 0) {
+        await dispatch(markAllUserDashboardNoticesRead()).unwrap();
+      }
+
+      if (teacherNotifications.length > 0) {
+        persistTeacherNotificationIds("read", (ids) => [
+          ...ids,
+          ...teacherNotifications
+            .map((notice) => notice.notificationId)
+            .filter(Boolean),
+        ]);
+      }
+
+      toast.success("Notifications marked as read");
+    } catch (err) {
+      toast.error(err || "Failed to mark notifications as read");
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      if (dashboardNotifications.length > 0) {
+        await dispatch(clearUserDashboardNotices()).unwrap();
+      }
+
+      if (teacherNotifications.length > 0) {
+        persistTeacherNotificationIds("deleted", (ids) => [
+          ...ids,
+          ...teacherNotifications
+            .map((notice) => notice.notificationId)
+            .filter(Boolean),
+        ]);
+      }
+
+      toast.success("Notifications cleared");
+    } catch (err) {
+      toast.error(err || "Failed to clear notifications");
+    }
   };
 
   const handleLogout = () => {
@@ -260,7 +487,7 @@ const Navigation = ({ onMenuClick }) => {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="relative hidden sm:block" ref={notificationMenuRef}>
+          <div className="relative" ref={notificationMenuRef}>
             <button
               type="button"
               onClick={handleNotificationsClick}
@@ -268,61 +495,173 @@ const Navigation = ({ onMenuClick }) => {
               aria-label="Notifications"
             >
               <FiBell className="text-lg" />
-              {accountType === "teacher" && teacherNotifications.length > 0 ? (
+              {totalNotificationCount > 0 ? (
                 <span className="absolute right-2 top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
-                  {teacherNotifications.length > 9 ? "9+" : teacherNotifications.length}
+                  {totalNotificationCount > 9 ? "9+" : totalNotificationCount}
                 </span>
               ) : null}
             </button>
 
-            {isNotificationMenuOpen && accountType === "teacher" ? (
-              <div className="absolute right-0 top-full z-30 mt-3 w-[340px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
+            {isNotificationMenuOpen ? (
+              <div className="absolute right-0 top-full z-30 mt-3 w-[calc(100vw-2rem)] max-w-[340px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
                 <div className="border-b border-slate-100 px-3 py-3">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Demo requests for you
-                  </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Notifications
+                    </p>
+                    {hasAnyNotifications ? (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        {totalNotificationCount} unread
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Learners are assigned automatically when they book one of your
-                    demo slots.
+                    Review updates, reminders, and dashboard alerts.
                   </p>
+                  {hasAnyNotifications ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={handleMarkAllNotificationsRead}
+                        disabled={totalNotificationCount === 0}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Mark all read
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleClearAllNotifications}
+                        className="rounded-full border border-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-rose-50"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="max-h-[360px] overflow-y-auto py-2">
-                  {teacherNotifications.length === 0 ? (
+                  {dashboardNotifications.length === 0 &&
+                  teacherNotifications.length === 0 ? (
                     <div className="px-3 py-6 text-center text-sm text-slate-500">
-                      No upcoming demo requests right now.
+                      No notifications right now.
                     </div>
                   ) : (
-                    teacherNotifications.slice(0, 5).map((booking) => (
-                      <button
-                        key={booking?._id || booking?.id}
-                        type="button"
-                        onClick={handleViewTeacherDemos}
-                        className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-slate-50"
-                      >
-                        <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
-                          <FiBell className="text-sm" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-slate-900">
-                            {getBookingStudentName(booking)}
-                          </span>
-                          <span className="mt-1 block truncate text-xs text-slate-500">
-                            {(booking?.courseId?.name ||
-                              booking?.slotId?.courseId?.name ||
-                              "Demo session")} • {formatDateLabel(getBookingDate(booking))}
-                          </span>
-                          <span className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
-                            <FiClock className="text-[11px]" />
-                            {formatTimeLabel(booking)}
-                          </span>
-                        </span>
-                      </button>
-                    ))
+                    <>
+                      {dashboardNotifications.map((notice) => (
+                        <div
+                          key={notice.id}
+                          className={`rounded-2xl px-3 py-3 ${
+                            notice.isRead ? "bg-white" : "bg-orange-50/70"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                              <FiBell className="text-sm" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {notice.title}
+                              </p>
+                              {notice.message && (
+                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                  {notice.message}
+                                </p>
+                              )}
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {!notice.isRead && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMarkNoticeRead(notice.id)}
+                                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-white"
+                                  >
+                                    <FiCheck className="text-xs" />
+                                    Mark read
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteNotice(notice.id)}
+                                  className="inline-flex items-center gap-1 rounded-full border border-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-white"
+                                >
+                                  <FiTrash2 className="text-xs" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {teacherNotifications.slice(0, 5).map((booking) => (
+                        <div
+                          key={booking.notificationId || booking?._id || booking?.id}
+                          className={`rounded-2xl px-3 py-3 ${
+                            booking.isRead ? "bg-white" : "bg-orange-50/70"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-orange-50 text-orange-600">
+                              <FiBell className="text-sm" />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-900">
+                                {getBookingStudentName(booking)}
+                              </p>
+                              <p className="mt-1 truncate text-xs text-slate-500">
+                                {(booking?.courseId?.name ||
+                                  booking?.slotId?.courseId?.name ||
+                                  "Demo session")}{" "}
+                                • {formatDateLabel(getBookingDate(booking))}
+                              </p>
+                              <p className="mt-1 inline-flex items-center gap-1 text-xs text-slate-500">
+                                <FiClock className="text-[11px]" />
+                                {formatTimeLabel(booking)}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {!booking.isRead && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleMarkTeacherNotificationRead(
+                                        booking.notificationId
+                                      )
+                                    }
+                                    className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-white"
+                                  >
+                                    <FiCheck className="text-xs" />
+                                    Mark read
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleDeleteTeacherNotification(
+                                      booking.notificationId
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-full border border-rose-100 px-2 py-1 text-[11px] font-semibold text-rose-600 transition hover:bg-white"
+                                >
+                                  <FiTrash2 className="text-xs" />
+                                  Delete
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={handleViewTeacherDemos}
+                                  className="rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:bg-white"
+                                >
+                                  View demo
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
 
-                <div className="border-t border-slate-100 px-3 py-3">
+                {accountType === "teacher" ? (
+                  <div className="border-t border-slate-100 px-3 py-3">
                   <button
                     type="button"
                     onClick={handleViewTeacherDemos}
@@ -330,7 +669,8 @@ const Navigation = ({ onMenuClick }) => {
                   >
                     View all demo bookings
                   </button>
-                </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -344,14 +684,21 @@ const Navigation = ({ onMenuClick }) => {
               aria-haspopup="menu"
               aria-label="Open profile menu"
             >
-              <img
-                src={profileImage}
-                alt="Profile"
-                className="h-10 w-10 rounded-2xl border border-slate-200 object-cover"
-                onError={(e) => {
-                  e.target.src = "https://i.pravatar.cc/300";
-                }}
-              />
+              {shouldShowProfileImage ? (
+                <img
+                  src={profileImage}
+                  alt={fullName}
+                  className="h-10 w-10 rounded-2xl border border-slate-200 object-cover"
+                  onError={() => setProfileImageFailed(true)}
+                />
+              ) : (
+                <span
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 text-sm font-bold text-orange-700"
+                  aria-label={`${fullName} initials`}
+                >
+                  {profileInitials}
+                </span>
+              )}
               <div className="hidden min-w-0 sm:block">
                 <p className="truncate text-sm font-semibold text-slate-900">
                   {fullName}

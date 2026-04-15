@@ -15,7 +15,7 @@ const primaryLinks = [
 
 const secondaryLinks = [
   { label: "About Us", href: "/about-us" },
-  { label: "Testimonials", href: "/testimonials" },
+  { label: "Reviews", href: "/testimonials" },
   { label: "Success Stories", href: "/success-stories" },
   { label: "Become an Instructor", href: "/become-teacher" },
   { label: "FAQs", href: "/faqs" },

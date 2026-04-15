@@ -36,7 +36,7 @@ export default function Testimonials() {
   useEffect(() => {
     let mounted = true;
 
-    const loadTestimonials = async () => {
+    const loadReviews = async () => {
       try {
         setLoading(true);
         const items = await fetchPublicSiteContent("testimonial");
@@ -55,7 +55,7 @@ export default function Testimonials() {
       }
     };
 
-    loadTestimonials();
+    loadReviews();
 
     return () => {
       mounted = false;
@@ -84,7 +84,7 @@ export default function Testimonials() {
           Hear from our students
         </p>
         <h2 className="text-2xl sm:text-3xl md:text-3xl font-extrabold mb-2">
-          Student Testimonials
+          Student Reviews
         </h2>
         <p className="text-gray-600 mt-2 max-w-2xl mx-auto text-xl">
           Discover what our students have to say about their learning journey
@@ -100,7 +100,7 @@ export default function Testimonials() {
                 {testimonials.length}
               </h3>
               <p className="text-gray-600 text-sm md:text-base mt-1">
-                Published Stories
+                Published Reviews
               </p>
             </div>
 
@@ -118,7 +118,7 @@ export default function Testimonials() {
 
       {loading && (
         <p className="py-12 text-center text-gray-500">
-          Loading testimonials...
+          Loading reviews...
         </p>
       )}
 
@@ -129,10 +129,10 @@ export default function Testimonials() {
       {!loading && !error && testimonials.length === 0 && (
         <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-gray-300 p-10 text-center">
           <h3 className="text-lg font-semibold text-gray-900">
-            Testimonials are being updated
+            Reviews are being updated
           </h3>
           <p className="mt-2 text-gray-600">
-            Published testimonials will appear here once they are added from
+            Published reviews will appear here once they are added from
             the admin dashboard.
           </p>
         </div>

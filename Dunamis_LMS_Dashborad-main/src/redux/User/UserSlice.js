@@ -1,6 +1,10 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { getStoredToken } from "../../utils/authSession";
+import {
+  getStoredToken,
+  getStoredUser,
+  persistAuthSession,
+} from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const resolveToken = (token) => token || getStoredToken();
@@ -156,6 +160,20 @@ const userSlice = createSlice({
         state.user = action.payload.user;
         state.success = true;
         state.message = action.payload.message;
+
+        const currentUser = getStoredUser();
+        const updatedUser = action.payload.user;
+        const currentUserId =
+          currentUser?._id || currentUser?.id || currentUser?.userId;
+        const updatedUserId =
+          updatedUser?._id || updatedUser?.id || updatedUser?.userId;
+
+        if (currentUserId && updatedUserId && currentUserId === updatedUserId) {
+          persistAuthSession({
+            token: getStoredToken(),
+            user: { ...currentUser, ...updatedUser },
+          });
+        }
       })
       .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;

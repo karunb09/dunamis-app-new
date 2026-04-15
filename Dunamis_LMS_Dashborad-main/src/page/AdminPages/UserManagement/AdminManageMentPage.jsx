@@ -190,10 +190,11 @@ const AdminManageMentPage = () => {
     };
 
     const columns = [
-        { key: 'mockId', header: 'Admin ID' },
+        { key: 'mockId', header: 'Admin ID', minWidth: '120px', nowrap: true },
         {
             key: 'name',
             header: 'User',
+            minWidth: '220px',
             render: (value, row) => (
                 <div className="flex min-w-0 items-center gap-2">
                     <img
@@ -210,20 +211,23 @@ const AdminManageMentPage = () => {
                 </div>
             )
         },
-        { key: 'role', header: 'Role' },
+        { key: 'role', header: 'Role', minWidth: '130px', nowrap: true },
         {
             key: 'permissions',
             header: 'Permissions',
+            minWidth: '280px',
             render: (_, row) => (
-                <span className="block truncate" title={row.permission.join(', ') || 'No Permissions'}>
+                <span className="block max-w-[260px] whitespace-normal break-words leading-5" title={row.permission.join(', ') || 'No Permissions'}>
                     {row.permission.join(', ') || 'No Permissions'}
                 </span>
             ),
         },
-        { key: 'department', header: 'Department' },
+        { key: 'department', header: 'Department', minWidth: '160px' },
         {
             key: 'status',
             header: 'Status',
+            minWidth: '170px',
+            nowrap: true,
             render: (_, row) => (
                 <div className="flex justify-center">
                 <IconActionButton
@@ -259,6 +263,8 @@ const AdminManageMentPage = () => {
         {
             key: 'createdAt',
             header: 'Created At',
+            minWidth: '150px',
+            nowrap: true,
             render: value => (
                 <div>
                     <p className="font-medium text-slate-800">{new Date(value).toLocaleDateString()}</p>
@@ -269,6 +275,8 @@ const AdminManageMentPage = () => {
         {
             key: 'action',
             header: 'Actions',
+            minWidth: '120px',
+            nowrap: true,
             render: (_, row) => (
                 <div className="flex justify-end">
                     <IconActionButton

@@ -66,8 +66,8 @@ exports.createTeacherApplication = async (req, res) => {
       currentCTC,
       expectedCTC,
       noticePeriod,
+      availability,
       mode,
-      // specialization, // Uncomment if specialization is required
     };
 
     const missingFields = [];
@@ -88,6 +88,15 @@ exports.createTeacherApplication = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "Join date must be today or a future date",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid email address",
       });
     }
 
@@ -158,7 +167,9 @@ exports.createTeacherApplication = async (req, res) => {
     }
 
     // Check if email already exists
-    const existingApplication = await TeacherApplication.findOne({ email });
+    const existingApplication = await TeacherApplication.findOne({
+      email: normalizedEmail,
+    });
     if (existingApplication) {
       return res.status(409).json({
         success: false,
@@ -192,7 +203,7 @@ exports.createTeacherApplication = async (req, res) => {
         read: readLanguage.trim(),
         speak: speakLanguage.trim(),
       },
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       mobileNo: parseInt(mobileNo),
       currentState: currentState.trim(),
       currentCity: currentCity.trim(),
@@ -220,7 +231,7 @@ exports.createTeacherApplication = async (req, res) => {
     }
 
     if (specialization) {
-      teacherApplicationData.specialization = specialization.trim(); // Added specialization
+      teacherApplicationData.specilization = specialization.trim();
     }
 
     const teacherApplication = new TeacherApplication(teacherApplicationData);
@@ -373,6 +384,15 @@ exports.updateApplicationStatus = async (req, res) => {
         }
         const {firstName,lastName}= application.name;
 
+        if (application.status === status) {
+            return res.status(200).json({
+                success: true,
+                message: "Application status is already up to date",
+                data: application,
+                credentials: null,
+            });
+        }
+
         let generatedPassword = null;
 
         if (status === "selected") {
@@ -460,8 +480,9 @@ exports.updateApplicationStatus = async (req, res) => {
 
         await mailSender(
             application.email,
-            `your application have been ${application.status}`,
-            sendApplicationStatus(firstName, application.email, application.status)
+            "Dunamis India Application Update",
+            sendApplicationStatus(firstName, application.email, application.status),
+            sendApplicationStatus.attachments()
         );
 
         res.status(200).json({

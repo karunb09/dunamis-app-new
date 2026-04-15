@@ -5,8 +5,7 @@ import { FaEye, FaEyeSlash, FaCamera, FaTrash, FaLock, FaUser, FaEnvelope, FaPho
 import PaymentDetails from "./Payment";
 import Certificates from "./Certificates";
 import toast from "react-hot-toast";
-
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 const fieldStyle = {
   fontFamily: "Poppins, sans-serif",
@@ -17,6 +16,23 @@ const fieldStyle = {
 };
 
 const labelStyle = { ...fieldStyle, fontWeight: 600, fontSize: 13 };
+
+const getInitials = (name = "", email = "") => {
+  const parts = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return String(email || "U").slice(0, 2).toUpperCase();
+};
 
 function ProfileField({ label, value, editing, onChange, type = "text", icon: Icon, showPassword, onTogglePassword }) {
   return (
@@ -262,6 +278,7 @@ export default function ProfilePage() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [imageRemoved, setImageRemoved] = useState(false);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -291,6 +308,7 @@ export default function ProfilePage() {
         image: selectedUser.image || "",
       });
       setImageRemoved(false);
+      setImageLoadFailed(false);
       setImageFile(null);
       setImagePreview(null);
       setShowPasswordField(false);
@@ -303,6 +321,7 @@ export default function ProfilePage() {
     if (file.size > 5 * 1024 * 1024) { toast.error("Image size should be less than 5MB"); return; }
     if (!file.type.startsWith("image/")) { toast.error("Please select a valid image file"); return; }
     setImageFile(file);
+    setImageLoadFailed(false);
     setImageRemoved(false);
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
@@ -337,16 +356,19 @@ export default function ProfilePage() {
         image: result.user.image || "",
       };
       setFields(updatedProfile);
+      setImageLoadFailed(false);
 
       const storedUser = JSON.parse(localStorage.getItem("user"));
-      localStorage.setItem("user", JSON.stringify({
+      const persistedUser = {
         ...storedUser,
         name: result.user.name,
         email: result.user.email,
         mobileNo: result.user.mobileNo,
         password: result.user.password,
         image: result.user.image,
-      }));
+      };
+      localStorage.setItem("user", JSON.stringify(persistedUser));
+      sessionStorage.setItem("user", JSON.stringify(persistedUser));
 
       setImageFile(null);
       setImagePreview(null);
@@ -369,12 +391,14 @@ export default function ProfilePage() {
     setImageFile(null);
     setImagePreview(null);
     setImageRemoved(false);
+    setImageLoadFailed(false);
     setEditingMode(null);
     setShowPasswordField(false);
   };
 
-  const initials = (fields.fullName || "U").split(" ").map((n) => n[0]).join("").toUpperCase();
-  const displayImage = imagePreview || (imageRemoved ? null : fields.image?.startsWith("http") ? fields.image : fields.image ? `${IMAGE}${fields.image}` : null);
+  const initials = getInitials(fields.fullName, fields.email);
+  const uploadedImage = imageRemoved ? "" : resolveImageUrl(fields.image, "");
+  const displayImage = imagePreview || (imageLoadFailed ? "" : uploadedImage);
 
   if (loading && !selectedUser) {
     return (
@@ -427,7 +451,12 @@ export default function ProfilePage() {
           <div className="flex flex-col items-start gap-4 mb-8">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex items-center justify-center shadow-sm">
               {displayImage ? (
-                <img src={displayImage} alt="Profile" className="w-full h-full object-cover" onError={(e) => (e.target.src = "https://i.pravatar.cc/150?img=32")} />
+                <img
+                  src={displayImage}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  onError={() => setImageLoadFailed(true)}
+                />
               ) : (
                 <span className="text-gray-400 text-2xl font-bold" style={labelStyle}>{initials}</span>
               )}

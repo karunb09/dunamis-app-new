@@ -642,24 +642,126 @@ exports.updateUser = async (req, res) => {
     }
 };
 
+const buildDashboardNoticeFilter = (requestUser, includeDeleted = false) => {
+  const userId = requestUser.userId;
+  const accountType = requestUser.accountType;
+  const roleTarget =
+    accountType === "student"
+      ? "All Students"
+      : accountType === "admin" || accountType === "superadmin"
+        ? "All Admins"
+        : null;
+
+  const targetConditions = [
+    { targetUsers: "All" },
+    { targetUsers: "Specific Users", specificUsers: userId },
+  ];
+
+  if (roleTarget) {
+    targetConditions.push({ targetUsers: roleTarget });
+  }
+
+  return {
+    ...(includeDeleted ? {} : { deletedBy: { $ne: userId } }),
+    modeOfUpdate: { $in: ["Dashboard notification", "Both"] },
+    status: "Sent",
+    $or: targetConditions,
+  };
+};
+
 exports.getUserDashboardNotices = async (req, res) => {
   try {
     const userId = req.user.userId;
     const notices = await AdminNotice.find({
-      $or: [
-        { targetUsers: "All" },
-        { targetUsers: "Specific Users", specificUsers: userId },
-      ],
+      ...buildDashboardNoticeFilter(req.user),
     })
       .populate({ path: "creator", select: "name email" })
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
-      notices,
+      notices: notices.map((notice) => {
+        const noticeObject = notice.toObject();
+        noticeObject.isRead = (notice.readBy || []).some(
+          (readerId) => String(readerId) === String(userId)
+        );
+        return noticeObject;
+      }),
     });
   } catch (error) {
     console.error("Error fetching dashboard notices:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.markAllDashboardNoticesRead = async (req, res) => {
+  try {
+    const result = await AdminNotice.updateMany(
+      buildDashboardNoticeFilter(req.user),
+      { $addToSet: { readBy: req.user.userId } }
+    );
+
+    res.status(200).json({
+      success: true,
+      modifiedCount: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    console.error("Error marking dashboard notices read:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.clearDashboardNotices = async (req, res) => {
+  try {
+    const result = await AdminNotice.updateMany(
+      buildDashboardNoticeFilter(req.user),
+      { $addToSet: { deletedBy: req.user.userId } }
+    );
+
+    res.status(200).json({
+      success: true,
+      modifiedCount: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    console.error("Error clearing dashboard notices:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.markDashboardNoticeRead = async (req, res) => {
+  try {
+    const notice = await AdminNotice.findByIdAndUpdate(
+      req.params.noticeId,
+      { $addToSet: { readBy: req.user.userId } },
+      { new: true }
+    );
+
+    if (!notice) {
+      return res.status(404).json({ success: false, message: "Notice not found." });
+    }
+
+    res.status(200).json({ success: true, notice });
+  } catch (error) {
+    console.error("Error marking dashboard notice read:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteDashboardNotice = async (req, res) => {
+  try {
+    const notice = await AdminNotice.findByIdAndUpdate(
+      req.params.noticeId,
+      { $addToSet: { deletedBy: req.user.userId } },
+      { new: true }
+    );
+
+    if (!notice) {
+      return res.status(404).json({ success: false, message: "Notice not found." });
+    }
+
+    res.status(200).json({ success: true, noticeId: req.params.noticeId });
+  } catch (error) {
+    console.error("Error deleting dashboard notice:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

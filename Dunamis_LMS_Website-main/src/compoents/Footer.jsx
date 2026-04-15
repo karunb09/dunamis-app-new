@@ -140,7 +140,7 @@ const Footer = () => {
             <ul className="space-y-2.5">
               {[
                 { icon: Info, label: "About Us", href: "/about-us" },
-                { icon: Star, label: "Testimonials", href: "/testimonials" },
+                { icon: Star, label: "Reviews", href: "/testimonials" },
                 { icon: HelpCircle, label: "FAQs", href: "/faqs" },
                 { icon: Users, label: "Success Stories", href: "/success-stories" },
                 {

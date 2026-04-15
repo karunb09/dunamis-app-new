@@ -108,6 +108,8 @@ export default function Centers() {
                 )}
                 alt={center.branchName || "Branch"}
                 className="w-full h-40 sm:h-48 object-cover"
+                loading="lazy"
+                decoding="async"
                 whileHover={{ scale: 1.05 }}
                 transition={{ duration: 0.4 }}
               />

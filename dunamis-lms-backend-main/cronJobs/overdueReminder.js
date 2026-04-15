@@ -9,7 +9,7 @@ const checkAndSendOverdueReminders = async () => {
     const now = new Date();
 
     const assignments = await Assignment.find({
-      "students.status": "assigned",
+      "students.status": { $in: ["assigned", "overdue"] },
       dueDate: { $lt: now },
     })
       .populate({
@@ -33,12 +33,11 @@ const checkAndSendOverdueReminders = async () => {
           student?.studentId?.userId?.name?.firstName || "Student";
 
         if (
-          student.status === "assigned" &&
+          ["assigned", "overdue"].includes(student.status) &&
           assignment.dueDate < now &&
           !student.reminderSent
         ) {
           student.status = "overdue";
-          student.reminderSent = true;
           updated = true;
 
           if (studentEmail) {
@@ -58,6 +57,7 @@ const checkAndSendOverdueReminders = async () => {
                 "Assignment Overdue Reminder",
                 emailBody
               );
+              student.reminderSent = true;
               console.log(`Reminder sent to ${studentEmail}`);
             } catch (err) {
               console.error("Failed to send email:", err.message);
@@ -85,4 +85,3 @@ const checkAndSendOverdueReminders = async () => {
 cron.schedule("0 0 * * *", () => {
   checkAndSendOverdueReminders();
 });
-

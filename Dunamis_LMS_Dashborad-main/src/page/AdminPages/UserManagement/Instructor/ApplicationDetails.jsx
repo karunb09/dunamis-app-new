@@ -240,7 +240,7 @@ const ApplicationDetails = () => {
                     <h3 className="text-lg font-semibold mb-4">Contact Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-sm text-gray-600">Email Address</label>
+                            <label className="text-sm text-gray-600">T</label>
                             <p>{email || "—"}</p>
                         </div>
                         <div>

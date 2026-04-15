@@ -41,6 +41,11 @@ const siteContentSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    youtubeUrl: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     rating: {
       type: Number,
       min: 0,
@@ -71,6 +76,11 @@ const siteContentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "user",
       default: null,
+    },
+    source: {
+      type: String,
+      enum: ["admin", "studentFeedback"],
+      default: "admin",
     },
   },
   { timestamps: true }

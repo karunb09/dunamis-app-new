@@ -4,6 +4,7 @@ const router = express.Router();
 const { isAuth, accessToRole } = require("../middleware/auth");
 const {
   createContent,
+  createStudentFeedbackReview,
   deleteContent,
   getAllContent,
   getPublicContent,
@@ -11,6 +12,12 @@ const {
 } = require("../controller/siteContent.controller");
 
 router.get("/public", getPublicContent);
+router.post(
+  "/student-feedback",
+  isAuth,
+  accessToRole(["student"]),
+  createStudentFeedbackReview
+);
 
 router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllContent);
 router.post("/", isAuth, accessToRole(["admin", "superadmin"]), createContent);

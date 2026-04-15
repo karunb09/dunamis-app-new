@@ -181,7 +181,7 @@ const SignIn = () => {
               className="text-right text-sm text-purple-600 cursor-pointer mb-4"
               onClick={() => setStep(3)}
             >
-              Forgot Password?
+              Forgot/Reset Password?
             </div>
             <button
               onClick={handleLogin}

@@ -8,9 +8,11 @@ import {
   updateSiteContent,
 } from "../../redux/SiteContent/SiteContentSlice";
 
+const maxImageSize = 2 * 1024 * 1024;
+
 const contentTypes = [
   { value: "faq", label: "FAQs" },
-  { value: "testimonial", label: "Testimonials" },
+  { value: "testimonial", label: "Reviews" },
   { value: "successStory", label: "Success Stories" },
 ];
 
@@ -22,6 +24,7 @@ const emptyForm = {
   category: "",
   tag: "",
   image: "",
+  youtubeUrl: "",
   rating: 5,
   displayDate: "",
   status: "published",
@@ -45,17 +48,60 @@ const getFieldHelp = (type) => {
     return {
       title: "Student name",
       subtitle: "Course",
-      body: "Testimonial",
-      category: "Optional category",
+      body: "Review",
     };
   }
 
   return {
-    title: "Student name / headline",
-    subtitle: "Achievement",
+    title: "Name / headline",
+    subtitle: "YouTube URL",
     body: "Story summary",
-    category: "Optional category",
   };
+};
+
+const getYoutubeUrl = (value) => {
+  const url = String(value || "").trim();
+  return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url) ? url : "";
+};
+
+const buildPayload = (form, imageFile) => {
+  const cleaned = {
+    ...form,
+    rating: Number(form.rating) || 0,
+    sortOrder: Number(form.sortOrder) || 0,
+  };
+
+  if (cleaned.type === "testimonial") {
+    cleaned.category = "";
+    cleaned.tag = "";
+    cleaned.youtubeUrl = "";
+  }
+
+  if (cleaned.type === "successStory") {
+    cleaned.subtitle = cleaned.youtubeUrl;
+    cleaned.category = "";
+    cleaned.tag = "";
+    cleaned.rating = 5;
+    cleaned.sortOrder = 0;
+    cleaned.status = "published";
+    cleaned.displayDate = "";
+  }
+
+  if (cleaned.type === "faq") {
+    cleaned.image = "";
+    cleaned.youtubeUrl = "";
+  }
+
+  const payload = new FormData();
+  Object.entries(cleaned).forEach(([key, value]) => {
+    payload.append(key, value ?? "");
+  });
+
+  if (imageFile) {
+    payload.set("image", imageFile);
+  }
+
+  return payload;
 };
 
 export default function SiteContentPage() {
@@ -63,9 +109,13 @@ export default function SiteContentPage() {
   const { items, loading, error } = useSelector((state) => state.siteContent);
   const [activeType, setActiveType] = useState("faq");
   const [form, setForm] = useState(emptyForm);
+  const [imageFile, setImageFile] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
   const fieldHelp = getFieldHelp(form.type);
+  const isFaq = form.type === "faq";
+  const isSuccessStory = form.type === "successStory";
+  const usesImageUpload = !isFaq;
 
   useEffect(() => {
     dispatch(fetchSiteContent(activeType));
@@ -82,6 +132,7 @@ export default function SiteContentPage() {
 
   const resetForm = (type = activeType) => {
     setEditingId(null);
+    setImageFile(null);
     setForm({ ...emptyForm, type });
   };
 
@@ -95,16 +146,36 @@ export default function SiteContentPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0] || null;
+
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+
+    if (file.size > maxImageSize) {
+      event.target.value = "";
+      setImageFile(null);
+      toast.error("Image must be 2MB or smaller");
+      return;
+    }
+
+    setImageFile(file);
+  };
+
   const handleEdit = (item) => {
     setEditingId(item._id);
+    setImageFile(null);
     setForm({
       type: item.type || activeType,
       title: item.title || "",
-      subtitle: item.subtitle || "",
+      subtitle: item.type === "successStory" ? "" : item.subtitle || "",
       body: item.body || "",
       category: item.category || "",
       tag: item.tag || "",
       image: item.image || "",
+      youtubeUrl: item.youtubeUrl || (item.type === "successStory" ? item.subtitle || "" : ""),
       rating: item.rating ?? 5,
       displayDate: item.displayDate || "",
       status: item.status || "published",
@@ -125,11 +196,12 @@ export default function SiteContentPage() {
       return;
     }
 
-    const payload = {
-      ...form,
-      rating: Number(form.rating) || 0,
-      sortOrder: Number(form.sortOrder) || 0,
-    };
+    if (isSuccessStory && !getYoutubeUrl(form.youtubeUrl)) {
+      toast.error("Enter a valid YouTube URL");
+      return;
+    }
+
+    const payload = buildPayload(form, imageFile);
 
     try {
       if (editingId) {
@@ -139,8 +211,8 @@ export default function SiteContentPage() {
         await dispatch(createSiteContent(payload)).unwrap();
         toast.success("Content created");
       }
-      resetForm(payload.type);
-      setActiveType(payload.type);
+      resetForm(form.type);
+      setActiveType(form.type);
     } catch (err) {
       toast.error(err || "Failed to save content");
     }
@@ -166,8 +238,8 @@ export default function SiteContentPage() {
           Website Content
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">
-          Manage public FAQs, testimonials, and success stories from the
-          dashboard. Published records appear on the website automatically.
+          Manage public FAQs, reviews, and success stories from the dashboard.
+          Published records appear on the website automatically.
         </p>
       </div>
 
@@ -214,7 +286,7 @@ export default function SiteContentPage() {
               <select
                 name="type"
                 value={form.type}
-                onChange={handleChange}
+                onChange={(event) => handleTypeChange(event.target.value)}
                 className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               >
                 {contentTypes.map((item) => (
@@ -237,17 +309,32 @@ export default function SiteContentPage() {
               />
             </label>
 
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">
-                {fieldHelp.subtitle}
-              </span>
-              <input
-                name="subtitle"
-                value={form.subtitle}
-                onChange={handleChange}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </label>
+            {isSuccessStory ? (
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">
+                  {fieldHelp.subtitle}
+                </span>
+                <input
+                  name="youtubeUrl"
+                  value={form.youtubeUrl}
+                  onChange={handleChange}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </label>
+            ) : (
+              <label className="block">
+                <span className="text-sm font-medium text-gray-700">
+                  {fieldHelp.subtitle}
+                </span>
+                <input
+                  name="subtitle"
+                  value={form.subtitle}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="text-sm font-medium text-gray-700">
@@ -262,92 +349,114 @@ export default function SiteContentPage() {
               />
             </label>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {isFaq && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700">
+                    {fieldHelp.category}
+                  </span>
+                  <input
+                    name="category"
+                    value={form.category}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700">Tag</span>
+                  <input
+                    name="tag"
+                    value={form.tag}
+                    onChange={handleChange}
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </div>
+            )}
+
+            {usesImageUpload && (
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">
-                  {fieldHelp.category}
+                  Image upload
                 </span>
                 <input
-                  name="category"
-                  value={form.category}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  name="image"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleImageChange}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                 />
+                <span className="mt-1 block text-xs text-gray-500">
+                  JPG, PNG, WebP, or GIF. Maximum 2MB.
+                  {form.image && !imageFile ? ` Current: ${form.image}` : ""}
+                  {imageFile ? ` Selected: ${imageFile.name}` : ""}
+                </span>
               </label>
+            )}
 
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Tag</span>
-                <input
-                  name="tag"
-                  value={form.tag}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                />
-              </label>
-            </div>
+            {!isSuccessStory && (
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  {!isFaq && (
+                    <label className="block">
+                      <span className="text-sm font-medium text-gray-700">
+                        Rating
+                      </span>
+                      <input
+                        name="rating"
+                        type="number"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        value={form.rating}
+                        onChange={handleChange}
+                        className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                      />
+                    </label>
+                  )}
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700">
+                      Order
+                    </span>
+                    <input
+                      name="sortOrder"
+                      type="number"
+                      value={form.sortOrder}
+                      onChange={handleChange}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-gray-700">
+                      Status
+                    </span>
+                    <select
+                      name="status"
+                      value={form.status}
+                      onChange={handleChange}
+                      className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="published">Published</option>
+                      <option value="draft">Draft</option>
+                    </select>
+                  </label>
+                </div>
 
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">
-                Image URL
-              </span>
-              <input
-                name="image"
-                value={form.image}
-                onChange={handleChange}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </label>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Rating</span>
-                <input
-                  name="rating"
-                  type="number"
-                  min="0"
-                  max="5"
-                  step="0.1"
-                  value={form.rating}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Order</span>
-                <input
-                  name="sortOrder"
-                  type="number"
-                  value={form.sortOrder}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-sm font-medium text-gray-700">Status</span>
-                <select
-                  name="status"
-                  value={form.status}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                >
-                  <option value="published">Published</option>
-                  <option value="draft">Draft</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">
-                Display Date
-              </span>
-              <input
-                name="displayDate"
-                value={form.displayDate}
-                onChange={handleChange}
-                placeholder="March 2026"
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </label>
+                <label className="block">
+                  <span className="text-sm font-medium text-gray-700">
+                    Display Date
+                  </span>
+                  <input
+                    name="displayDate"
+                    value={form.displayDate}
+                    onChange={handleChange}
+                    placeholder="March 2026"
+                    className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  />
+                </label>
+              </>
+            )}
           </div>
 
           <button
@@ -381,7 +490,11 @@ export default function SiteContentPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {visibleItems.map((item) => (
+              {visibleItems.map((item) => {
+                const youtubeUrl =
+                  getYoutubeUrl(item.youtubeUrl) || getYoutubeUrl(item.subtitle);
+
+                return (
                 <article
                   key={item._id}
                   className="rounded-xl border border-gray-200 p-4"
@@ -401,12 +514,26 @@ export default function SiteContentPage() {
                         >
                           {item.status}
                         </span>
+                        {item.source === "studentFeedback" && (
+                          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                            Student feedback
+                          </span>
+                        )}
                       </div>
-                      {item.subtitle && (
+                      {item.type === "successStory" && youtubeUrl ? (
+                        <a
+                          href={youtubeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block text-sm font-medium text-orange-600 hover:underline"
+                        >
+                          YouTube video
+                        </a>
+                      ) : item.subtitle ? (
                         <p className="mt-1 text-sm text-gray-600">
                           {item.subtitle}
                         </p>
-                      )}
+                      ) : null}
                       {item.body && (
                         <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-600">
                           {item.body}
@@ -416,7 +543,9 @@ export default function SiteContentPage() {
                         {item.category && <span>{item.category}</span>}
                         {item.tag && <span>{item.tag}</span>}
                         {item.displayDate && <span>{item.displayDate}</span>}
-                        <span>Order {item.sortOrder || 0}</span>
+                        {item.type !== "successStory" && (
+                          <span>Order {item.sortOrder || 0}</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -437,7 +566,8 @@ export default function SiteContentPage() {
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

@@ -50,7 +50,7 @@ export default function Testimonials() {
 
     return (
         <div>
-            {/* Testimonials Section */}
+            {/* Reviews Section */}
             <motion.section
                 className="py-20 bg-white px-6 text-center"
                 initial="hidden"
@@ -64,7 +64,7 @@ export default function Testimonials() {
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
                 >
-                    Student Success Stories
+                    Student Reviews
                 </motion.p>
                 <motion.h2
                     className="text-3xl font-bold mb-4"
@@ -84,7 +84,7 @@ export default function Testimonials() {
                     and achieved their learning goals with Dunamis.
                 </motion.p>
 
-                {/* Testimonial Cards */}
+                {/* Review Cards */}
                 <motion.div
                     className=" grid md:grid-cols-3 gap-6 max-w-7xl mx-auto"
                     variants={containerVariants}
@@ -111,6 +111,8 @@ export default function Testimonials() {
                                     src={resolveImageUrl(item.image, getInitialsImage(item.title))}
                                     alt={item.title}
                                     className="h-10 w-10 rounded-full object-cover"
+                                    loading="lazy"
+                                    decoding="async"
                                 />
                                 <div>
                                     <p className="font-semibold text-sm">{item.title}</p>
@@ -126,7 +128,7 @@ export default function Testimonials() {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                 >
-                    Read More Testimonials
+                    Read More Reviews
                 </motion.button>
             </motion.section>
 

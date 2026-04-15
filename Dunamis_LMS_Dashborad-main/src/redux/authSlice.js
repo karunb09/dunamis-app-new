@@ -242,6 +242,122 @@ export const getUserDashboardNotices = createAsyncThunk(
   }
 );
 
+export const markUserDashboardNoticeRead = createAsyncThunk(
+  "auth/markUserDashboardNoticeRead",
+  async (noticeId, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/notices/${noticeId}/read`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || "Failed to mark notice as read");
+      }
+
+      return noticeId;
+    } catch (error) {
+      return rejectWithValue(error.message || "An error occurred");
+    }
+  }
+);
+
+export const markAllUserDashboardNoticesRead = createAsyncThunk(
+  "auth/markAllUserDashboardNoticesRead",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/notices/read-all`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || "Failed to mark notices as read");
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || "An error occurred");
+    }
+  }
+);
+
+export const deleteUserDashboardNotice = createAsyncThunk(
+  "auth/deleteUserDashboardNotice",
+  async (noticeId, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/notices/${noticeId}`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || "Failed to delete notice");
+      }
+
+      return data.noticeId || noticeId;
+    } catch (error) {
+      return rejectWithValue(error.message || "An error occurred");
+    }
+  }
+);
+
+export const clearUserDashboardNotices = createAsyncThunk(
+  "auth/clearUserDashboardNotices",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/notices`,
+        {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return rejectWithValue(data.message || "Failed to clear notices");
+      }
+
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message || "An error occurred");
+    }
+  }
+);
+
 export const getUserById = createAsyncThunk(
   "auth/getUserById",
   async (id, { rejectWithValue }) => {
@@ -439,6 +555,25 @@ const authSlice = createSlice({
       .addCase(getUserDashboardNotices.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(markUserDashboardNoticeRead.fulfilled, (state, action) => {
+        state.notices = state.notices.map((notice) =>
+          notice._id === action.payload ? { ...notice, isRead: true } : notice
+        );
+      })
+      .addCase(markAllUserDashboardNoticesRead.fulfilled, (state) => {
+        state.notices = state.notices.map((notice) => ({
+          ...notice,
+          isRead: true,
+        }));
+      })
+      .addCase(deleteUserDashboardNotice.fulfilled, (state, action) => {
+        state.notices = state.notices.filter(
+          (notice) => notice._id !== action.payload
+        );
+      })
+      .addCase(clearUserDashboardNotices.fulfilled, (state) => {
+        state.notices = [];
       })
 
       .addCase(getUserById.pending, (state) => {

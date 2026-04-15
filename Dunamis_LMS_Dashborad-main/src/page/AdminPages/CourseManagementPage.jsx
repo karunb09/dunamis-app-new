@@ -526,19 +526,20 @@ const CourseManagement = () => {
                 </>
             ) : (
                 <>
-                    <div className="relative overflow-x-auto bg-white rounded-lg shadow-sm border mt-4">
-                        <table className="min-w-full text-sm text-left">
+                    <div className="relative mt-4 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                        <div className="overflow-x-auto">
+                        <table className="min-w-[1120px] w-full text-left text-sm">
                             <thead className="bg-gray-100 text-gray-700 font-semibold">
                                 <tr>
-                                    <th className="px-4 py-3">Title</th>
-                                    <th className="px-4 py-3">Category</th>
-                                    <th className="px-4 py-3">Level</th>
-                                    <th className="px-4 py-3">Mode</th>
-                                    <th className="px-4 py-3">Status</th>
-                                    <th className="px-4 py-3">Instructors</th>
-                                    <th className="px-4 py-3">Students</th>
-                                    <th className="px-4 py-3">Price (₹/mo)</th>
-                                    <th className="px-4 py-3">Actions</th>
+                                    <th className="min-w-[240px] whitespace-nowrap px-4 py-3">Title</th>
+                                    <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Category</th>
+                                    <th className="min-w-[120px] whitespace-nowrap px-4 py-3">Level</th>
+                                    <th className="min-w-[110px] whitespace-nowrap px-4 py-3">Mode</th>
+                                    <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Status</th>
+                                    <th className="min-w-[150px] whitespace-nowrap px-4 py-3">Instructors</th>
+                                    <th className="min-w-[110px] whitespace-nowrap px-4 py-3">Students</th>
+                                    <th className="min-w-[130px] whitespace-nowrap px-4 py-3">Price (₹/mo)</th>
+                                    <th className="min-w-[190px] whitespace-nowrap px-4 py-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -549,11 +550,11 @@ const CourseManagement = () => {
                                             className="border-t hover:bg-gray-50 cursor-pointer"
                                             onClick={(e) => handleRowClick(course._id, e)}
                                         >
-                                            <td className="px-4 py-3">{course.name}</td>
-                                            <td className="px-4 py-3">{course.category?.name || '-'}</td>
-                                            <td className="px-4 py-3 capitalize">{course.level || '-'}</td>
-                                            <td className="px-4 py-3 capitalize">{course.mode || '-'}</td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-4 py-3 font-medium text-slate-900">{course.name}</td>
+                                            <td className="px-4 py-3 text-slate-600">{course.category?.name || '-'}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-600">{course.level || '-'}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 capitalize text-slate-600">{course.mode || '-'}</td>
+                                            <td className="whitespace-nowrap px-4 py-3">
                                                 <span
                                                     className={`px-2 py-0.5 text-xs rounded-full ${course.isPublished
                                                         ? 'bg-green-100 text-green-700'
@@ -578,8 +579,8 @@ const CourseManagement = () => {
                                                     ))}
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3">{course.totalStudents || 0}</td>
-                                            <td className="px-4 py-3">{getSelectedMonthlyFee(course.price)}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-slate-600">{course.totalStudents || 0}</td>
+                                            <td className="whitespace-nowrap px-4 py-3 text-slate-600">{getSelectedMonthlyFee(course.price)}</td>
                                             <td className="px-4 py-3">
                                                 <div className="flex flex-wrap justify-end gap-1.5">
                                                     <IconActionButton
@@ -622,6 +623,7 @@ const CourseManagement = () => {
                                 )}
                             </tbody>
                         </table>
+                        </div>
                     </div>
 
                     {filteredCourses.length > ROWS_PER_PAGE && (

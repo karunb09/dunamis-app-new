@@ -12,6 +12,9 @@ const getAuthConfig = () => {
   };
 };
 
+const getPayloadType = (payload) =>
+  payload instanceof FormData ? payload.get("type") || "" : payload?.type || "";
+
 export const fetchSiteContent = createAsyncThunk(
   "siteContent/fetchAll",
   async (type = "", { rejectWithValue }) => {
@@ -36,7 +39,7 @@ export const createSiteContent = createAsyncThunk(
         payload,
         getAuthConfig()
       );
-      dispatch(fetchSiteContent(payload.type || ""));
+      dispatch(fetchSiteContent(getPayloadType(payload)));
       return response.data?.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -53,7 +56,7 @@ export const updateSiteContent = createAsyncThunk(
         payload,
         getAuthConfig()
       );
-      dispatch(fetchSiteContent(payload.type || ""));
+      dispatch(fetchSiteContent(getPayloadType(payload)));
       return response.data?.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);

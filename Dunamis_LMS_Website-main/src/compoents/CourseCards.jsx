@@ -25,6 +25,8 @@ export default function CourseCard({
         src={image}
         alt={title}
         className="w-full h-40 object-cover"
+        loading="lazy"
+        decoding="async"
         onError={(e) => {
           if (fallbackImage) {
             e.currentTarget.src = fallbackImage;

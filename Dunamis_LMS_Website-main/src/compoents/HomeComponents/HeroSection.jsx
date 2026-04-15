@@ -1,8 +1,50 @@
 "use client";
 import { AnimatePresence, motion } from "framer-motion";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
+
+const heroImages = [
+  { src: "/BG-1-hero.jpg", alt: "Students learning music together" },
+  { src: "/BG-2-hero.jpg", alt: "Creative music learning illustration" },
+  { src: "/BG-3-hero.jpg", alt: "Performers in a creative learning space" },
+];
+
+const marqueeItems = [
+  { text: "Creativity", color: "text-red-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Growth", color: "text-orange-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Play", color: "text-yellow-300" },
+  { text: "✦", color: "text-white" },
+  { text: "Performance", color: "text-green-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Collaboration", color: "text-teal-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Inspiration", color: "text-cyan-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Expression", color: "text-blue-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Rhythm", color: "text-indigo-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Storytelling", color: "text-purple-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Mastery", color: "text-pink-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Discovery", color: "text-rose-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Movement", color: "text-lime-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Fun", color: "text-amber-300" },
+  { text: "✦", color: "text-white" },
+  { text: "Flow", color: "text-emerald-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Freedom", color: "text-sky-400" },
+  { text: "✦", color: "text-white" },
+  { text: "Expression", color: "text-fuchsia-400" },
+  { text: "✦", color: "text-white" },
+];
 
 const heroImageVariants = {
   initial: {
@@ -26,26 +68,18 @@ const heroImageVariants = {
 
 export default function HeroSection() {
   const router = useRouter();
-  const bgImages = ["/BG-1.jpg", "/BG-2.png", "/BG-3.png"];
   const [currentImage, setCurrentImage] = useState(0);
   const [isInterestModalOpen, setInterestModalOpen] = useState(false);
 
   useEffect(() => {
-    const preloadImages = bgImages.map((src) => {
-      const image = new window.Image();
-      image.src = src;
-      return image;
-    });
-
     const interval = setInterval(() => {
-      setCurrentImage((prev) => (prev + 1) % bgImages.length);
+      setCurrentImage((prev) => (prev + 1) % heroImages.length);
     }, 6200);
 
-    return () => {
-      clearInterval(interval);
-      preloadImages.length = 0;
-    };
+    return () => clearInterval(interval);
   }, []);
+
+  const activeImage = heroImages[currentImage];
 
   return (
     <>
@@ -53,14 +87,24 @@ export default function HeroSection() {
         <div className="absolute inset-0">
           <AnimatePresence initial={false}>
             <motion.div
-              key={bgImages[currentImage]}
+              key={activeImage.src}
               variants={heroImageVariants}
               initial="initial"
               animate="animate"
               exit="exit"
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              style={{ backgroundImage: `url(${bgImages[currentImage]})` }}
-            />
+              className="absolute inset-0"
+            >
+              <Image
+                src={activeImage.src}
+                alt={activeImage.alt}
+                fill
+                priority={currentImage === 0}
+                loading={currentImage === 0 ? undefined : "lazy"}
+                sizes="100vw"
+                quality={75}
+                className="object-cover object-center"
+              />
+            </motion.div>
           </AnimatePresence>
         </div>
         <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(9,16,32,0.78)_0%,rgba(12,20,33,0.58)_38%,rgba(14,22,34,0.3)_62%,rgba(10,14,24,0.58)_100%)]" />
@@ -112,89 +156,21 @@ export default function HeroSection() {
           </motion.div>
         </div>
       </section>
-            {/* Scrolling word loop with unique colors (seamless) */}
+      {/* Scrolling word loop with unique colors (seamless) */}
       <div className="relative overflow-hidden bg-black py-6">
-          <div className="marquee">
-            <div className="flex">
-              {[
-                { text: "Creativity", color: "text-red-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Growth", color: "text-orange-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Play", color: "text-yellow-300" },
-                { text: "✦", color: "text-white" },
-                { text: "Performance", color: "text-green-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Collaboration", color: "text-teal-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Inspiration", color: "text-cyan-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Expression", color: "text-blue-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Rhythm", color: "text-indigo-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Storytelling", color: "text-purple-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Mastery", color: "text-pink-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Discovery", color: "text-rose-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Movement", color: "text-lime-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Fun", color: "text-amber-300" },
-                { text: "✦", color: "text-white" },
-                { text: "Flow", color: "text-emerald-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Freedom", color: "text-sky-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Expression", color: "text-fuchsia-400" },
-                { text: "✦", color: "text-white" },
-              ].map((item, index) => (
-                <span key={`a-${index}`} className={`inline-block mx-4 ${item.color}`}>
+        <div className="marquee">
+          <div className="flex">
+            {[...marqueeItems, ...marqueeItems].map((item, index) => (
+              <span
+                key={`${item.text}-${index}`}
+                className={`inline-block mx-4 ${item.color}`}
+              >
                   {item.text}
-                </span>
-              ))}
-              {[
-                { text: "Creativity", color: "text-red-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Growth", color: "text-orange-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Play", color: "text-yellow-300" },
-                { text: "✦", color: "text-white" },
-                { text: "Performance", color: "text-green-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Collaboration", color: "text-teal-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Inspiration", color: "text-cyan-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Expression", color: "text-blue-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Rhythm", color: "text-indigo-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Storytelling", color: "text-purple-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Mastery", color: "text-pink-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Discovery", color: "text-rose-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Movement", color: "text-lime-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Fun", color: "text-amber-300" },
-                { text: "✦", color: "text-white" },
-                { text: "Flow", color: "text-emerald-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Freedom", color: "text-sky-400" },
-                { text: "✦", color: "text-white" },
-                { text: "Expression", color: "text-fuchsia-400" },
-                { text: "✦", color: "text-white" },
-              ].map((item, index) => (
-                <span key={`b-${index}`} className={`inline-block mx-4 ${item.color}`}>
-                  {item.text}
-                </span>
-              ))}
-            </div>
+              </span>
+            ))}
           </div>
         </div>
+      </div>
       <FilterQuestionsModal
         isOpen={isInterestModalOpen}
         onClose={() => setInterestModalOpen(false)}

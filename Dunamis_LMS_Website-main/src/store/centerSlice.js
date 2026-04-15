@@ -21,6 +21,12 @@ export const fetchOfflineCenters = createAsyncThunk(
       }
       return rejectWithValue(error.response?.data?.message || error.message);
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { offlineCenters } = getState();
+      return !offlineCenters.loading && offlineCenters.centers.length === 0;
+    },
   }
 );
 

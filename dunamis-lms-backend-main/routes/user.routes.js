@@ -8,6 +8,10 @@ const{
     getAllUsers,
     getUserById,
     getUserDashboardNotices,
+    markAllDashboardNoticesRead,
+    markDashboardNoticeRead,
+    clearDashboardNotices,
+    deleteDashboardNotice,
     forgotPassword,
     verifyOTP,
     resetPassword
@@ -24,6 +28,10 @@ router.post("/reset-password", resetPassword);
 router.post("/change-password",isAuth, changePassword);
 router.get("/get-all", isAuth, accessToRole(["admin", "superadmin"]), getAllUsers);
 router.get("/notices", isAuth, getUserDashboardNotices);
+router.patch("/notices/read-all", isAuth, markAllDashboardNoticesRead);
+router.patch("/notices/:noticeId/read", isAuth, markDashboardNoticeRead);
+router.delete("/notices", isAuth, clearDashboardNotices);
+router.delete("/notices/:noticeId", isAuth, deleteDashboardNotice);
 router.get("/:id", isAuth, getUserById)
 router.put("/:id", isAuth, updateUser);
 

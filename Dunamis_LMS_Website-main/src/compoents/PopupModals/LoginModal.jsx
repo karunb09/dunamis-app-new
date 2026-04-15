@@ -111,7 +111,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
 
                                 <div className="flex items-center justify-between pt-1">
                                     <a href="/forgot-password" className="text-sm text-orange-600 hover:text-orange-600 underline">
-                                        Forgot password?
+                                        Forgot/reset password?
                                     </a>
                                 </div>
 

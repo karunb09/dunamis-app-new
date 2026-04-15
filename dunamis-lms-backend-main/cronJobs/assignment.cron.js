@@ -60,10 +60,14 @@ async function runAssignmentCycle(force = false) {
         const existing = await Assignment.findOne({
           "students.studentId": student._id,
           courseId,
+          $or: [
+            { dueDate: null },
+            { "students.status": { $in: ["reminder", "assigned", "pending"] } },
+          ],
         });
 
         if (existing) {
-          console.log("Skipping — existing assignment found");
+          console.log("Skipping — active assignment already exists");
           continue;
         }
 

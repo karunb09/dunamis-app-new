@@ -11,6 +11,7 @@ import { Providers } from "./providers";
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
   variable: "--font-poppins",
 });
 
@@ -22,13 +23,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
-          rel="stylesheet"
-        ></link>
-      </head>
-      <body className="flex min-h-screen flex-col bg-[#fffaf4] text-slate-900">
+      <body
+        className={`${poppins.className} flex min-h-screen flex-col bg-[#fffaf4] text-slate-900`}
+      >
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>

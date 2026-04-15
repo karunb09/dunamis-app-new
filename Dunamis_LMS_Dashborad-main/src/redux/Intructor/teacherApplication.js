@@ -153,6 +153,10 @@ const applicationSlice = createSlice({
         const { id, status } = action.payload;
         state.status = status;
 
+        if (state.data?._id === id) {
+          state.data = { ...state.data, status };
+        }
+
         state.allApplications = state.allApplications.map((app) =>
           app._id === id ? { ...app, status } : app
         );

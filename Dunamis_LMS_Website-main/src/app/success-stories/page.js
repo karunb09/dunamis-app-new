@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
+const getYoutubeUrl = (value) => {
+  const url = String(value || "").trim();
+  return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(url) ? url : "";
+};
+
 export default function SuccessStories() {
   const router = useRouter();
   const [stories, setStories] = useState([]);
@@ -51,7 +56,7 @@ export default function SuccessStories() {
           transition={{ duration: 0.6 }}
           viewport={{ once: false }}
         >
-          Celebrating achievements
+          Celebrating journeys
         </motion.p>
 
         <motion.h1
@@ -99,7 +104,11 @@ export default function SuccessStories() {
 
         {!loading && !error && stories.length > 0 && (
           <div className="grid md:grid-cols-3 gap-8 mt-12 px-2 pl-10 pr-10">
-            {stories.map((story, i) => (
+            {stories.map((story, i) => {
+              const youtubeUrl =
+                getYoutubeUrl(story.youtubeUrl) || getYoutubeUrl(story.subtitle);
+
+              return (
               <motion.div
                 key={story._id || i}
                 className="bg-white border rounded-2xl shadow-md hover:shadow-xl transition overflow-hidden flex flex-col"
@@ -114,29 +123,25 @@ export default function SuccessStories() {
                     alt={story.title}
                     className="w-full h-full object-cover hover:scale-110 transition-transform duration-500"
                   />
-                  {story.tag && (
-                    <span className="absolute top-3 left-3 bg-orange-600 text-white text-xs px-3 py-1 rounded-full shadow">
-                      {story.tag}
-                    </span>
-                  )}
                 </div>
 
                 <div className="p-5 flex flex-col flex-grow text-left">
-                  {story.displayDate && (
-                    <span className="text-xs text-gray-500">
-                      {story.displayDate}
-                    </span>
-                  )}
                   <h3 className="font-bold text-lg mt-2">{story.title}</h3>
-                  {story.subtitle && (
-                    <p className="text-orange-600 text-sm font-medium mb-2">
-                      {story.subtitle}
-                    </p>
+                  {youtubeUrl && (
+                    <a
+                      href={youtubeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-orange-600 text-sm font-medium mb-2 hover:underline"
+                    >
+                      Watch on YouTube
+                    </a>
                   )}
                   <p className="text-gray-600 text-sm flex-grow">{story.body}</p>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -1,4 +1,7 @@
 
+const fs = require("fs");
+const path = require("path");
+
 const sendApplicationStatusTemplate = (firstName, email, status) => {
   const statusMessages = {
     new: {
@@ -26,7 +29,6 @@ const sendApplicationStatusTemplate = (firstName, email, status) => {
       body: `
         <p>Your application has progressed to the next stage. We would like to invite you for an <strong>interview</strong>.</p>
         <p>Our team will contact you shortly to schedule the interview and share further details.</p>
-        <p>👉 <a href="${process.env.BASE_URL}/interview">Click here to view interview details</a></p>
       `,
     },
     selected: {
@@ -35,7 +37,7 @@ const sendApplicationStatusTemplate = (firstName, email, status) => {
         <p>Congratulations! You have been <strong>selected</strong> for the teaching position.</p>
         <p>Your account credentials (email and password) have been sent to your registered email address.</p>
         <p>Please check your inbox for login details and next steps.</p>
-        <p>👉 <a href="${process.env.BASE_URL}/login">Click here to login</a></p>
+        <p>👉 <a href="https://dashboard.dunamisindia.co.in/">Click here to login</a></p>
       `,
     },
   };
@@ -102,8 +104,8 @@ const sendApplicationStatusTemplate = (firstName, email, status) => {
     </head>
     <body>
       <div class="container">
-        <a href="${process.env.BASE_URL}">
-          <img class="logo" src="https://res.cloudinary.com/dhkxrds3r/image/upload/v1751086466/kwevgskprhikh4aaqaht.png" alt="Dunamis Logo">
+        <a href="https://www.dunamisindia.co.in/">
+          <img class="logo" src="cid:dunamis-logo" alt="Dunamis India Logo">
         </a>
         <div class="message">${selectedStatus.subject}</div>
         <div class="body">
@@ -119,6 +121,22 @@ const sendApplicationStatusTemplate = (firstName, email, status) => {
       </div>
     </body>
     </html>`;
+};
+
+sendApplicationStatusTemplate.attachments = () => {
+  const logoPath = path.join(__dirname, "../Dunamis.png");
+
+  if (!fs.existsSync(logoPath)) {
+    return [];
+  }
+
+  return [
+    {
+      filename: "Dunamis India.png",
+      path: logoPath,
+      cid: "dunamis-logo",
+    },
+  ];
 };
 
 module.exports = sendApplicationStatusTemplate;

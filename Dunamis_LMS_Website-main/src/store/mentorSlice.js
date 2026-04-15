@@ -18,6 +18,12 @@ export const fetchMentors = createAsyncThunk(
         error.response?.data?.message || "Failed to fetch mentors"
       );
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { mentor } = getState();
+      return !mentor.loading && mentor.mentors.length === 0;
+    },
   }
 );
 

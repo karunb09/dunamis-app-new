@@ -61,6 +61,18 @@ const adminNoticeSchema = new mongoose.Schema(
       enum: ["Draft", "Sent"],
       default: "Sent",
     },
+    readBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+    ],
+    deletedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+      },
+    ],
     sentAt: {
       type: Date,
       default: Date.now,

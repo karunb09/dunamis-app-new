@@ -20,7 +20,7 @@ const mailSender = async (email, title, body, attachments = []) => {
     let info = await transporter.sendMail({
       from:
         process.env.MAIL_FROM ||
-        `Dunamis LMS <${process.env.MAIL_USER}>`,
+        `Dunamis India <${process.env.MAIL_USER}>`,
       to: `${email}`,
       subject: `${title}`,
       html: `${body}`,
