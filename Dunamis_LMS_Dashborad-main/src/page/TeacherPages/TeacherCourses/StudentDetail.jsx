@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { HiDotsHorizontal } from "react-icons/hi";
-import * as Icons from "react-icons/fa";
 import { getAssignmentsByStatus } from "../../../redux/Assignment/AssignmentSlice";
+import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
 
 const StudentDetail = ({ onBack }) => {
   const dispatch = useDispatch();
@@ -68,41 +68,10 @@ const StudentDetail = ({ onBack }) => {
   const tabs = ["Courses", "Feedback & Homework", "Assignments", "Schedules", "Certifications"];
 
   const getCourseIcon = (category) => {
-    const iconValue = category?.icon;
-    if (iconValue && iconValue.trim() !== "") {
-      if (iconValue.startsWith("Fa") || iconValue.startsWith("Md") || iconValue.startsWith("Io")) {
-        const IconComponent = Icons[iconValue];
-        if (IconComponent) {
-          return <IconComponent className="w-3 h-3 text-black" />;
-        }
-      }
-      if (iconValue.startsWith("http") || iconValue.startsWith("/uploads")) {
-        return (
-          <img
-            src={iconValue.startsWith("http") ? iconValue : `${import.meta.env.VITE_IMAGE}${iconValue}`}
-            alt={category?.name || "icon"}
-            className="w-3 h-3 object-contain"
-          />
-        );
-      }
-      return iconValue;
-    }
-    const emojiIconMap = {
-      Music: "🎵",
-      Dance: "💃",
-      Language: "🌐",
-      Art: "🎨",
-      Technology: "💻",
-    };
-    return emojiIconMap[category?.name] || "📚";
+    return <DynamicCourseIcon category={category} />;
   };
 
-  const renderIcon = (icon) => {
-    if (typeof icon === "string") {
-      return icon;
-    }
-    return icon;
-  };
+  const renderIcon = (icon) => icon;
 
   const renderTabContent = () => {
     switch (activeTab) {

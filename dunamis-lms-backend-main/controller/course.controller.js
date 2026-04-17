@@ -46,6 +46,79 @@ const normalizePricePayload = (price = {}) => ({
   installments: normalizeInstallments(price),
 });
 
+const normalizeIdList = (values = []) => {
+  const list = Array.isArray(values) ? values : values ? [values] : [];
+
+  return Array.from(
+    new Set(
+      list
+        .map((value) => {
+          if (!value && value !== 0) return "";
+          if (typeof value === "string" || typeof value === "number") {
+            return String(value).trim();
+          }
+
+          return String(value._id || value.id || value.value || "").trim();
+        })
+        .filter(Boolean)
+    )
+  );
+};
+
+const syncCourseTeachers = async ({
+  courseId,
+  previousTeacherIds = [],
+  nextTeacherIds = [],
+}) => {
+  const removedTeacherIds = previousTeacherIds.filter(
+    (teacherId) => !nextTeacherIds.includes(teacherId)
+  );
+
+  if (removedTeacherIds.length > 0) {
+    await Teacher.updateMany(
+      { _id: { $in: removedTeacherIds } },
+      { $pull: { course: courseId } }
+    );
+  }
+
+  if (nextTeacherIds.length > 0) {
+    await Teacher.updateMany(
+      { _id: { $in: nextTeacherIds } },
+      { $addToSet: { course: courseId } }
+    );
+  }
+};
+
+const syncCourseBranches = async ({
+  courseId,
+  previousBranchIds = [],
+  nextBranchIds = [],
+  nextTeacherIds = [],
+}) => {
+  const removedBranchIds = previousBranchIds.filter(
+    (branchId) => !nextBranchIds.includes(branchId)
+  );
+
+  if (removedBranchIds.length > 0) {
+    await Branch.updateMany(
+      { _id: { $in: removedBranchIds } },
+      { $pull: { courses: courseId } }
+    );
+  }
+
+  if (nextBranchIds.length > 0) {
+    await Branch.updateMany(
+      { _id: { $in: nextBranchIds } },
+      {
+        $addToSet: {
+          courses: courseId,
+          teachers: { $each: nextTeacherIds },
+        },
+      }
+    );
+  }
+};
+
 const formatPublicTeacherForCourse = (teacher) => {
   if (!teacher) return null;
 
@@ -471,27 +544,51 @@ exports.updateCourse = async (req, res) => {
     let updateData = { ...req.body };
     delete updateData.removeImage;
 
-     const parseJSON = (field) => {
-       if (!req.body[field]) return null;
+     const parseArrayField = (field) => {
+       const hasField = Object.prototype.hasOwnProperty.call(req.body || {}, field);
+       if (!hasField) return null;
+
+       const rawValue = req.body[field];
+
        try {
-         const parsed = JSON.parse(req.body[field]);
-         return Array.isArray(parsed) ? parsed : [parsed];
+          if (rawValue === null || rawValue === undefined || rawValue === "") {
+            return [];
+          }
+
+         if (Array.isArray(rawValue)) {
+           return rawValue;
+         }
+
+         const parsed = JSON.parse(rawValue);
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
+
+          return parsed || parsed === 0 ? [parsed] : [];
        } catch {
-         return req.body[field]
+          return rawValue
            .toString()
            .replace(/[[\]'"]/g, "")
            .split(",")
-           .map((id) => id.trim());
+            .map((value) => value.trim())
+            .filter(Boolean);
        }
     };
     
+    const parsedSubCategory = parseArrayField("subCategory");
+    const parsedTeachers = parseArrayField("teacher");
+    const parsedContent = parseArrayField("content");
+    const parsedObjectives = parseArrayField("objectives");
+    const parsedPrice = parseArrayField("price");
+
     updateData.subCategory =
-      parseJSON("subCategory") || existingCourse.subCategory;
-    updateData.teacher = parseJSON("teacher") || existingCourse.teacher;
-    updateData.content = parseJSON("content") || existingCourse.content;
+      parsedSubCategory !== null ? parsedSubCategory : existingCourse.subCategory;
+    updateData.teacher =
+      parsedTeachers !== null ? parsedTeachers : existingCourse.teacher;
+    updateData.content =
+      parsedContent !== null ? parsedContent : existingCourse.content;
     updateData.objectives =
-      parseJSON("objectives") || existingCourse.objectives;
-    const parsedPrice = parseJSON("price");
+      parsedObjectives !== null ? parsedObjectives : existingCourse.objectives;
     updateData.price = parsedPrice
       ? parsedPrice.map(normalizePricePayload)
       : existingCourse.price;
@@ -501,17 +598,23 @@ exports.updateCourse = async (req, res) => {
           ? req.body.isPublished === "true"
           : Boolean(req.body.isPublished);
     }
-    const parsedBranches = parseJSON("branches") || [];
+    const nextMode = updateData.mode || existingCourse.mode;
+    const parsedBranches = parseArrayField("branches");
 
-    if (updateData.mode === "offline") {
-      const existingBranches = existingCourse.branches.map((b) => b.toString());
-      const mergedBranches = Array.from(
-        new Set([...existingBranches, ...parsedBranches])
-      );
-      updateData.branches = mergedBranches;
-    } else if (updateData.mode === "online") {
+    if (nextMode === "offline") {
+      updateData.branches =
+        parsedBranches !== null ? parsedBranches : existingCourse.branches;
+    } else if (nextMode === "online") {
       updateData.branches = [];
     }
+
+    const previousTeacherIds = normalizeIdList(existingCourse.teacher);
+    const nextTeacherIds = normalizeIdList(updateData.teacher);
+    const previousBranchIds = normalizeIdList(existingCourse.branches);
+    const nextBranchIds = normalizeIdList(updateData.branches);
+
+    updateData.teacher = nextTeacherIds;
+    updateData.branches = nextBranchIds;
 
     if (req.files && req.files.image) {
       const uploadedFiles = await localFileUpload(req.files.image, [
@@ -537,54 +640,58 @@ exports.updateCourse = async (req, res) => {
       updateData.image = null;
     }
 
-    const mergedTeachers = Array.from(
-      new Set([
-        ...(existingCourse.teacher || []).map((t) => t.toString()),
-        ...(updateData.teacher || []).map((t) => t.toString()),
-      ])
-    ).filter(Boolean);
-    updateData.teacher = mergedTeachers;
-
-    const updatedCourse = await Course.findByIdAndUpdate(id, updateData, {
+    const persistedCourse = await Course.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     });
 
     if (
       existingCourse.image &&
-      updatedCourse.image !== existingCourse.image &&
+      persistedCourse.image !== existingCourse.image &&
       (removeImage || req.files?.image)
     ) {
       await deleteLocalUpload(existingCourse.image);
     }
 
-    for (const teacherId of mergedTeachers) {
-      await Teacher.findByIdAndUpdate(
-        teacherId,
-        { $addToSet: { course: updatedCourse._id } },
-        { new: true }
-      );
-    }
+    await syncCourseTeachers({
+      courseId: persistedCourse._id,
+      previousTeacherIds,
+      nextTeacherIds,
+    });
 
-    if (updateData.mode === "offline" && updateData.branches.length > 0) {
-      for (const branchId of updateData.branches) {
-        await Branch.findByIdAndUpdate(
-          branchId,
+    await syncCourseBranches({
+      courseId: persistedCourse._id,
+      previousBranchIds,
+      nextBranchIds,
+      nextTeacherIds,
+    });
+
+    const updatedCourse = await Course.findById(id)
+      .populate("category subCategory content branches")
+      .populate({
+        path: "teacher",
+        populate: [
           {
-            $addToSet: {
-              courses: updatedCourse._id,
-              teachers: { $each: mergedTeachers },
-            },
+            path: "teacherDetail",
+            model: "TeacherApplication",
+            select: "name profilePicture profileVideo mode areaOfExpertise",
           },
-          { new: true }
-        );
-      }
-    }
+          {
+            path: "userId",
+            model: "user",
+            select: "image",
+          },
+        ],
+      })
+      .lean();
 
     res.status(200).json({
       success: true,
       message: "Course updated successfully",
-      data: updatedCourse,
+      data: {
+        ...updatedCourse,
+        branchCount: updatedCourse?.branches?.length || 0,
+      },
     });
   } catch (error) {
     console.error(error);

@@ -11,7 +11,7 @@ import { LuArrowDownUp } from "react-icons/lu";
 import { IoSearch } from "react-icons/io5";
 import { RxCross2 } from "react-icons/rx";
 import { FaArrowDown } from "react-icons/fa6";
-import * as Icons from "react-icons/fa";
+import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
 
 const MyStudent = () => {
   const dispatch = useDispatch();
@@ -44,33 +44,7 @@ const MyStudent = () => {
   const courses = teacherData?.courses || [];
 
   const getCourseIcon = (category) => {
-    const iconValue = category?.icon;
-    if (iconValue && iconValue.trim() !== "") {
-      if (iconValue.startsWith("Fa") || iconValue.startsWith("Md") || iconValue.startsWith("Io")) {
-        const IconComponent = Icons[iconValue];
-        if (IconComponent) {
-          return <IconComponent className="w-3 h-3 text-black" />;
-        }
-      }
-      if (iconValue.startsWith("http") || iconValue.startsWith("/uploads")) {
-        return (
-          <img
-            src={iconValue.startsWith("http") ? iconValue : `${import.meta.env.VITE_IMAGE}${iconValue}`}
-            alt={category?.name || "icon"}
-            className="w-3 h-3 object-contain"
-          />
-        );
-      }
-      return iconValue;
-    }
-    const emojiIconMap = {
-      Music: "🎵",
-      Dance: "💃",
-      Language: "🌐",
-      Art: "🎨",
-      Technology: "💻",
-    };
-    return emojiIconMap[category?.name] || "📚";
+    return <DynamicCourseIcon category={category} />;
   };
 
   const students = apiStudents.map((student, index) => {

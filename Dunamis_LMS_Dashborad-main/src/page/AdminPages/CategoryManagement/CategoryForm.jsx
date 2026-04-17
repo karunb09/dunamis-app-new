@@ -1,7 +1,16 @@
-import EmojiPicker from "emoji-picker-react";
-import React from "react";
-import { ChromePicker } from "react-color";
+import React, { Suspense, lazy } from "react";
 import { FaPlus, FaTrash } from "react-icons/fa";
+
+const EmojiPicker = lazy(() => import("emoji-picker-react"));
+const ChromePicker = lazy(() =>
+  import("react-color").then((module) => ({ default: module.ChromePicker }))
+);
+
+const pickerFallback = (
+  <div className="mt-2 rounded-xl border bg-white p-4 text-sm text-gray-500">
+    Loading picker...
+  </div>
+);
 
 const CategoryForm = ({
     categoryName,
@@ -52,15 +61,16 @@ const CategoryForm = ({
                     </button>
 
                     {showIconPicker && (
-                        <div className="mt-2">
-                            <EmojiPicker
-                                onEmojiClick={(emojiObject, event) => {
-                                    setSelectedIcon(emojiObject.emoji);
-                                    setShowEmojiPicker(false);
-                                }}
-                            />
-
-                        </div>
+                        <Suspense fallback={pickerFallback}>
+                            <div className="mt-2">
+                                <EmojiPicker
+                                    onEmojiClick={(emojiObject) => {
+                                        setSelectedIcon(emojiObject.emoji);
+                                        setShowEmojiPicker(false);
+                                    }}
+                                />
+                            </div>
+                        </Suspense>
                     )}
 
                     {selectedIcon && <div className="mt-2 text-2xl">{selectedIcon}</div>}
@@ -80,16 +90,16 @@ const CategoryForm = ({
                     </button>
 
                     {showColorPicker && (
-                        <div className="mt-2 p-2 border rounded bg-gray-50 flex gap-2">
-                            {showColorPicker && (
+                        <Suspense fallback={pickerFallback}>
+                            <div className="mt-2 p-2 border rounded bg-gray-50 flex gap-2">
                                 <div className="mt-2">
                                     <ChromePicker
                                         color={selectedColor}
                                         onChangeComplete={(color) => setSelectedColor(color.hex)}
                                     />
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        </Suspense>
                     )}
                     {selectedColor && (
                         <div className="mt-2">

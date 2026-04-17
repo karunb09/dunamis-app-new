@@ -22,6 +22,180 @@ import {
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
 
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
+
+const buildCurriculum = (contentItems = []) => {
+  const items = Array.isArray(contentItems)
+    ? contentItems
+    : contentItems
+      ? [contentItems]
+      : [];
+
+  return items.flatMap((contentItem) => {
+    const modules = Array.isArray(contentItem?.modules) ? contentItem.modules : [];
+
+    return modules.map((module, index) => ({
+      id: module?._id || `${contentItem?._id || "content"}-${index}`,
+      module: module?.title || "Module",
+      duration: module?.duration || "",
+      topics:
+        module?.lessons
+          ?.flatMap((lesson) => {
+            if (Array.isArray(lesson?.topics) && lesson.topics.length > 0) {
+              return lesson.topics
+                .map(
+                  (topic) =>
+                    topic?.title || topic?.description?.substring(0, 100) || ""
+                )
+                .filter(Boolean);
+            }
+
+            return lesson?.title ? [lesson.title] : [];
+          })
+          .filter(Boolean) || [],
+    }));
+  });
+};
+
+const buildInstructorCards = (courseRecord) =>
+  (courseRecord?.teacher || []).map((teacher) => {
+    const name = `${teacher?.teacherDetail?.name?.firstName || ""} ${
+      teacher?.teacherDetail?.name?.lastName || ""
+    }`.trim() || "Instructor";
+
+    return {
+      id: teacher?._id || teacher?.id,
+      name,
+      branch: courseRecord?.category?.name || "Department",
+      exp: `${teacher?.studentCount || 0} students taught`,
+      rating: Number(teacher?.averageRating) || 0,
+      image: resolveImageUrl(
+        teacher?.teacherDetail?.profilePicture || teacher?.userId?.image,
+        getInitialsImage(name)
+      ),
+      profileVideo: resolveImageUrl(
+        teacher?.teacherDetail?.profileVideo || teacher?.profileVideo,
+        ""
+      ),
+      expertise: teacher?.teacherDetail?.areaOfExpertise || "",
+      qualification: teacher?.teacherDetail?.highestQualification || "",
+      location: [
+        teacher?.teacherDetail?.currentCity,
+        teacher?.teacherDetail?.currentState,
+      ]
+        .filter(Boolean)
+        .join(", "),
+      yearsExperience: teacher?.teacherDetail?.yearOfExperience
+        ? `${teacher.teacherDetail.yearOfExperience} years experience`
+        : "",
+      mode: teacher?.teacherDetail?.mode || courseRecord?.mode || "online",
+    };
+  });
+
+const mapFeeStructure = (price, type = "monthly") => {
+  const sessionType = price?.sessionType || "standard";
+
+  if (type === "monthly") {
+    return {
+      plan: sessionType.charAt(0).toUpperCase() + sessionType.slice(1),
+      price: `₹${price?.monthlyFee || 0}/month`,
+      originalPrice: price?.installments
+        ? `₹${(price?.monthlyFee || 0) * price.installments}`
+        : null,
+      features: [
+        "Full course access",
+        "Live sessions",
+        sessionType === "premium"
+          ? "1-on-1 mentorship"
+          : "Group mentorship",
+        price?.discount > 0
+          ? `${price.discount}% discount on full payment`
+          : "Flexible payment",
+        "Certificate upon completion",
+      ],
+    };
+  }
+
+  return {
+    plan: sessionType.charAt(0).toUpperCase() + sessionType.slice(1),
+    price: `₹${price?.fullPayment || 0}`,
+    savings:
+      price?.discount > 0 && price?.installments
+        ? Math.round((price?.monthlyFee || 0) * price.installments - (price?.fullPayment || 0))
+        : null,
+    discount: price?.discount || 0,
+    features: [
+      "Full course access",
+      "All course materials",
+      price?.discount > 0 ? `Save ${price.discount}%` : "One-time payment",
+      "Lifetime access",
+      sessionType === "premium" ? "Priority support" : "Standard support",
+      "Certificate upon completion",
+    ],
+  };
+};
+
+const transformCourseData = (courseRecord, courseFallbackImage) => {
+  const selectedPrice =
+    courseRecord?.price?.find((price) => price?.isSelected) ||
+    courseRecord?.price?.find((price) => price?.isActive !== false) ||
+    courseRecord?.price?.[0];
+
+  return {
+    id: courseRecord?._id,
+    title: courseRecord?.name || "Untitled Course",
+    category: courseRecord?.category?.name || "Not specified",
+    level: courseRecord?.level || "beginner",
+    mode: courseRecord?.mode || "online",
+    description: courseRecord?.description || "No description available",
+    duration:
+      courseRecord?.startDate && courseRecord?.endDate
+        ? `${new Date(courseRecord.startDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })} - ${new Date(courseRecord.endDate).toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })}`
+        : "",
+    price: selectedPrice
+      ? `₹${selectedPrice.monthlyFee}/month`
+      : "Price not available",
+    image: resolveImageUrl(courseRecord?.image, courseFallbackImage),
+    rating: courseRecord?.rating || 4.8,
+    reviewsCount:
+      courseRecord?.totalStudents ||
+      courseRecord?.enrolledStudents?.length ||
+      0,
+    learn:
+      courseRecord?.objectives && courseRecord.objectives.length > 0
+        ? courseRecord.objectives
+        : [
+            "Comprehensive understanding of core concepts",
+            "Practical hands-on experience",
+            "Industry-relevant skills",
+            "Project-based learning",
+          ],
+    curriculum: buildCurriculum(courseRecord?.content),
+    instructors: buildInstructorCards(courseRecord),
+    feeStructure: {
+      monthly:
+        courseRecord?.price
+          ?.filter((price) => price?.isActive !== false)
+          .map((price) => mapFeeStructure(price, "monthly")) || [],
+      full:
+        courseRecord?.price
+          ?.filter((price) => price?.isActive !== false)
+          .map((price) => mapFeeStructure(price, "full")) || [],
+    },
+    branches: courseRecord?.branches || [],
+    branchCount: courseRecord?.branchCount || 0,
+    code: courseRecord?.code || "",
+  };
+};
+
 export default function CourseDetailPage() {
   const dispatch = useDispatch();
   const pathname = usePathname();
@@ -37,6 +211,9 @@ export default function CourseDetailPage() {
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [preferredInstructorId, setPreferredInstructorId] = useState("");
+  const [activeInstructor, setActiveInstructor] = useState(null);
 
   const [course, setCourse] = useState(null);
   const [rawCourse, setRawCourse] = useState(null);
@@ -71,168 +248,75 @@ export default function CourseDetailPage() {
   }, []);
 
   useEffect(() => {
-    if (courses && courses.length > 0 && courseName) {
+    let ignore = false;
+
+    const loadCourseDetail = async () => {
+      if (!courseName) return;
+      if (!courses || courses.length === 0) {
+        if (!loading) {
+          setDetailLoading(false);
+          setCourse(null);
+          setRawCourse(null);
+        }
+        return;
+      }
+
       const decodedParam = decodeURIComponent(courseName);
-      let foundCourse = courses.find((c) => c._id === decodedParam);
+      let foundCourse = courses.find((item) => item._id === decodedParam);
+
       if (!foundCourse) {
         const paramSlug = decodedParam.toLowerCase().replace(/\s+/g, "-");
-        foundCourse = courses.find((c) => {
-          const courseSlug = c.name?.toLowerCase().replace(/\s+/g, "-");
+        foundCourse = courses.find((item) => {
+          const courseSlug = item.name?.toLowerCase().replace(/\s+/g, "-");
           return courseSlug === paramSlug;
         });
       }
 
-      if (foundCourse) {
-        const transformedCourse = {
-          id: foundCourse._id,
-          title: foundCourse.name || "Untitled Course",
-          category: foundCourse.category?.name || "Not specified",
-          level: foundCourse.level || "beginner",
-          mode: foundCourse.mode || "online",
-          description: foundCourse.description || "No description available",
-          duration:
-            foundCourse.startDate && foundCourse.endDate
-              ? `${new Date(foundCourse.startDate).toLocaleDateString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                })} - ${new Date(foundCourse.endDate).toLocaleDateString(
-                  "en-GB",
-                  { day: "2-digit", month: "short", year: "numeric" }
-                )}`
-              : "",
-          price: (() => {
-            const priceObj =
-              foundCourse.price?.find((p) => p.isSelected) ||
-              foundCourse.price?.[0];
-            return priceObj
-              ? `₹${priceObj.monthlyFee}/month`
-              : "Price not available";
-          })(),
-          image: resolveImageUrl(
-            foundCourse.image,
-            courseFallbackImage
-          ),
-          rating: foundCourse.rating || 4.8,
-          reviewsCount:
-            foundCourse.totalStudents ||
-            foundCourse.enrolledStudents?.length ||
-            0,
-          learn:
-            foundCourse.objectives && foundCourse.objectives.length > 0
-              ? foundCourse.objectives
-              : [
-                  "Comprehensive understanding of core concepts",
-                  "Practical hands-on experience",
-                  "Industry-relevant skills",
-                  "Project-based learning",
-                ],
-          curriculum:
-            foundCourse.content?.[0]?.modules?.map((module) => ({
-              module: module.title || "Module",
-              duration: module.duration || "",
-              topics:
-                module.lessons
-                  ?.flatMap((lesson) => {
-                    if (lesson.topics && lesson.topics.length > 0) {
-                      return lesson.topics.map(
-                        (topic) =>
-                          topic.title || topic.description?.substring(0, 100)
-                      );
-                    }
-                    return [lesson.title];
-                  })
-                  .filter(Boolean) || [],
-            })) || [],
-          instructors:
-            foundCourse.teacher?.map((t) => ({
-              name:
-                `${t.teacherDetail?.name?.firstName || ""} ${
-                  t.teacherDetail?.name?.lastName || ""
-                }`.trim() || "Instructor",
-              branch: foundCourse.category?.name || "Department",
-              exp: `${t.studentCount || 0} students taught`,
-              rating: t.averageRating || 0,
-              image: resolveImageUrl(
-                t.teacherDetail?.profilePicture || t.userId?.image,
-                getInitialsImage(
-                  `${t.teacherDetail?.name?.firstName || ""} ${
-                    t.teacherDetail?.name?.lastName || ""
-                  }`.trim() || "Instructor"
-                )
-              ),
-            })) || [],
-          feeStructure: {
-            monthly:
-              foundCourse.price
-                ?.filter((p) => p.isActive)
-                .map((p) => ({
-                  plan:
-                    p.sessionType.charAt(0).toUpperCase() +
-                    p.sessionType.slice(1),
-                  price: `₹${p.monthlyFee}/month`,
-                  originalPrice: p.installments
-                    ? `₹${p.monthlyFee * p.installments}`
-                    : null,
-                  features: [
-                    "Full course access",
-                    "Live sessions",
-                    p.sessionType === "premium"
-                      ? "1-on-1 mentorship"
-                      : "Group mentorship",
-                    p.discount > 0
-                      ? `${p.discount}% discount on full payment`
-                      : "Flexible payment",
-                    "Certificate upon completion",
-                  ],
-                })) || [],
-            full:
-              foundCourse.price
-                ?.filter((p) => p.isActive)
-                .map((p) => ({
-                  plan:
-                    p.sessionType.charAt(0).toUpperCase() +
-                    p.sessionType.slice(1),
-                  price: `₹${p.fullPayment}`,
-                  savings:
-                    p.discount > 0 && p.installments
-                      ? Math.round(
-                          p.monthlyFee * p.installments - p.fullPayment
-                        )
-                      : null,
-                  discount: p.discount || 0,
-                  features: [
-                    "Full course access",
-                    "All course materials",
-                    p.discount > 0
-                      ? `Save ${p.discount}%`
-                      : "One-time payment",
-                    "Lifetime access",
-                    p.sessionType === "premium"
-                      ? "Priority support"
-                      : "Standard support",
-                    "Certificate upon completion",
-                  ],
-                })) || [],
-          },
-          branches: foundCourse.branches || [],
-          branchCount: foundCourse.branchCount || 0,
-          code: foundCourse.code || "",
-        };
-
-        setCourse(transformedCourse);
-        setRawCourse(foundCourse);
-      } else {
+      if (!foundCourse) {
+        setDetailLoading(false);
         setCourse(null);
         setRawCourse(null);
+        return;
       }
-    }
-  }, [courses, courseName]);
+
+      setDetailLoading(true);
+
+      let resolvedCourse = foundCourse;
+
+      try {
+        const response = await fetch(`${BASE_URL}/v1/course/get/${foundCourse._id}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          resolvedCourse = data?.data || foundCourse;
+        }
+      } catch {
+        resolvedCourse = foundCourse;
+      }
+
+      if (ignore) return;
+
+      setRawCourse(resolvedCourse);
+      setCourse(transformCourseData(resolvedCourse, courseFallbackImage));
+      setDetailLoading(false);
+    };
+
+    loadCourseDetail();
+
+    return () => {
+      ignore = true;
+    };
+  }, [courseFallbackImage, courseName, courses, loading]);
+
+  useEffect(() => {
+    setActiveInstructor(null);
+  }, [course?.id]);
 
   useEffect(() => {
     if (!pendingQueryAction || !rawCourse) return;
 
     if (pendingQueryAction === "demo") {
+      setPreferredInstructorId("");
       setBookDemoOpen(true);
       setPendingQueryAction(null);
       return;
@@ -253,7 +337,9 @@ export default function CourseDetailPage() {
     }
   }, [pathname, pendingQueryAction, rawCourse, token]);
 
-  const openEnrollmentFlow = () => {
+  const openEnrollmentFlow = (instructorId = "") => {
+    setPreferredInstructorId(instructorId);
+
     if (hasActiveAuth()) {
       clearEnrollmentResume();
       setPendingEnrollmentAuth(false);
@@ -268,7 +354,7 @@ export default function CourseDetailPage() {
     setLoginOpen(true);
   };
 
-  if (loading) {
+  if (loading || detailLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -404,7 +490,7 @@ export default function CourseDetailPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={openEnrollmentFlow}
+                  onClick={() => openEnrollmentFlow()}
                   className="w-full sm:w-auto bg-[#FF6B35] text-white py-2 px-6 rounded-xl cursor-pointer font-medium text-sm"
                 >
                   Enroll Now
@@ -413,7 +499,10 @@ export default function CourseDetailPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => setBookDemoOpen(true)}
+                  onClick={() => {
+                    setPreferredInstructorId("");
+                    setBookDemoOpen(true);
+                  }}
                   className="w-full sm:w-auto border-2 border-gray-400 py-2 px-6 rounded-xl cursor-pointer hover:bg-gray-50 text-sm font-medium"
                 >
                   Book Demo
@@ -524,9 +613,11 @@ export default function CourseDetailPage() {
             {course.instructors?.length ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {course.instructors.map((instructor, index) => (
-                  <div
+                  <button
+                    type="button"
                     key={`${instructor.name}-${index}`}
-                    className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4"
+                    onClick={() => setActiveInstructor(instructor)}
+                    className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-orange-300 hover:shadow-sm"
                   >
                     <img
                       src={instructor.image}
@@ -541,10 +632,13 @@ export default function CourseDetailPage() {
                         {instructor.exp}
                       </p>
                       <p className="text-sm text-gray-500">
-                        {instructor.branch}
+                        {instructor.expertise || instructor.branch}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-[#FF6B35]">
+                        View profile and choose this instructor
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             ) : (
@@ -614,10 +708,130 @@ export default function CourseDetailPage() {
         )}
       </div>
 
+      {activeInstructor ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setActiveInstructor(null)}
+        >
+          <div
+            className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl lg:p-8"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveInstructor(null)}
+              className="absolute right-4 top-4 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600 transition hover:bg-gray-200"
+              aria-label="Close instructor profile"
+            >
+              ×
+            </button>
+
+            <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
+              <div>
+                <img
+                  src={activeInstructor.image}
+                  alt={activeInstructor.name}
+                  className="h-64 w-full rounded-3xl object-cover"
+                  onError={(event) => {
+                    event.currentTarget.src = getInitialsImage(activeInstructor.name);
+                  }}
+                />
+
+                <div className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                  <p className="font-semibold text-gray-900">{activeInstructor.name}</p>
+                  <p className="mt-1 capitalize">{activeInstructor.mode} instructor</p>
+                  <p className="mt-1">{activeInstructor.exp}</p>
+                  {activeInstructor.rating > 0 ? (
+                    <p className="mt-1">{activeInstructor.rating.toFixed(1)} rating</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
+                    Instructor profile
+                  </p>
+                  <h2 className="mt-2 text-3xl font-bold text-gray-900">
+                    {activeInstructor.name}
+                  </h2>
+                  <p className="mt-2 text-sm text-gray-600">
+                    {activeInstructor.expertise || activeInstructor.branch}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                  {activeInstructor.yearsExperience ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                      {activeInstructor.yearsExperience}
+                    </span>
+                  ) : null}
+                  {activeInstructor.qualification ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                      {activeInstructor.qualification}
+                    </span>
+                  ) : null}
+                  {activeInstructor.location ? (
+                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                      {activeInstructor.location}
+                    </span>
+                  ) : null}
+                </div>
+
+                {activeInstructor.profileVideo ? (
+                  <div className="overflow-hidden rounded-3xl border border-gray-200 bg-black">
+                    <video
+                      key={activeInstructor.profileVideo}
+                      src={activeInstructor.profileVideo}
+                      controls
+                      playsInline
+                      preload="metadata"
+                      className="aspect-video w-full bg-black"
+                    >
+                      Your browser cannot preview this video format.
+                    </video>
+                  </div>
+                ) : (
+                  <div className="rounded-3xl border border-dashed border-gray-300 p-5 text-sm text-gray-500">
+                    Demo video has not been uploaded for this instructor yet.
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreferredInstructorId(activeInstructor.id || "");
+                      setActiveInstructor(null);
+                      setBookDemoOpen(true);
+                    }}
+                    className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                  >
+                    Book Demo With This Instructor
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const instructorId = activeInstructor.id || "";
+                      setActiveInstructor(null);
+                      openEnrollmentFlow(instructorId);
+                    }}
+                    className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                  >
+                    Enroll With This Instructor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <EnrollTerm
         isOpen={isEnrollTermOpen}
         onClose={() => setEnrollTermOpen(false)}
         course={rawCourse}
+        preferredInstructorId={preferredInstructorId}
         onNext={(selection) => {
           setEnrollSelection(selection);
           setEnrollTermOpen(false);
@@ -636,6 +850,7 @@ export default function CourseDetailPage() {
         isOpen={isBookDemoOpen}
         onClose={() => setBookDemoOpen(false)}
         course={rawCourse}
+        preferredInstructorId={preferredInstructorId}
       />
 
       <LoginModal

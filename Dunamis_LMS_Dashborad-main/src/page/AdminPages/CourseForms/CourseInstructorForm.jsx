@@ -34,8 +34,9 @@ const InstructorForm = ({ instructors: propInstructors, setInstructors, selected
     })) || [];
 
     const handleChange = (selectedOptions) => {
-        setSelectedInstructors(selectedOptions);
-        setInstructors(selectedOptions);
+        const nextSelections = Array.isArray(selectedOptions) ? selectedOptions : [];
+        setSelectedInstructors(nextSelections);
+        setInstructors(nextSelections);
     };
 
     if (loading) return <div>Loading instructors...</div>;

@@ -90,9 +90,15 @@ const formatTime = (value) => {
   return `${hour12}:${minutes} ${ampm}`;
 };
 
-export default function BookDemoModal({ isOpen, onClose, course }) {
+export default function BookDemoModal({
+  isOpen,
+  onClose,
+  course,
+  preferredInstructorId = '',
+}) {
   const { user, token } = useSelector((s) => s.auth || {});
   const courseId = toId(course?._id || course?.id);
+  const normalizedPreferredInstructorId = toId(preferredInstructorId);
   const courseTitle = course?.name || course?.title || 'Course';
   const courseImage = resolveImageUrl(
     course?.image,
@@ -143,6 +149,8 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
   const [submitted, setSubmitted] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [videoPreview, setVideoPreview] = useState(null);
+  const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
+    useState('');
 
   const visibleInstructors = useMemo(() => {
     return instructors.filter(
@@ -298,8 +306,54 @@ export default function BookDemoModal({ isOpen, onClose, course }) {
   useEffect(() => {
     if (!isOpen) {
       setVideoPreview(null);
+      setAppliedPreferredInstructorId('');
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !hydrated || !normalizedPreferredInstructorId) return;
+    if (slotsLoading) return;
+    if (appliedPreferredInstructorId === normalizedPreferredInstructorId) return;
+
+    const preferredInstructor = instructors.find(
+      (item) => item.id === normalizedPreferredInstructorId
+    );
+
+    setAppliedPreferredInstructorId(normalizedPreferredInstructorId);
+
+    if (!preferredInstructor) return;
+
+    const preferredSlot = preferredInstructor.slots?.[0] || null;
+    const preferredMode =
+      normalize(
+        preferredSlot?.deliveryMode ||
+          preferredInstructor.mode ||
+          modeOptions[0] ||
+          form.deliveryMode ||
+          'online'
+      ) || 'online';
+
+    setForm((prev) => ({
+      ...prev,
+      deliveryMode: preferredMode,
+      branchId:
+        preferredMode === 'offline'
+          ? toId(preferredSlot?.branchId) || prev.branchId || branchOptions[0]?.id || ''
+          : '',
+      instructorId: preferredInstructor.id,
+      slotId: '',
+    }));
+  }, [
+    appliedPreferredInstructorId,
+    branchOptions,
+    form.deliveryMode,
+    hydrated,
+    instructors,
+    isOpen,
+    modeOptions,
+    normalizedPreferredInstructorId,
+    slotsLoading,
+  ]);
 
   if (!isOpen) return null;
 

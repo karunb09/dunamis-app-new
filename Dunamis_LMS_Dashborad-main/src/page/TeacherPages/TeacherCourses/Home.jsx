@@ -67,10 +67,6 @@ const Dashboard = () => {
         <h1 className="text-2xl font-semibold text-gray-800">
           Welcome back, {teacherName}
         </h1>
-        <p className="mt-2 max-w-3xl text-sm text-gray-500">
-          Demo bookings below are live. Static class lists, invented monthly
-          summaries, and placeholder assignment cards have been removed.
-        </p>
       </div>
 
       <DemoBookingsPanel

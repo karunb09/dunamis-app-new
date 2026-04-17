@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { FiSmile } from "react-icons/fi";
+import { HiEye, HiEyeOff } from "react-icons/hi";
 import { login, forgotPassword, verifyOTP, resetPassword } from "../redux/authSlice";
 
 const SignIn = () => {
@@ -16,6 +17,9 @@ const SignIn = () => {
   const [forgotError, setForgotError] = useState("");
   const [otp, setOtp] = useState("");
   const [otpError, setOtpError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -165,18 +169,28 @@ const SignIn = () => {
             {emailError && (
               <div className="text-red-500 text-xs mb-2">{emailError}</div>
             )}
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 mb-2 rounded-lg border outline-none"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleLogin();
-                }
-              }}
-            />
+            <div className="relative mb-2">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border px-4 py-2 pr-11 outline-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleLogin();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500 transition hover:text-gray-700"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+              </button>
+            </div>
             <div
               className="text-right text-sm text-purple-600 cursor-pointer mb-4"
               onClick={() => setStep(3)}
@@ -285,20 +299,40 @@ const SignIn = () => {
             <div className="mb-2 text-gray-700 text-center text-xs">
               Enter your new password
             </div>
-            <input
-              type="password"
-              placeholder="New Password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-4 py-2 mb-2 rounded-lg border outline-none"
-            />
-            <input
-              type="password"
-              placeholder="Confirm New Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 mb-2 rounded-lg border outline-none"
-            />
+            <div className="relative mb-2">
+              <input
+                type={showNewPassword ? "text" : "password"}
+                placeholder="New Password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full rounded-lg border px-4 py-2 pr-11 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword((current) => !current)}
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500 transition hover:text-gray-700"
+                aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+              >
+                {showNewPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+              </button>
+            </div>
+            <div className="relative mb-2">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm New Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full rounded-lg border px-4 py-2 pr-11 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((current) => !current)}
+                className="absolute inset-y-0 right-3 flex items-center text-gray-500 transition hover:text-gray-700"
+                aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+              >
+                {showConfirmPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+              </button>
+            </div>
             <div className="text-xs text-gray-500 mb-4">
               Password must be at least 6 characters
             </div>

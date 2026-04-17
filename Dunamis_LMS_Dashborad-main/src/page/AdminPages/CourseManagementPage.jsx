@@ -23,6 +23,7 @@ const CourseManagement = () => {
     const navigate = useNavigate();
 
     const { courseList, status, error } = useSelector((state) => state.course);
+    const errorMessage = typeof error === 'string' ? error : error?.message || 'Something went wrong';
 
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -490,7 +491,7 @@ const CourseManagement = () => {
             {status === 'loading' ? (
                 <div className="text-center py-4 text-gray-500">Loading...</div>
             ) : error ? (
-                <div className="text-center py-4 text-red-500">Error: {error}</div>
+                <div className="text-center py-4 text-red-500">Error: {errorMessage}</div>
             ) : isGridView ? (
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

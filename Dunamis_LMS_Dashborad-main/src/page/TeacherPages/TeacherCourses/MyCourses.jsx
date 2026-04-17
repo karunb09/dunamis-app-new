@@ -5,7 +5,7 @@ import CourseOverview from "./CourseOverview";
 import StudentTable from "./StudentTable";
 import Curriculum from "./Curriculum";
 import toast from "react-hot-toast";
-import * as Icons from "react-icons/fa";
+import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
 
 const MyCourses = () => {
   const dispatch = useDispatch();
@@ -67,46 +67,11 @@ const MyCourses = () => {
   };
 
   const getCourseIcon = (category) => {
-    const iconValue = category?.icon;
-
-    if (iconValue && iconValue.trim() !== "") {
-      if (
-        iconValue.startsWith("Fa") ||
-        iconValue.startsWith("Md") ||
-        iconValue.startsWith("Io")
-      ) {
-        const IconComponent = Icons[iconValue];
-        if (IconComponent) {
-          return <IconComponent className="w-3 h-3 text-black" />;
-        }
-      }
-
-      if (iconValue.startsWith("http") || iconValue.startsWith("/uploads")) {
-        return (
-          <img
-            src={
-              iconValue.startsWith("http")
-                ? iconValue
-                : `${import.meta.env.VITE_IMAGE}${iconValue}`
-            }
-            alt={category?.name || "icon"}
-            className="w-3 h-3 object-contain"
-          />
-        );
-      }
-
-      return iconValue;
-    }
-    return emojiIconMap[category?.name] || "📚";
+    return <DynamicCourseIcon category={category} />;
   };
 
   // Render icon (either React Icon component, image, or emoji string)
-  const renderIcon = (icon) => {
-    if (typeof icon === "string") {
-      return icon;
-    }
-    return icon;
-  };
+  const renderIcon = (icon) => icon;
 
   const getStudentsForCourse = (courseId) => {
     if (!Array.isArray(students)) return [];

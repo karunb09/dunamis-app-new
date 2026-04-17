@@ -2,6 +2,22 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "../../api/axios";
 import { getStoredToken, getStoredUser } from "../../utils/authSession";
 
+const getErrorMessage = (error) => {
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error?.message && typeof error.message === "string") {
+    return error.message;
+  }
+
+  if (error?.error && typeof error.error === "string") {
+    return error.error;
+  }
+
+  return "Something went wrong";
+};
+
 const resolveAccountType = () => {
   const user = getStoredUser();
   return user?.accountType || user?.role || user?.roleId?.accountType || "";
@@ -37,7 +53,7 @@ export const getCourses = createAsyncThunk(
         ? response.data
         : response.data.data || [];
     } catch (err) {
-      return rejectWithValue(err.response?.data || err.message);
+      return rejectWithValue(getErrorMessage(err.response?.data) || err.message);
     }
   }
 );
@@ -62,7 +78,7 @@ export const getCourseDetails = createAsyncThunk(
       });
       return response.data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data || err.message);
+      return rejectWithValue(getErrorMessage(err.response?.data) || err.message);
     }
   }
 );
@@ -85,7 +101,7 @@ export const createCourse = createAsyncThunk(
       });
       return response.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data || err.message);
+      return rejectWithValue(getErrorMessage(err.response?.data) || err.message);
     }
   }
 );
@@ -105,7 +121,9 @@ export const deleteCourse = createAsyncThunk(
       });
       return courseId;
     } catch (error) {
-      return rejectWithValue(error.response?.data || "Failed to delete course");
+      return rejectWithValue(
+        getErrorMessage(error.response?.data) || "Failed to delete course"
+      );
     }
   }
 );
@@ -128,7 +146,7 @@ export const updateCourse = createAsyncThunk(
       });
       return response.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data || err.message);
+      return rejectWithValue(getErrorMessage(err.response?.data) || err.message);
     }
   }
 );

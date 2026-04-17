@@ -16,6 +16,7 @@ import {
   buildInstructorOptions,
   buildModeOptions,
   filterSlotsForSelection,
+  normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
 
@@ -121,7 +122,13 @@ const groupSlotsByDayPair = (slots = []) => {
   return Array.from(groups.values()).filter((group) => group.slots.length > 0);
 };
 
-export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
+export default function EnrollTerm({
+  isOpen,
+  onClose,
+  course,
+  onNext,
+  preferredInstructorId = '',
+}) {
   const dispatch = useDispatch();
   const {
     availableSlots = [],
@@ -130,6 +137,7 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
   } = useSelector((state) => state.demoBooking || {});
 
   const courseId = course?._id || course?.id || null;
+  const normalizedPreferredInstructorId = normalizeEntityId(preferredInstructorId);
   const courseTitle = course?.name || course?.title || 'Course';
   const modeOptions = useMemo(
     () => buildModeOptions(course, availableSlots),
@@ -152,6 +160,8 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [videoPreview, setVideoPreview] = useState(null);
+  const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
+    useState('');
 
   useEffect(() => {
     if (!isOpen || !courseId) return;
@@ -174,7 +184,52 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
     setSelectedInstructorId(current.instructorId || '');
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
     setVideoPreview(null);
+    setAppliedPreferredInstructorId('');
   }, [course?.mode, isOpen, modeOptions]);
+
+  useEffect(() => {
+    if (!isOpen || !normalizedPreferredInstructorId) return;
+    if (slotsStatus === 'loading') return;
+    if (appliedPreferredInstructorId === normalizedPreferredInstructorId) return;
+
+    const preferredInstructor = instructors.find(
+      (instructor) => instructor.id === normalizedPreferredInstructorId
+    );
+
+    setAppliedPreferredInstructorId(normalizedPreferredInstructorId);
+
+    if (!preferredInstructor) return;
+
+    const preferredSlot = preferredInstructor.slots?.[0] || null;
+    const preferredMode =
+      normalizeMode(
+        preferredSlot?.deliveryMode ||
+          preferredInstructor.mode ||
+          modeOptions[0] ||
+          selectedDeliveryMode ||
+          course?.mode ||
+          'online'
+      ) || 'online';
+
+    setSelectedDeliveryMode(preferredMode);
+    setSelectedBranchId(
+      preferredMode === 'offline'
+        ? normalizeEntityId(preferredSlot?.branchId) || branchOptions[0]?.id || ''
+        : ''
+    );
+    setSelectedInstructorId(preferredInstructor.id);
+    setSelectedSlotId('');
+  }, [
+    appliedPreferredInstructorId,
+    branchOptions,
+    course?.mode,
+    instructors,
+    isOpen,
+    modeOptions,
+    normalizedPreferredInstructorId,
+    selectedDeliveryMode,
+    slotsStatus,
+  ]);
 
   useEffect(() => {
     if (selectedDeliveryMode === 'offline') return;
@@ -368,10 +423,7 @@ export default function EnrollTerm({ isOpen, onClose, course, onNext }) {
                       : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
                 }`}
               >
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">
-                  Step {index + 1}
-                </span>
-                <p className="mt-1 font-semibold">{label}</p>
+                <p className="font-semibold">{label}</p>
               </button>
             );
           })}

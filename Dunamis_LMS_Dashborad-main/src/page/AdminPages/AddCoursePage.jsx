@@ -162,6 +162,10 @@ const AddCoursePage = () => {
     };
 
     const saveCourse = async ({ isPublished }) => {
+        const selectedInstructors = Array.isArray(courseData.instructors)
+            ? courseData.instructors
+            : [];
+
         if (!courseData.info.courseCode || courseData.info.courseCode.trim() === "") {
             toast.error("Course Code is required");
             return;
@@ -184,7 +188,7 @@ const AddCoursePage = () => {
             courseType: courseData.info.courseType,
             startDate: courseData.info.startDate || null,
             endDate: courseData.info.endDate || null,
-            teacher: courseData.instructors.map((i) => i.value),
+            teacher: selectedInstructors.map((instructor) => instructor.value),
             branches: Array.isArray(courseData.branches) && courseData.branches.length > 0
                 ? courseData.branches.map(b => b.value || b)
                 : [],

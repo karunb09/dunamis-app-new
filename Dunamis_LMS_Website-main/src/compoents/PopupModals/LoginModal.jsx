@@ -2,14 +2,16 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { login } from '@/store/authSlice';
-import { HiMail, HiLockClosed } from 'react-icons/hi';
+import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
 
 export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const dispatch = useDispatch();
     const router = useRouter();
     const { loading, error } = useSelector((s) => s.auth);
+    const [showPassword, setShowPassword] = useState(false);
     if (!open) return null;
 
     const signupHref = nextHref
@@ -100,12 +102,24 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                         </span>
                                         <input
                                             name="password"
-                                            type="password"
+                                            type={showPassword ? 'text' : 'password'}
                                             required
                                             autoComplete="current-password"
-                                            className="w-full rounded-full border border-gray-200 bg-white px-10 py-3 text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-orange-600 focus:ring-2 focus:ring-orange-500"
+                                            className="w-full rounded-full border border-gray-200 bg-white px-10 py-3 pr-12 text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-orange-600 focus:ring-2 focus:ring-orange-500"
                                             placeholder="••••••••"
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword((current) => !current)}
+                                            className="absolute inset-y-0 right-3 flex items-center text-gray-400 transition hover:text-gray-600"
+                                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                        >
+                                            {showPassword ? (
+                                                <HiEyeOff className="h-5 w-5" />
+                                            ) : (
+                                                <HiEye className="h-5 w-5" />
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
 
