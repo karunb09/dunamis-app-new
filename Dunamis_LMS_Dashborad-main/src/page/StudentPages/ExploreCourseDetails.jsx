@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import { getCourseDetails } from "../../redux/Course/CourseSlice";
 import BookingWizardModal from "./BookingWizardModal.jsx";
 import CourseDetail from "./CourseDetails.jsx";
@@ -16,7 +17,9 @@ export default function ExploreCourseDetails() {
   const { id } = useParams();
 
   const courseFromState = location.state?.course;
-  const { course: courseFromRedux, status, error } = useSelector((state) => state.course);
+  const { course: courseFromRedux, status } = useSelector((state) => state.course);
+  const user = useSelector((state) => state.auth.user);
+  const isStudent = String(user?.accountType || "").toLowerCase() === "student";
   
   const course = courseFromState || courseFromRedux?.info;
 
@@ -61,10 +64,34 @@ export default function ExploreCourseDetails() {
 
   const handleBooking = (e) => {
     e.preventDefault();
+    if (!isStudent) {
+      toast.error("Only student accounts can book demo slots.");
+      return;
+    }
+
     alert(
       `Booked!\nBranch: ${selectedBranch}\nDate: ${selectedSlot.date}\nTime: ${selectedSlot.time}`
     );
     closeBookModal();
+  };
+
+  const handleEnrollClick = () => {
+    if (!isStudent) {
+      toast.error("Only student accounts can enroll in courses.");
+      return;
+    }
+
+    setShowPlanModal(true);
+  };
+
+  const handleDemoClick = () => {
+    if (!isStudent) {
+      toast.error("Only student accounts can book demo slots.");
+      return;
+    }
+
+    setShowBookModal(true);
+    setStep(0);
   };
 
   if (status === "loading") {
@@ -94,25 +121,19 @@ export default function ExploreCourseDetails() {
   const totalStudents = course.enrolledStudents?.length || 0;
   
   const teacher = course.teacher?.[0];
-  const teacherName = teacher?.teacherDetail?.name 
-    ? `${teacher.teacherDetail.name.firstName} ${teacher.teacherDetail.name.lastName}` 
-    : "Instructor";
   const teacherRating = teacher?.averageRating || 4.8;
 
   const priceData = course.price || [];
   const selectedPrice = priceData.find(p => p.isSelected) || priceData[0];
   const monthlyPrice = selectedPrice?.monthlyFee || 0;
-  const fullPayment = selectedPrice?.fullPayment || 0;
-  const discount = selectedPrice?.discount || 0;
 
   const branches = course.branches || [];
-  const branchCount = course.branchCount || branches.length || 0;
 
   const mode = course.mode || "online";
 
   const sessionPlans = priceData
     .filter(p => p.isActive)
-    .map((priceItem, index) => {
+    .map((priceItem) => {
       const isGroup = priceItem.sessionType === "standard";
       return {
         label: isGroup ? "Group Sessions" : "One-on-One Sessions",
@@ -522,16 +543,13 @@ export default function ExploreCourseDetails() {
             </div>
             <button
               className="bg-[#232C53] text-white font-bold rounded-full px-8 py-3 mt-4 hover:bg-[#101943] transition-all duration-200 w-full"
-              onClick={() => setShowPlanModal(true)}
+              onClick={handleEnrollClick}
             >
               Enroll Now
             </button>
             <button
               className="border-2 border-[#232C53] text-[#232C53] rounded-full px-8 py-3 font-bold w-full hover:bg-[#232C53] hover:text-white transition-all duration-200"
-              onClick={() => {
-                setShowBookModal(true);
-                setStep(0);
-              }}
+              onClick={handleDemoClick}
             >
               Book Demo Slot
             </button>

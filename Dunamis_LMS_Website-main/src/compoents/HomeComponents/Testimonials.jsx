@@ -110,7 +110,7 @@ export default function Testimonials() {
                                 <img
                                     src={resolveImageUrl(item.image, getInitialsImage(item.title))}
                                     alt={item.title}
-                                    className="h-10 w-10 rounded-full object-cover"
+                                    className="h-10 w-10 rounded-full object-cover object-top"
                                     loading="lazy"
                                     decoding="async"
                                 />

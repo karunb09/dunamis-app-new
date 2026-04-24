@@ -4,6 +4,7 @@ import { FaEdit, FaCamera } from "react-icons/fa";
 import { updateUser } from "../../redux/User/UserSlice";
 import toast from "react-hot-toast";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
+import ProfileImageCropper from "../../components/ProfileImageCropper";
 
 const PersonalInfo = ({ user, loading }) => {
     const dispatch = useDispatch();
@@ -23,6 +24,7 @@ const PersonalInfo = ({ user, loading }) => {
     const [editForm, setEditForm] = useState({});
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [pendingCropFile, setPendingCropFile] = useState(null);
 
     useEffect(() => {
         if (user) {
@@ -63,18 +65,27 @@ const PersonalInfo = ({ user, loading }) => {
                 toast.error("Please select a valid image file");
                 return;
             }
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
-            reader.readAsDataURL(file);
+            setPendingCropFile(file);
         }
+    };
+
+    const handleCropApply = (croppedFile, previewUrl) => {
+        if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+        setImageFile(croppedFile);
+        setImagePreview(previewUrl);
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleCropCancel = () => {
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleRemovePhoto = () => {
         setImageFile(null);
         setImagePreview(null);
+        setPendingCropFile(null);
         setEditForm((prev) => ({ ...prev, image: "" }));
     };
 
@@ -82,6 +93,7 @@ const PersonalInfo = ({ user, loading }) => {
         setEditForm(profile);
         setImageFile(null);
         setImagePreview(null);
+        setPendingCropFile(null);
         setEditMode(false);
     };
 
@@ -146,7 +158,7 @@ const PersonalInfo = ({ user, loading }) => {
                 <img
                     src={displayImage}
                     alt="Profile"
-                    className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                    className="w-24 h-24 rounded-full object-cover object-top border-2 border-gray-200"
                     onError={(e) => {
                         e.target.onerror = null;
                         e.target.src = "/profile-photo.png";
@@ -304,6 +316,12 @@ const PersonalInfo = ({ user, loading }) => {
                     </button>
                 )}
             </div>
+
+            <ProfileImageCropper
+                file={pendingCropFile}
+                onApply={handleCropApply}
+                onCancel={handleCropCancel}
+            />
         </div>
     );
 };

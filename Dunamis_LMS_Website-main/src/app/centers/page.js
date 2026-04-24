@@ -22,6 +22,11 @@ const cardVariants = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
 };
 
+const normalizeCity = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
 export default function Centers() {
   const dispatch = useDispatch();
   const offlineCenterState = useSelector((state) => state.offlineCenters || {});
@@ -29,7 +34,7 @@ export default function Centers() {
   const loading = offlineCenterState.loading || false;
   const error = offlineCenterState.error || null;
 
-  const [selectedCity, setSelectedCity] = useState("All Cities");
+  const [selectedCity, setSelectedCity] = useState("all");
 
   useEffect(() => {
     dispatch(fetchOfflineCenters());
@@ -102,14 +107,26 @@ export default function Centers() {
   }, [centers]);
 
   const filteredCenters = useMemo(() => {
-    return selectedCity === "All Cities"
-      ? transformedCenters
-      : transformedCenters.filter((c) => c.city === selectedCity);
+    if (selectedCity === "all") {
+      return transformedCenters;
+    }
+
+    return transformedCenters.filter(
+      (center) => normalizeCity(center.city) === selectedCity
+    );
   }, [selectedCity, transformedCenters]);
 
   const cities = useMemo(() => {
-    const uniqueCities = [...new Set(transformedCenters.map((c) => c.city))];
-    return ["All Cities", ...uniqueCities];
+    const map = new Map();
+
+    transformedCenters.forEach((center) => {
+      const label = String(center.city || "").trim();
+      const key = normalizeCity(label);
+      if (!key || map.has(key)) return;
+      map.set(key, { value: key, label });
+    });
+
+    return [{ value: "all", label: "All Cities" }, ...Array.from(map.values())];
   }, [transformedCenters]);
 
   if (loading) {
@@ -137,10 +154,11 @@ export default function Centers() {
           value={selectedCity}
           onChange={(e) => setSelectedCity(e.target.value)}
           className="border border-gray-300 rounded-lg px-4 py-2"
+          aria-label="Filter branches by city"
         >
-          {cities.map((city, index) => (
-            <option key={`city-${index}`} value={city}>
-              {city}
+          {cities.map((city) => (
+            <option key={city.value} value={city.value}>
+              {city.label}
             </option>
           ))}
         </select>

@@ -153,7 +153,7 @@ const UpdatesPage = () => {
                     <img
                         src={row.avatar}
                         alt={row.creator}
-                        className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                        className="w-9 h-9 rounded-full object-cover object-top border border-gray-200"
                         onError={(e) => {
                             e.target.src = "/profile-photo.png";
                         }}

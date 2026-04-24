@@ -4,6 +4,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { HiArrowLeft, HiCheckCircle, HiClock, HiUser } from 'react-icons/hi';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import LoginModal from '@/compoents/PopupModals/LoginModal';
 import PaymentModal from '@/compoents/PopupModals/PaymentModal';
 import { createEnrollmentOrder, verifyEnrollmentPayment, clearOrder } from '@/store/enrollmentSlice';
@@ -41,6 +42,7 @@ export default function PaymentConfirmation() {
   const [payOpen, setPayOpen] = useState(false);
   const [pendingPaymentAction, setPendingPaymentAction] = useState(false);
   const [sel, setSel] = useState(null);
+  const isStudent = String(user?.accountType || '').toLowerCase() === 'student';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -131,7 +133,12 @@ export default function PaymentConfirmation() {
 
   const handleBackToCourse = () => router.push('/courses');
 
-  const submitPayment = async () => {
+  const submitPayment = async (account = user) => {
+    if (String(account?.accountType || '').toLowerCase() !== 'student') {
+      toast.error('Only student accounts can enroll in courses.');
+      return;
+    }
+
     if (priceBlock?.error) return;
 
     if (!courseId) {
@@ -180,16 +187,29 @@ export default function PaymentConfirmation() {
       return;
     }
 
+    if (!isStudent) {
+      toast.error('Only student accounts can enroll in courses.');
+      return;
+    }
+
     await submitPayment();
   };
 
-  const handleAuthSuccess = async () => {
+  const handleAuthSuccess = async (payload) => {
+    const signedInUser = payload?.user || user;
+    if (String(signedInUser?.accountType || '').toLowerCase() !== 'student') {
+      toast.error('Only student accounts can enroll in courses.');
+      setPendingPaymentAction(false);
+      setLoginOpen(false);
+      return false;
+    }
+
     setHasToken(true);
     setLoginOpen(false);
 
     if (pendingPaymentAction) {
       setPendingPaymentAction(false);
-      await submitPayment();
+      await submitPayment(signedInUser);
       return;
     }
   };
@@ -409,7 +429,9 @@ export default function PaymentConfirmation() {
                 }`}
             >
               {hasToken
-                ? orderLoading
+                ? !isStudent
+                  ? 'Student account required'
+                  : orderLoading
                   ? 'Creating order...'
                   : priceBlock?.error
                     ? 'Resolve errors to continue'

@@ -5,6 +5,7 @@ import { getUserById, updateUser } from "../../redux/User/UserSlice";
 import toast from "react-hot-toast";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
+import ProfileImageCropper from "../../components/ProfileImageCropper";
 
 const AdminProfile = () => {
     const dispatch = useDispatch();
@@ -27,6 +28,7 @@ const AdminProfile = () => {
     const [token, setToken] = useState(null);
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [pendingCropFile, setPendingCropFile] = useState(null);
 
     // State for Change Password Modal
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -86,19 +88,27 @@ const AdminProfile = () => {
                 return;
             }
 
-            setImageFile(file);
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
-            reader.readAsDataURL(file);
+            setPendingCropFile(file);
         }
+    };
+
+    const handleCropApply = (croppedFile, previewUrl) => {
+        if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+        setImageFile(croppedFile);
+        setImagePreview(previewUrl);
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleCropCancel = () => {
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleRemovePhoto = () => {
         setImageFile(null);
         setImagePreview(null);
+        setPendingCropFile(null);
     };
 
     const handleEditClick = () => {
@@ -109,6 +119,7 @@ const AdminProfile = () => {
         setEditForm(profile);
         setImageFile(null);
         setImagePreview(null);
+        setPendingCropFile(null);
         setIsEditing(false);
     };
 
@@ -227,7 +238,7 @@ const AdminProfile = () => {
                         <img
                             src={displayImage}
                             alt="Profile"
-                            className="w-24 h-24 rounded-full object-cover border-2 border-gray-200"
+                            className="w-24 h-24 rounded-full object-cover object-top border-2 border-gray-200"
                             onError={(e) => {
                                 e.target.src = "/profile-photo.png";
                             }}
@@ -414,9 +425,15 @@ const AdminProfile = () => {
             ) : null}
 
             {/* Change Password Modal */}
-            <ChangePasswordModal
+                <ChangePasswordModal
                 isOpen={isPasswordModalOpen}
                 onClose={() => setIsPasswordModalOpen(false)}
+            />
+
+            <ProfileImageCropper
+                file={pendingCropFile}
+                onApply={handleCropApply}
+                onCancel={handleCropCancel}
             />
         </div>
     );

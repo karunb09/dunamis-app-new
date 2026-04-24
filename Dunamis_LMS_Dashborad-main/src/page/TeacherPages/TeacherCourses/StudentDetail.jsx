@@ -330,7 +330,7 @@ const StudentDetail = ({ onBack }) => {
           <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mr-2 text-2xl">
             ←
           </button>
-          <img src={student.avatar} alt={student.name} className="w-12 h-12 rounded-full object-cover" />
+          <img src={student.avatar} alt={student.name} className="w-12 h-12 rounded-full object-cover object-top" />
           <div>
             <h2 className="text-xl font-semibold text-gray-800">{student.name}</h2>
             <p className="text-sm text-gray-500">{student.subject}</p>

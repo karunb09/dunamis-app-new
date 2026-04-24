@@ -175,7 +175,7 @@ export default function Testimonials() {
                   <img
                     src={resolveImageUrl(item.image, getInitialsImage(item.title))}
                     alt={item.title}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-12 h-12 rounded-full object-cover object-top"
                   />
                   <div>
                     <p className="font-semibold text-gray-900 text-sm md:text-base">

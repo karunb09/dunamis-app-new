@@ -183,7 +183,7 @@ Follow-up 3: ${s.followUp3}`
                     <img
                         src={row.avatar}
                         alt={row.name}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        className="w-8 h-8 rounded-full object-cover object-top flex-shrink-0"
                         onError={(e) => {
                             e.target.src = "/profile-photo.png";
                         }}

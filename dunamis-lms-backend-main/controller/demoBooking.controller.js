@@ -78,20 +78,22 @@ const sendDemoBookingEmails = async ({
   const instructorEmail = slot.createdBy?.userId?.email || "";
 
   if (studentEmail) {
-    const { subject, html } = studentDemoBookingEmailTemplate(payload);
+    const { subject, html, attachments = [] } =
+      studentDemoBookingEmailTemplate(payload);
     deliveries.push({
       type: "student",
       recipient: studentEmail,
-      task: mailSender(studentEmail, subject, html),
+      task: mailSender(studentEmail, subject, html, attachments),
     });
   }
 
   if (instructorEmail) {
-    const { subject, html } = instructorDemoBookingEmailTemplate(payload);
+    const { subject, html, attachments = [] } =
+      instructorDemoBookingEmailTemplate(payload);
     deliveries.push({
       type: "instructor",
       recipient: instructorEmail,
-      task: mailSender(instructorEmail, subject, html),
+      task: mailSender(instructorEmail, subject, html, attachments),
     });
   }
 
@@ -168,7 +170,7 @@ const buildBookingDetails = async (bookingDoc, slot, student) => {
   };
 };
 
-// Book a demo slot for either an authenticated student or a guest lead.
+// Book a demo slot for an authenticated student.
 exports.bookDemoSlot = async (req, res) => {
   try {
     const {
@@ -193,6 +195,13 @@ exports.bookDemoSlot = async (req, res) => {
             .populate("userId", "name email mobileNo")
             .populate("enrolledCourses.courseId", "code name category")
         : null;
+
+    if (req.user?.accountType !== "student" || !student) {
+      return res.status(403).json({
+        success: false,
+        message: "Only student accounts can book demo slots",
+      });
+    }
 
     const slot = await Slot.findById(slotId)
       .populate({

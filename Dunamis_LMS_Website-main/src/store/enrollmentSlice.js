@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getWebsiteUser } from "@/lib/authSession";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -9,10 +10,18 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+const isStudentUser = (user) =>
+  String(user?.accountType || "").toLowerCase() === "student";
+
 export const createEnrollmentOrder = createAsyncThunk(
   "enrollment/createOrder",
-  async (orderData, { rejectWithValue }) => {
+  async (orderData, { rejectWithValue, getState }) => {
     try {
+      const user = getState().auth?.user || getWebsiteUser();
+      if (!isStudentUser(user)) {
+        return rejectWithValue("Only student accounts can enroll in courses.");
+      }
+
       const response = await axios.post(
         `${BASE_URL}/v1/enrollment/create-order`,
         orderData,
@@ -31,8 +40,13 @@ export const createEnrollmentOrder = createAsyncThunk(
 
 export const verifyEnrollmentPayment = createAsyncThunk(
   "enrollment/verifyPayment",
-  async (paymentData, { rejectWithValue }) => {
+  async (paymentData, { rejectWithValue, getState }) => {
     try {
+      const user = getState().auth?.user || getWebsiteUser();
+      if (!isStudentUser(user)) {
+        return rejectWithValue("Only student accounts can enroll in courses.");
+      }
+
       const response = await axios.post(
         `${BASE_URL}/v1/enrollment/verify-payment`,
         paymentData,

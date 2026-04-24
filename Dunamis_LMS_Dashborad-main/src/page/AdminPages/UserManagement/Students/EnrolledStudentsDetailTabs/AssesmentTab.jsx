@@ -7,7 +7,7 @@ const AssessmentsTab = ({ student }) => {
         {
             Header: "Instructor", accessor: "instructor", render: (value) => (
                 <div className="flex items-center gap-2">
-                    <img src={value.avatar} alt={value.name} className="w-6 h-6 rounded-full object-cover" />
+                    <img src={value.avatar} alt={value.name} className="w-6 h-6 rounded-full object-cover object-top" />
                     <span>{value.name}</span>
                 </div>
             )

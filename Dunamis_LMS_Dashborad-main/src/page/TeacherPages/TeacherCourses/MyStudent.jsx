@@ -232,7 +232,7 @@ const MyStudent = () => {
                         <img
                           src={student.avatar}
                           alt={student.name}
-                          className="w-12 h-12 rounded-full object-cover"
+                          className="w-12 h-12 rounded-full object-cover object-top"
                         />
                         <div className="flex-1 min-w-0">
                           <h2 className="font-medium truncate">{student.name}</h2>
@@ -307,7 +307,7 @@ const MyStudent = () => {
                               <img
                                 src={student.avatar}
                                 alt={student.name}
-                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover"
+                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover object-top"
                               />
                               <span className="truncate">{student.name}</span>
                             </div>
@@ -347,7 +347,7 @@ const MyStudent = () => {
                             <img
                               src={exam.avatar}
                               alt={exam.name}
-                              className="w-12 h-12 rounded-full object-cover"
+                              className="w-12 h-12 rounded-full object-cover object-top"
                             />
                             <h3 className="font-medium">{exam.name}</h3>
                           </div>

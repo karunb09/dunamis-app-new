@@ -72,6 +72,14 @@ const buildPricingForPlan = (course, sessionType, planType) => {
 const getReceiptSuffix = (paymentType) =>
   paymentType === "Installment" ? "monthly" : "full";
 
+const isStudentRequest = (req) => req.user?.accountType === "student";
+
+const studentOnlyResponse = (res) =>
+  res.status(403).json({
+    success: false,
+    message: "Only student accounts can enroll in courses",
+  });
+
 const getPendingPaymentForOrder = (student, orderId) =>
   student.payments.find((payment) => payment.razorpayOrderId === orderId);
 
@@ -183,6 +191,10 @@ exports.createOrder = async (req, res) => {
       deliveryMode,
       branchId,
     } = req.body;
+    if (!isStudentRequest(req)) {
+      return studentOnlyResponse(res);
+    }
+
     const userId = new mongoose.Types.ObjectId(req.user.userId);
     const resolvedPlanType = resolvePlanType(planType);
 
@@ -311,6 +323,10 @@ exports.verifyPayment = async (req, res) => {
       teacherId,
       slotId,
     } = req.body;
+    if (!isStudentRequest(req)) {
+      return studentOnlyResponse(res);
+    }
+
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
@@ -494,6 +510,10 @@ exports.verifyPayment = async (req, res) => {
 
 exports.getEnrolledCourses = async (req, res) => {
   try {
+    if (!isStudentRequest(req)) {
+      return studentOnlyResponse(res);
+    }
+
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     const student = await Student.findOne({ userId }).populate({
@@ -540,6 +560,10 @@ exports.generateInstallmentOrders = async (req, res) => {
       deliveryMode,
       branchId,
     } = req.body;
+    if (!isStudentRequest(req)) {
+      return studentOnlyResponse(res);
+    }
+
     const userId = new mongoose.Types.ObjectId(req.user.userId);
 
     if (!courseId || !sessionType || !teacherId || !slotId) {

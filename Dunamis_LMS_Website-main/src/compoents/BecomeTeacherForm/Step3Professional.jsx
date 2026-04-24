@@ -6,6 +6,7 @@ import {
   SelectInput,
   TextInput,
 } from "./FormFields";
+import ProfileImageCropper from "@/compoents/ProfileImageCropper";
 
 export default function Step3Professional({
   formData,
@@ -32,6 +33,14 @@ export default function Step3Professional({
   const [hasCertificate, setHasCertificate] = useState(
     relevantCertificate ? "Yes" : "No"
   );
+  const [pendingCropFile, setPendingCropFile] = useState(null);
+  const [profilePreviewUrl, setProfilePreviewUrl] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl);
+    };
+  }, [profilePreviewUrl]);
 
   useEffect(() => {
     if (status === "idle") {
@@ -159,10 +168,19 @@ export default function Step3Professional({
         <FileUploadField
           label="Profile Picture"
           accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-          helperText="JPG or PNG only"
+          helperText="JPG or PNG only. Crop your face after selecting the image."
           file={profilePicture}
           error={errors.profilePicture}
-          setFile={setProfilePicture}
+          setFile={(file) => {
+            if (!file) {
+              setProfilePicture(null);
+              if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl);
+              setProfilePreviewUrl("");
+              return;
+            }
+
+            setPendingCropFile(file);
+          }}
           inputRef={profilePictureInputRef}
           required
         />
@@ -201,6 +219,42 @@ export default function Step3Professional({
           />
         ) : null}
       </div>
+
+      {profilePreviewUrl ? (
+        <div className="rounded-3xl border border-orange-100 bg-orange-50/60 p-4">
+          <p className="text-sm font-semibold text-gray-900">Cropped profile preview</p>
+          <div className="mt-3 flex items-center gap-4">
+            <img
+              src={profilePreviewUrl}
+              alt="Cropped profile preview"
+              className="h-20 w-20 rounded-full object-cover object-top ring-4 ring-white"
+            />
+            <p className="text-sm text-gray-600">
+              This is the image that will appear on instructor cards and course
+              pages.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <ProfileImageCropper
+        file={pendingCropFile}
+        onApply={(croppedFile, previewUrl) => {
+          if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl);
+          setProfilePicture(croppedFile);
+          setProfilePreviewUrl(previewUrl);
+          setPendingCropFile(null);
+          if (profilePictureInputRef.current) {
+            profilePictureInputRef.current.value = "";
+          }
+        }}
+        onCancel={() => {
+          setPendingCropFile(null);
+          if (profilePictureInputRef.current) {
+            profilePictureInputRef.current.value = "";
+          }
+        }}
+      />
     </div>
   );
 }

@@ -34,7 +34,10 @@ const CONTACT_CARDS = [
   {
     icon: FaMapMarkerAlt,
     title: "Visit Us",
-    lines: ["Plot 249, 4th Floor, Kushaiguda", "Hyderabad, Telangana 500062"],
+    lines: [
+      "Dunamis Music Private Limited",
+      "8-87, 3rd Floor, Main Road, Nagaram, ECIL, Secunderabad, Hyderabad, Telangana 500083.",
+    ],
     note: "Walk-ins are welcome",
   },
   {

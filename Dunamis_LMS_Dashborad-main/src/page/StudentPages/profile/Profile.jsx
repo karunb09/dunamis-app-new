@@ -6,6 +6,7 @@ import PaymentDetails from "./Payment";
 import Certificates from "./Certificates";
 import toast from "react-hot-toast";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import ProfileImageCropper from "../../../components/ProfileImageCropper";
 
 const fieldStyle = {
   fontFamily: "Poppins, sans-serif",
@@ -279,6 +280,7 @@ export default function ProfilePage() {
   const [imagePreview, setImagePreview] = useState(null);
   const [imageRemoved, setImageRemoved] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const [pendingCropFile, setPendingCropFile] = useState(null);
   const [userId, setUserId] = useState(null);
   const [token, setToken] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -320,13 +322,23 @@ export default function ProfilePage() {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast.error("Image size should be less than 5MB"); return; }
     if (!file.type.startsWith("image/")) { toast.error("Please select a valid image file"); return; }
-    setImageFile(file);
+    setPendingCropFile(file);
+  };
+
+  const handleCropApply = (croppedFile, previewUrl) => {
+    if (imagePreview?.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    setImageFile(croppedFile);
+    setImagePreview(previewUrl);
     setImageLoadFailed(false);
     setImageRemoved(false);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-    toast.success("Image selected");
+    setPendingCropFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    toast.success("Cropped profile image ready");
+  };
+
+  const handleCropCancel = () => {
+    setPendingCropFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const saveDetails = async () => {
@@ -390,6 +402,7 @@ export default function ProfilePage() {
     }
     setImageFile(null);
     setImagePreview(null);
+    setPendingCropFile(null);
     setImageRemoved(false);
     setImageLoadFailed(false);
     setEditingMode(null);
@@ -454,7 +467,7 @@ export default function ProfilePage() {
                 <img
                   src={displayImage}
                   alt="Profile"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-top"
                   onError={() => setImageLoadFailed(true)}
                 />
               ) : (
@@ -534,6 +547,11 @@ export default function ProfilePage() {
             .finally(() => setIsSaving(false));
         }}
         isLoading={isSaving}
+      />
+      <ProfileImageCropper
+        file={pendingCropFile}
+        onApply={handleCropApply}
+        onCancel={handleCropCancel}
       />
     </main>
   );

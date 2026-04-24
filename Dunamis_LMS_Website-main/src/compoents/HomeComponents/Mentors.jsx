@@ -251,7 +251,7 @@ export default function Mentors() {
                                                             <img
                                                                 src={mentor.image}
                                                                 alt={mentor.name}
-                                                                className="block h-full w-full object-cover"
+                                                                className="block h-full w-full object-cover object-top"
                                                                 loading="lazy"
                                                                 onError={() =>
                                                                     setFailedImages((prev) => ({

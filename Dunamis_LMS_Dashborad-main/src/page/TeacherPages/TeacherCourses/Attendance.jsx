@@ -54,7 +54,7 @@ const Avatar = ({ name, src }) => {
       <img
         src={src}
         alt={name}
-        className="h-9 w-9 rounded-full object-cover"
+        className="h-9 w-9 rounded-full object-cover object-top"
       />
     );
   }

@@ -32,6 +32,16 @@ export const normalizeMode = (value) => {
   return mode === "offline" ? "offline" : mode === "online" ? "online" : "";
 };
 
+export const normalizeCityName = (value) => {
+  if (!value && value !== 0) return "";
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value).trim();
+  }
+
+  return String(value.cityName || value.name || value.label || "").trim();
+};
+
 const normalizeSlotType = (value) =>
   String(value || "").trim().toLowerCase();
 
@@ -178,22 +188,39 @@ const buildNormalizedSlot = (slot, branchLookup) => {
 export const buildBranchOptions = (course, slots = []) => {
   const map = new Map();
 
+  const upsertBranch = (id, label, city, raw) => {
+    if (!id || !label) return;
+
+    const existing = map.get(id);
+    if (!existing) {
+      map.set(id, { id, label, city, raw });
+      return;
+    }
+
+    map.set(id, {
+      ...existing,
+      label: existing.label || label,
+      city: existing.city || city,
+      raw: existing.raw || raw,
+    });
+  };
+
   (Array.isArray(course?.branches) ? course.branches : []).forEach((branch) => {
     const id = normalizeEntityId(branch);
     const label =
       branch?.branchName || branch?.name || branch?.location || branch?.city;
-    if (id && label) {
-      map.set(id, { id, label, raw: branch });
-    }
+    const city = normalizeCityName(
+      branch?.city?.cityName || branch?.city?.name || branch?.city
+    );
+    upsertBranch(id, label, city, branch);
   });
 
   (Array.isArray(slots) ? slots : []).forEach((slot) => {
     const branch = slot?.branchId;
     const id = normalizeEntityId(branch);
     const label = branch?.branchName || branch?.name || branch?.city;
-    if (id && label && !map.has(id)) {
-      map.set(id, { id, label, raw: branch });
-    }
+    const city = normalizeCityName(branch?.city?.cityName || branch?.city?.name || branch?.city);
+    upsertBranch(id, label, city, branch);
   });
 
   return Array.from(map.values());

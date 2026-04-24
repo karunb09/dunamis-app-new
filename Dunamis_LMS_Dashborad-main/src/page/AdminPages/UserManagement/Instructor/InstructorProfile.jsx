@@ -164,7 +164,7 @@ const InstructorProfile = () => {
           <img
             src={instructorAvatar}
             alt={instructor.name?.firstName}
-            className="w-28 h-28 rounded-full object-cover flex-shrink-0"
+            className="w-28 h-28 rounded-full object-cover object-top flex-shrink-0"
           />
           <div className="flex-1">
             <div className="flex items-start justify-between gap-4">

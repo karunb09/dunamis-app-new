@@ -16,6 +16,7 @@ import {
   buildInstructorOptions,
   buildModeOptions,
   filterSlotsForSelection,
+  normalizeCityName,
   normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
@@ -103,6 +104,8 @@ const getPairForSlot = (slot) => {
   );
 };
 
+const normalizeKey = (value) => String(value || '').trim().toLowerCase();
+
 const groupSlotsByDayPair = (slots = []) => {
   const groups = new Map(
     DAY_PAIR_OPTIONS.map((option) => [
@@ -147,6 +150,20 @@ export default function EnrollTerm({
     () => buildBranchOptions(course, availableSlots),
     [availableSlots, course]
   );
+  const enrollmentModeOptions = useMemo(() => {
+    const modeSet = new Set(modeOptions);
+    const hasOnlineSlots = availableSlots.some((slot) => !slot?.branchId);
+
+    if (hasOnlineSlots || normalizeMode(course?.mode) === 'online') {
+      modeSet.add('online');
+    }
+
+    if (branchOptions.length > 0) {
+      modeSet.add('offline');
+    }
+
+    return Array.from(modeSet);
+  }, [availableSlots, branchOptions.length, course?.mode, modeOptions]);
   const instructors = useMemo(
     () => buildInstructorOptions(course, availableSlots, 'enrolled'),
     [availableSlots, course]
@@ -162,6 +179,32 @@ export default function EnrollTerm({
   const [videoPreview, setVideoPreview] = useState(null);
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
+  const [selectedBranchCity, setSelectedBranchCity] = useState('all');
+
+  const branchCityOptions = useMemo(() => {
+    const cityMap = new Map();
+
+    branchOptions.forEach((branch) => {
+      const label = normalizeCityName(branch.city);
+      const id = normalizeKey(label);
+      if (!id || cityMap.has(id)) return;
+      cityMap.set(id, { id, label });
+    });
+
+    return Array.from(cityMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+  }, [branchOptions]);
+
+  const filteredBranchOptions = useMemo(() => {
+    if (!branchCityOptions.length || selectedBranchCity === 'all') {
+      return branchOptions;
+    }
+
+    return branchOptions.filter(
+      (branch) => normalizeKey(normalizeCityName(branch.city)) === selectedBranchCity
+    );
+  }, [branchCityOptions.length, branchOptions, selectedBranchCity]);
 
   useEffect(() => {
     if (!isOpen || !courseId) return;
@@ -174,7 +217,7 @@ export default function EnrollTerm({
     const current = getCurrentSelection() || {};
     const initialMode =
       normalizeMode(current.deliveryMode) ||
-      modeOptions[0] ||
+      enrollmentModeOptions[0] ||
       normalizeMode(course?.mode) ||
       'online';
 
@@ -185,7 +228,7 @@ export default function EnrollTerm({
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
-  }, [course?.mode, isOpen, modeOptions]);
+  }, [course?.mode, enrollmentModeOptions, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !normalizedPreferredInstructorId) return;
@@ -236,6 +279,33 @@ export default function EnrollTerm({
     if (!selectedBranchId) return;
     setSelectedBranchId('');
   }, [selectedBranchId, selectedDeliveryMode]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSelectedBranchCity('all');
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!branchCityOptions.length) {
+      setSelectedBranchCity('all');
+      return;
+    }
+
+    if (selectedBranchCity === 'all') return;
+
+    if (!branchCityOptions.some((city) => city.id === selectedBranchCity)) {
+      setSelectedBranchCity('all');
+    }
+  }, [branchCityOptions, selectedBranchCity]);
+
+  useEffect(() => {
+    if (selectedDeliveryMode !== 'offline') return;
+    if (!selectedBranchId) return;
+    if (filteredBranchOptions.some((branch) => branch.id === selectedBranchId)) return;
+    setSelectedBranchId('');
+    setSelectedInstructorId('');
+    setSelectedSlotId('');
+  }, [filteredBranchOptions, selectedBranchId, selectedDeliveryMode]);
 
   useEffect(() => {
     if (selectedBranchId) return;
@@ -431,13 +501,13 @@ export default function EnrollTerm({
 
         {step === 0 ? (
           <div className="mt-7 space-y-6">
-            {modeOptions.length > 1 ? (
+            {enrollmentModeOptions.length > 1 ? (
               <div>
                 <label className="mb-3 block text-sm font-medium text-gray-700">
                   Select Delivery Mode
                 </label>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {modeOptions.map((mode) => {
+                  {enrollmentModeOptions.map((mode) => {
                     const active = selectedDeliveryMode === mode;
                     return (
                       <button
@@ -479,6 +549,31 @@ export default function EnrollTerm({
 
             {shouldPickBranch ? (
               <div>
+                {branchCityOptions.length > 0 ? (
+                  <div className="mb-4">
+                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                      Filter by city
+                    </label>
+                    <select
+                      value={selectedBranchCity}
+                      onChange={(event) => {
+                        setSelectedBranchCity(event.target.value);
+                        setSelectedBranchId('');
+                        setSelectedInstructorId('');
+                        setSelectedSlotId('');
+                      }}
+                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                    >
+                      <option value="all">All cities</option>
+                      {branchCityOptions.map((city) => (
+                        <option key={city.id} value={city.id}>
+                          {city.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+
                 <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
                   <HiOutlineLocationMarker />
                   Select Branch
@@ -493,12 +588,17 @@ export default function EnrollTerm({
                   className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
                 >
                   <option value="">Choose a branch</option>
-                  {branchOptions.map((branch) => (
+                  {filteredBranchOptions.map((branch) => (
                     <option key={branch.id} value={branch.id}>
-                      {branch.label}
+                      {branch.city ? `${branch.label} - ${branch.city}` : branch.label}
                     </option>
                   ))}
                 </select>
+                {filteredBranchOptions.length === 0 ? (
+                  <p className="mt-2 text-xs text-gray-500">
+                    No branches found for this city. Choose another city to continue.
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -551,7 +651,7 @@ export default function EnrollTerm({
                         <img
                           src={instructor.profilePicture}
                           alt={instructor.name}
-                          className="h-20 w-20 rounded-2xl object-cover"
+                          className="h-20 w-20 rounded-2xl object-cover object-top"
                           onError={(event) => {
                             event.currentTarget.src = getInitialsImage(
                               instructor.name

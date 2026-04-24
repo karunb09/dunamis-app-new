@@ -2,18 +2,21 @@ import React, { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FaCamera } from 'react-icons/fa';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
+import ProfileImageCropper from '../../../../components/ProfileImageCropper';
 
 const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) => {
     const fileInputRef = useRef(null);
     const [form, setForm] = useState(data || {});
     const [profilePictureFile, setProfilePictureFile] = useState(null);
     const [profilePicturePreview, setProfilePicturePreview] = useState("");
+    const [pendingCropFile, setPendingCropFile] = useState(null);
 
     useEffect(() => {
         if (open) {
             setForm(data || {});
             setProfilePictureFile(null);
             setProfilePicturePreview("");
+            setPendingCropFile(null);
         }
     }, [open, data]);
 
@@ -41,9 +44,20 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
             return;
         }
 
-        if (profilePicturePreview) URL.revokeObjectURL(profilePicturePreview);
-        setProfilePictureFile(file);
-        setProfilePicturePreview(URL.createObjectURL(file));
+        setPendingCropFile(file);
+    };
+
+    const handleCropApply = (croppedFile, previewUrl) => {
+        if (profilePicturePreview?.startsWith('blob:')) URL.revokeObjectURL(profilePicturePreview);
+        setProfilePictureFile(croppedFile);
+        setProfilePicturePreview(previewUrl);
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    const handleCropCancel = () => {
+        setPendingCropFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     const handleSubmit = () => {
@@ -65,7 +79,7 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                     <img
                         src={currentPicture}
                         alt="Instructor profile"
-                        className="h-20 w-20 rounded-full object-cover border border-gray-200"
+                        className="h-20 w-20 rounded-full object-cover object-top border border-gray-200"
                     />
                     <div>
                         <p className="text-sm font-medium text-gray-800">Profile Image</p>
@@ -144,6 +158,11 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                         {saving ? "Saving..." : "Save"}
                     </button>
                 </div>
+                <ProfileImageCropper
+                    file={pendingCropFile}
+                    onApply={handleCropApply}
+                    onCancel={handleCropCancel}
+                />
             </div>
         </div>
     );

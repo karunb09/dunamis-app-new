@@ -277,7 +277,7 @@ const CourseDetailPage = () => {
                                                 DEFAULT_AVATAR
                                             )}
                                             alt={`${instructor?.teacherDetail?.name?.firstName || ""} ${instructor?.teacherDetail?.name?.lastName || ""}`}
-                                            className="w-14 h-14 rounded-full object-cover border border-gray-300"
+                                            className="w-14 h-14 rounded-full object-cover object-top border border-gray-300"
                                         />
                                         {/* Teacher Name */}
                                         <p className="font-semibold text-gray-950">

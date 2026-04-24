@@ -20,6 +20,7 @@ import {
   buildInstructorOptions as buildSlotInstructorOptions,
   buildModeOptions as buildSlotModeOptions,
   filterSlotsForSelection as filterCourseSlots,
+  normalizeCityName,
 } from '@/helpers/courseSlots';
 
 const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || '';
@@ -97,6 +98,7 @@ export default function BookDemoModal({
   preferredInstructorId = '',
 }) {
   const { user, token } = useSelector((s) => s.auth || {});
+  const isStudent = String(user?.accountType || '').toLowerCase() === 'student';
   const courseId = toId(course?._id || course?.id);
   const normalizedPreferredInstructorId = toId(preferredInstructorId);
   const courseTitle = course?.name || course?.title || 'Course';
@@ -151,8 +153,38 @@ export default function BookDemoModal({
   const [videoPreview, setVideoPreview] = useState(null);
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
+  const [selectedBranchCity, setSelectedBranchCity] = useState('all');
+
+  const branchCityOptions = useMemo(() => {
+    const cityMap = new Map();
+
+    branchOptions.forEach((branch) => {
+      const label = normalizeCityName(branch.city);
+      const id = normalize(label);
+      if (!id || cityMap.has(id)) return;
+      cityMap.set(id, { id, label });
+    });
+
+    return Array.from(cityMap.values()).sort((a, b) =>
+      a.label.localeCompare(b.label)
+    );
+  }, [branchOptions]);
+
+  const filteredBranchOptions = useMemo(() => {
+    if (!branchCityOptions.length || selectedBranchCity === 'all') {
+      return branchOptions;
+    }
+
+    return branchOptions.filter(
+      (branch) => normalize(normalizeCityName(branch.city)) === selectedBranchCity
+    );
+  }, [branchCityOptions.length, branchOptions, selectedBranchCity]);
 
   const visibleInstructors = useMemo(() => {
+    if (normalize(form.deliveryMode) === 'offline' && !form.branchId) {
+      return [];
+    }
+
     return instructors.filter(
       (instructor) =>
         filterCourseSlots(instructor.slots, {
@@ -304,6 +336,42 @@ export default function BookDemoModal({
   }, [form.branchId, form.deliveryMode]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    setSelectedBranchCity('all');
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!branchCityOptions.length) {
+      setSelectedBranchCity('all');
+      return;
+    }
+
+    if (selectedBranchCity === 'all') return;
+
+    const hasSelectedCity = branchCityOptions.some(
+      (city) => city.id === selectedBranchCity
+    );
+
+    if (!hasSelectedCity) {
+      setSelectedBranchCity('all');
+    }
+  }, [branchCityOptions, selectedBranchCity]);
+
+  useEffect(() => {
+    if (normalize(form.deliveryMode) !== 'offline') return;
+    if (!form.branchId) return;
+
+    const hasVisibleBranch = filteredBranchOptions.some(
+      (branch) => branch.id === form.branchId
+    );
+
+    if (hasVisibleBranch) return;
+
+    setForm((prev) => ({ ...prev, branchId: '', instructorId: '', slotId: '' }));
+  }, [filteredBranchOptions, form.branchId, form.deliveryMode]);
+
+  useEffect(() => {
     if (!isOpen) {
       setVideoPreview(null);
       setAppliedPreferredInstructorId('');
@@ -411,6 +479,11 @@ export default function BookDemoModal({
   };
 
   const submitDemoRequest = async () => {
+    if (!token || !isStudent) {
+      setError('Only student accounts can book demo slots.');
+      return;
+    }
+
     const payload = {
       courseId,
       teacherId: form.instructorId,
@@ -487,7 +560,7 @@ export default function BookDemoModal({
                 Demo booking
               </p>
               <h2 className="mt-3 text-3xl font-bold leading-tight">
-                Book a demo without forcing sign in.
+                Book a demo with your student account.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-white/80">
                 We collect the learner details first, then narrow down mode,
@@ -695,9 +768,8 @@ export default function BookDemoModal({
                     </div>
 
                     <div className="rounded-2xl bg-orange-50 p-4 text-sm text-gray-700">
-                      If you are already signed in, we will reuse your saved
-                      details. If not, this wizard will still capture the demo
-                      request.
+                      We reuse your student profile details when available and
+                      keep the booking tied to your student account.
                     </div>
                   </div>
                 ) : null}
@@ -745,6 +817,34 @@ export default function BookDemoModal({
 
                     {canUseBranch ? (
                       <div>
+                        {branchCityOptions.length > 0 ? (
+                          <div className="mb-4">
+                            <label className="mb-2 block text-sm font-medium text-gray-700">
+                              Filter by city
+                            </label>
+                            <select
+                              value={selectedBranchCity}
+                              onChange={(e) => {
+                                const nextCity = e.target.value;
+                                setSelectedBranchCity(nextCity);
+                                updateForm({
+                                  branchId: '',
+                                  instructorId: '',
+                                  slotId: '',
+                                });
+                              }}
+                              className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                            >
+                              <option value="all">All cities</option>
+                              {branchCityOptions.map((city) => (
+                                <option key={city.id} value={city.id}>
+                                  {city.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : null}
+
                         <label className="mb-2 block text-sm font-medium text-gray-700">
                           <HiOutlineLocationMarker className="mr-1 inline" />
                           Select branch
@@ -761,12 +861,21 @@ export default function BookDemoModal({
                           className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
                         >
                           <option value="">Choose a branch</option>
-                          {branchOptions.map((branch) => (
+                          {filteredBranchOptions.map((branch) => (
                             <option key={branch.id} value={branch.id}>
-                              {branch.label}
+                              {branch.city
+                                ? `${branch.label} - ${branch.city}`
+                                : branch.label}
                             </option>
                           ))}
                         </select>
+
+                        {filteredBranchOptions.length === 0 ? (
+                          <p className="mt-2 text-xs text-gray-500">
+                            No branches found for this city. Choose a different
+                            city to continue.
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -816,7 +925,7 @@ export default function BookDemoModal({
                               <img
                                 src={instructor.profilePicture}
                                 alt={instructor.name}
-                                className="h-20 w-20 rounded-2xl object-cover"
+                                className="h-20 w-20 rounded-2xl object-cover object-top"
                                 onError={(e) => {
                                   e.currentTarget.src = getInitialsImage(
                                     instructor.name

@@ -688,7 +688,7 @@ const Navigation = ({ onMenuClick }) => {
                 <img
                   src={profileImage}
                   alt={fullName}
-                  className="h-10 w-10 rounded-2xl border border-slate-200 object-cover"
+                  className="h-10 w-10 rounded-2xl border border-slate-200 object-cover object-top"
                   onError={() => setProfileImageFailed(true)}
                 />
               ) : (

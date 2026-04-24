@@ -39,7 +39,7 @@ const CredentialModal = ({ instructor, password, onClose }) => {
                     <img
                         src={resolveImageUrl(instructor.avatar, DEFAULT_AVATAR)}
                         alt={fullName}
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-10 h-10 rounded-full object-cover object-top"
                     />
                     <span className="font-medium">{fullName}</span>
                 </div>

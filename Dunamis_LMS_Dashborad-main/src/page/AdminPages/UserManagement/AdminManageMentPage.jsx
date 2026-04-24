@@ -194,7 +194,7 @@ const AdminManageMentPage = () => {
                     <img
                         src={getImageUrl(row.userId.image)}
                         alt={row.userId.name.firstName}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover object-top"
                         onError={(e) => {
                             e.target.src = "/profile-photo.png";
                         }}

@@ -178,7 +178,7 @@ Mode: ${i.mode}`
                     <img
                         src={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR)}
                         alt={row.name}
-                        className="w-8 h-8 rounded-full object-cover"
+                        className="w-8 h-8 rounded-full object-cover object-top"
                     />
                     <span className="truncate" title={row.name}>{row.name}</span>
                 </div>

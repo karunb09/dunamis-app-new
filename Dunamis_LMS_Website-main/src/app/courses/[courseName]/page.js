@@ -9,6 +9,7 @@ import EnrollTerm from "@/compoents/PopupModals/EnrollTerms";
 import EnrollModal from "@/compoents/PopupModals/EnrollModal";
 import LoginModal from "@/compoents/PopupModals/LoginModal";
 import { IoMdStar } from "react-icons/io";
+import toast from "react-hot-toast";
 import { fetchCourses } from "@/store/courseSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { useState, useEffect } from "react";
@@ -57,6 +58,38 @@ const buildCurriculum = (contentItems = []) => {
   });
 };
 
+const normalizeImageKey = (value) => {
+  const text = String(value || '').trim().replace(/\\/g, '/');
+  if (!text) return '';
+
+  try {
+    const url = new URL(text, 'https://dunamis.local');
+    return url.pathname.replace(/^\/+/, '').toLowerCase();
+  } catch {
+    return text.replace(/^\/+/, '').toLowerCase();
+  }
+};
+
+const getInstructorImage = (teacher, courseImage, name) => {
+  const courseImageKey = normalizeImageKey(courseImage);
+  const candidates = [
+    teacher?.teacherDetail?.profilePicture,
+    teacher?.teacherDetails?.profilePicture,
+    teacher?.teacherApplication?.profilePicture,
+    teacher?.profilePicture,
+    teacher?.userId?.image,
+    teacher?.user?.image,
+    teacher?.image,
+  ];
+
+  const image = candidates.find((candidate) => {
+    const imageKey = normalizeImageKey(candidate);
+    return imageKey && imageKey !== courseImageKey;
+  });
+
+  return resolveImageUrl(image, getInitialsImage(name));
+};
+
 const buildInstructorCards = (courseRecord) =>
   (courseRecord?.teacher || []).map((teacher) => {
     const name = `${teacher?.teacherDetail?.name?.firstName || ""} ${
@@ -69,10 +102,7 @@ const buildInstructorCards = (courseRecord) =>
       branch: courseRecord?.category?.name || "Department",
       exp: `${teacher?.studentCount || 0} students taught`,
       rating: Number(teacher?.averageRating) || 0,
-      image: resolveImageUrl(
-        teacher?.teacherDetail?.profilePicture || teacher?.userId?.image,
-        getInitialsImage(name)
-      ),
+      image: getInstructorImage(teacher, courseRecord?.image, name),
       profileVideo: resolveImageUrl(
         teacher?.teacherDetail?.profileVideo || teacher?.profileVideo,
         ""
@@ -200,7 +230,7 @@ export default function CourseDetailPage() {
   const dispatch = useDispatch();
   const pathname = usePathname();
   const { courses, loading, error } = useSelector((state) => state.course);
-  const { token } = useSelector((state) => state.auth || {});
+  const { token, user } = useSelector((state) => state.auth || {});
   const { courseName } = useParams();
 
   const [isEnrollTermOpen, setEnrollTermOpen] = useState(false);
@@ -210,6 +240,7 @@ export default function CourseDetailPage() {
   const [enrollSelection, setEnrollSelection] = useState(null);
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
+  const [pendingDemoAuth, setPendingDemoAuth] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
   const [detailLoading, setDetailLoading] = useState(false);
   const [preferredInstructorId, setPreferredInstructorId] = useState("");
@@ -222,6 +253,13 @@ export default function CourseDetailPage() {
   const hasActiveAuth = () => {
     if (typeof window === "undefined") return Boolean(token);
     return Boolean(token || window.localStorage.getItem("auth_token"));
+  };
+
+  const isStudentAccount = (account = user) =>
+    String(account?.accountType || "").toLowerCase() === "student";
+
+  const showStudentOnlyMessage = (action) => {
+    toast.error(`Only student accounts can ${action}.`);
   };
 
   useEffect(() => {
@@ -316,6 +354,19 @@ export default function CourseDetailPage() {
     if (!pendingQueryAction || !rawCourse) return;
 
     if (pendingQueryAction === "demo") {
+      if (hasActiveAuth() && !isStudentAccount()) {
+        showStudentOnlyMessage("book demos");
+        setPendingQueryAction(null);
+        return;
+      }
+
+      if (!hasActiveAuth()) {
+        setPendingDemoAuth(true);
+        setLoginOpen(true);
+        setPendingQueryAction(null);
+        return;
+      }
+
       setPreferredInstructorId("");
       setBookDemoOpen(true);
       setPendingQueryAction(null);
@@ -324,6 +375,12 @@ export default function CourseDetailPage() {
 
     if (pendingQueryAction === "enroll") {
       if (hasActiveAuth()) {
+        if (!isStudentAccount()) {
+          showStudentOnlyMessage("enroll in courses");
+          setPendingQueryAction(null);
+          return;
+        }
+
         clearEnrollmentResume();
         setEnrollTermOpen(true);
       } else {
@@ -335,12 +392,17 @@ export default function CourseDetailPage() {
       }
       setPendingQueryAction(null);
     }
-  }, [pathname, pendingQueryAction, rawCourse, token]);
+  }, [pathname, pendingQueryAction, rawCourse, token, user]);
 
   const openEnrollmentFlow = (instructorId = "") => {
     setPreferredInstructorId(instructorId);
 
     if (hasActiveAuth()) {
+      if (!isStudentAccount()) {
+        showStudentOnlyMessage("enroll in courses");
+        return;
+      }
+
       clearEnrollmentResume();
       setPendingEnrollmentAuth(false);
       setEnrollTermOpen(true);
@@ -351,6 +413,24 @@ export default function CourseDetailPage() {
       saveEnrollmentResume(`${pathname}?action=enroll`);
     }
     setPendingEnrollmentAuth(true);
+    setLoginOpen(true);
+  };
+
+  const openDemoFlow = (instructorId = "") => {
+    setPreferredInstructorId(instructorId);
+
+    if (hasActiveAuth()) {
+      if (!isStudentAccount()) {
+        showStudentOnlyMessage("book demos");
+        return;
+      }
+
+      setPendingDemoAuth(false);
+      setBookDemoOpen(true);
+      return;
+    }
+
+    setPendingDemoAuth(true);
     setLoginOpen(true);
   };
 
@@ -499,17 +579,14 @@ export default function CourseDetailPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setPreferredInstructorId("");
-                    setBookDemoOpen(true);
-                  }}
+                  onClick={() => openDemoFlow()}
                   className="w-full sm:w-auto border-2 border-gray-400 py-2 px-6 rounded-xl cursor-pointer hover:bg-gray-50 text-sm font-medium"
                 >
                   Book Demo
                 </motion.button>
               </div>
               <p className="text-xs text-gray-500">
-                Demo booking starts here without forcing login.
+                Demo booking requires a student account.
               </p>
             </div>
           </motion.div>
@@ -622,7 +699,7 @@ export default function CourseDetailPage() {
                     <img
                       src={instructor.image}
                       alt={instructor.name}
-                      className="h-14 w-14 rounded-full object-cover"
+                      className="h-14 w-14 rounded-full object-cover object-top"
                     />
                     <div>
                       <p className="font-semibold text-gray-900">
@@ -714,72 +791,104 @@ export default function CourseDetailPage() {
           onClick={() => setActiveInstructor(null)}
         >
           <div
-            className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl lg:p-8"
+            className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setActiveInstructor(null)}
-              className="absolute right-4 top-4 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-600 transition hover:bg-gray-200"
+              className="absolute right-5 top-5 z-10 rounded-full bg-gray-100 p-3 text-gray-600 transition hover:bg-gray-200"
               aria-label="Close instructor profile"
             >
               ×
             </button>
 
-            <div className="grid gap-6 lg:grid-cols-[280px,1fr]">
-              <div>
-                <img
-                  src={activeInstructor.image}
-                  alt={activeInstructor.name}
-                  className="h-64 w-full rounded-3xl object-cover"
-                  onError={(event) => {
-                    event.currentTarget.src = getInitialsImage(activeInstructor.name);
-                  }}
-                />
+            <div className="grid overflow-hidden lg:grid-cols-[300px,1fr]">
+              <aside className="relative flex flex-col items-center justify-start bg-[radial-gradient(circle_at_top,_rgba(255,107,53,0.14),_transparent_44%),linear-gradient(180deg,#f8fafc_0%,#ffffff_100%)] px-6 py-8 text-center">
+                <div className="absolute left-8 top-8 h-20 w-20 rounded-full bg-orange-100 blur-2xl" />
+                <div className="absolute bottom-8 right-8 h-20 w-20 rounded-full bg-amber-100 blur-2xl" />
 
-                <div className="mt-4 rounded-3xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
-                  <p className="font-semibold text-gray-900">{activeInstructor.name}</p>
-                  <p className="mt-1 capitalize">{activeInstructor.mode} instructor</p>
-                  <p className="mt-1">{activeInstructor.exp}</p>
-                  {activeInstructor.rating > 0 ? (
-                    <p className="mt-1">{activeInstructor.rating.toFixed(1)} rating</p>
-                  ) : null}
+                <div className="relative">
+                  <div className="rounded-full bg-gradient-to-br from-orange-200 via-gray-100 to-white p-3 shadow-[0_24px_70px_-35px_rgba(15,23,42,0.55)]">
+                    <img
+                      src={activeInstructor.image}
+                      alt={activeInstructor.name}
+                      className="h-44 w-44 rounded-full border-8 border-white object-cover object-center sm:h-52 sm:w-52"
+                      onError={(event) => {
+                        event.currentTarget.src = getInitialsImage(activeInstructor.name);
+                      }}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-5">
-                <div>
-                  <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
+                <div className="relative mt-5 max-w-xs">
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
                     Instructor profile
                   </p>
-                  <h2 className="mt-2 text-3xl font-bold text-gray-900">
+                  <h2 className="mt-3 text-2xl font-bold text-gray-950">
                     {activeInstructor.name}
                   </h2>
-                  <p className="mt-2 text-sm text-gray-600">
-                    {activeInstructor.expertise || activeInstructor.branch}
+                  <p className="mt-2 text-sm capitalize text-gray-600">
+                    {activeInstructor.mode || "Online"} Instructor
                   </p>
+                </div>
+              </aside>
+
+              <div className="space-y-4 p-6 lg:p-8">
+                <div className="rounded-[1.5rem] border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-sm font-semibold text-gray-900">
+                    {activeInstructor.expertise || activeInstructor.branch || "Course instructor"}
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl bg-white p-3 ring-1 ring-gray-100">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                        Students
+                      </p>
+                      <p className="mt-1 text-base font-bold text-gray-950">
+                        {activeInstructor.exp || "0 students taught"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-3 ring-1 ring-gray-100">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                        Rating
+                      </p>
+                      <p className="mt-1 text-base font-bold text-gray-950">
+                        {activeInstructor.rating > 0
+                          ? `${activeInstructor.rating.toFixed(1)} / 5`
+                          : "New"}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-white p-3 ring-1 ring-gray-100">
+                      <p className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                        Mode
+                      </p>
+                      <p className="mt-1 text-base font-bold capitalize text-gray-950">
+                        {activeInstructor.mode || "Online"}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex flex-wrap gap-2 text-sm text-gray-600">
                   {activeInstructor.yearsExperience ? (
-                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                    <span className="rounded-full bg-orange-50 px-3 py-1.5 font-medium text-orange-700">
                       {activeInstructor.yearsExperience}
                     </span>
                   ) : null}
                   {activeInstructor.qualification ? (
-                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                    <span className="rounded-full bg-gray-100 px-3 py-1.5 font-medium text-gray-700">
                       {activeInstructor.qualification}
                     </span>
                   ) : null}
                   {activeInstructor.location ? (
-                    <span className="rounded-full bg-gray-100 px-3 py-1">
+                    <span className="rounded-full bg-gray-100 px-3 py-1.5 font-medium text-gray-700">
                       {activeInstructor.location}
                     </span>
                   ) : null}
                 </div>
 
                 {activeInstructor.profileVideo ? (
-                  <div className="overflow-hidden rounded-3xl border border-gray-200 bg-black">
+                  <div className="overflow-hidden rounded-[1.5rem] border border-gray-200 bg-black shadow-sm">
                     <video
                       key={activeInstructor.profileVideo}
                       src={activeInstructor.profileVideo}
@@ -792,7 +901,7 @@ export default function CourseDetailPage() {
                     </video>
                   </div>
                 ) : (
-                  <div className="rounded-3xl border border-dashed border-gray-300 p-5 text-sm text-gray-500">
+                  <div className="rounded-[1.5rem] border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
                     Demo video has not been uploaded for this instructor yet.
                   </div>
                 )}
@@ -801,11 +910,10 @@ export default function CourseDetailPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setPreferredInstructorId(activeInstructor.id || "");
                       setActiveInstructor(null);
-                      setBookDemoOpen(true);
+                      openDemoFlow(activeInstructor.id || "");
                     }}
-                    className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    className="rounded-2xl border border-gray-300 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
                   >
                     Book Demo With This Instructor
                   </button>
@@ -816,7 +924,7 @@ export default function CourseDetailPage() {
                       setActiveInstructor(null);
                       openEnrollmentFlow(instructorId);
                     }}
-                    className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                    className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#fd5a1f]"
                   >
                     Enroll With This Instructor
                   </button>
@@ -858,11 +966,26 @@ export default function CourseDetailPage() {
         onClose={() => {
           setLoginOpen(false);
           setPendingEnrollmentAuth(false);
+          setPendingDemoAuth(false);
         }}
-        nextHref={pathname ? `${pathname}?action=enroll` : "/courses"}
-        onSuccess={() => {
+        nextHref={pathname ? `${pathname}?action=${pendingDemoAuth ? "demo" : "enroll"}` : "/courses"}
+        onSuccess={(payload) => {
+          if (!isStudentAccount(payload?.user)) {
+            showStudentOnlyMessage(pendingDemoAuth ? "book demos" : "enroll in courses");
+            setLoginOpen(false);
+            setPendingEnrollmentAuth(false);
+            setPendingDemoAuth(false);
+            return false;
+          }
+
           clearEnrollmentResume();
           setLoginOpen(false);
+          if (pendingDemoAuth) {
+            setPendingDemoAuth(false);
+            setBookDemoOpen(true);
+            return;
+          }
+
           if (pendingEnrollmentAuth) {
             setPendingEnrollmentAuth(false);
             setEnrollTermOpen(true);

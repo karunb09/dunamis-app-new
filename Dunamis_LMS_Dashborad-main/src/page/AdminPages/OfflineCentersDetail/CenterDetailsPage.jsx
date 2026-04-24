@@ -333,7 +333,7 @@ const CenterDetailsPage = () => {
                     <img
                       src={profilePicture}
                       alt={teacherName}
-                      className="w-14 h-14 rounded-full object-cover border-2 border-gray-200"
+                      className="w-14 h-14 rounded-full object-cover object-top border-2 border-gray-200"
                       onError={(e) => {
                         e.target.src = `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
                           teacherName

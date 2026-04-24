@@ -1,9 +1,15 @@
+const fs = require("fs");
+const path = require("path");
+
 const DEFAULT_APP_URL =
   process.env.BASE_URL ||
   "https://dunamisindia.co.in";
 const DEFAULT_DASHBOARD_URL =
   process.env.DASHBOARD_URL ||
   "https://dashboard.dunamisindia.co.in";
+const DEMO_EMAIL_COURSES_URL = "https://dunamisindia.co.in/courses";
+const DEMO_EMAIL_LOGO_PATH = path.resolve(__dirname, "../Dunamis.png");
+const DEMO_EMAIL_LOGO_CID = "dunamis-logo";
 
 const escapeHtml = (value) =>
   String(value ?? "")
@@ -164,6 +170,7 @@ const buildDemoBookingCard = ({ title, intro, details, ctaText, ctaHref }) => `
   <div style="max-width:640px;margin:0 auto;padding:24px;background:#f5f7fb;font-family:Arial,sans-serif;">
     <div style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
       <div style="padding:24px 28px;background:linear-gradient(135deg,#111827,#1f2937);color:#fff;">
+        <img src="cid:${DEMO_EMAIL_LOGO_CID}" alt="Dunamis logo" style="height:40px;width:auto;display:block;margin:0 0 12px;" />
         <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#fdba74;">Dunamis LMS</p>
         <h1 style="margin:0;font-size:24px;line-height:1.2;">${escapeHtml(title)}</h1>
       </div>
@@ -203,8 +210,9 @@ const studentDemoBookingEmailTemplate = (input = {}) => {
         "Your demo request has been recorded. Here are the details the student should keep for the session.",
       details,
       ctaText: "View Courses",
-      ctaHref: `${ctx.appUrl}/courses`,
+      ctaHref: DEMO_EMAIL_COURSES_URL,
     }),
+    attachments: buildDemoEmailAttachments(),
     context: ctx,
   };
 };
@@ -233,8 +241,23 @@ const instructorDemoBookingEmailTemplate = (input = {}) => {
       ctaText: "Open Dashboard",
       ctaHref: `${ctx.dashboardUrl}/teacher`,
     }),
+    attachments: buildDemoEmailAttachments(),
     context: ctx,
   };
+};
+
+const buildDemoEmailAttachments = () => {
+  if (!fs.existsSync(DEMO_EMAIL_LOGO_PATH)) {
+    return [];
+  }
+
+  return [
+    {
+      filename: "Dunamis.png",
+      path: DEMO_EMAIL_LOGO_PATH,
+      cid: DEMO_EMAIL_LOGO_CID,
+    },
+  ];
 };
 
 module.exports = {

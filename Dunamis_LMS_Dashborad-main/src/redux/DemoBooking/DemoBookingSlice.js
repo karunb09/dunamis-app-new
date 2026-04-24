@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { getStoredToken } from "../../utils/authSession";
+import { getStoredToken, getStoredUser } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL; 
 
@@ -14,6 +14,11 @@ export const bookDemoSlot = createAsyncThunk(
   "demoBookings/bookDemoSlot",
   async (bookingData, thunkAPI) => {
     try {
+      const user = thunkAPI.getState().auth?.user || getStoredUser();
+      if (String(user?.accountType || "").toLowerCase() !== "student") {
+        return thunkAPI.rejectWithValue("Only student accounts can book demo slots.");
+      }
+
       const response = await axios.post(
         `${BASE_URL}/demoBookings/`,
         bookingData,

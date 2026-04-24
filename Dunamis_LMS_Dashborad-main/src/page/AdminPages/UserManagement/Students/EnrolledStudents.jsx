@@ -167,7 +167,7 @@ ${courses || "No courses enrolled"}`;
                     <img
                         src={row.userId?.image || "/default-avatar.png"}
                         alt={`${row.userId?.name?.firstName || ""} ${row.userId?.name?.lastName || ""}`}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        className="w-8 h-8 rounded-full object-cover object-top flex-shrink-0"
                     />
                     <span className="truncate max-w-[200px]" title={`${row.userId?.name?.firstName || "N/A"} ${row.userId?.name?.lastName || ""}`}>
                         {row.userId?.name?.firstName || "N/A"} {row.userId?.name?.lastName || ""}
