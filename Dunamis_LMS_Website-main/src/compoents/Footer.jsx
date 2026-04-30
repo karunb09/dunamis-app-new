@@ -203,7 +203,7 @@ const Footer = () => {
                 { icon: FileText, label: "Legal", href: "#" },
                 {
                   icon: RotateCcw,
-                  label: "Refund Policy",
+                  label: "Cancellation & Refund",
                   href: "/refund-policy",
                 },
                 {
