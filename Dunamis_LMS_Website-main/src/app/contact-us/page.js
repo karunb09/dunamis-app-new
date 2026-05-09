@@ -117,7 +117,35 @@ export default function ContactPage() {
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    dispatch(createEnquiry(form));
+
+    const payload = {
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      subject: form.subject.trim(),
+      message: form.message.trim(),
+    };
+
+    if (!payload.name) {
+      toast.error("Full name is required.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+
+    if (payload.subject.length < 3) {
+      toast.error("Subject must be at least 3 characters.");
+      return;
+    }
+
+    if (payload.message.length < 10) {
+      toast.error("Message must be at least 10 characters.");
+      return;
+    }
+
+    dispatch(createEnquiry(payload));
   };
 
   const renderFieldError = (field) => {
@@ -257,7 +285,7 @@ export default function ContactPage() {
                 <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Full name
+                      Full name <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
@@ -268,6 +296,7 @@ export default function ContactPage() {
                         value={form.name}
                         onChange={handleChange}
                         placeholder="Enter your full name"
+                        required
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.name
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -280,7 +309,7 @@ export default function ContactPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Email address
+                      Email address <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
@@ -292,6 +321,7 @@ export default function ContactPage() {
                         value={form.email}
                         onChange={handleChange}
                         placeholder="you@example.com"
+                        required
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.email
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -304,7 +334,7 @@ export default function ContactPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Subject
+                      Subject <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-gray-400">
@@ -315,6 +345,8 @@ export default function ContactPage() {
                         value={form.subject}
                         onChange={handleChange}
                         placeholder="How can we help you?"
+                        required
+                        minLength={3}
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.subject
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -327,7 +359,7 @@ export default function ContactPage() {
 
                   <div>
                     <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Message
+                      Message <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-4 text-gray-400">
@@ -339,6 +371,8 @@ export default function ContactPage() {
                         value={form.message}
                         onChange={handleChange}
                         placeholder="Share the details so the team can respond clearly."
+                        required
+                        minLength={10}
                         className={`w-full rounded-[1.75rem] border bg-white px-12 py-4 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.message
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"

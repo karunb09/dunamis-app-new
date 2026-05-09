@@ -87,7 +87,7 @@ export default function Centers() {
           allCenters.map((center, index) => (
             <motion.div
               key={center._id || index}
-              className="bg-white rounded-2xl shadow-md overflow-hidden text-left hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 cursor-pointer"
+              className="flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl bg-white text-left shadow-md transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg"
               variants={cardVariants}
               onClick={() =>
                 router.push(
@@ -115,14 +115,14 @@ export default function Centers() {
               />
 
               {/* Card Details */}
-              <div className="p-4 sm:p-5">
-                <div className="flex item-center justify-between">
-                  <h3 className="font-semibold text-base sm:text-lg text-[#2D2D2D] mb-2">
+              <div className="flex flex-1 flex-col p-4 sm:p-5">
+                <div className="flex min-h-[52px] items-start justify-between gap-3">
+                  <h3 className="mb-2 line-clamp-2 text-base font-semibold text-[#2D2D2D] sm:text-lg">
                     {center.branchName || "Unnamed Center"}
                   </h3>
                   {/* Status Badge */}
                   {center.status && (
-                    <div className="mb-3">
+                    <div className="mb-3 shrink-0">
                       <span
                         className={`inline-block text-xs px-3 py-1 rounded-full font-medium ${center.status.toLowerCase() === "active"
                             ? "bg-green-100 text-green-700"
@@ -138,7 +138,7 @@ export default function Centers() {
                 </div>
 
                 {/* Location */}
-                <p className="text-gray-600 text-xs sm:text-sm flex items-start gap-1 mb-3">
+                <p className="mb-3 flex min-h-[40px] items-start gap-1 text-xs text-gray-600 sm:text-sm">
                   <MapPin className="w-4 h-4 text-[#FF6B35] flex-shrink-0 mt-0.5" />
                   <span title={center.location} className="line-clamp-2">
                     {center.location || "Location not available"}
@@ -147,16 +147,16 @@ export default function Centers() {
 
                 {/* City */}
                 {center.city?.cityName && (
-                  <p className="text-gray-500 text-xs mb-2">
+                  <p className="mb-2 min-h-[16px] text-xs text-gray-500">
                     <span className="font-semibold">City:</span> {center.city.cityName}
                   </p>
                 )}
 
                 {/* Facilities */}
                 {center.centreFacilities && center.centreFacilities.trim() !== "" ? (
-                  <div className="mb-3">
+                  <div className="mb-3 min-h-[74px]">
                     <p className="text-gray-700 text-xs font-semibold mb-1.5">Facilities:</p>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex max-h-[54px] flex-wrap gap-1.5 overflow-hidden">
                       {center.centreFacilities
                         .split(",")
                         .filter((facility) => facility.trim() !== "")
@@ -177,14 +177,14 @@ export default function Centers() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-400 text-xs italic mb-3">
+                  <p className="mb-3 min-h-[74px] text-xs italic text-gray-400">
                     No facilities listed
                   </p>
                 )}
 
                 {/* Timings */}
                 {center.branchTimings?.length > 0 && (
-                  <p className="text-gray-600 text-xs mb-2 flex items-start gap-1">
+                  <p className="mb-2 flex min-h-[16px] items-start gap-1 text-xs text-gray-600">
                     <span className="font-semibold text-gray-700">Timings:</span>
                     <span className="flex-1">{center.branchTimings.join(" - ")}</span>
                   </p>
@@ -192,21 +192,21 @@ export default function Centers() {
 
                 {/* Open Days */}
                 {center.branchOpenDays?.length > 0 && (
-                  <p className="text-gray-600 text-xs mb-2 flex items-start gap-1">
+                  <p className="mb-2 flex min-h-[32px] items-start gap-1 text-xs text-gray-600">
                     <span className="font-semibold text-gray-700">Open Days:</span>
-                    <span className="flex-1">{center.branchOpenDays.join(", ")}</span>
+                    <span className="line-clamp-2 flex-1">{center.branchOpenDays.join(", ")}</span>
                   </p>
                 )}
 
                 {/* Capacity */}
                 {center.branchCapacity && (
-                  <p className="text-gray-600 text-xs mb-2">
+                  <p className="mb-2 min-h-[16px] text-xs text-gray-600">
                     <span className="font-semibold text-gray-700">Capacity:</span> {center.branchCapacity} students
                   </p>
                 )}
 
                 {/* Admin Contact Info */}
-                <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="mt-auto border-t border-gray-100 pt-3">
                   {center.branchAdminEmail && (
                     <p className="text-gray-600 text-xs mb-1.5 truncate">
                       <span className="font-semibold text-gray-700">Email:</span>{" "}

@@ -1,4 +1,5 @@
 const SubCategory = require("../model/subCategory.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create SubCategory
 exports.createSubCategory = async (req, res) => {
@@ -22,11 +23,7 @@ exports.createSubCategory = async (req, res) => {
       subCategory: newSubCategory,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error creating subcategory",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Error creating subcategory");
   }
 };
 
@@ -90,11 +87,7 @@ exports.updateSubCategory = async (req, res) => {
       subCategory,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error updating subcategory",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Error updating subcategory");
   }
 };
 
@@ -122,4 +115,3 @@ exports.deleteSubCategory = async (req, res) => {
     });
   }
 };
-

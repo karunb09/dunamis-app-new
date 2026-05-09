@@ -38,13 +38,14 @@ const CategoryForm = ({
     return (
         <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
             <div>
-                <label className="block text-sm font-medium mb-1">Category Name</label>
+                <label className="block text-sm font-medium mb-1">Category Name <span className="text-red-500">*</span></label>
                 <input
                     type="text"
                     placeholder="Enter category name"
                     value={categoryName}
                     onChange={(e) => setCategoryName(e.target.value)}
                     className="w-full p-2 border rounded-2xl"
+                    required
                 />
             </div>
 

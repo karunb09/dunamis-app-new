@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
-import { getWebsiteUser } from "@/lib/authSession";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
@@ -10,18 +9,10 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
-const isStudentUser = (user) =>
-  String(user?.accountType || "").toLowerCase() === "student";
-
 export const createDemoBooking = createAsyncThunk(
   "demoBooking/createDemoBooking",
-  async (payload, { rejectWithValue, getState }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      const user = getState().auth?.user || getWebsiteUser();
-      if (!isStudentUser(user)) {
-        return rejectWithValue("Only student accounts can book demo slots.");
-      }
-
       const res = await axios.post(
         `${BASE_URL}/v1/demoBookings/`,
         payload,

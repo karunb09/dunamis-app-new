@@ -1,7 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Create a student
 export const createStudent = createAsyncThunk(
@@ -24,7 +30,9 @@ export const getAllStudents = createAsyncThunk(
   "student/getAll",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/student/get-all`);
+      const response = await axios.get(`${BASE_URL}/student/get-all`, {
+        headers: getAuthHeaders(),
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -37,7 +45,9 @@ export const getStudentById = createAsyncThunk(
   "student/getById",
   async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`${BASE_URL}/student/${id}`);
+      const response = await axios.get(`${BASE_URL}/student/${id}`, {
+        headers: getAuthHeaders(),
+      });
       return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);
@@ -52,6 +62,7 @@ export const getStudentsByType = createAsyncThunk(
     try {
       const response = await axios.get(`${BASE_URL}/student/get-by-type`, {
         params: { type: studentType },
+        headers: getAuthHeaders(),
       });
       return response.data;
     } catch (error) {
@@ -67,7 +78,8 @@ export const updateStudent = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/student/${id}`,
-        updatedData
+        updatedData,
+        { headers: getAuthHeaders() }
       );
       return response.data;
     } catch (error) {
@@ -81,7 +93,9 @@ export const deleteStudent = createAsyncThunk(
   "student/delete",
   async (id, { rejectWithValue }) => {
     try {
-      await axios.delete(`${BASE_URL}/student/${id}`);
+      await axios.delete(`${BASE_URL}/student/${id}`, {
+        headers: getAuthHeaders(),
+      });
       return id;
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

@@ -3,11 +3,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 
-const stats = [
-    { value: 4, label: "Cities" },
-    { value: 170, label: "Students" },
-    { value: 20, label: "Instructors", suffix: "+" },
-];
+const defaultStats = {
+    cities: 0,
+    students: 0,
+    instructors: 0,
+};
 
 // Animation Variants
 const fadeUp = {
@@ -64,7 +64,13 @@ const Counter = ({ value, duration = 2000, suffix = "" }) => {
     );
 };
 
-const OfflineHero = () => {
+const OfflineHero = ({ stats = defaultStats }) => {
+    const statItems = [
+        { value: Number(stats.cities) || 0, label: "Cities" },
+        { value: Number(stats.students) || 0, label: "Students" },
+        { value: Number(stats.instructors) || 0, label: "Instructors" },
+    ];
+
     return (
         <section className="py-16 text-center overflow-hidden">
             {/* Subheading */}
@@ -104,7 +110,7 @@ const OfflineHero = () => {
 
             {/* Stats */}
             <div className="mt-10 flex flex-wrap justify-center gap-12">
-                {stats.map((item, idx) => (
+                {statItems.map((item, idx) => (
                     <motion.div
                         key={idx}
                         custom={idx}

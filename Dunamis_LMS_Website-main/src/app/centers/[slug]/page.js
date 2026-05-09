@@ -21,6 +21,43 @@ import {
 import Link from "next/link";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 
+const formatCurrency = (value) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) && amount > 0
+    ? `₹${amount.toLocaleString("en-IN")}`
+    : "";
+};
+
+const normalizeCourses = (courses = []) => {
+  if (!Array.isArray(courses)) return [];
+
+  const seen = new Set();
+
+  return courses.reduce((acc, course, index) => {
+    if (!course) return acc;
+
+    const key = course._id || course.id || course.code || course.name || `course-${index}`;
+    if (seen.has(key)) return acc;
+
+    const activePrice = Array.isArray(course.price)
+      ? course.price.find((price) => price?.isActive) || course.price[0]
+      : null;
+
+    seen.add(key);
+    acc.push({
+      key,
+      id: course._id || course.id || "",
+      name: course.name || course.courseName || `Course ${index + 1}`,
+      code: course.code || course.courseCode || "",
+      description: course.description || "",
+      level: course.level || "",
+      price: formatCurrency(activePrice?.fullPayment || activePrice?.monthlyFee),
+      priceSuffix: activePrice?.fullPayment ? "" : activePrice?.monthlyFee ? "/month" : "",
+    });
+    return acc;
+  }, []);
+};
+
 export default function CenterDetailsPage({ params }) {
   const dispatch = useDispatch();
 
@@ -69,7 +106,7 @@ export default function CenterDetailsPage({ params }) {
     facilities: apiCenter.centreFacilities
       ? apiCenter.centreFacilities.split(",").map((f) => f.trim())
       : [],
-    courses: [],
+    courses: normalizeCourses(apiCenter.courses),
     instructors: apiCenter.branchManager
       ? [
           {
@@ -231,6 +268,66 @@ export default function CenterDetailsPage({ params }) {
           </div>
         </div>
       )}
+
+      <div className="mt-16">
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">
+          Available Courses
+        </h2>
+        {courses.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {courses.map((course) => (
+              <div
+                key={course.key}
+                className="flex h-full flex-col rounded-2xl border border-orange-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex min-h-[58px] items-start justify-between gap-4">
+                  <div>
+                    <h3 className="line-clamp-2 text-lg font-semibold text-gray-900">
+                      {course.name}
+                    </h3>
+                    {course.code && (
+                      <p className="mt-1 text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+                        {course.code}
+                      </p>
+                    )}
+                  </div>
+                  {course.level && (
+                    <span className="shrink-0 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium capitalize text-orange-700">
+                      {course.level}
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-3 min-h-[48px] line-clamp-2 text-sm leading-6 text-gray-600">
+                  {course.description || "Course details are available from this centre."}
+                </p>
+
+                <div className="mt-auto flex items-center justify-between gap-4 pt-4">
+                  <p className="flex items-center gap-2 text-sm font-medium text-gray-800">
+                    <FaBook className="h-4 w-4 text-[#FF6B35]" />
+                    {course.price
+                      ? `${course.price}${course.priceSuffix}`
+                      : "Contact for pricing"}
+                  </p>
+                  {course.id && (
+                    <Link
+                      href={`/courses/${course.id}`}
+                      className="shrink-0 rounded-full bg-[#FF6B35] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#ff4400]"
+                    >
+                      View Course
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">
+            No courses are assigned to this centre yet.
+          </p>
+        )}
+      </div>
+
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchTeacherById } from "../../../redux/Intructor/teacherSlice";
+import { fetchCategories } from "../../../redux/Category/CategorySlice";
 import CourseOverview from "./CourseOverview";
 import StudentTable from "./StudentTable";
 import Curriculum from "./Curriculum";
@@ -11,12 +12,15 @@ const MyCourses = () => {
   const dispatch = useDispatch();
 
   const { selectedTeacher, loading, error } = useSelector((state) => state.teachers);
+  const { categories: adminCategories = [], status: categoryStatus } = useSelector((state) => state.category);
 
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [isPopupOpen, setIsPopupOpen] = useState(false);
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
 
   useEffect(() => {
+    dispatch(fetchCategories());
+
     const user = JSON.parse(localStorage.getItem("user"));
     const teacherId = user?.roleId;
 
@@ -38,6 +42,12 @@ const MyCourses = () => {
     }
   }, [dispatch]);
 
+  useEffect(() => {
+    if (isPopupOpen) {
+      dispatch(fetchCategories());
+    }
+  }, [dispatch, isPopupOpen]);
+
   const teacherData = selectedTeacher || {};
   const courses = teacherData?.courses || [];
   const students = teacherData?.students || [];
@@ -46,9 +56,20 @@ const MyCourses = () => {
   const studentCount = teacherData.studentCount || 0;
   const averageRating = teacherData.averageRating || 0;
 
-  const categories = Array.from(
+  const assignedCourseCategories = Array.from(
     new Set(courses.map((c) => c.category?.name).filter(Boolean))
   );
+  const requestCategoryOptions = Array.from(
+    new Set(
+      adminCategories
+        .filter((category) => category.status === "published" || !category.status)
+        .map((category) => category.name)
+        .filter(Boolean)
+    )
+  );
+  const categoryOptions = requestCategoryOptions.length
+    ? requestCategoryOptions
+    : assignedCourseCategories;
 
   useEffect(() => {
     if (courses.length > 0) {
@@ -348,12 +369,15 @@ const MyCourses = () => {
                 className="w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
               >
                 <option value="">Select a category</option>
-                {categories.map((cat) => (
+                {categoryOptions.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
                 ))}
               </select>
+              {categoryStatus === "loading" && (
+                <p className="mt-2 text-xs text-gray-500">Loading latest categories...</p>
+              )}
             </div>
 
             {selectedSubcategory && (

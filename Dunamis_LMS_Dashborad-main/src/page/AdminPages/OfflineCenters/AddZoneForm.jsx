@@ -73,24 +73,34 @@ const AddZone = () => {
     // Save Zone
     const handleSaveZone = async () => {
         const requiredFields = [
-            "zoneName",
-            "location",
-            "zoneManager",
-            "zoneAdminEmail",
-            "zoneAdminContact",
-            "cities"
+            ["zoneName", "Zone name"],
+            ["location", "Location"],
+            ["zoneManager", "Zone manager"],
+            ["zoneAdminEmail", "Zone admin email"],
+            ["zoneAdminContact", "Zone admin contact"],
+            ["cities", "At least one city"],
         ];
 
-        for (const field of requiredFields) {
+        for (const [field, label] of requiredFields) {
             if (!formData[field] || (Array.isArray(formData[field]) && formData[field].length === 0)) {
-                toast.error(`Please fill ${field}`);
+                toast.error(`${label} is required`);
                 return;
             }
         }
 
+        if (!/^\d{10}$/.test(String(formData.zoneAdminContact))) {
+            toast.error("Zone admin contact must be 10 digits");
+            return;
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.zoneAdminEmail)) {
+            toast.error("Zone admin email must be valid");
+            return;
+        }
+
         const payload = {
-            name: formData.zoneName,
-            location: formData.location,
+            name: formData.zoneName.trim(),
+            location: formData.location.trim(),
             manager: formData.zoneManager,
             adminEmail: formData.zoneAdminEmail,
             adminContact: formData.zoneAdminContact,
@@ -104,7 +114,7 @@ const AddZone = () => {
                 toast.success("Zone created successfully!");
                 navigate("/admin/centers");
             } else {
-                throw new Error(action.error?.message || "Failed to create zone");
+                throw new Error(action.payload?.message || action.error?.message || "Failed to create zone");
             }
         } catch (error) {
             toast.error(error.message || "Something went wrong");
@@ -139,34 +149,37 @@ const AddZone = () => {
             <h2 className="text-lg font-semibold mb-4">Create New Zone</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Zone Name */}
-                <label htmlFor="zoneName">Zone Name
+                <label htmlFor="zoneName">Zone Name <span className="text-red-500">*</span>
                     <input
                         type="text"
                         name="zoneName"
                         value={formData.zoneName}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
+                        required
                     />
                 </label>
 
                 {/* Location */}
-                <label htmlFor="location">Location
+                <label htmlFor="location">Location <span className="text-red-500">*</span>
                     <input
                         type="text"
                         name="location"
                         value={formData.location}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
+                        required
                     />
                 </label>
 
                 {/* Zone Manager */}
-                <label htmlFor="zoneManager">Zone Manager
+                <label htmlFor="zoneManager">Zone Manager <span className="text-red-500">*</span>
                     <select
                         name="zoneManager"
                         value={formData.zoneManager}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
+                        required
                     >
                         <option value="">Select Zone Manager</option>
                         {(users || [])
@@ -181,7 +194,7 @@ const AddZone = () => {
 
                 {/* Zone Admin Contact (auto-filled) */}
                 {formData.zoneAdminContact && (
-                    <label htmlFor="zoneAdminContact">Zone Admin Contact
+                    <label htmlFor="zoneAdminContact">Zone Admin Contact <span className="text-red-500">*</span>
                         <input
                             type="text"
                             name="zoneAdminContact"
@@ -194,7 +207,7 @@ const AddZone = () => {
 
                 {/* Zone Admin Email (auto-filled) */}
                 {formData.zoneAdminEmail && (
-                    <label htmlFor="zoneAdminEmail">Zone Admin Email
+                    <label htmlFor="zoneAdminEmail">Zone Admin Email <span className="text-red-500">*</span>
                         <input
                             type="email"
                             name="zoneAdminEmail"
@@ -206,7 +219,7 @@ const AddZone = () => {
                 )}
 
                 {/* City Multi-Select */}
-                <label htmlFor="city">Cities
+                <label htmlFor="city">Cities <span className="text-red-500">*</span>
                     <Select
                         isMulti
                         name="city"

@@ -20,21 +20,23 @@ import {
   Heart,
 } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaPhoneAlt, FaWhatsapp, FaYoutube } from "react-icons/fa";
+import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const Footer = () => {
   return (
     <footer className="relative bg-white border-t border-gray-300">
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 sm:px-8 lg:px-12 pt-12 pb-8 lg:py-12">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 justify-items-center text-center">
           {/* Brand Section */}
-          <div className="col-span-2 sm:col-span-3 lg:col-span-1">
+          <div className="w-full max-w-xs sm:col-span-2 lg:col-span-1">
             <div className="mb-4">
               <Image
                 src="/Dunamis.png"
                 alt="Dunamis Logo"
                 width={160}
                 height={60}
+                className="mx-auto"
               />
             </div>
             <p className="text-gray-600 mb-6 text-sm leading-relaxed">
@@ -44,7 +46,7 @@ const Footer = () => {
             </p>
 
             {/* Social Icons */}
-            <div className="flex space-x-4">
+            <div className="flex justify-center space-x-4">
               <a
                 href="https://www.youtube.com/@dunamisschoolofmusic4481"
                 target="_blank"
@@ -164,7 +166,7 @@ const Footer = () => {
           </div>
 
           {/* Community */}
-          <div>
+          {/* <div>
             <h4 className="text-base font-semibold text-[#FF6B35] mb-4">
               Community
             </h4>
@@ -189,7 +191,7 @@ const Footer = () => {
                 </li>
               ))}
             </ul>
-          </div>
+          </div> */}
 
           {/* Support */}
           <div>
@@ -216,15 +218,33 @@ const Footer = () => {
                   label: "Terms & Conditions",
                   href: "/terms-and-conditions",
                 },
+                {
+                  icon: BriefcaseBusiness,
+                  label: "Staff Portal",
+                  href: DASHBOARD_URL,
+                  external: true,
+                },
               ].map((item, index) => (
                 <li key={index}>
-                  <Link
-                    href={item.href}
-                    className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-[#FF6B35] transition-colors duration-200"
-                  >
-                    <item.icon className="w-4 h-4 text-gray-400" />
-                    {item.label}
-                  </Link>
+                  {item.external ? (
+                    <a
+                      href={item.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-[#FF6B35] transition-colors duration-200"
+                    >
+                      <item.icon className="w-4 h-4 text-gray-400" />
+                      {item.label}
+                    </a>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-[#FF6B35] transition-colors duration-200"
+                    >
+                      <item.icon className="w-4 h-4 text-gray-400" />
+                      {item.label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

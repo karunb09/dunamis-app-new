@@ -1,4 +1,5 @@
 const zone = require("../model/zone.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 //get zone
 const getZone = async(req,res) => {
@@ -27,17 +28,22 @@ const getZone = async(req,res) => {
 const CreateZone = async (req,res) => {
     try{
         const{name, location, manager, adminContact, adminEmail, city} = req.body;
+        if (!name || !location || !manager || !adminContact || !adminEmail || !city) {
+            return res.status(400).json({
+                success: false,
+                message: "All required fields must be filled.",
+            });
+        }
+
         const newZone = new zone ({name, location, manager, adminContact, adminEmail, city});
         await newZone.save();
         res.status(200).json({
+            success: true,
             Zone: newZone
         })
     }
     catch(error){
-        res.status(500).json({
-            success:false,
-            message:"error"
-        })
+        sendValidationError(res, error, "Failed to create zone");
 
     }
 }
@@ -48,22 +54,25 @@ const updateZone = async (req,res) => {
         const {id} = req.params;
         const{name, location, manager, adminContact, adminEmail, city} = req.body;
 
-        const updatedZone = await zone.findByIdAndUpdate(id,{name, location, manager, adminContact, adminEmail, city},{new:true} );
+        const updatedZone = await zone.findByIdAndUpdate(
+            id,
+            {name, location, manager, adminContact, adminEmail, city},
+            {new:true, runValidators: true}
+        );
 
-        if(!updateZone) {
-            res.json({
-                message:"cannt find"
+        if(!updatedZone) {
+            return res.status(404).json({
+                success: false,
+                message:"Zone not found"
             })
         }
         res.status(200).json({
+            success: true,
             zone: updatedZone
         })
     }
     catch(error){
-        res.status(500).json({
-            success:false,
-            message:"error"
-        })
+        sendValidationError(res, error, "Failed to update zone");
     } 
 }
 // Delete Zone

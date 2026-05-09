@@ -199,13 +199,26 @@ const AddBranch = () => {
             "branchAdminContact",
             "startTime",
             "endTime",
+            "branchOpenDays",
             "branchCapacity",
         ];
 
         for (const field of required) {
-            if (!formData[field]) {
+            if (!formData[field] || (Array.isArray(formData[field]) && formData[field].length === 0)) {
                 throw new Error(`Please fill ${field}`);
             }
+        }
+
+        if (!/^\d{10}$/.test(String(formData.branchAdminContact))) {
+            throw new Error("Branch admin contact must be 10 digits.");
+        }
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.branchAdminEmail)) {
+            throw new Error("Branch admin email must be valid.");
+        }
+
+        if (!Number.isFinite(Number(formData.branchCapacity)) || Number(formData.branchCapacity) <= 0) {
+            throw new Error("Branch capacity must be a positive number.");
         }
 
         if (formData.startTime === formData.endTime) {

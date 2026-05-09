@@ -29,10 +29,20 @@ const AddCategory = () => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const handleAddSubCategory = () => {
-    if (newSubCategory.trim()) {
-      setSubCategories([...subCategories, newSubCategory.trim()]);
-      setNewSubCategory("");
+    const trimmedName = newSubCategory.trim();
+
+    if (!trimmedName) {
+      toast.error("Sub-category name is required");
+      return;
     }
+
+    if (subCategories.some((name) => name.toLowerCase() === trimmedName.toLowerCase())) {
+      toast.error("Sub-category already added");
+      return;
+    }
+
+    setSubCategories([...subCategories, trimmedName]);
+    setNewSubCategory("");
   };
 
   const handleRemoveSubCategory = (indexToRemove) => {
@@ -45,6 +55,22 @@ const AddCategory = () => {
       return;
     }
 
+    const normalizedSubCategories = subCategories
+      .map((name) => String(name || "").trim())
+      .filter(Boolean);
+
+    const hasDuplicateSubcategory = normalizedSubCategories.some(
+      (name, index) =>
+        normalizedSubCategories.findIndex(
+          (item) => item.toLowerCase() === name.toLowerCase()
+        ) !== index
+    );
+
+    if (hasDuplicateSubcategory) {
+      toast.error("Sub-category names must be unique");
+      return;
+    }
+
     try {
       if (!editingCategory) {
         const payload = {
@@ -52,7 +78,7 @@ const AddCategory = () => {
           icon: selectedIcon || "",
           color: selectedColor,
           status: targetStatus,
-          subcategories: subCategories.map((name) => ({ name, description: "" })),
+          subcategories: normalizedSubCategories.map((name) => ({ name, description: "" })),
         };
 
         const resultAction = await dispatch(
@@ -61,15 +87,15 @@ const AddCategory = () => {
         const createdCategory = resultAction.payload;
 
         if (!createdCategory?._id) {
-          toast.error("Failed to create category");
+          toast.error(createdCategory?.message || resultAction.error?.message || "Failed to create category");
           return;
         }
       } else {
-        const existingSubcategoryIds = subCategories
+        const existingSubcategoryIds = normalizedSubCategories
           .map((name) => findExistingSubcategoryByName(name)?._id)
           .filter(Boolean);
 
-        const newSubcategoryNames = getNewSubcategoryNames(subCategories);
+        const newSubcategoryNames = getNewSubcategoryNames(normalizedSubCategories);
         const createdSubcategoryIds = [];
 
         for (const subName of newSubcategoryNames) {
@@ -104,11 +130,13 @@ const AddCategory = () => {
     } catch (err) {
       console.error("Category save error:", err);
       toast.error(
-        targetStatus === "draft"
+        err?.message ||
+        err?.payload?.message ||
+        (targetStatus === "draft"
           ? "Failed to save draft"
           : editingCategory
             ? "Failed to update category"
-            : "Error creating category"
+            : "Error creating category")
       );
     }
   };

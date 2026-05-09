@@ -1,5 +1,6 @@
 const Content = require("../model/content.model");
 const SubCategory = require("../model/subCategory.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create Content
 exports.createContent = async (req, res) => {
@@ -39,11 +40,7 @@ exports.createContent = async (req, res) => {
       content: newContent,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error creating content",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Error creating content");
   }
 };
 
@@ -166,11 +163,7 @@ exports.updateContent = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update content",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update content");
   }
 };
 
@@ -205,11 +198,7 @@ exports.updateModule = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update module",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update module");
   }
 };
 
@@ -253,11 +242,7 @@ exports.updateLesson = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update lesson",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update lesson");
   }
 };
 
@@ -306,11 +291,7 @@ exports.updateTopic = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update topic",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update topic");
   }
 };
 
@@ -364,11 +345,7 @@ exports.addModuleToContent = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to add module",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to add module");
   }
 };
 
@@ -402,11 +379,7 @@ exports.addLessonToModule = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to add lesson",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to add lesson");
   }
 };
 
@@ -447,10 +420,6 @@ exports.addTopicToLesson = async (req, res) => {
       content,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to add topic",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to add topic");
   }
 };

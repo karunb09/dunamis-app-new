@@ -240,7 +240,6 @@ export default function CourseDetailPage() {
   const [enrollSelection, setEnrollSelection] = useState(null);
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
-  const [pendingDemoAuth, setPendingDemoAuth] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
   const [detailLoading, setDetailLoading] = useState(false);
   const [preferredInstructorId, setPreferredInstructorId] = useState("");
@@ -354,19 +353,6 @@ export default function CourseDetailPage() {
     if (!pendingQueryAction || !rawCourse) return;
 
     if (pendingQueryAction === "demo") {
-      if (hasActiveAuth() && !isStudentAccount()) {
-        showStudentOnlyMessage("book demos");
-        setPendingQueryAction(null);
-        return;
-      }
-
-      if (!hasActiveAuth()) {
-        setPendingDemoAuth(true);
-        setLoginOpen(true);
-        setPendingQueryAction(null);
-        return;
-      }
-
       setPreferredInstructorId("");
       setBookDemoOpen(true);
       setPendingQueryAction(null);
@@ -418,20 +404,7 @@ export default function CourseDetailPage() {
 
   const openDemoFlow = (instructorId = "") => {
     setPreferredInstructorId(instructorId);
-
-    if (hasActiveAuth()) {
-      if (!isStudentAccount()) {
-        showStudentOnlyMessage("book demos");
-        return;
-      }
-
-      setPendingDemoAuth(false);
-      setBookDemoOpen(true);
-      return;
-    }
-
-    setPendingDemoAuth(true);
-    setLoginOpen(true);
+    setBookDemoOpen(true);
   };
 
   if (loading || detailLoading) {
@@ -586,7 +559,7 @@ export default function CourseDetailPage() {
                 </motion.button>
               </div>
               <p className="text-xs text-gray-500">
-                Demo booking requires a student account.
+                Demo booking starts here without forcing login.
               </p>
             </div>
           </motion.div>
@@ -966,26 +939,18 @@ export default function CourseDetailPage() {
         onClose={() => {
           setLoginOpen(false);
           setPendingEnrollmentAuth(false);
-          setPendingDemoAuth(false);
         }}
-        nextHref={pathname ? `${pathname}?action=${pendingDemoAuth ? "demo" : "enroll"}` : "/courses"}
+        nextHref={pathname ? `${pathname}?action=enroll` : "/courses"}
         onSuccess={(payload) => {
           if (!isStudentAccount(payload?.user)) {
-            showStudentOnlyMessage(pendingDemoAuth ? "book demos" : "enroll in courses");
+            showStudentOnlyMessage("enroll in courses");
             setLoginOpen(false);
             setPendingEnrollmentAuth(false);
-            setPendingDemoAuth(false);
             return false;
           }
 
           clearEnrollmentResume();
           setLoginOpen(false);
-          if (pendingDemoAuth) {
-            setPendingDemoAuth(false);
-            setBookDemoOpen(true);
-            return;
-          }
-
           if (pendingEnrollmentAuth) {
             setPendingEnrollmentAuth(false);
             setEnrollTermOpen(true);

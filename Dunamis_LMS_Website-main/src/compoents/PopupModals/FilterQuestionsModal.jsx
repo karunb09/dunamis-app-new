@@ -3,21 +3,10 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchCategories } from "@/store/categorySlice";
 
-const filterQuestions = [
-  {
-    id: "category",
-    question: "What are you interested in learning?",
-    description:
-      "We'll take you to the most relevant courses first so you can keep moving.",
-    options: [
-      { label: "Music", value: "Music" },
-      { label: "Dance", value: "Dance" },
-      { label: "Language", value: "Language" },
-      { label: "Show me all courses", value: "all" },
-    ],
-  },
-  {
+const modeQuestion = {
     id: "mode",
     question: "How would you like to learn?",
     description:
@@ -27,13 +16,35 @@ const filterQuestions = [
       { label: "Offline", value: "offline" },
       { label: "I'm open to both", value: "all" },
     ],
-  },
-];
+};
 
 const FilterQuestionsModal = ({ isOpen, onClose }) => {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({});
+  const dispatch = useDispatch();
   const router = useRouter();
+  const { categories = [] } = useSelector((state) => state.category || {});
+  const categoryOptions = Array.from(
+    new Set(
+      categories
+        .filter((category) => category.status === "published" || !category.status)
+        .map((category) => category.name)
+        .filter(Boolean)
+    )
+  ).map((name) => ({ label: name, value: name }));
+  const filterQuestions = [
+    {
+      id: "category",
+      question: "What are you interested in learning?",
+      description:
+        "We'll take you to the most relevant courses first so you can keep moving.",
+      options: [
+        ...categoryOptions,
+        { label: "Show me all courses", value: "all" },
+      ],
+    },
+    modeQuestion,
+  ];
   const currentQuestion = filterQuestions[step];
   const hasAnswer = Object.prototype.hasOwnProperty.call(
     answers,
@@ -42,9 +53,10 @@ const FilterQuestionsModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (!isOpen) return;
+    dispatch(fetchCategories());
     setStep(0);
     setAnswers({});
-  }, [isOpen]);
+  }, [dispatch, isOpen]);
 
   const handleSelect = (value) => {
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: value }));

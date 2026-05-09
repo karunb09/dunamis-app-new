@@ -30,9 +30,8 @@ export default function RootLayout({ children }) {
           <RouteProgress />
         </Suspense>
         <Toaster />
-        <Navigation />
-
         <Providers>
+          <Navigation />
           <main className="flex-grow">{children}</main>
         </Providers>
 

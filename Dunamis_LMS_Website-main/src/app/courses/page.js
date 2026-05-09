@@ -380,7 +380,7 @@ function CoursesPageContent() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
-            className="bg-white border rounded-2xl shadow-lg overflow-hidden hover:shadow-xl hover:-translate-y-1 transition"
+            className="flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-lg transition hover:-translate-y-1 hover:shadow-xl"
           >
             <div className="relative w-full h-48 overflow-hidden bg-gray-100">
               <img
@@ -393,8 +393,8 @@ function CoursesPageContent() {
               />
             </div>
 
-            <div className="p-5 flex flex-col flex-grow">
-              <div className="flex gap-2 flex-wrap mb-3">
+            <div className="flex flex-1 flex-col p-5">
+              <div className="mb-3 flex min-h-[28px] flex-wrap gap-2 overflow-hidden">
                 {(course.tags || []).map((tag, i) => (
                   <span
                     key={i}
@@ -405,12 +405,12 @@ function CoursesPageContent() {
                 ))}
               </div>
 
-              <div className="flex items-start justify-between mb-2 gap-2">
-                <h3 className="font-bold text-lg text-gray-900 line-clamp-2">
+              <div className="mb-2 flex min-h-[56px] items-start justify-between gap-2">
+                <h3 className="line-clamp-2 text-lg font-bold leading-7 text-gray-900">
                   {course.title}
                 </h3>
                 <span
-                  className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  className={`shrink-0 rounded-full px-2 py-1 text-xs font-medium ${
                     course.mode === "online"
                       ? "bg-green-100 text-green-700"
                       : "bg-gray-100 text-gray-700"
@@ -420,12 +420,12 @@ function CoursesPageContent() {
                 </span>
               </div>
 
-              <p className="text-sm text-gray-600 mb-1">
+              <p className="mb-1 min-h-[20px] line-clamp-1 text-sm text-gray-600">
                 Learn from <span className="font-medium">{course.mentor}</span>
               </p>
-              <p className="text-xs text-gray-500 mb-3">{course.duration}</p>
+              <p className="mb-3 min-h-[16px] line-clamp-1 text-xs text-gray-500">{course.duration}</p>
 
-              <div className="flex items-center justify-between text-sm mb-3 pb-3 border-b">
+              <div className="mb-3 flex min-h-[36px] items-center justify-between border-b pb-3 text-sm">
                 <span className="font-bold text-black-500">₹{course.price}/month</span>
                 <span className="flex items-center gap-1">
                   <IoMdStar className="w-4 h-4 text-yellow-500" /> {course.rating}

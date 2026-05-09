@@ -16,6 +16,29 @@ const authCookieOptions = {
   secure: process.env.NODE_ENV === "production",
 };
 
+const populateSessionUser = (query) =>
+  query
+    .populate("adminDetails")
+    .populate("teacherDetails")
+    .populate("studentDetails");
+
+const buildSessionUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  mobileNo: user.mobileNo,
+  accountType: user.accountType,
+  accountStatus: user.accountStatus,
+  image: user.image,
+  roleId: user.roleId?._id || user.roleId,
+  roleModel: user.roleModel,
+  permissions: user.permissions,
+  role: user.role,
+  adminDetails: user.adminDetails,
+  teacherDetails: user.teacherDetails,
+  studentDetails: user.studentDetails,
+});
+
 const canManageUser = (requestUser, targetUserId) => {
   if (!requestUser) return false;
 
@@ -38,7 +61,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email }).populate("adminDetails");
+    const user = await populateSessionUser(User.findOne({ email }));
 
     if (!user) {
       return res.status(401).json({
@@ -80,21 +103,7 @@ exports.login = async (req, res) => {
         .json({
           success: true,
           token,
-          user: {
-            _id: user._id,
-            name: user.name,
-            email: user.email,
-            accountType: user.accountType,
-            accountStatus: user.accountStatus,
-            image: user.image,
-            roleId: user.roleId,
-            roleModel: user.roleModel,
-            permissions: user.permissions, // Virtual field
-            role: user.role, // Virtual field
-            adminDetails: user.adminDetails,
-            teacherDetails: user.teacherDetails,
-            studentDetails: user.studentDetails,
-          },
+          user: buildSessionUser(user),
           message: "Logged in successfully",
         });
     } else {
@@ -108,6 +117,41 @@ exports.login = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Login failure, please try again",
+    });
+  }
+};
+
+exports.getCurrentUser = async (req, res) => {
+  try {
+    const user = await populateSessionUser(
+      User.findById(req.user.userId).select("-password")
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated, please contact admin",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      token: req.token,
+      user: buildSessionUser(user),
+    });
+  } catch (error) {
+    console.error("Error fetching current user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch current user",
+      error: error.message,
     });
   }
 };

@@ -14,12 +14,15 @@ export default function CourseCard({
   rating,
   type,
   price,
+  description,
   branchName,
   onViewDetails,
   onBookDemo,
 }) {
+  const summary = description || `Learn from ${mentor} • ${duration} • Interactive sessions with practical exercises and personalized feedback`;
+
   return (
-    <div className="bg-white border border-gray-300 rounded-xl shadow-md overflow-hidden max-w-sm">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-300 bg-white shadow-md">
       {/* Course Image */}
       <img
         src={image}
@@ -34,11 +37,11 @@ export default function CourseCard({
         }}
       />
 
-      <div className="p-4 space-y-3">
+      <div className="flex flex-1 flex-col p-4">
         {/* Tags & Icon */}
-        <div className="flex items-center gap-3 mb-2">
-          <div className="text-xl">{icon}</div>
-          <div className="flex flex-wrap gap-2">
+        <div className="mb-3 flex min-h-[32px] items-start gap-3">
+          <div className="text-xl leading-8">{icon}</div>
+          <div className="flex flex-wrap gap-2 overflow-hidden">
             {Array.isArray(tags) &&
               tags.map((tag, index) => (
                 <span
@@ -58,10 +61,10 @@ export default function CourseCard({
         </div>
 
        
-        <div className="flex justify-between items-center">
-          <h3 className="font-bold text-md">{title}</h3>
+        <div className="flex min-h-[48px] items-start justify-between gap-3">
+          <h3 className="line-clamp-2 font-bold text-md leading-6">{title}</h3>
           <span
-            className={`text-sm font-medium ${
+            className={`shrink-0 text-sm font-medium ${
               mode === "online" ? "text-green-600" : "text-gray-500"
             }`}
           >
@@ -71,16 +74,15 @@ export default function CourseCard({
 
         
         {branchName && (
-          <p className="text-sm text-gray-600 flex items-center gap-1">
-            <MapPin className="w-4 h-4 text-[#FF6B35]" />
-            <span className="font-medium">{branchName}</span>
+          <p className="mt-2 flex min-h-[20px] items-center gap-1 text-sm text-gray-600">
+            <MapPin className="h-4 w-4 shrink-0 text-[#FF6B35]" />
+            <span className="line-clamp-1 font-medium">{branchName}</span>
           </p>
         )}
-        <p className="text-sm text-gray-600">
-          Learn from {mentor} • {duration} • Interactive sessions with practical
-          exercises and personalized feedback
+        <p className="mt-3 min-h-[44px] line-clamp-2 text-sm leading-5 text-gray-600">
+          {summary}
         </p>
-        <div className="flex justify-between items-center mt-2">
+        <div className="mt-3 flex min-h-[32px] items-center justify-between gap-3">
           {/* Certification Type */}
           <p className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
             <ClipboardCheckIcon className="w-4 h-4 text-green-600" />
@@ -94,7 +96,7 @@ export default function CourseCard({
         </div>
 
         {/* Price */}
-        <div className="flex justify-between items-center mt-2">
+        <div className="mt-3 flex min-h-[28px] items-center justify-between">
           <span className="font-semibold text-gray-900">
             ₹
             {price?.monthlyFee 
@@ -105,7 +107,7 @@ export default function CourseCard({
           </span>
         </div>
 
-        <div className={`mt-2 grid gap-3 ${onBookDemo ? "grid-cols-2" : "grid-cols-1"}`}>
+        <div className={`mt-auto grid gap-3 pt-3 ${onBookDemo ? "grid-cols-2" : "grid-cols-1"}`}>
           <button
             onClick={onViewDetails}
             className="cursor-pointer w-full bg-[#FF6B35] hover:bg-[#fd5a1f] text-white font-medium py-2 px-4 rounded-2xl"

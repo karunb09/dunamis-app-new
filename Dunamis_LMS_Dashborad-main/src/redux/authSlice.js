@@ -8,6 +8,39 @@ import {
 
 const getToken = () => getStoredToken();
 
+export const hydrateSession = createAsyncThunk(
+  "auth/hydrateSession",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = getStoredToken();
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/me`,
+        {
+          method: "GET",
+          headers: token
+            ? {
+                Authorization: `Bearer ${token}`,
+              }
+            : {},
+          credentials: "include",
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok || data.success === false) {
+        return rejectWithValue(data.message || "Session expired");
+      }
+
+      return {
+        user: data.user || null,
+        token: data.token || token || null,
+      };
+    } catch (error) {
+      return rejectWithValue(error.message || "Unable to restore session");
+    }
+  }
+);
+
 export const login = createAsyncThunk(
   "auth/login",
   async ({ email, password }, { rejectWithValue }) => {
@@ -431,6 +464,7 @@ const authSlice = createSlice({
     currentUserProfile: null,
     notices: [],
     loading: false,
+    hydrating: true,
     error: null,
   },
   reducers: {
@@ -440,6 +474,7 @@ const authSlice = createSlice({
       state.users = [];
       state.currentUserProfile = null;
       state.notices = [];
+      state.hydrating = false;
       clearAuthSession();
     },
     clearError: (state) => {
@@ -448,12 +483,29 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(hydrateSession.pending, (state) => {
+        state.hydrating = true;
+      })
+      .addCase(hydrateSession.fulfilled, (state, action) => {
+        state.hydrating = false;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        persistAuthSession(action.payload);
+      })
+      .addCase(hydrateSession.rejected, (state) => {
+        state.hydrating = false;
+        state.user = null;
+        state.token = null;
+        clearAuthSession();
+      })
+
       .addCase(login.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.hydrating = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
         persistAuthSession({
@@ -463,6 +515,7 @@ const authSlice = createSlice({
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
+        state.hydrating = false;
         state.error = action.payload;
       })
 
@@ -472,6 +525,7 @@ const authSlice = createSlice({
         state.users = [];
         state.currentUserProfile = null;
         state.notices = [];
+        state.hydrating = false;
         clearAuthSession();
       })
       .addCase(logoutUser.rejected, (state) => {
@@ -480,6 +534,7 @@ const authSlice = createSlice({
         state.users = [];
         state.currentUserProfile = null;
         state.notices = [];
+        state.hydrating = false;
         clearAuthSession();
       })
 

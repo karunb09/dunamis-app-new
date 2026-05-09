@@ -4,7 +4,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { login } from '@/store/authSlice';
+import toast from 'react-hot-toast';
+import { login, logoutSession } from '@/store/authSlice';
+import {
+    getPortalForAccountType,
+    getPortalLabel,
+    getRoleDestination,
+    navigateToRoleDestination,
+} from '@/lib/roleRouting';
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
 
 export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
@@ -23,8 +30,19 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
         const fd = new FormData(e.currentTarget);
         const email = fd.get('email');
         const password = fd.get('password');
-        const action = await dispatch(login({ email, password }));
+        const action = await dispatch(login({ email, password, portalIntent: 'student' }));
         if (login.fulfilled.match(action)) {
+            const accountType = action.payload?.user?.accountType;
+            const actualPortal = getPortalForAccountType(accountType);
+            const destination = getRoleDestination(accountType);
+
+            if (actualPortal && actualPortal !== 'student') {
+                toast.error(`This account is registered as ${getPortalLabel(actualPortal)}. Please sign in from the staff portal.`);
+                await dispatch(logoutSession());
+                navigateToRoleDestination(router, destination);
+                return;
+            }
+
             const result = await onSuccess?.(action.payload);
             if (result === false) return;
 
@@ -73,8 +91,8 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                         </div>
 
                         <div className="p-8">
-                            <h3 className="text-2xl font-semibold text-gray-900">Sign in</h3>
-                            <p className="mt-1 text-sm text-gray-500">Don’t have an account? You can create one during checkout.</p>
+                            <h3 className="text-2xl font-semibold text-gray-900">Student sign in</h3>
+                            <p className="mt-1 text-sm text-gray-500">Use this form for student accounts only. Instructors and admins should use the Staff Portal.</p>
 
                             <form onSubmit={handleSubmit} className="mt-6 space-y-5">
                                 <div>
@@ -137,7 +155,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                             : 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-600'
                                         }`}
                                 >
-                                    {loading ? 'Signing in…' : 'Sign in'}
+                                    {loading ? 'Signing in…' : 'Sign in as Student'}
                                 </button>
 
                                 {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}

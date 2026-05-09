@@ -10,6 +10,16 @@ const DAY_ORDER = [
   "Saturday",
 ];
 
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+const isObjectIdLike = (value) =>
+  typeof value === "string" && OBJECT_ID_PATTERN.test(value.trim());
+
+const toDisplayText = (value) => {
+  const text = String(value || "").trim();
+  return isObjectIdLike(text) ? "" : text;
+};
+
 export const normalizeEntityId = (value) => {
   if (!value && value !== 0) return "";
   if (typeof value === "string" || typeof value === "number") {
@@ -36,10 +46,10 @@ export const normalizeCityName = (value) => {
   if (!value && value !== 0) return "";
 
   if (typeof value === "string" || typeof value === "number") {
-    return String(value).trim();
+    return toDisplayText(value);
   }
 
-  return String(value.cityName || value.name || value.label || "").trim();
+  return toDisplayText(value.cityName || value.name || value.label || "");
 };
 
 const normalizeSlotType = (value) =>
@@ -130,8 +140,8 @@ const buildNormalizedSlot = (slot, branchLookup) => {
 
   const branchId = normalizeEntityId(slot?.branchId);
   const branchLabel =
-    slot?.branchId?.branchName ||
-    slot?.branchId?.name ||
+    toDisplayText(slot?.branchId?.branchName) ||
+    toDisplayText(slot?.branchId?.name) ||
     branchLookup.get(branchId) ||
     "";
   const dateLabel = formatDateLabel(slot?.date);
@@ -189,18 +199,20 @@ export const buildBranchOptions = (course, slots = []) => {
   const map = new Map();
 
   const upsertBranch = (id, label, city, raw) => {
-    if (!id || !label) return;
+    const displayLabel = toDisplayText(label);
+    const displayCity = normalizeCityName(city);
+    if (!id || !displayLabel) return;
 
     const existing = map.get(id);
     if (!existing) {
-      map.set(id, { id, label, city, raw });
+      map.set(id, { id, label: displayLabel, city: displayCity, raw });
       return;
     }
 
     map.set(id, {
       ...existing,
-      label: existing.label || label,
-      city: existing.city || city,
+      label: existing.label || displayLabel,
+      city: existing.city || displayCity,
       raw: existing.raw || raw,
     });
   };
@@ -208,25 +220,33 @@ export const buildBranchOptions = (course, slots = []) => {
   (Array.isArray(course?.branches) ? course.branches : []).forEach((branch) => {
     const id = normalizeEntityId(branch);
     const label =
-      branch?.branchName || branch?.name || branch?.location || branch?.city;
-    const city = normalizeCityName(
-      branch?.city?.cityName || branch?.city?.name || branch?.city
-    );
+      toDisplayText(branch?.branchName) ||
+      toDisplayText(branch?.name) ||
+      toDisplayText(branch?.location);
+    const city = normalizeCityName(branch?.city);
     upsertBranch(id, label, city, branch);
   });
 
   (Array.isArray(slots) ? slots : []).forEach((slot) => {
     const branch = slot?.branchId;
     const id = normalizeEntityId(branch);
-    const label = branch?.branchName || branch?.name || branch?.city;
-    const city = normalizeCityName(branch?.city?.cityName || branch?.city?.name || branch?.city);
+    const label =
+      toDisplayText(branch?.branchName) ||
+      toDisplayText(branch?.name) ||
+      toDisplayText(branch?.location);
+    const city = normalizeCityName(branch?.city);
     upsertBranch(id, label, city, branch);
   });
 
   return Array.from(map.values());
 };
 
-export const buildInstructorOptions = (course, slots = [], slotType) => {
+export const buildInstructorOptions = (
+  course,
+  slots = [],
+  slotType,
+  { includeWithoutSlots = false } = {}
+) => {
   const normalizedSlotType = normalizeSlotType(slotType);
   const branchOptions = buildBranchOptions(course, slots);
   const branchLookup = new Map(branchOptions.map((branch) => [branch.id, branch.label]));
@@ -303,7 +323,7 @@ export const buildInstructorOptions = (course, slots = [], slotType) => {
         .slice()
         .sort((a, b) => buildSlotSortKey(a) - buildSlotSortKey(b)),
     }))
-    .filter((teacher) => teacher.slots.length > 0);
+    .filter((teacher) => includeWithoutSlots || teacher.slots.length > 0);
 };
 
 export const buildModeOptions = (course, slots = []) => {

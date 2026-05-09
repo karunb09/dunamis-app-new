@@ -26,7 +26,7 @@ export default function Step3Professional({
   profilePictureInputRef,
 }) {
   const dispatch = useDispatch();
-  const { categories, subCategories, status } = useSelector((state) => state.category);
+  const { categories, subCategories } = useSelector((state) => state.category);
 
   const [expertiseId, setExpertiseId] = useState("");
   const [specializationId, setSpecializationId] = useState("");
@@ -43,10 +43,13 @@ export default function Step3Professional({
   }, [profilePreviewUrl]);
 
   useEffect(() => {
-    if (status === "idle") {
-      dispatch(fetchCategories());
-    }
-  }, [status, dispatch]);
+    dispatch(fetchCategories());
+  }, [dispatch]);
+
+  const visibleCategories = useMemo(
+    () => categories.filter((category) => category.status === "published" || !category.status),
+    [categories]
+  );
 
   const availableSpecializations = useMemo(() => {
     if (!expertiseId) return [];
@@ -55,7 +58,7 @@ export default function Step3Professional({
 
   const handleExpertiseChange = (event) => {
     const selectedCategoryId = event.target.value;
-    const selectedCategory = categories.find((category) => category._id === selectedCategoryId);
+    const selectedCategory = visibleCategories.find((category) => category._id === selectedCategoryId);
 
     setExpertiseId(selectedCategoryId);
     setSpecializationId("");
@@ -91,7 +94,7 @@ export default function Step3Professional({
           required
         >
           <option value="">Select expertise</option>
-          {categories.map((category) => (
+          {visibleCategories.map((category) => (
             <option key={category._id} value={category._id}>
               {category.name}
             </option>

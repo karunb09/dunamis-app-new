@@ -3,6 +3,7 @@ const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
 const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const getBranchFallbackImage = (branchName = "Branch") =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
@@ -157,11 +158,7 @@ exports.createBranch = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Server Error");
   }
 };
 
@@ -426,11 +423,7 @@ exports.updateBranch = async (req, res) => {
       branch: updatedBranch,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update branch",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update branch");
   }
 };
 

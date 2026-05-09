@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { FaTimes, FaImage } from "react-icons/fa";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import toast from "react-hot-toast";
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const CourseMediaForm = ({
     media,
@@ -26,14 +29,28 @@ const CourseMediaForm = ({
         }
     }, [media]);
 
+    const setValidatedFile = (selectedFile) => {
+        if (!selectedFile) return;
+
+        if (!ALLOWED_IMAGE_TYPES.includes(selectedFile.type)) {
+            toast.error("Course image must be a PNG or JPG file");
+            return;
+        }
+
+        if (selectedFile.size > MAX_IMAGE_SIZE) {
+            toast.error("Course image must be 5MB or smaller");
+            return;
+        }
+
+        const preview = URL.createObjectURL(selectedFile);
+        setFile(selectedFile);
+        setMedia(selectedFile);
+        setPreviewUrl(preview);
+    };
+
     const handleFileChange = (e) => {
         const selectedFile = e.target.files[0];
-        if (selectedFile) {
-            const preview = URL.createObjectURL(selectedFile);
-            setFile(selectedFile);
-            setMedia(selectedFile);
-            setPreviewUrl(preview);
-        }
+        setValidatedFile(selectedFile);
     };
 
     const handleRemoveFile = () => {
@@ -61,12 +78,7 @@ const CourseMediaForm = ({
     const handleDrop = (e) => {
         e.preventDefault();
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile) {
-            const preview = URL.createObjectURL(droppedFile);
-            setFile(droppedFile);
-            setMedia(droppedFile);
-            setPreviewUrl(preview);
-        }
+        setValidatedFile(droppedFile);
     };
 
     const handleDragOver = (e) => {
@@ -84,6 +96,9 @@ const CourseMediaForm = ({
 
     return (
         <div className="max-w-5xl mx-auto p-6 space-y-6">
+            <p className="text-sm font-medium text-gray-700">
+                Course Image <span className="text-red-500">*</span>
+            </p>
             <label
                 htmlFor="file-upload"
                 className="border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 p-6 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:border-gray-400 transition-colors"

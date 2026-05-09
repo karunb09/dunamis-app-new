@@ -1,5 +1,6 @@
 const City = require("../model/city.model");
 const User = require("../model/user.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create City
 exports.createCity = async (req, res) => {
@@ -45,11 +46,7 @@ exports.createCity = async (req, res) => {
       city: newCity,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Server Error");
   }
 };
 // Get all Cities
@@ -143,11 +140,7 @@ exports.updateCity = async (req, res) => {
       city: updatedCity,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to update city",
-      error: error.message,
-    });
+    sendValidationError(res, error, "Failed to update city");
   }
 };
 // Delete City

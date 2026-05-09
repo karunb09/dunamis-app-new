@@ -248,7 +248,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-                <label className="block text-sm font-medium mb-1">Course Name</label>
+                <label className="block text-sm font-medium mb-1">Course Name <span className="text-red-500">*</span></label>
                 <ReactSelect
                     name="name"
                     value={
@@ -265,7 +265,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1">Course Code</label>
+                <label className="block text-sm font-medium mb-1">Course Code <span className="text-red-500">*</span></label>
                 <ReactSelect
                     name="courseCode"
                     value={
@@ -284,7 +284,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
 
             <div className="col-span-full mt-2">
                 <label className="block text-sm font-medium mb-1">
-                    Course Description
+                    Course Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
                     name="description"
@@ -336,7 +336,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1">Mode</label>
+                <label className="block text-sm font-medium mb-1">Mode <span className="text-red-500">*</span></label>
                 <select
                     name="mode"
                     value={courseInfo?.mode || ""}
@@ -351,7 +351,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
 
             {showBranchField && (
                 <div className="col-span-full">
-                    <label className="block text-sm font-medium mb-1">Branches</label>
+                    <label className="block text-sm font-medium mb-1">Branches <span className="text-red-500">*</span></label>
                     <ReactSelect
                         isMulti
                         name="branches"
@@ -405,7 +405,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             )}
 
             <div>
-                <label className="block text-sm font-medium mb-1">Course Type</label>
+                <label className="block text-sm font-medium mb-1">Course Type <span className="text-red-500">*</span></label>
                 <select
                     name="courseType"
                     value={courseInfo?.courseType || ""}
@@ -419,7 +419,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1">Level</label>
+                <label className="block text-sm font-medium mb-1">Level <span className="text-red-500">*</span></label>
                 <select
                     name="level"
                     value={courseInfo?.level || ""}
@@ -434,7 +434,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             <div>
-                <label className="block text-sm font-medium mb-1">Certification</label>
+                <label className="block text-sm font-medium mb-1">Certification <span className="text-red-500">*</span></label>
                 <select
                     name="certification"
                     value={courseInfo?.certification || ""}
@@ -450,7 +450,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             {showDateFields && (
                 <>
                     <div>
-                        <label className="block text-sm font-medium mb-1">Start Date</label>
+                        <label className="block text-sm font-medium mb-1">Start Date <span className="text-red-500">*</span></label>
                         <input
                             type="date"
                             name="startDate"
@@ -461,7 +461,7 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-1">End Date</label>
+                        <label className="block text-sm font-medium mb-1">End Date <span className="text-red-500">*</span></label>
                         <input
                             type="date"
                             name="endDate"

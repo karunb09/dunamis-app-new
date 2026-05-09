@@ -98,7 +98,6 @@ export default function BookDemoModal({
   preferredInstructorId = '',
 }) {
   const { user, token } = useSelector((s) => s.auth || {});
-  const isStudent = String(user?.accountType || '').toLowerCase() === 'student';
   const courseId = toId(course?._id || course?.id);
   const normalizedPreferredInstructorId = toId(preferredInstructorId);
   const courseTitle = course?.name || course?.title || 'Course';
@@ -115,7 +114,10 @@ export default function BookDemoModal({
     [course, slotFeed]
   );
   const instructors = useMemo(
-    () => buildSlotInstructorOptions(course, slotFeed, 'demo'),
+    () =>
+      buildSlotInstructorOptions(course, slotFeed, 'demo', {
+        includeWithoutSlots: true,
+      }),
     [course, slotFeed]
   );
   const modeOptions = useMemo(
@@ -180,8 +182,10 @@ export default function BookDemoModal({
     );
   }, [branchCityOptions.length, branchOptions, selectedBranchCity]);
 
+  const deliveryIsOffline = normalize(form.deliveryMode) === 'offline';
+
   const visibleInstructors = useMemo(() => {
-    if (normalize(form.deliveryMode) === 'offline' && !form.branchId) {
+    if (deliveryIsOffline && !form.branchId) {
       return [];
     }
 
@@ -192,7 +196,24 @@ export default function BookDemoModal({
           branchId: form.branchId,
         }).length > 0
     );
-  }, [form.branchId, form.deliveryMode, instructors]);
+  }, [deliveryIsOffline, form.branchId, form.deliveryMode, instructors]);
+
+  const instructorAvailabilityMessage = useMemo(() => {
+    if (!instructors.length) {
+      return 'No instructors are assigned to this course yet.';
+    }
+
+    if (deliveryIsOffline && !form.branchId) {
+      return 'Choose a branch first, then we will show instructors with published demo slots there.';
+    }
+
+    if (deliveryIsOffline && form.branchId) {
+      const branchName = branchOptions.find((branch) => branch.id === form.branchId)?.label;
+      return `The assigned instructors have not published demo slots${branchName ? ` for ${branchName}` : ' for this branch'} yet. Try another branch or ask the instructor to create demo slots.`;
+    }
+
+    return 'The assigned instructors have not published online demo slots yet. Please ask the instructor to create demo slots for this course.';
+  }, [branchOptions, deliveryIsOffline, form.branchId, instructors.length]);
 
   const selectedInstructor = useMemo(
     () =>
@@ -426,7 +447,6 @@ export default function BookDemoModal({
   if (!isOpen) return null;
 
   const selectedBranch = branchOptions.find((item) => item.id === form.branchId);
-  const deliveryIsOffline = normalize(form.deliveryMode) === 'offline';
   const courseModeLabel = modeOptions.length > 1 ? 'Choose a demo mode' : 'Demo mode';
   const canUseBranch = deliveryIsOffline && branchOptions.length > 0;
   const stepCount = steps.length;
@@ -479,11 +499,6 @@ export default function BookDemoModal({
   };
 
   const submitDemoRequest = async () => {
-    if (!token || !isStudent) {
-      setError('Only student accounts can book demo slots.');
-      return;
-    }
-
     const payload = {
       courseId,
       teacherId: form.instructorId,
@@ -560,7 +575,7 @@ export default function BookDemoModal({
                 Demo booking
               </p>
               <h2 className="mt-3 text-3xl font-bold leading-tight">
-                Book a demo with your student account.
+                Book a demo without forcing sign in.
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-white/80">
                 We collect the learner details first, then narrow down mode,
@@ -768,8 +783,9 @@ export default function BookDemoModal({
                     </div>
 
                     <div className="rounded-2xl bg-orange-50 p-4 text-sm text-gray-700">
-                      We reuse your student profile details when available and
-                      keep the booking tied to your student account.
+                      If you are already signed in, we will reuse your saved
+                      details. If not, this wizard will still capture the demo
+                      request.
                     </div>
                   </div>
                 ) : null}
@@ -997,10 +1013,7 @@ export default function BookDemoModal({
                       })
                     ) : (
                       <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                        No instructors are available for this course yet.
-                        {deliveryIsOffline && form.branchId
-                          ? ' Try another branch or ask the branch admin to publish demo slots.'
-                          : ''}
+                        {instructorAvailabilityMessage}
                       </div>
                     )}
                   </div>

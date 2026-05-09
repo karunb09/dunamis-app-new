@@ -5,6 +5,8 @@ import { toast } from "react-hot-toast";
 import { FiSmile } from "react-icons/fi";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { login, forgotPassword, verifyOTP, resetPassword } from "../redux/authSlice";
+import { clearAuthSession } from "../utils/authSession";
+import { STUDENT_PORTAL_URL } from "../utils/portalUrls";
 
 const SignIn = () => {
   const [step, setStep] = useState(1);
@@ -45,6 +47,14 @@ const SignIn = () => {
 
     try {
       const result = await dispatch(login({ email, password })).unwrap();
+
+      if (result.user.accountType === "student") {
+        clearAuthSession();
+        toast.success("Students now use the website student portal.");
+        window.location.href = STUDENT_PORTAL_URL;
+        return;
+      }
+
       toast.success("Login successful!");
 
       const requestedPath = location.state?.from?.pathname;
@@ -54,9 +64,7 @@ const SignIn = () => {
           ? "/admin"
           : result.user.accountType === "teacher"
             ? "/teacher"
-            : result.user.accountType === "student"
-              ? "/home"
-              : null;
+            : null;
 
       if (!defaultRoute) {
         toast.error("Invalid account type");
@@ -71,6 +79,8 @@ const SignIn = () => {
         toast.error("Please enter correct email or password.");
       } else if (err?.toLowerCase().includes("account has been deactivated")) {
         toast.error("Your account is deactivated. Please contact admin.");
+      } else if (err?.toLowerCase().includes("student portal")) {
+        toast.error("Students now sign in from the website student portal.");
       } else {
         toast.error(err || "Login failed. Please try again.");
       }
@@ -144,7 +154,7 @@ const SignIn = () => {
       <div className="w-full max-w-xs rounded-2xl bg-white/85 p-4 shadow-lg backdrop-blur-sm sm:max-w-md sm:p-8">
         <h2 className="text-2xl font-semibold text-center mb-6">
           {step === 1
-            ? "Sign In"
+            ? "Admin & Instructor Sign In"
             : step === 3
               ? "Forgot Password"
               : step === 4
@@ -156,6 +166,9 @@ const SignIn = () => {
 
         {step === 1 && (
           <>
+            <div className="mb-4 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3 text-center text-xs leading-5 text-orange-800">
+              Students now sign in from the website student portal. This dashboard is for admins and instructors only.
+            </div>
             <input
               type="email"
               placeholder="Email"
@@ -205,14 +218,14 @@ const SignIn = () => {
               {loading ? "Signing In..." : "Sign In"}
             </button>
             <div className="text-center text-sm mt-4 text-gray-600">
-              Don&apos;t have an account? Sign up on the website.{" "}
+              Student account? Continue on the website.{" "}
               <a
-                href="https://dunamisindia.co.in/signup"
+                href={STUDENT_PORTAL_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-purple-600 hover:underline"
               >
-                Go to Sign Up
+                Open Student Portal
               </a>
             </div>
           </>

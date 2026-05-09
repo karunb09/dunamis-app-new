@@ -75,6 +75,20 @@ userSchema.virtual("adminDetails", {
   justOne: true,
 });
 
+userSchema.virtual("teacherDetails", {
+  ref: "teacher",
+  localField: "_id",
+  foreignField: "userId",
+  justOne: true,
+});
+
+userSchema.virtual("studentDetails", {
+  ref: "student",
+  localField: "_id",
+  foreignField: "userId",
+  justOne: true,
+});
+
 // Virtual for permissions
 userSchema.virtual("permissions").get(function () {
   if (this.accountType === "admin" && this.adminDetails) {

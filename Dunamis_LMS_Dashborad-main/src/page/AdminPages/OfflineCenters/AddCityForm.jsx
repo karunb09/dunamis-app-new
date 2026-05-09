@@ -75,12 +75,27 @@ const AddCityForm = () => {
     };
 
     const handleSaveCity = async () => {
+        if (!formData.cityName.trim()) {
+            toast.error("City name is required");
+            return;
+        }
+
+        if (!formData.cityManager) {
+            toast.error("City manager is required");
+            return;
+        }
+
+        if (!formData.cityAdminEmail || !formData.cityAdminContact) {
+            toast.error("Selected city manager must have email and contact details");
+            return;
+        }
+
         setLoading(true);
         setError(null);
 
         try {
             const cityData = {
-                cityName: formData.cityName,
+                cityName: formData.cityName.trim(),
                 cityManager: formData.cityManager,
                 cityAdminContact: formData.cityAdminContact,
                 cityAdminEmail: formData.cityAdminEmail,
@@ -118,23 +133,25 @@ const AddCityForm = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label htmlFor="cityName">
-                    City Name
+                    City Name <span className="text-red-500">*</span>
                     <input
                         type="text"
                         name="cityName"
                         value={formData.cityName}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
+                        required
                     />
                 </label>
 
                 <label htmlFor="cityManager">
-                    City Manager
+                    City Manager <span className="text-red-500">*</span>
                     <select
                         name="cityManager"
                         value={formData.cityManager}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
+                        required
                     >
                         <option value="">Select City Manager</option>
                         {usersLoading ? (

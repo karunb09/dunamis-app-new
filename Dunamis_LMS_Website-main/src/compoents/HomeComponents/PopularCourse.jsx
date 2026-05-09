@@ -208,7 +208,7 @@ export default function PopularCourses() {
         variants={containerVariants}
       >
         {transformedCourses.map((course, index) => (
-          <motion.div key={course.id || index} variants={cardVariants}>
+          <motion.div key={course.id || index} variants={cardVariants} className="h-full">
             <CourseCard
               image={course.image}
               fallbackImage={courseFallbackImage}

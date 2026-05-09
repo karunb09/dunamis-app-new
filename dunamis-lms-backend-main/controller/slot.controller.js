@@ -319,7 +319,14 @@ exports.getAvailableSlots = async (req, res) => {
 
     const fetchSlots = async () =>
       Slot.find(query)
-      .populate("branchId", "branchName city")
+      .populate({
+        path: "branchId",
+        select: "branchName city",
+        populate: {
+          path: "city",
+          select: "cityName location",
+        },
+      })
       .populate("courseId", "name code mode")
       .populate({
         path: "createdBy",

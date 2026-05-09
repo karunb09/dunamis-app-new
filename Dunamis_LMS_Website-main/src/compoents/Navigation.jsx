@@ -3,9 +3,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
 import { ChevronDown, Menu, X } from "lucide-react";
-import { DASHBOARD_URL } from "@/lib/siteConfig";
+import { logoutSession } from "@/store/authSlice";
+import { getRoleDestination, navigateToRoleDestination } from "@/lib/roleRouting";
 
 const primaryLinks = [
   { label: "Home", href: "/" },
@@ -33,6 +35,9 @@ const isActivePath = (pathname, href) => {
 
 const Navigation = () => {
   const pathname = usePathname();
+  const router = useRouter();
+  const dispatch = useDispatch();
+  const { user, token } = useSelector((state) => state.auth || {});
   const dropdownRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoreDropdownOpen, setIsMoreDropdownOpen] = useState(false);
@@ -103,6 +108,76 @@ const Navigation = () => {
   const closeMenus = () => {
     setIsMobileMenuOpen(false);
     setIsMoreDropdownOpen(false);
+  };
+
+  const dashboardHref = user ? getRoleDestination(user.accountType) : "/login";
+  const dashboardLabel = user?.accountType === "student" ? "Student Portal" : "Dashboard";
+
+  const handleDashboardClick = (event) => {
+    if (!user || !dashboardHref) return;
+    if (/^https?:\/\//i.test(dashboardHref)) {
+      event.preventDefault();
+      navigateToRoleDestination(router, dashboardHref);
+    }
+  };
+
+  const handleLogout = () => {
+    dispatch(logoutSession());
+    closeMenus();
+    router.replace("/");
+  };
+
+  const renderAuthActions = (mobile = false) => {
+    if (!token || !user) {
+      return (
+        <>
+          <a
+            href="/signup"
+            className={mobile
+              ? "inline-flex flex-1 items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
+              : "inline-flex min-w-[108px] items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"}
+            onClick={closeMenus}
+          >
+            Sign Up
+          </a>
+          <Link
+            href="/login"
+            onClick={closeMenus}
+            className={mobile
+              ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
+              : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"}
+          >
+            Login
+          </Link>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Link
+          href={dashboardHref}
+          onClick={(event) => {
+            closeMenus();
+            handleDashboardClick(event);
+          }}
+          className={mobile
+            ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
+            : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"}
+        >
+          {dashboardLabel}
+        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className={mobile
+            ? "inline-flex flex-1 items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
+            : "inline-flex min-w-[108px] items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"}
+        >
+          Logout
+        </button>
+      </>
+    );
   };
 
   const renderPrimaryLink = (link, mobile = false) => {
@@ -237,35 +312,17 @@ const Navigation = () => {
             </nav>
 
             <div className="ml-4 flex items-center gap-3">
-              <a
-                href="/signup"
-                className="inline-flex min-w-[108px] items-center justify-center rounded-full border border-stone-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
-              >
-                Sign Up
-              </a>
-
-              <Link
-                href={DASHBOARD_URL}
-                className="inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
-              >
-                Login | Dashboard
-              </Link>
+              {renderAuthActions()}
             </div>
           </div>
 
           <div className="ml-auto flex items-center gap-2 xl:hidden">
-            <a
-              href="/signup"
-              className="hidden items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50 md:inline-flex"
-            >
-              Sign Up
-            </a>
-
             <Link
-              href={DASHBOARD_URL}
+              href={token && user ? dashboardHref : "/login"}
+              onClick={handleDashboardClick}
               className="hidden items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95b27] sm:inline-flex"
             >
-              Dashboard
+              {token && user ? dashboardLabel : "Login"}
             </Link>
 
             <button
@@ -324,20 +381,7 @@ const Navigation = () => {
               Quick access
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <a
-                href="/signup"
-                className="inline-flex flex-1 items-center justify-center rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-stone-300 hover:bg-stone-50"
-                onClick={closeMenus}
-              >
-                Sign Up
-              </a>
-              <Link
-                href={DASHBOARD_URL}
-                onClick={closeMenus}
-                className="inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
-              >
-                Login | Dashboard
-              </Link>
+              {renderAuthActions(true)}
             </div>
           </div>
 

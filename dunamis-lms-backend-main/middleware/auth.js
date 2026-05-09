@@ -25,6 +25,7 @@ exports.isAuth = async (req, res, next) => {
       });
     }
 
+    req.token = token;
     req.user = decoded;
     next();
   } catch (error) {

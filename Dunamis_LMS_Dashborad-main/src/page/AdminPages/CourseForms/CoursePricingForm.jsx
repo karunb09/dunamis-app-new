@@ -258,12 +258,13 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                             <div className="mt-6 grid gap-4 sm:grid-cols-3">
                                 <label className="block">
                                     <span className="mb-2 block text-sm font-medium text-slate-700">
-                                        Duration
+                                        Duration {isEnabled && <span className="text-red-500">*</span>}
                                     </span>
                                     <div className="relative">
                                         <input
                                             type="number"
                                             min="1"
+                                            required={isEnabled}
                                             disabled={!isEnabled}
                                             value={session.totalInstallments ?? session.installments ?? ""}
                                             onChange={(event) =>
@@ -283,7 +284,7 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
 
                                 <label className="block">
                                     <span className="mb-2 block text-sm font-medium text-slate-700">
-                                        Monthly Fee
+                                        Monthly Fee {isEnabled && <span className="text-red-500">*</span>}
                                     </span>
                                     <div className="relative">
                                         <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
@@ -291,8 +292,9 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                                         </span>
                                         <input
                                             type="number"
-                                            min="0"
+                                            min="1"
                                             step="1"
+                                            required={isEnabled}
                                             disabled={!isEnabled}
                                             value={session.monthlyFee}
                                             onChange={(event) =>

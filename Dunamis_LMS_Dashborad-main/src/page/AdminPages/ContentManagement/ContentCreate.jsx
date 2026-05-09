@@ -184,10 +184,32 @@ const ContentForm = () => {
   };
 
   const validateForm = () => {
-    if (!courseName || !courseCode || !category || !subCategory) {
-      toast.error("Please fill out all required fields.");
+    if (!courseName.trim() || !courseCode.trim() || !category || !subCategory) {
+      toast.error("Course name, code, category, and sub-category are required.");
       return false;
     }
+
+    for (const [moduleIndex, module] of curriculum.entries()) {
+      if (!module.moduleName.trim()) {
+        toast.error(`Module ${moduleIndex + 1} name is required.`);
+        return false;
+      }
+
+      for (const [lessonIndex, lesson] of module.lessons.entries()) {
+        if (!lesson.lessonName.trim()) {
+          toast.error(`Lesson ${lessonIndex + 1} name is required in module ${moduleIndex + 1}.`);
+          return false;
+        }
+
+        for (const [topicIndex, topic] of lesson.topics.entries()) {
+          if (!topic.topicName.trim()) {
+            toast.error(`Topic ${topicIndex + 1} name is required in lesson ${lessonIndex + 1}.`);
+            return false;
+          }
+        }
+      }
+    }
+
     return true;
   };
 
@@ -195,20 +217,20 @@ const ContentForm = () => {
     if (!validateForm()) return;
 
     const contentData = {
-      courseName,
-      courseCode,
-      courseDescription: description,
+      courseName: courseName.trim(),
+      courseCode: courseCode.trim(),
+      courseDescription: description.trim(),
       category,
       subCategory,
       ...(targetStatus ? { status: targetStatus } : {}),
       modules: curriculum.map((module) => ({
-        duration: module.duration,
-        title: module.moduleName,
+        duration: module.duration.trim(),
+        title: module.moduleName.trim(),
         lessons: module.lessons.map((lesson) => ({
-          title: lesson.lessonName,
+          title: lesson.lessonName.trim(),
           topics: lesson.topics.map((topic) => ({
-            title: topic.topicName,
-            description: topic.desc,
+            title: topic.topicName.trim(),
+            description: topic.desc.trim(),
           })),
         })),
       })),
@@ -245,14 +267,16 @@ const ContentForm = () => {
             value={courseName}
             onChange={(e) => setCourseName(e.target.value)}
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
-            placeholder="Course Name"
+            placeholder="Course Name *"
+            required
           />
           <input
             type="text"
             value={courseCode}
             onChange={(e) => setCourseCode(e.target.value)}
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
-            placeholder="Course Code"
+            placeholder="Course Code *"
+            required
           />
         </div>
         <div className="mb-4 relative">
@@ -272,8 +296,9 @@ const ContentForm = () => {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
+            required
           >
-            <option value="">Select a category</option>
+            <option value="">Select a category *</option>
             {visibleCategories.map((cat) => (
               <option key={cat._id} value={cat._id}>
                 {cat.name}
@@ -284,8 +309,9 @@ const ContentForm = () => {
             value={subCategory}
             onChange={(e) => setSubCategory(e.target.value)}
             className="block w-full p-2 border border-gray-300 rounded-2xl bg-gray-50"
+            required
           >
-            <option value="">Select a sub-category</option>
+            <option value="">Select a sub-category *</option>
             {visibleSubCategories.map((subCat) => (
               <option key={subCat._id} value={subCat._id}>
                 {subCat.name}
@@ -321,7 +347,8 @@ const ContentForm = () => {
                       handleCurriculumChange(mIdx, null, null, "moduleName", e.target.value)
                     }
                     className="flex-1 p-2 border border-gray-300 rounded-2xl"
-                    placeholder="Module Name"
+                    placeholder="Module Name *"
+                    required
                   />
                   <button onClick={() => deleteModule(mIdx)} className="text-gray-500">
                     <FaTrash />
@@ -340,7 +367,8 @@ const ContentForm = () => {
                           handleCurriculumChange(mIdx, lIdx, null, "lessonName", e.target.value)
                         }
                         className="flex-1 p-2 border border-gray-300 rounded-2xl"
-                        placeholder="Lesson Name"
+                        placeholder="Lesson Name *"
+                        required
                       />
                       <button onClick={() => deleteLesson(mIdx, lIdx)}>
                         <FaTrash />
@@ -360,7 +388,8 @@ const ContentForm = () => {
                                   handleCurriculumChange(mIdx, lIdx, tIdx, "topicName", e.target.value)
                                 }
                                 className="block w-full p-2 border border-gray-300 rounded-2xl mb-2"
-                                placeholder="Topic Name"
+                                placeholder="Topic Name *"
+                                required
                               />
                               <textarea
                                 value={topic.desc}

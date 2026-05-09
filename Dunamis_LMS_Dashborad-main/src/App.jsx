@@ -1,5 +1,6 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
+import { useDispatch } from "react-redux";
 
 // Layout
 import Sidebar from "./components/mainLayout/Sidebar";
@@ -8,19 +9,11 @@ import SignIn from "./components/signIn";
 import TermsAndConditions from "./components/TermsAndConditions";
 import SignInNavbar from "./components/signInNavbar";
 import { PublicOnlyRoute, RequireAuth } from "./components/auth/AuthGuard";
+import { hydrateSession } from "./redux/authSlice";
 
 // Hot Toast
 import { Toaster } from "react-hot-toast";
-const HomePage = lazy(() => import("./page/StudentPages/StudentHomePage"));
-const CoursePage = lazy(() => import("./page/StudentPages/CoursePage"));
-const ExploreCourses = lazy(() => import("./page/StudentPages/ExploreCourses"));
-const AssignmentPage = lazy(() => import("./page/StudentPages/AssignmentPage"));
-const HomeworkPage = lazy(() => import("./page/StudentPages/HomeworkPage"));
-const PerformancePage = lazy(() => import("./page/StudentPages/PerformancePage"));
-const ProfilePage = lazy(() => import("./page/StudentPages/profile/Profile"));
-const ExploreCourseDetails = lazy(() => import("./page/StudentPages/ExploreCourseDetails"));
-const PaymentConfirmation = lazy(() => import("./page/StudentPages/PaymentConfirm"));
-const Upload = lazy(() => import("./page/StudentPages/upload"));
+const StudentPortalRedirect = lazy(() => import("./components/auth/StudentPortalRedirect"));
 
 const AdminHomePage = lazy(() => import("./page/AdminPages/AdminHomePage"));
 const ContentDetails = lazy(() => import("./page/AdminPages/ContentManagement/ContentDetails"));
@@ -75,8 +68,13 @@ const RouteFallback = () => (
 
 const App = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const dispatch = useDispatch();
 
   const location = useLocation();
+
+  useEffect(() => {
+    dispatch(hydrateSession());
+  }, [dispatch]);
 
   if (location.pathname === "/" || location.pathname === "/terms") {
     return (
@@ -110,19 +108,19 @@ const App = () => {
             <Suspense fallback={<RouteFallback />}>
               <Routes>
               {/* Student Routes */}
-              <Route path="/home" element={<RequireAuth allowedRoles={["student"]}><HomePage /></RequireAuth>} />
-              <Route path="/my-courses" element={<RequireAuth allowedRoles={["student"]}><CoursePage /></RequireAuth>} />
-              <Route path="/explore-courses" element={<RequireAuth allowedRoles={["student"]}><ExploreCourses /></RequireAuth>} />
-              <Route path="/assignments" element={<RequireAuth allowedRoles={["student"]}><AssignmentPage /></RequireAuth>} />
-              <Route path="/upload" element={<RequireAuth allowedRoles={["student"]}><Upload /></RequireAuth>} />
-              <Route path="/homework" element={<RequireAuth allowedRoles={["student"]}><HomeworkPage /></RequireAuth>} />
-              <Route path="/performance" element={<RequireAuth allowedRoles={["student"]}><PerformancePage /></RequireAuth>} />
-              <Route path="/student/profile" element={<RequireAuth allowedRoles={["student"]}><ProfilePage /></RequireAuth>} />
+              <Route path="/home" element={<StudentPortalRedirect />} />
+              <Route path="/my-courses" element={<StudentPortalRedirect />} />
+              <Route path="/explore-courses" element={<StudentPortalRedirect />} />
+              <Route path="/assignments" element={<StudentPortalRedirect />} />
+              <Route path="/upload" element={<StudentPortalRedirect />} />
+              <Route path="/homework" element={<StudentPortalRedirect />} />
+              <Route path="/performance" element={<StudentPortalRedirect />} />
+              <Route path="/student/profile" element={<StudentPortalRedirect />} />
               <Route
                 path="/explore-course/:id"
-                element={<RequireAuth allowedRoles={["student"]}><ExploreCourseDetails /></RequireAuth>}
+                element={<StudentPortalRedirect />}
               />
-              <Route path="/payment/confirm" element={<RequireAuth allowedRoles={["student"]}><PaymentConfirmation /></RequireAuth>} />
+              <Route path="/payment/confirm" element={<StudentPortalRedirect />} />
               {/* Admin Routes */}
               <Route path="/admin" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><AdminHomePage /></RequireAuth>} />
               <Route

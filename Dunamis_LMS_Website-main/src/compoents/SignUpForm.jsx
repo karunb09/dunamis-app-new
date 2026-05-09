@@ -252,7 +252,7 @@ export default function SignUpForm() {
   const handleContinueStep1 = (e) => {
     e.preventDefault();
 
-    if (!firstName || !lastName || !mobile) {
+    if (!firstName.trim() || !lastName.trim() || !mobile.trim()) {
       toast.error("Please fill out all fields");
       return;
     }
@@ -276,16 +276,26 @@ export default function SignUpForm() {
 
     if (isStep2Busy) return;
 
-    if (!email || !password || !confirmPassword) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password || !confirmPassword) {
       toast.error("Please fill out all fields");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
     if (password !== confirmPassword) {
       toast.error("Passwords don't match");
       return;
     }
-    if (!otp) {
-      toast.error("Please enter the OTP");
+    if (!/^\d{6}$/.test(otp)) {
+      toast.error("Please enter the 6-digit OTP");
       return;
     }
     if (!hasAcceptedTerms) {
@@ -294,9 +304,9 @@ export default function SignUpForm() {
     }
 
     const payload = {
-      name: { firstName, lastName },
+      name: { firstName: firstName.trim(), lastName: lastName.trim() },
       mobileNo: countryCode + mobile,
-      email,
+      email: normalizedEmail,
       password,
       confirmPassword,
       otp,
@@ -321,12 +331,19 @@ export default function SignUpForm() {
   const handleSendOtp = () => {
     if (isStep2Busy) return;
 
-    if (!email) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       toast.error("Please enter your email first");
       return;
     }
 
-    dispatch(sendOtp(email))
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
+    dispatch(sendOtp(normalizedEmail))
       .unwrap()
       .then(() => {
         toast.success("OTP sent successfully!");
@@ -408,6 +425,7 @@ export default function SignUpForm() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Enter your first name"
+            required
             className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
           />
           <input
@@ -415,6 +433,7 @@ export default function SignUpForm() {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             placeholder="Enter your last name"
+            required
             className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
           />
           <div className="flex items-center gap-2 w-full">
@@ -468,6 +487,7 @@ export default function SignUpForm() {
                 setMobile(value);
               }}
               placeholder="Enter mobile number"
+              required
               className="w-3/4 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
             />
           </div>
@@ -550,7 +570,8 @@ export default function SignUpForm() {
                 required
                 disabled={isStep2Busy}
                 inputMode="numeric"
-                pattern="[0-9]*"
+                pattern="[0-9]{6}"
+                maxLength={6}
                 className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
               />
             )}
@@ -561,6 +582,7 @@ export default function SignUpForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Create a password"
               required
+              minLength={6}
               disabled={isStep2Busy}
               className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
             />
@@ -570,6 +592,7 @@ export default function SignUpForm() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm your password"
               required
+              minLength={6}
               disabled={isStep2Busy}
               className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
             />

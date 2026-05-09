@@ -3,6 +3,7 @@ const User = require("../model/user.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 exports.createAdmin = async (req, res) => {
   try {
@@ -84,10 +85,7 @@ exports.createAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("error while creating admin", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return sendValidationError(res, error, "Failed to create admin");
   }
 };
 exports.getAllAdmins = async (req, res) => {
@@ -175,10 +173,7 @@ exports.updateAdmin = async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating admin:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update admin",
-    });
+    sendValidationError(res, error, "Failed to update admin");
   }
 };
 exports.deleteAdmin = async (req, res) => {

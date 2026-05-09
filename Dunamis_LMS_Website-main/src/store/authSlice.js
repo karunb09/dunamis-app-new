@@ -9,6 +9,11 @@ import {
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
 
+const getAuthHeaders = () => {
+  const token = getWebsiteToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 // Login
 export const login = createAsyncThunk(
   "auth/login",
@@ -26,6 +31,138 @@ export const login = createAsyncThunk(
       return { user: data.user || null, token: data.token || null };
     } catch {
       return rejectWithValue("Unable to login");
+    }
+  }
+);
+
+export const hydrateSession = createAsyncThunk(
+  "auth/hydrateSession",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/me`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Session expired");
+      }
+      return { user: data.user || null, token: data.token || getWebsiteToken() };
+    } catch {
+      return rejectWithValue("Unable to restore session");
+    }
+  }
+);
+
+export const logoutSession = createAsyncThunk("auth/logoutSession", async () => {
+  try {
+    await fetch(`${BASE_URL}/v1/user/logout`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      credentials: "include",
+    });
+  } catch {}
+  clearWebsiteAuthSession();
+  return true;
+});
+
+export const getUserDashboardNotices = createAsyncThunk(
+  "auth/getUserDashboardNotices",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/notices`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Failed to fetch notifications");
+      }
+      return data.notices || [];
+    } catch {
+      return rejectWithValue("Failed to fetch notifications");
+    }
+  }
+);
+
+export const markUserDashboardNoticeRead = createAsyncThunk(
+  "auth/markUserDashboardNoticeRead",
+  async (noticeId, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/notices/${noticeId}/read`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Failed to mark notification as read");
+      }
+      return noticeId;
+    } catch {
+      return rejectWithValue("Failed to mark notification as read");
+    }
+  }
+);
+
+export const markAllUserDashboardNoticesRead = createAsyncThunk(
+  "auth/markAllUserDashboardNoticesRead",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/notices/read-all`, {
+        method: "PATCH",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Failed to mark notifications as read");
+      }
+      return true;
+    } catch {
+      return rejectWithValue("Failed to mark notifications as read");
+    }
+  }
+);
+
+export const deleteUserDashboardNotice = createAsyncThunk(
+  "auth/deleteUserDashboardNotice",
+  async (noticeId, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/notices/${noticeId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Failed to remove notification");
+      }
+      return data.noticeId || noticeId;
+    } catch {
+      return rejectWithValue("Failed to remove notification");
+    }
+  }
+);
+
+export const clearUserDashboardNotices = createAsyncThunk(
+  "auth/clearUserDashboardNotices",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/user/notices`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Failed to clear notifications");
+      }
+      return true;
+    } catch {
+      return rejectWithValue("Failed to clear notifications");
     }
   }
 );
@@ -94,9 +231,12 @@ const authSlice = createSlice({
   name: "auth",
   initialState: {
     loading: false,
+    hydrating: true,
     error: null,
     user: getWebsiteUser(),
     token: getWebsiteToken(),
+    notices: [],
+    noticesLoading: false,
     forgotSent: false,
     otpVerified: false,
     passwordReset: false,
@@ -105,6 +245,8 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
+      state.notices = [];
+      state.hydrating = false;
       state.error = null;
       clearWebsiteAuthSession();
     },
@@ -113,6 +255,10 @@ const authSlice = createSlice({
       state.otpVerified = false;
       state.passwordReset = false;
       state.error = null;
+    },
+    updateAuthUser: (state, action) => {
+      state.user = { ...(state.user || {}), ...(action.payload || {}) };
+      persistWebsiteAuthSession({ token: state.token, user: state.user });
     },
   },
   extraReducers: (builder) => {
@@ -124,13 +270,64 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.hydrating = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
         persistWebsiteAuthSession(action.payload);
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
+        state.hydrating = false;
         state.error = action.payload;
+      })
+      .addCase(hydrateSession.pending, (state) => {
+        state.hydrating = true;
+      })
+      .addCase(hydrateSession.fulfilled, (state, action) => {
+        state.hydrating = false;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        persistWebsiteAuthSession(action.payload);
+      })
+      .addCase(hydrateSession.rejected, (state) => {
+        state.hydrating = false;
+        state.user = null;
+        state.token = null;
+        state.notices = [];
+        clearWebsiteAuthSession();
+      })
+      .addCase(logoutSession.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.notices = [];
+        state.hydrating = false;
+        state.error = null;
+      })
+      .addCase(getUserDashboardNotices.pending, (state) => {
+        state.noticesLoading = true;
+      })
+      .addCase(getUserDashboardNotices.fulfilled, (state, action) => {
+        state.noticesLoading = false;
+        state.notices = action.payload || [];
+      })
+      .addCase(getUserDashboardNotices.rejected, (state) => {
+        state.noticesLoading = false;
+      })
+      .addCase(markUserDashboardNoticeRead.fulfilled, (state, action) => {
+        state.notices = state.notices.map((notice) =>
+          (notice._id || notice.id) === action.payload ? { ...notice, isRead: true } : notice
+        );
+      })
+      .addCase(markAllUserDashboardNoticesRead.fulfilled, (state) => {
+        state.notices = state.notices.map((notice) => ({ ...notice, isRead: true }));
+      })
+      .addCase(deleteUserDashboardNotice.fulfilled, (state, action) => {
+        state.notices = state.notices.filter(
+          (notice) => (notice._id || notice.id) !== action.payload
+        );
+      })
+      .addCase(clearUserDashboardNotices.fulfilled, (state) => {
+        state.notices = [];
       })
 
       // forgot password
@@ -180,5 +377,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearAuthFlags } = authSlice.actions;
+export const { logout, clearAuthFlags, updateAuthUser } = authSlice.actions;
 export default authSlice.reducer;

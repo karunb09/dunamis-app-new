@@ -121,11 +121,15 @@ const AddAdminForm = () => {
             toast.error("Email is required");
             return false;
         }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+            toast.error("Enter a valid email address");
+            return false;
+        }
         if (!formData.mobileNo.trim()) {
             toast.error("Mobile number is required");
             return false;
         }
-        if (formData.mobileNo.length !== 10) {
+        if (!/^\d{10}$/.test(formData.mobileNo.trim())) {
             toast.error("Mobile number must be 10 digits");
             return false;
         }
@@ -135,6 +139,10 @@ const AddAdminForm = () => {
         }
         if (!formData.accessLevel) {
             toast.error("Access level is required");
+            return false;
+        }
+        if (!formData.department.trim()) {
+            toast.error("Department is required");
             return false;
         }
 
@@ -315,7 +323,7 @@ const AddAdminForm = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-2">
-                                Department
+                                Department <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="text"
@@ -324,6 +332,7 @@ const AddAdminForm = () => {
                                 value={formData.department}
                                 onChange={handleChange}
                                 className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
                             />
                         </div>
                     </div>

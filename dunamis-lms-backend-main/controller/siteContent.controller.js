@@ -4,6 +4,7 @@ const path = require("path");
 const AdminNotice = require("../model/adminNotice.model");
 const SiteContent = require("../model/siteContent.model");
 const User = require("../model/user.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const allowedTypes = new Set(["faq", "testimonial", "successStory"]);
 const allowedStatuses = new Set(["draft", "published"]);
@@ -202,7 +203,11 @@ exports.createContent = async (req, res) => {
 
     res.status(201).json({ success: true, data: item });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+
+    sendValidationError(res, error, "Failed to create site content");
   }
 };
 
@@ -232,7 +237,11 @@ exports.updateContent = async (req, res) => {
 
     res.status(200).json({ success: true, data: item });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ success: false, message: error.message });
+    }
+
+    sendValidationError(res, error, "Failed to update site content");
   }
 };
 

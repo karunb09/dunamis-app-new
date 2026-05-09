@@ -8,6 +8,7 @@ const welcomeEmailTemplate = require("../mail/welcomeEmail");
 const Student = require("../model/student.model");
 const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Send OTP
 exports.sendOTP = async (req, res) => {
@@ -191,10 +192,7 @@ exports.createStudent = async (req, res) => {
     });
   } catch (error) {
     console.error("error while creating Student", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return sendValidationError(res, error, "Failed to create student");
   }
 };
 // Get all Stud.

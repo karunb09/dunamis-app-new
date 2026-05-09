@@ -7,8 +7,35 @@ import { getCourseDetails } from "../../redux/Course/CourseSlice";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/960x540?text=Course";
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
 
 const formatDate = (date) => (date ? new Date(date).toLocaleDateString() : "Not set");
+
+const toDisplayText = (value) => {
+    const text = String(value || "").trim();
+    return OBJECT_ID_PATTERN.test(text) ? "" : text;
+};
+
+const getBranchName = (branch) => {
+    if (!branch || typeof branch !== "object") return "Branch";
+    return (
+        toDisplayText(branch.branchName) ||
+        toDisplayText(branch.name) ||
+        toDisplayText(branch.label) ||
+        "Branch"
+    );
+};
+
+const getBranchCityName = (branch) => {
+    if (!branch || typeof branch !== "object") return "City not assigned";
+    return (
+        toDisplayText(branch.city?.cityName) ||
+        toDisplayText(branch.city?.name) ||
+        toDisplayText(branch.cityName) ||
+        toDisplayText(branch.city) ||
+        "City not assigned"
+    );
+};
 
 // CourseDetailPage Component
 const CourseDetailPage = () => {
@@ -149,10 +176,10 @@ const CourseDetailPage = () => {
                         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                             {branches.map((branch) => (
                                 <div key={branch._id || branch} className="rounded-2xl border border-gray-100 bg-[#fbfaf7] p-4">
-                                    <p className="font-semibold text-gray-950">{branch.name || "Branch"}</p>
+                                    <p className="font-semibold text-gray-950">{getBranchName(branch)}</p>
                                     <p className="mt-1 flex items-center gap-2 text-sm text-gray-600">
                                         <FaMapMarkerAlt className="text-orange-500" />
-                                        {branch.city?.name || branch.cityName || "City not assigned"}
+                                        {getBranchCityName(branch)}
                                     </p>
                                 </div>
                             ))}

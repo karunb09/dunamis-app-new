@@ -1,5 +1,6 @@
 const Category = require("../model/category.model");
 const SubCategory = require("../model/subCategory.model");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create Category
 exports.createCategory = async (req, res) => {
@@ -23,7 +24,7 @@ exports.createCategory = async (req, res) => {
       .status(201)
       .json({ message: "Category created successfully", category });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    sendValidationError(res, error, "Server error");
   }
 };
 // Get Category
@@ -77,9 +78,7 @@ exports.updateCategory = async (req, res) => {
       category: updatedCategory,
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Update failed", error: error.message });
+    sendValidationError(res, error, "Update failed");
   }
 };
 // Delete Category
@@ -180,10 +179,10 @@ exports.createCategoryWithSubCategories = async (req, res) => {
       message: error.message,
       stack: error.stack,
     });
-    res.status(500).json({
-      success: false,
-      message: "Server error occurred while creating category",
-      error: error.message,
-    });
+    sendValidationError(
+      res,
+      error,
+      "Server error occurred while creating category"
+    );
   }
 };

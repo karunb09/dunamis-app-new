@@ -2,23 +2,33 @@ import React from "react";
 import PropTypes from "prop-types";
 
 const FIELD_CONTAINER = "w-full flex flex-col gap-6 bg-white justify-center";
+const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+const toDisplayText = (value) => {
+  const text = String(value || "").trim();
+  return OBJECT_ID_PATTERN.test(text) ? "" : text;
+};
 
 const normalizeBranch = (branch) => ({
   id: branch?._id || branch?.id || branch?.branchId || branch?.branchName,
   name:
-    branch?.branchName ||
-    branch?.name ||
-    branch?.location ||
-    branch?.address ||
+    toDisplayText(branch?.branchName) ||
+    toDisplayText(branch?.name) ||
+    toDisplayText(branch?.location) ||
+    toDisplayText(branch?.address) ||
     "Branch",
 });
 
 const normalizeSlot = (slot) =>
   typeof slot === "string"
-    ? { value: slot, label: slot }
+    ? { value: slot, label: toDisplayText(slot) || "Demo slot" }
     : {
         value: slot?.value || slot?.time || slot?.label || "",
-        label: slot?.label || slot?.time || slot?.value || "",
+        label:
+          toDisplayText(slot?.label) ||
+          toDisplayText(slot?.time) ||
+          toDisplayText(slot?.value) ||
+          "Demo slot",
       };
 
 export default function BookingWizardModal({

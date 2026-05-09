@@ -170,7 +170,7 @@ const buildBookingDetails = async (bookingDoc, slot, student) => {
   };
 };
 
-// Book a demo slot for an authenticated student.
+// Book a demo slot for either an authenticated student or a guest lead.
 exports.bookDemoSlot = async (req, res) => {
   try {
     const {
@@ -195,13 +195,6 @@ exports.bookDemoSlot = async (req, res) => {
             .populate("userId", "name email mobileNo")
             .populate("enrolledCourses.courseId", "code name category")
         : null;
-
-    if (req.user?.accountType !== "student" || !student) {
-      return res.status(403).json({
-        success: false,
-        message: "Only student accounts can book demo slots",
-      });
-    }
 
     const slot = await Slot.findById(slotId)
       .populate({

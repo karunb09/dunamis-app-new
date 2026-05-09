@@ -161,25 +161,108 @@ const AddCoursePage = () => {
         }));
     };
 
+    const firstInvalidPricingMessage = () => {
+        const enabledPricing = Object.entries(courseData.pricing || {}).filter(
+            ([, session]) => session.enabled
+        );
+
+        if (enabledPricing.length === 0) {
+            return "Enable at least one pricing option";
+        }
+
+        for (const [type, session] of enabledPricing) {
+            const label = type === "standard" ? "standard" : "premium";
+            const monthlyFee = Number(session.monthlyFee);
+            const fullPayment = Number(session.fullPayment);
+            const installments = Number(session.totalInstallments ?? session.installments);
+
+            if (!Number.isFinite(monthlyFee) || monthlyFee <= 0) {
+                return `Monthly fee is required for ${label} pricing`;
+            }
+
+            if (!Number.isFinite(fullPayment) || fullPayment <= 0) {
+                return `Full payment is required for ${label} pricing`;
+            }
+
+            if (!Number.isInteger(installments) || installments <= 0) {
+                return `Installments must be a positive number for ${label} pricing`;
+            }
+        }
+
+        return "";
+    };
+
+    const validateCourse = ({ isPublished }) => {
+        const info = courseData.info || {};
+        const requiredFields = [
+            [info.courseCode, "Course Code is required", "Course Info"],
+            [info.name, "Course Name is required", "Course Info"],
+        ];
+
+        if (isPublished) {
+            requiredFields.push(
+                [info.description, "Course Description is required", "Course Info"],
+                [info.mode, "Course Mode is required", "Course Info"],
+                [info.courseType, "Course Type is required", "Course Info"],
+                [info.level, "Course Level is required", "Course Info"],
+                [info.certification, "Certification type is required", "Course Info"],
+                [courseData.media || courseData.existingImage, "Course Image is required", "Media"]
+            );
+
+            if (info.courseType === "fixed") {
+                requiredFields.push(
+                    [info.startDate, "Start Date is required for fixed courses", "Course Info"],
+                    [info.endDate, "End Date is required for fixed courses", "Course Info"]
+                );
+
+                if (info.startDate && info.endDate && new Date(info.endDate) < new Date(info.startDate)) {
+                    toast.error("End Date cannot be before Start Date");
+                    setActiveTab("Course Info");
+                    return false;
+                }
+            }
+
+            if (info.mode === "offline" && (!Array.isArray(courseData.branches) || courseData.branches.length === 0)) {
+                toast.error("At least one branch is required for offline courses");
+                setActiveTab("Course Info");
+                return false;
+            }
+
+            const pricingMessage = firstInvalidPricingMessage();
+            if (pricingMessage) {
+                toast.error(pricingMessage);
+                setActiveTab("Pricing");
+                return false;
+            }
+        }
+
+        const missingField = requiredFields.find(([value]) => {
+            if (value instanceof File) return false;
+            return !String(value || "").trim();
+        });
+
+        if (missingField) {
+            toast.error(missingField[1]);
+            setActiveTab(missingField[2]);
+            return false;
+        }
+
+        return true;
+    };
+
     const saveCourse = async ({ isPublished }) => {
         const selectedInstructors = Array.isArray(courseData.instructors)
             ? courseData.instructors
             : [];
 
-        if (!courseData.info.courseCode || courseData.info.courseCode.trim() === "") {
-            toast.error("Course Code is required");
-            return;
-        }
-
-        if (!courseData.info.name || courseData.info.name.trim() === "") {
-            toast.error("Course Name is required");
+        if (!validateCourse({ isPublished })) {
             return;
         }
 
         let payload = {
-            name: courseData.info.name,
-            code: courseData.info.courseCode,
-            description: courseData.info.description || "",
+            name: courseData.info.name.trim(),
+            code: courseData.info.courseCode.trim(),
+            description: courseData.info.description?.trim() || "",
             category: courseData.info.category,
             subCategory: courseData.info.subCategory,
             mode: courseData.info.mode,

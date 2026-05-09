@@ -6,6 +6,7 @@ const Student = require("../model/student.model");
 const Branch = require("../model/branch.model");
 const fs = require("fs/promises");
 const path = require("path");
+const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const deleteLocalUpload = async (filePath) => {
   if (!filePath || !filePath.startsWith("/uploads/")) {
@@ -169,6 +170,14 @@ const publicTeacherPopulate = {
   ],
 };
 
+const courseBranchPopulate = {
+  path: "branches",
+  populate: {
+    path: "city",
+    select: "cityName location",
+  },
+};
+
 const withPublicCourseTotals = async (courses = []) => {
   if (!courses.length) return [];
 
@@ -329,7 +338,7 @@ exports.createCourse = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+    sendValidationError(res, error, "Failed to create course");
   }
 };
 
@@ -337,7 +346,8 @@ exports.createCourse = async (req, res) => {
 exports.getAllCourses = async (req, res) => {
   try {
     const courses = await Course.find()
-      .populate("category subCategory branches")
+      .populate("category subCategory")
+      .populate(courseBranchPopulate)
       .populate(publicTeacherPopulate)
       .lean();
 
@@ -358,7 +368,7 @@ exports.getAllCourses = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ success: false, message: error.message });
+    sendValidationError(res, error, "Failed to update course");
   }
 };
 
@@ -367,7 +377,8 @@ exports.getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
     const course = await Course.findById(id)
-      .populate("category subCategory content branches")
+      .populate("category subCategory content")
+      .populate(courseBranchPopulate)
       .populate(publicTeacherPopulate)
       .lean();
 
@@ -399,7 +410,8 @@ exports.getCourseById = async (req, res) => {
 exports.getAllCoursesAdmin = async (req, res) => {
   try {
     let courses = await Course.find()
-      .populate("category subCategory content branches")
+      .populate("category subCategory content")
+      .populate(courseBranchPopulate)
       .populate({
         path: "teacher",
         populate: [
@@ -472,7 +484,8 @@ exports.getCourseByIdAdmin = async (req, res) => {
   try {
     const { id } = req.params;
     const course = await Course.findById(id)
-      .populate("category subCategory content branches")
+      .populate("category subCategory content")
+      .populate(courseBranchPopulate)
       .populate({
         path: "teacher",
         populate: [
@@ -508,6 +521,10 @@ exports.getCourseByIdAdmin = async (req, res) => {
         path: "branch",
         model: "Branch",
         select: "branchName city",
+        populate: {
+          path: "city",
+          select: "cityName location",
+        },
       })
       .select("userId branch mode enrolledCourses followUps adminActions");
 
@@ -667,7 +684,8 @@ exports.updateCourse = async (req, res) => {
     });
 
     const updatedCourse = await Course.findById(id)
-      .populate("category subCategory content branches")
+      .populate("category subCategory content")
+      .populate(courseBranchPopulate)
       .populate({
         path: "teacher",
         populate: [
