@@ -157,7 +157,7 @@ const enrollmentSlice = createSlice({
       })
       .addCase(fetchEnrolledCourses.fulfilled, (state, action) => {
         state.loading = false;
-        state.enrolledCourses = action.payload.data || [];
+        state.enrolledCourses = action.payload.courses || action.payload.data || [];
       })
       .addCase(fetchEnrolledCourses.rejected, (state, action) => {
         state.loading = false;
@@ -169,7 +169,7 @@ const enrollmentSlice = createSlice({
       })
       .addCase(generateInstallments.fulfilled, (state, action) => {
         state.loading = false;
-        state.installments = action.payload.data || [];
+        state.installments = action.payload.orders || action.payload.data || [];
       })
       .addCase(generateInstallments.rejected, (state, action) => {
         state.loading = false;

@@ -103,6 +103,34 @@ const studentSchema = new mongoose.Schema(
         razorpaySignature: {
           type: String,
         },
+        paymentGateway: {
+          type: String,
+          enum: ["cashfree", "razorpay", "manual", null],
+          default: null,
+        },
+        transactionRef: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "PaymentTransaction",
+          default: null,
+        },
+        cashfreeOrderId: {
+          type: String,
+        },
+        cashfreeCfOrderId: {
+          type: String,
+        },
+        cashfreePaymentSessionId: {
+          type: String,
+        },
+        cashfreePaymentId: {
+          type: String,
+        },
+        cashfreeOrderStatus: {
+          type: String,
+        },
+        cashfreePaymentStatus: {
+          type: String,
+        },
         amount: {
           type: Number,
         },

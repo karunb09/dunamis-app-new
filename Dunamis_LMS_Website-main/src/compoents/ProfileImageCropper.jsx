@@ -116,14 +116,14 @@ export default function ProfileImageCropper({ file, onApply, onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+      <div className="my-auto w-full max-w-3xl overflow-hidden rounded-[1.5rem] bg-white shadow-2xl sm:rounded-[2rem]">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 sm:gap-4 sm:p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
               Face crop
             </p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-950">
+            <h2 className="mt-2 text-xl font-bold text-slate-950 sm:text-2xl">
               Frame your face for profile cards
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -134,15 +134,15 @@ export default function ProfileImageCropper({ file, onApply, onCancel }) {
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full bg-slate-100 p-3 text-slate-500 transition hover:bg-slate-200"
+            className="shrink-0 rounded-full bg-slate-100 p-3 text-slate-500 transition hover:bg-slate-200"
             aria-label="Close cropper"
           >
             <FiX />
           </button>
         </div>
 
-        <div className="grid gap-6 p-6 md:grid-cols-[320px,1fr]">
-          <div className="mx-auto w-full max-w-[320px]">
+        <div className="grid max-h-[calc(100vh-9rem)] gap-5 overflow-y-auto p-4 sm:gap-6 sm:p-6 md:grid-cols-[minmax(220px,320px),1fr]">
+          <div className="mx-auto w-full max-w-[260px] sm:max-w-[320px]">
             <div className="relative overflow-hidden rounded-[1.75rem] bg-slate-100 p-3 shadow-inner">
               <canvas
                 ref={previewCanvasRef}
@@ -166,7 +166,7 @@ export default function ProfileImageCropper({ file, onApply, onCancel }) {
               <input type="range" min="-50" max="50" step="1" value={offsetY} onChange={(event) => setOffsetY(Number(event.target.value))} className="mt-2 w-full accent-orange-500" />
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="sticky bottom-0 -mx-4 flex flex-col gap-3 bg-white/95 px-4 py-3 sm:static sm:mx-0 sm:flex-row sm:bg-transparent sm:p-0">
               <button type="button" onClick={onCancel} className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                 Choose another image
               </button>

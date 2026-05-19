@@ -421,8 +421,8 @@ const Applications = () => {
                     </div>
 
                     {filterOpen && (
-                        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
-                            <div className="relative w-full max-w-md rounded-[30px] border border-slate-200 bg-white p-6 shadow-2xl">
+                        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+                            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-[24px] border border-slate-200 bg-white p-4 shadow-2xl sm:rounded-[30px] sm:p-6">
                                 <button
                                     onClick={() => setFilterOpen(false)}
                                     className="absolute right-4 top-4 text-slate-400 transition hover:text-slate-700"
@@ -459,7 +459,7 @@ const Applications = () => {
                                     <option value="offline">Offline</option>
                                 </select>
 
-                                <div className="mt-8 flex items-center justify-between gap-3">
+                                <div className="mt-8 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <button
                                         className="rounded-full border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                                         onClick={clearFilters}

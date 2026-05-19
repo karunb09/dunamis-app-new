@@ -197,8 +197,8 @@ export default function EnrollModal({
                 : '';
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
+            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-lg sm:p-6">
                 <button
                     onClick={onClose}
                     className="absolute right-3 top-3 cursor-pointer text-xl text-gray-400 hover:text-gray-600"

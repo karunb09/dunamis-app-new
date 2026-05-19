@@ -412,14 +412,14 @@ const ApplicationDetails = () => {
 const ModalWrapper = ({ onClose, children, title }) => {
     return (
         <div
-            className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-80 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4"
             onClick={onClose}
             aria-modal="true"
             role="dialog"
             aria-labelledby="modal-title"
         >
             <div
-                className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto p-6 relative shadow-lg"
+                className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-auto rounded-lg bg-white p-4 shadow-lg sm:p-6"
                 onClick={(e) => e.stopPropagation()}
             >
                 <button

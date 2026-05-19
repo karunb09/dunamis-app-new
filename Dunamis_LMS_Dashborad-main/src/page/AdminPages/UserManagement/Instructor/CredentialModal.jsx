@@ -18,11 +18,11 @@ const CredentialModal = ({ instructor, password, onClose }) => {
 
     return (
         <div
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 px-3 py-4 sm:items-center sm:px-4"
             onClick={onClose}
         >
             <div
-                className="relative bg-white rounded-lg shadow-lg p-6 w-[400px]"
+                className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-[400px] overflow-y-auto rounded-lg bg-white p-4 shadow-lg sm:p-6"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* X Icon */}
@@ -68,7 +68,7 @@ const CredentialModal = ({ instructor, password, onClose }) => {
                     </p>
                 </div>
 
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <button
                         onClick={handleCopy}
                         className="px-4 py-2 border rounded hover:bg-gray-100"

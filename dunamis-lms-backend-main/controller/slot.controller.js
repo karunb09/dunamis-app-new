@@ -334,7 +334,7 @@ exports.getAvailableSlots = async (req, res) => {
         populate: { path: "userId", select: "name email image" },
       })
       .select(
-        "date startTime endTime maxStudents students slotType sessionType branchId parentAvailabilityId recurringDays courseId createdBy"
+        "date startTime endTime maxStudents currentStudentsCount students slotType sessionType branchId parentAvailabilityId recurringDays courseId createdBy"
       )
       .sort({ date: 1, startTime: 1 });
 
@@ -385,7 +385,9 @@ exports.getAvailableSlots = async (req, res) => {
 
     const decoratedSlots = slots.map((slot) => {
       const plainSlot = slot.toObject ? slot.toObject() : slot;
-      const studentCount = Array.isArray(plainSlot.students)
+      const studentCount = Number.isFinite(Number(plainSlot.currentStudentsCount))
+        ? Number(plainSlot.currentStudentsCount)
+        : Array.isArray(plainSlot.students)
         ? plainSlot.students.length
         : 0;
       const maxStudents = Number(plainSlot.maxStudents) || 0;

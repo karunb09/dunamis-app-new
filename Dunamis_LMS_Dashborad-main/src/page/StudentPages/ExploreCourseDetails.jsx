@@ -224,11 +224,11 @@ export default function ExploreCourseDetails() {
       {showPlanModal && (
         <div
           id="modal-bg"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-md sm:items-center sm:p-4"
           onClick={closePlanModal}
         >
           <div 
-            className="relative w-full max-w-5xl mx-auto bg-white rounded-3xl p-6 md:p-10 shadow-2xl overflow-y-auto max-h-[calc(100vh-60px)] scrollbar-hide"
+            className="relative my-auto w-full max-w-5xl overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl sm:p-6 md:p-10 max-h-[calc(100vh-2rem)] scrollbar-hide"
             onClick={(e) => e.stopPropagation()}
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >

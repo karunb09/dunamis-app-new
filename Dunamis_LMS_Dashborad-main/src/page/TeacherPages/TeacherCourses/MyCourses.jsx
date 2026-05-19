@@ -349,8 +349,8 @@ const MyCourses = () => {
       )}
 
       {isPopupOpen && (
-        <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50 px-2">
-          <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-gray-800 bg-opacity-50 px-3 py-4 sm:items-center sm:px-4">
+          <div className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
             <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
               Request New Course
             </h2>
@@ -390,7 +390,7 @@ const MyCourses = () => {
               </div>
             )}
 
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row">
               <button
                 className="flex-1 bg-gray-100 text-gray-800 px-4 py-2 rounded-full text-sm font-medium hover:bg-gray-200 transition"
                 onClick={() => {

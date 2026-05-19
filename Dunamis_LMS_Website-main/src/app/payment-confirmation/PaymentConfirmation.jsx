@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { HiArrowLeft, HiCheckCircle, HiClock, HiUser } from 'react-icons/hi';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 import LoginModal from '@/compoents/PopupModals/LoginModal';
 import PaymentModal from '@/compoents/PopupModals/PaymentModal';
@@ -22,27 +22,22 @@ const asMoney = (n) => {
   return `₹${v.toLocaleString('en-IN')}`;
 };
 
-const getUserDisplayName = (user) => {
-  const rawName = user?.name;
-  if (typeof rawName === 'string') return rawName;
-  const firstName = rawName?.firstName || user?.firstName || '';
-  const lastName = rawName?.lastName || user?.lastName || '';
-  return `${firstName} ${lastName}`.trim();
-};
-
 export default function PaymentConfirmation() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
   const { user, token } = useSelector((s) => s.auth || {});
-  const { order: razorpayOrder, loading: orderLoading, error: orderError } = useSelector((s) => s.enrollment || {});
+  const { order: cashfreeOrder, loading: orderLoading, error: orderError } = useSelector((s) => s.enrollment || {});
 
   const [hasToken, setHasToken] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [pendingPaymentAction, setPendingPaymentAction] = useState(false);
+  const [returnVerificationStatus, setReturnVerificationStatus] = useState(null);
   const [sel, setSel] = useState(null);
   const isStudent = String(user?.accountType || '').toLowerCase() === 'student';
+  const returnOrderId = searchParams.get('order_id');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -72,6 +67,33 @@ export default function PaymentConfirmation() {
       dispatch(clearOrder());
     };
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!returnOrderId || returnVerificationStatus || !hasToken) return;
+
+    let cancelled = false;
+    setReturnVerificationStatus('verifying');
+
+    dispatch(verifyEnrollmentPayment({ cashfree_order_id: returnOrderId })).then((result) => {
+      if (cancelled) return;
+
+      if (verifyEnrollmentPayment.fulfilled.match(result)) {
+        clearEnrollSelection();
+        clearEnrollmentResume();
+        setReturnVerificationStatus(
+          result.payload?.transactionStatus === 'paid_pending_fulfillment'
+            ? 'pending_fulfillment'
+            : 'success'
+        );
+      } else {
+        setReturnVerificationStatus('failed');
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, hasToken, returnOrderId, returnVerificationStatus]);
 
   const selectedSessionType = sel?.sessionType || sel?.slot?.sessionType || null;
   const planType = sel?.planType || null;
@@ -216,25 +238,23 @@ export default function PaymentConfirmation() {
 
   const handlePaymentSuccess = async (paymentDetails) => {
     const verificationData = {
-      razorpay_order_id: paymentDetails.razorpay_order_id,
-      razorpay_payment_id: paymentDetails.razorpay_payment_id,
-      razorpay_signature: paymentDetails.razorpay_signature,
-      courseId: courseId,
-      sessionType: selectedSessionType,
-      planType,
-      teacherId: instructorId,
-      slotId: slot.slotId,
-      deliveryMode,
-      branchId,
+      cashfree_order_id:
+        paymentDetails.cashfree_order_id || order?.orderId || order?.id || order?.cashfreeOrderId,
     };
 
     const result = await dispatch(verifyEnrollmentPayment(verificationData));
 
     if (verifyEnrollmentPayment.fulfilled.match(result)) {
+      if (result.payload?.transactionStatus === 'paid_pending_fulfillment') {
+        alert(result.payload?.message || 'Payment verified, but enrollment needs support assistance.');
+        setPayOpen(false);
+        return;
+      }
+
       setPayOpen(false);
       clearEnrollSelection();
       clearEnrollmentResume();
-      router.push('/payments/success');
+      router.push('/student/my-courses');
     } else {
       alert('Payment verification failed. Please contact support.');
       setPayOpen(false);
@@ -247,13 +267,78 @@ export default function PaymentConfirmation() {
   };
 
   const order = useMemo(() => {
-    if (!razorpayOrder?.order) return null;
+    if (!cashfreeOrder?.order) return null;
     return {
-      id: razorpayOrder.order.id,
-      amount: razorpayOrder.order.amount,
-      currency: razorpayOrder.order.currency,
+      id: cashfreeOrder.order.id,
+      orderId: cashfreeOrder.order.orderId || cashfreeOrder.order.id,
+      cashfreeOrderId: cashfreeOrder.order.cashfreeOrderId || cashfreeOrder.order.id,
+      paymentSessionId: cashfreeOrder.order.paymentSessionId,
+      amount: cashfreeOrder.order.amount,
+      currency: cashfreeOrder.order.currency,
+      mode: cashfreeOrder.order.mode,
     };
-  }, [razorpayOrder]);
+  }, [cashfreeOrder]);
+
+  if (returnOrderId) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-12">
+        <div className="mx-auto max-w-xl rounded-3xl bg-white p-8 text-center shadow-sm">
+          <h1 className="text-3xl font-bold text-gray-900">Payment Status</h1>
+          {!hasToken ? (
+            <>
+              <p className="mt-4 text-gray-600">Please sign in to verify your payment and complete enrollment.</p>
+              <button
+                onClick={() => setLoginOpen(true)}
+                className="mt-6 rounded-full bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600"
+              >
+                Sign in to verify
+              </button>
+            </>
+          ) : returnVerificationStatus === 'success' ? (
+            <>
+              <p className="mt-4 text-gray-600">Your payment has been verified and your enrollment is complete.</p>
+              <button
+                onClick={() => router.push('/student/my-courses')}
+                className="mt-6 rounded-full bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600"
+              >
+                Go to My Courses
+              </button>
+            </>
+          ) : returnVerificationStatus === 'pending_fulfillment' ? (
+            <>
+              <p className="mt-4 text-gray-600">Your payment is verified, but enrollment needs support assistance before your course appears.</p>
+              <p className="mt-3 break-all rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-500">{returnOrderId}</p>
+            </>
+          ) : returnVerificationStatus === 'failed' ? (
+            <>
+              <p className="mt-4 text-gray-600">We could not verify this payment yet. If money was debited, please contact support with your order ID.</p>
+              <p className="mt-3 break-all rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-500">{returnOrderId}</p>
+              <button
+                onClick={() => setReturnVerificationStatus(null)}
+                className="mt-6 rounded-full bg-gray-900 px-6 py-3 font-semibold text-white hover:bg-gray-800"
+              >
+                Retry Verification
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="mt-4 text-gray-600">Verifying your payment securely with Cashfree...</p>
+              <div className="mx-auto mt-6 h-12 w-12 animate-spin rounded-full border-b-2 border-orange-500" />
+            </>
+          )}
+        </div>
+
+        {loginOpen && (
+          <LoginModal
+            open={loginOpen}
+            onClose={() => setLoginOpen(false)}
+            onSuccess={handleAuthSuccess}
+            nextHref={`/payment-confirmation?order_id=${encodeURIComponent(returnOrderId)}`}
+          />
+        )}
+      </div>
+    );
+  }
 
   if (sel === null) {
     return (
@@ -463,14 +548,7 @@ export default function PaymentConfirmation() {
         <PaymentModal
           open={payOpen}
           onClose={() => setPayOpen(false)}
-          keyId={process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID}
           order={order}
-          customer={{
-            name: getUserDisplayName(user),
-            email: user?.email || '',
-            contact: user?.mobileNo || user?.phone || '',
-          }}
-          notes={{ description: courseName || 'Course purchase' }}
           onSuccess={handlePaymentSuccess}
           onFailure={handlePaymentFailure}
         />

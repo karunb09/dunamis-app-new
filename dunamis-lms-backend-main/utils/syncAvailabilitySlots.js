@@ -125,6 +125,7 @@ const buildDesiredSlotDocs = ({
         recurringDays: slot.days,
         isRecurring: true,
         maxStudents: slot.maxStudents,
+        currentStudentsCount: 0,
         parentAvailabilityId: slot._id,
       };
 

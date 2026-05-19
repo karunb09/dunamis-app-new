@@ -56,12 +56,12 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto px-3 py-4 sm:items-center sm:px-4">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
 
-            <div className="relative mx-4 w-full max-w-3xl">
+            <div className="relative my-auto w-full max-w-3xl">
                 <div className="pointer-events-none absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-orange-500/35 to-orange-600/35 blur-2xl opacity-80" />
-                <div className="relative overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
+                <div className="relative max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
                     <div className="grid grid-cols-1 md:grid-cols-2">
                         <div className="relative hidden md:flex flex-col justify-between p-8 text-white bg-gradient-to-b from-orange-500 to-orange-600">
                             <div className="space-y-4">
@@ -90,7 +90,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                             <div className="pointer-events-none absolute -bottom-12 left-24 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
                         </div>
 
-                        <div className="p-8">
+                        <div className="p-5 sm:p-8">
                             <h3 className="text-2xl font-semibold text-gray-900">Student sign in</h3>
                             <p className="mt-1 text-sm text-gray-500">Use this form for student accounts only. Instructors and admins should use the Staff Portal.</p>
 

@@ -9,6 +9,7 @@ import { deleteCourse, getCourses, updateCourse } from '../../redux/Course/Cours
 import Swal from 'sweetalert2';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../utils/resolveImageUrl';
 import IconActionButton from '../../components/IconActionButton';
+import { X } from 'phosphor-react';
 
 const TABS = ['Active Courses', 'Draft Courses'];
 const SORT_OPTIONS = [
@@ -377,8 +378,8 @@ const CourseManagement = () => {
 
                     {/* Filter Modal */}
                     {filterOpen && (
-                        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
-                            <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
+                        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+                            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
                                 {/* Close button */}
                                 <button
                                     onClick={() => setFilterOpen(false)}

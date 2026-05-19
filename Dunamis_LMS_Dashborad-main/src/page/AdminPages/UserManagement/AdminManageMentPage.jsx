@@ -343,8 +343,8 @@ const AdminManageMentPage = () => {
             </div>
 
             {filterOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex justify-center items-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md relative">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
+                    <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
                         <button onClick={() => setFilterOpen(false)} className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"><X /></button>
                         <h2 className="text-xl font-semibold mb-4">Filter Admins</h2>
 
@@ -371,7 +371,7 @@ const AdminManageMentPage = () => {
                             ))}
                         </select>
 
-                        <div className="flex justify-between mt-6">
+                        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between mt-6">
                             <button className="px-4 py-2 rounded-2xl border hover:bg-gray-200" onClick={() => setFilters({ status: '', department: '' })}>Clear</button>
                             <button className="px-4 py-2 rounded-2xl bg-black text-white hover:bg-gray-800" onClick={() => setFilterOpen(false)}>Apply</button>
                         </div>

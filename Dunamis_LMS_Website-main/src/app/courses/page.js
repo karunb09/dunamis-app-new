@@ -271,7 +271,7 @@ function CoursesPageContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+              className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 backdrop-blur-sm sm:items-center sm:p-4"
             onClick={() => setShowFilter(false)}
           >
             <motion.div
@@ -279,7 +279,7 @@ function CoursesPageContent() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 50, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl relative"
+              className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <button

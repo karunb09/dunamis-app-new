@@ -60,7 +60,7 @@ export default function VideoPopup({ videoUrl, onClose }) {
 
   if (!videoUrl || error) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center z-[9999]" onClick={handleBackdrop}>
+      <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto p-3 sm:items-center sm:p-4" onClick={handleBackdrop}>
         <div
           className="bg-[#111] text-white p-6 rounded-xl shadow-2xl text-center w-[90%] sm:w-[480px]"
           onClick={(e) => e.stopPropagation()}
@@ -78,8 +78,8 @@ export default function VideoPopup({ videoUrl, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-[9999] bg-black/50" onClick={handleBackdrop}>
-      <div className="relative bg-gray-900 rounded-xl shadow-2xl p-2 w-[90%] max-w-[820px]">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center sm:p-4" onClick={handleBackdrop}>
+      <div className="relative my-auto w-full max-w-[820px] rounded-xl bg-gray-900 p-2 shadow-2xl">
         <div className="rounded-lg overflow-hidden aspect-video bg-black">
           <video
             ref={videoRef}

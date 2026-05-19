@@ -70,8 +70,8 @@ function FeedbackModal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
-      <div className="bg-white rounded-2xl border border-[#e4e0e8] shadow-xl p-8 w-full max-w-md relative">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/20 px-3 py-4 sm:items-center sm:px-4">
+      <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[#e4e0e8] bg-white p-4 shadow-xl sm:p-8">
         <button
           type="button"
           onClick={onClose}
@@ -180,8 +180,8 @@ function RescheduleModal({ open, onClose }) {
   ];
   if (!open) return null;
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
-      <div className="bg-white rounded-2xl border border-[#e4e0e8] shadow-xl p-8 w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/20 px-3 py-4 sm:items-center sm:px-4">
+      <div className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[#e4e0e8] bg-white p-4 shadow-xl sm:p-8">
         <h2 className="text-lg font-bold mb-2">Request a Reschedule</h2>
         <div className="text-xs mb-3 text-[#8d7e56] border border-[#f7e3b2] rounded bg-[#fdf6e8] px-2 py-2">
           You can reschedule one class per calendar month at no extra cost.
@@ -212,7 +212,7 @@ function RescheduleModal({ open, onClose }) {
             </button>
           ))}
         </div>
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <button
             className="border border-black/20 px-4 py-2 rounded-full mr-2"
             onClick={onClose}

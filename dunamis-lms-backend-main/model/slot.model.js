@@ -61,6 +61,10 @@ const slotSchema = new mongoose.Schema(
         return this.sessionType === "standard" ? 4 : 1;
       },
     },
+    currentStudentsCount: {
+      type: Number,
+      default: 0,
+    },
     parentAvailabilityId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "teacher.weeklyAvailability",

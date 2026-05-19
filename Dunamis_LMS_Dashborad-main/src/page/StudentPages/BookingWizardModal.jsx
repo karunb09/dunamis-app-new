@@ -58,13 +58,13 @@ export default function BookingWizardModal({
   return (
     <div
       id="book-bg"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 px-3 py-4 backdrop-blur-md sm:items-center sm:px-4"
       style={{ minHeight: "100vh" }}
       onClick={(e) => e.target.id === "book-bg" && onClose()}
     >
       <div
         className="
-          relative mx-auto flex max-h-[95vh] min-h-[auto] w-full
+          relative my-auto flex max-h-[calc(100vh-2rem)] min-h-[auto] w-full
           max-w-xs flex-col items-center overflow-y-auto rounded-2xl
           bg-white px-2 py-3 shadow-2xl transition-all
           sm:max-w-md sm:px-4 sm:py-5 md:max-w-lg md:px-8 md:py-8

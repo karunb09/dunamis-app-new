@@ -121,12 +121,12 @@ const StudentTermsModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 px-4 py-6"
+      className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-4 sm:items-center sm:px-4 sm:py-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="student-terms-title"
     >
-      <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl">
+      <div className="my-auto w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4">
           <div>
             <h3 id="student-terms-title" className="text-xl font-semibold text-gray-900">
@@ -149,7 +149,7 @@ const StudentTermsModal = ({
         <div
           ref={contentRef}
           onScroll={handleScroll}
-          className="max-h-[58vh] space-y-5 overflow-y-auto px-5 py-5 text-sm leading-6 text-gray-700"
+          className="max-h-[52vh] space-y-5 overflow-y-auto px-5 py-5 text-sm leading-6 text-gray-700 sm:max-h-[58vh]"
         >
           <p className="font-medium text-gray-900">
             By signing up as a student, you agree to the following:

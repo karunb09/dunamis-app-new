@@ -99,6 +99,12 @@ require("./cronJobs/generateWeeklySlots.job");
 require("./cronJobs/runAssessmentCycle")
 require("./cronJobs/assignment.cron")
 
+app.post(
+  "/api/v1/enrollment/cashfree-webhook",
+  express.raw({ type: "application/json" }),
+  require("./controller/enrollmentController").handleCashfreeWebhook
+);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors(corsOptions));

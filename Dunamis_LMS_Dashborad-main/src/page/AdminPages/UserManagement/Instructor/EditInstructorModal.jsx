@@ -71,11 +71,11 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
     const coursesText = Array.isArray(form.courses) ? form.courses.join(', ') : '';
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-lg p-6 shadow-xl relative">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-30 px-3 py-4 sm:items-center sm:px-4">
+            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6">
                 <h2 className="text-xl font-semibold mb-4">Edit Instructor Details</h2>
 
-                <div className="mb-5 flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="mb-5 flex flex-col items-start gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center">
                     <img
                         src={currentPicture}
                         alt="Instructor profile"
@@ -142,7 +142,7 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                 </div>
 
                 {/* Actions */}
-                <div className="flex justify-end gap-3 mt-6">
+                <div className="sticky bottom-0 -mx-4 mt-6 flex flex-col-reverse gap-3 bg-white/95 px-4 py-3 sm:static sm:mx-0 sm:flex-row sm:justify-end sm:bg-transparent sm:p-0">
                     <button
                         onClick={onClose}
                         disabled={saving}
