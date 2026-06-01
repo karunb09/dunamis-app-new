@@ -71,6 +71,9 @@ const paymentTransactionSchema = new mongoose.Schema(
       enum: ["Installment", "Full"],
       required: true,
     },
+    // Chosen fixed-duration plan in months (3 / 6 / 12). Null for legacy
+    // transactions that predate tenure plans.
+    planMonths: { type: Number, default: null },
     installmentNo: { type: Number, default: 1 },
     installmentTotal: { type: Number, default: 1 },
     installmentAmount: { type: Number, default: null },

@@ -29,7 +29,8 @@ export default function Step3Professional({
   const { categories, subCategories } = useSelector((state) => state.category);
 
   const [expertiseId, setExpertiseId] = useState("");
-  const [specializationId, setSpecializationId] = useState("");
+  // Multiple specializations can now be selected.
+  const [selectedSpecIds, setSelectedSpecIds] = useState([]);
   const [hasCertificate, setHasCertificate] = useState(
     relevantCertificate ? "Yes" : "No"
   );
@@ -61,7 +62,7 @@ export default function Step3Professional({
     const selectedCategory = visibleCategories.find((category) => category._id === selectedCategoryId);
 
     setExpertiseId(selectedCategoryId);
-    setSpecializationId("");
+    setSelectedSpecIds([]);
     setFormData({
       ...formData,
       areaOfExpertise: selectedCategory?.name || "",
@@ -69,16 +70,22 @@ export default function Step3Professional({
     });
   };
 
-  const handleSpecializationChange = (event) => {
-    const selectedId = event.target.value;
-    const selectedSubCategory = availableSpecializations.find(
-      (subCategory) => subCategory._id === selectedId
-    );
+  const handleToggleSpecialization = (subCategory) => {
+    const isSelected = selectedSpecIds.includes(subCategory._id);
+    const nextIds = isSelected
+      ? selectedSpecIds.filter((id) => id !== subCategory._id)
+      : [...selectedSpecIds, subCategory._id];
 
-    setSpecializationId(selectedId);
+    setSelectedSpecIds(nextIds);
+
+    // Keep formData.specialization as a comma-separated string of names.
+    const names = availableSpecializations
+      .filter((item) => nextIds.includes(item._id))
+      .map((item) => item.name);
+
     setFormData({
       ...formData,
-      specialization: selectedSubCategory?.name || "",
+      specialization: names.join(", "),
     });
   };
 
@@ -101,20 +108,46 @@ export default function Step3Professional({
           ))}
         </SelectInput>
 
-        <SelectInput
-          id="teacher-specialization"
-          label="Specialization"
-          value={specializationId}
-          onChange={handleSpecializationChange}
-          disabled={!expertiseId}
-        >
-          <option value="">Select specialization</option>
-          {availableSpecializations.map((specialization) => (
-            <option key={specialization._id} value={specialization._id}>
-              {specialization.name}
-            </option>
-          ))}
-        </SelectInput>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-gray-700">
+            Specialization{" "}
+            <span className="text-xs font-normal text-gray-400">
+              (select one or more)
+            </span>
+          </label>
+          {!expertiseId ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-400">
+              Select an area of expertise first
+            </div>
+          ) : availableSpecializations.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-400">
+              No specializations available for this expertise
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 p-3">
+              {availableSpecializations.map((specialization) => {
+                const isSelected = selectedSpecIds.includes(specialization._id);
+                return (
+                  <button
+                    key={specialization._id}
+                    type="button"
+                    onClick={() => handleToggleSpecialization(specialization)}
+                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                      isSelected
+                        ? "border-orange-500 bg-orange-500 text-white"
+                        : "border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50"
+                    }`}
+                  >
+                    {specialization.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {errors.specialization ? (
+            <p className="mt-1 text-sm text-red-500">{errors.specialization}</p>
+          ) : null}
+        </div>
 
         <SelectInput
           id="teacher-qualification"

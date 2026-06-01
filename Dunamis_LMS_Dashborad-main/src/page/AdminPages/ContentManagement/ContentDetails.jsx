@@ -16,6 +16,7 @@ import {
 } from "../../../redux/Content/ContentSlice";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
+import BackButton from "../../../components/BackButton";
 
 const ContentDetails = () => {
   const { id } = useParams();
@@ -91,6 +92,7 @@ const ContentDetails = () => {
 
   return (
     <div className="min-h-screen rounded-[2rem] bg-[#f6f3ee] p-4 sm:p-6">
+      <BackButton fallback="/admin/content-management" className="mb-4" />
       {/* Top Action Buttons */}
       <div className="mb-5 overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#181512] via-[#3d3026] to-[#8b5e34] p-6 text-white shadow-lg">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">

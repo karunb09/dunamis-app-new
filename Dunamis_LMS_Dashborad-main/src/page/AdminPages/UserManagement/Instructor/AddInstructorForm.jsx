@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { createTeacher } from "../../../../redux/Intructor/teacherSlice";
+import BackButton from "../../../../components/BackButton";
 
 const getTodayDateString = () => {
   const today = new Date();
@@ -130,6 +131,7 @@ const AddInstructorForm = () => {
 
   return (
     <div className="max-w-7xl mx-auto bg-gray-100 p-6 rounded-xl shadow">
+      <BackButton className="mb-4" />
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-semibold">Add Instructor</h2>

@@ -120,6 +120,7 @@ const AddCoursePage = () => {
                                 discount: p.discount || "",
                                 totalInstallments: resolveInstallments(p),
                                 installments: resolveInstallments(p),
+                                tenurePlans: Array.isArray(p.tenurePlans) ? p.tenurePlans : [],
                             };
                         }
                     });
@@ -286,6 +287,13 @@ const AddCoursePage = () => {
                     installments: parseInt(session.totalInstallments ?? session.installments, 10) || 1,
                     isActive: true,
                     isSelected: type === "standard",
+                    tenurePlans: (Array.isArray(session.tenurePlans) ? session.tenurePlans : []).map((plan) => ({
+                        months: parseInt(plan.months, 10) || 0,
+                        monthlyFee: parseFloat(plan.monthlyFee) || 0,
+                        discount: parseFloat(plan.discount) || 0,
+                        fullPayment: parseFloat(plan.fullPayment) || 0,
+                        isActive: plan.isActive ?? true,
+                    })).filter((plan) => plan.months > 0),
                 })),
             content: Array.isArray(courseData.content) && courseData.content.length > 0
                 ? courseData.content.map(c => c._id || c)

@@ -12,6 +12,7 @@ import {
   getCoursePlaceholderImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
+import { buildTeacherName } from "@/helpers/courseSlots";
 
 function CoursesPageContent() {
   const dispatch = useDispatch();
@@ -127,8 +128,8 @@ function CoursesPageContent() {
           course.certification === "certification"
             ? "Certificate Course"
             : "Regular Course",
-        mentor: course.teacher?.[0]?.teacherDetail?.name
-          ? `${course.teacher[0].teacherDetail.name.firstName} ${course.teacher[0].teacherDetail.name.lastName}`
+        mentor: course.teacher?.[0]
+          ? buildTeacherName(course.teacher[0])
           : "Expert Instructor",
         totalStudents: course.totalStudents || 0,
       };

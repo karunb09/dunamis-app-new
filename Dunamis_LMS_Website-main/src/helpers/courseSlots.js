@@ -60,7 +60,7 @@ const normalizeDays = (days = []) =>
     .map((day) => String(day || "").trim().toLowerCase())
     .filter(Boolean);
 
-const buildTeacherName = (teacher) => {
+export const buildTeacherName = (teacher) => {
   const structuredName =
     teacher?.teacherDetail?.name ||
     teacher?.userId?.name ||
@@ -278,6 +278,8 @@ export const buildInstructorOptions = (
     });
   });
 
+  const hasAssignedTeachers = teacherMeta.size > 0;
+
   (Array.isArray(slots) ? slots : []).forEach((slot) => {
     if (normalizedSlotType && normalizeSlotType(slot?.slotType) !== normalizedSlotType) {
       return;
@@ -287,6 +289,7 @@ export const buildInstructorOptions = (
       slot?.createdBy || slot?.teacherId || slot?.teacher || slot?.instructorId;
     const teacherId = normalizeEntityId(teacherSource);
     if (!teacherId) return;
+    if (hasAssignedTeachers && !teacherMeta.has(teacherId)) return;
 
     const normalizedSlot = buildNormalizedSlot(slot, branchLookup);
     if (!normalizedSlot) return;

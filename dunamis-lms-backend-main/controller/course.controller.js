@@ -37,6 +37,23 @@ const normalizeInstallments = (price = {}) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 };
 
+const normalizeTenurePlans = (plans = []) => {
+  if (!Array.isArray(plans)) return [];
+  return plans
+    .map((plan = {}) => {
+      const months = Number(plan.months);
+      if (!Number.isFinite(months) || months <= 0) return null;
+      return {
+        months,
+        monthlyFee: Number(plan.monthlyFee) || 0,
+        discount: Number(plan.discount) || 0,
+        fullPayment: Number(plan.fullPayment) || 0,
+        isActive: plan.isActive ?? true,
+      };
+    })
+    .filter(Boolean);
+};
+
 const normalizePricePayload = (price = {}) => ({
   sessionType: price.sessionType,
   monthlyFee: Number(price.monthlyFee) || 0,
@@ -45,6 +62,7 @@ const normalizePricePayload = (price = {}) => ({
   isActive: price.isActive ?? true,
   isSelected: price.isSelected ?? true,
   installments: normalizeInstallments(price),
+  tenurePlans: normalizeTenurePlans(price.tenurePlans),
 });
 
 const normalizeIdList = (values = []) => {

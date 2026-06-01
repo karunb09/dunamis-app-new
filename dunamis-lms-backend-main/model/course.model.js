@@ -1,5 +1,34 @@
 const mongoose = require("mongoose");
 
+// A single fixed-duration payment plan (e.g. 3, 6 or 12 months).
+// fullPayment = total payable for the whole tenure after discount.
+// monthlyFee  = per-month amount if the learner pays in installments.
+const tenurePlanSchema = new mongoose.Schema(
+  {
+    months: {
+      type: Number,
+      required: true, // 3, 6, 12, ...
+    },
+    monthlyFee: {
+      type: Number,
+      default: 0,
+    },
+    discount: {
+      type: Number,
+      default: 0,
+    },
+    fullPayment: {
+      type: Number,
+      default: 0,
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { _id: false }
+);
+
 const priceSchema = new mongoose.Schema({
   sessionType: {
     type: String,
@@ -29,6 +58,13 @@ const priceSchema = new mongoose.Schema({
   installments: {
     type: Number,
     default: 1,
+  },
+  // Fixed-duration plans the learner can choose from (3 / 6 / 12 months).
+  // Optional & additive: legacy courses with no tenurePlans keep using the
+  // top-level monthlyFee / fullPayment / installments fields above.
+  tenurePlans: {
+    type: [tenurePlanSchema],
+    default: [],
   },
 });
 

@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { HiUsers, HiClock, HiCheckCircle, HiX } from 'react-icons/hi';
+import { HiUsers, HiClock, HiCheckCircle, HiX, HiArrowLeft } from 'react-icons/hi';
 import { FaUser } from 'react-icons/fa';
 import GroupSessionModal from './GroupSessionModal';
 import IndividualSessionModal from './IndividualSessionModal';
@@ -50,6 +50,7 @@ const normalizeCourseCategory = (course) => {
 export default function EnrollModal({
     isOpen,
     onClose,
+    onBack,
     selection,
     course: initialCourse,
 }) {
@@ -199,6 +200,15 @@ export default function EnrollModal({
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
             <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl bg-white p-4 shadow-lg sm:p-6">
+                {onBack ? (
+                    <button
+                        onClick={onBack}
+                        className="absolute left-3 top-3 inline-flex cursor-pointer items-center gap-1 text-sm font-medium text-gray-500 hover:text-gray-800"
+                        aria-label="Back"
+                    >
+                        <HiArrowLeft /> Back
+                    </button>
+                ) : null}
                 <button
                     onClick={onClose}
                     className="absolute right-3 top-3 cursor-pointer text-xl text-gray-400 hover:text-gray-600"
@@ -207,7 +217,7 @@ export default function EnrollModal({
                     <HiX />
                 </button>
 
-                <h2 className="mb-1 text-center text-2xl font-semibold">
+                <h2 className="mb-1 mt-4 text-center text-2xl font-semibold sm:mt-0">
                     Choose Your Learning Style
                 </h2>
                 <p className="mb-5 text-center text-sm text-gray-600">

@@ -47,12 +47,65 @@ const normalizeMode = (value) => {
 const resolvePlanType = (value) =>
   String(value || "").trim().toLowerCase() === "monthly" ? "monthly" : "full";
 
-const buildPricingForPlan = (course, sessionType, planType) => {
+const findTenurePlan = (selectedPrice, planMonths) => {
+  const months = Number(planMonths);
+  if (!Number.isFinite(months) || months <= 0) return null;
+  const plans = Array.isArray(selectedPrice.tenurePlans)
+    ? selectedPrice.tenurePlans
+    : [];
+  return (
+    plans.find(
+      (p) => Number(p.months) === months && (p.isActive ?? true)
+    ) || null
+  );
+};
+
+// planMonths: optional chosen fixed-duration plan (3 / 6 / 12). When present
+// and the course has a matching active tenure plan, pricing is taken from that
+// plan. Otherwise we fall back to the legacy top-level pricing fields so older
+// courses and existing flows keep working unchanged.
+const buildPricingForPlan = (course, sessionType, planType, planMonths = null) => {
   const selectedPrice = course.price.find((p) => p.sessionType === sessionType);
   if (!selectedPrice) {
     return { error: "Invalid session type" };
   }
 
+  const tenurePlan = findTenurePlan(selectedPrice, planMonths);
+
+  // ---- Fixed-duration tenure plan selected ----
+  if (tenurePlan) {
+    const months = Number(tenurePlan.months) || 1;
+
+    if (planType === "monthly") {
+      const monthly = Number(tenurePlan.monthlyFee);
+      if (!monthly || monthly <= 0) {
+        return { error: "Invalid monthly fee for the selected plan" };
+      }
+      return {
+        selectedPrice,
+        amount: monthly,
+        paymentType: "Installment",
+        planMonths: months,
+        installmentTotal: months,
+        installmentAmount: monthly,
+      };
+    }
+
+    const full = Number(tenurePlan.fullPayment);
+    if (!full || full <= 0) {
+      return { error: "Invalid full payment for the selected plan" };
+    }
+    return {
+      selectedPrice,
+      amount: full,
+      paymentType: "Full",
+      planMonths: months,
+      installmentTotal: 1,
+      installmentAmount: null,
+    };
+  }
+
+  // ---- Legacy fallback (no tenure plan chosen / available) ----
   if (planType === "monthly") {
     const installments = Number(selectedPrice.installments) || 1;
     const amount = Number(selectedPrice.monthlyFee);
@@ -65,6 +118,7 @@ const buildPricingForPlan = (course, sessionType, planType) => {
       selectedPrice,
       amount,
       paymentType: "Installment",
+      planMonths: null,
       installmentTotal: installments,
       installmentAmount: amount,
     };
@@ -79,6 +133,7 @@ const buildPricingForPlan = (course, sessionType, planType) => {
     selectedPrice,
     amount,
     paymentType: "Full",
+    planMonths: null,
     installmentTotal: 1,
     installmentAmount: null,
   };
@@ -331,6 +386,7 @@ const createCashfreeEnrollmentTransaction = async ({
     deliveryMode: context.resolvedMode,
     sessionType: context.slot.sessionType,
     planType,
+    planMonths: pricing.planMonths ?? null,
     paymentType: pricing.paymentType,
     installmentNo,
     installmentTotal: pricing.installmentTotal,
@@ -692,6 +748,7 @@ exports.createOrder = async (req, res) => {
       teacherId,
       slotId,
       planType,
+      planMonths,
       deliveryMode,
       branchId,
     } = req.body;
@@ -726,7 +783,12 @@ exports.createOrder = async (req, res) => {
         .json({ success: false, message: context.error.message });
     }
 
-    const pricing = buildPricingForPlan(context.course, sessionType, resolvedPlanType);
+    const pricing = buildPricingForPlan(
+      context.course,
+      sessionType,
+      resolvedPlanType,
+      planMonths
+    );
     if (pricing.error) {
       return res.status(400).json({ success: false, message: pricing.error });
     }
@@ -1029,7 +1091,7 @@ exports.getEnrolledCourses = async (req, res) => {
 
 exports.generateInstallmentOrders = async (req, res) => {
   try {
-    const { courseId, sessionType, teacherId, slotId, deliveryMode, branchId } = req.body;
+    const { courseId, sessionType, teacherId, slotId, deliveryMode, branchId, planMonths } = req.body;
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
     const userId = new mongoose.Types.ObjectId(req.user.userId);
@@ -1059,7 +1121,7 @@ exports.generateInstallmentOrders = async (req, res) => {
         .json({ success: false, message: context.error.message });
     }
 
-    const pricing = buildPricingForPlan(context.course, sessionType, "monthly");
+    const pricing = buildPricingForPlan(context.course, sessionType, "monthly", planMonths);
     if (pricing.error) {
       return res.status(400).json({ success: false, message: pricing.error });
     }

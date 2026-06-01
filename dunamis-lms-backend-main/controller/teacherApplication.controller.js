@@ -231,7 +231,11 @@ exports.createTeacherApplication = async (req, res) => {
     }
 
     if (specialization) {
-      teacherApplicationData.specilization = specialization.trim();
+      // Accept either a single value or multiple specializations (array or
+      // comma-separated). Stored as a comma-separated string for compatibility.
+      teacherApplicationData.specilization = Array.isArray(specialization)
+        ? specialization.map((item) => String(item).trim()).filter(Boolean).join(", ")
+        : String(specialization).trim();
     }
 
     const teacherApplication = new TeacherApplication(teacherApplicationData);

@@ -9,6 +9,7 @@ import {
   getCoursePlaceholderImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
+import { buildTeacherName } from "@/helpers/courseSlots";
 
 export default function PopularCourses() {
   const dispatch = useDispatch();
@@ -76,12 +77,7 @@ export default function PopularCourses() {
         }
 
         const teacherNames = course.teacher
-          .map(t => {
-            if (t.teacherDetail?.name) {
-              return `${t.teacherDetail.name.firstName} ${t.teacherDetail.name.lastName}`;
-            }
-            return null;
-          })
+          .map((teacher) => buildTeacherName(teacher))
           .filter(Boolean);
 
         if (teacherNames.length === 0) return "Staff";

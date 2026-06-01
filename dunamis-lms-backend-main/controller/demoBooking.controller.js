@@ -231,7 +231,18 @@ exports.bookDemoSlot = async (req, res) => {
       });
     }
 
+    const assignedTeacherIds = Array.isArray(slot.courseId.teacher)
+      ? slot.courseId.teacher.map((teacher) => toIdString(teacher))
+      : [];
+
     const resolvedTeacherId = teacherId || slot.createdBy?._id?.toString();
+    if (!assignedTeacherIds.includes(resolvedTeacherId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Teacher does not teach this course",
+      });
+    }
+
     if (
       !resolvedTeacherId ||
       !slot.createdBy ||

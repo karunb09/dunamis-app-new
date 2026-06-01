@@ -22,6 +22,7 @@ import {
   getInitialsImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
+import { buildTeacherName } from "@/helpers/courseSlots";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
 
@@ -92,9 +93,7 @@ const getInstructorImage = (teacher, courseImage, name) => {
 
 const buildInstructorCards = (courseRecord) =>
   (courseRecord?.teacher || []).map((teacher) => {
-    const name = `${teacher?.teacherDetail?.name?.firstName || ""} ${
-      teacher?.teacherDetail?.name?.lastName || ""
-    }`.trim() || "Instructor";
+    const name = buildTeacherName(teacher);
 
     return {
       id: teacher?._id || teacher?.id,
@@ -923,6 +922,10 @@ export default function CourseDetailPage() {
       <EnrollModal
         isOpen={isEnrollOpen}
         onClose={() => setEnrollOpen(false)}
+        onBack={() => {
+          setEnrollOpen(false);
+          setEnrollTermOpen(true);
+        }}
         course={rawCourse}
         selection={enrollSelection}
       />

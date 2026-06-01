@@ -1,25 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-const DEFAULT_DURATION_MONTHS = 6;
-
-const DEFAULT_PRICING = {
-    standard: {
-        enabled: false,
-        monthlyFee: "",
-        fullPayment: "",
-        discount: "10",
-        totalInstallments: DEFAULT_DURATION_MONTHS,
-        installments: DEFAULT_DURATION_MONTHS,
-    },
-    premium: {
-        enabled: false,
-        monthlyFee: "",
-        fullPayment: "",
-        discount: "10",
-        totalInstallments: DEFAULT_DURATION_MONTHS,
-        installments: DEFAULT_DURATION_MONTHS,
-    },
-};
+// Fixed-duration plans the learner can choose from.
+const TENURE_OPTIONS = [3, 6, 12];
+const DEFAULT_PRIMARY_MONTHS = 6;
+const DEFAULT_DISCOUNT = "10";
 
 const SESSION_ROWS = [
     {
@@ -42,55 +26,102 @@ const toNumber = (value) => {
 const toCurrency = (value) =>
     `₹${Math.round(toNumber(value)).toLocaleString("en-IN")}`;
 
-const getDuration = (session = {}) => {
-    const duration = Number(session.totalInstallments ?? session.installments);
-    return Number.isFinite(duration) && duration > 0
-        ? duration
-        : DEFAULT_DURATION_MONTHS;
+const normalizeDiscount = (value) =>
+    value === "" || value === null || value === undefined
+        ? DEFAULT_DISCOUNT
+        : String(value);
+
+// total payable for the whole tenure after discount
+const planFullPayment = (plan = {}) => {
+    const gross = toNumber(plan.monthlyFee) * toNumber(plan.months);
+    const discountAmount = Math.round((gross * toNumber(plan.discount)) / 100);
+    return Math.max(gross - discountAmount, 0);
 };
 
-const calculateFullCourseFee = (session = {}) =>
-    toNumber(session.monthlyFee) * getDuration(session);
+// Build the three tenure plan rows for a session from either the new
+// tenurePlans array or (for legacy courses) the single duration fields.
+const buildPlans = (session = {}) => {
+    const incoming = Array.isArray(session.tenurePlans) ? session.tenurePlans : [];
+    const legacyDuration = Number(session.totalInstallments ?? session.installments);
 
-const calculateDiscountAmount = (session = {}) =>
-    Math.round((calculateFullCourseFee(session) * toNumber(session.discount)) / 100);
+    return TENURE_OPTIONS.map((months) => {
+        const match = incoming.find((p) => Number(p.months) === months);
+        if (match) {
+            return {
+                months,
+                enabled: match.isActive ?? true,
+                monthlyFee: match.monthlyFee ?? "",
+                discount: normalizeDiscount(match.discount),
+            };
+        }
 
-const calculateFeeAfterDiscount = (session = {}) =>
-    Math.max(calculateFullCourseFee(session) - calculateDiscountAmount(session), 0);
+        // Legacy fallback: seed the matching tenure from the old single-duration fields.
+        if (
+            incoming.length === 0 &&
+            legacyDuration === months &&
+            toNumber(session.monthlyFee) > 0
+        ) {
+            return {
+                months,
+                enabled: true,
+                monthlyFee: session.monthlyFee,
+                discount: normalizeDiscount(session.discount),
+            };
+        }
 
-const normalizeSession = (session = {}, fallback = {}) => {
-    const nextSession = {
-        ...fallback,
-        ...session,
-    };
-    const duration = getDuration(nextSession);
-    const hasFullPayment =
-        nextSession.fullPayment !== "" &&
-        nextSession.fullPayment !== null &&
-        nextSession.fullPayment !== undefined;
+        return { months, enabled: false, monthlyFee: "", discount: DEFAULT_DISCOUNT };
+    });
+};
+
+const activePlans = (plans = []) =>
+    plans.filter((plan) => plan.enabled && toNumber(plan.monthlyFee) > 0);
+
+const primaryPlan = (plans = []) => {
+    const active = activePlans(plans);
+    return (
+        active.find((plan) => plan.months === DEFAULT_PRIMARY_MONTHS) ||
+        active[0] ||
+        null
+    );
+};
+
+// Convert the UI session (with `plans`) into the persisted shape: the new
+// `tenurePlans` array plus the legacy top-level fields derived from the primary
+// plan, so older consumers and validation keep working.
+const toPersistedSession = (session) => {
+    const plans = session.plans || buildPlans(session);
+    const active = activePlans(plans);
+    const primary = primaryPlan(plans);
 
     return {
-        ...nextSession,
-        discount:
-            nextSession.discount === "" ||
-            nextSession.discount === null ||
-            nextSession.discount === undefined
-                ? fallback.discount
-                : nextSession.discount,
-        totalInstallments: duration,
-        installments: duration,
-        fullPayment: hasFullPayment
-            ? nextSession.fullPayment
-            : calculateFeeAfterDiscount({
-                  ...nextSession,
-                  totalInstallments: duration,
-              }) || "",
+        ...session,
+        plans,
+        enabled: Boolean(session.enabled),
+        monthlyFee: primary ? primary.monthlyFee : "",
+        discount: primary ? primary.discount : DEFAULT_DISCOUNT,
+        totalInstallments: primary ? primary.months : DEFAULT_PRIMARY_MONTHS,
+        installments: primary ? primary.months : DEFAULT_PRIMARY_MONTHS,
+        fullPayment: primary ? planFullPayment(primary) : "",
+        tenurePlans: active.map((plan) => ({
+            months: plan.months,
+            monthlyFee: toNumber(plan.monthlyFee),
+            discount: toNumber(plan.discount),
+            fullPayment: planFullPayment(plan),
+            isActive: true,
+        })),
     };
 };
 
+const normalizeSession = (session = {}) =>
+    toPersistedSession({
+        ...session,
+        enabled: Boolean(session.enabled),
+        plans: buildPlans(session),
+    });
+
 const normalizePricing = (pricing) => ({
-    standard: normalizeSession(pricing?.standard, DEFAULT_PRICING.standard),
-    premium: normalizeSession(pricing?.premium, DEFAULT_PRICING.premium),
+    standard: normalizeSession(pricing?.standard),
+    premium: normalizeSession(pricing?.premium),
 });
 
 const PricingForm = ({ pricing: propPricing, setPricing }) => {
@@ -104,16 +135,11 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
         const enabledRows = SESSION_ROWS.filter(
             (row) => sessions[row.type]?.enabled
         );
-
-        const totalAfterDiscount = enabledRows.reduce(
-            (total, row) => total + calculateFeeAfterDiscount(sessions[row.type]),
+        const totalPlans = enabledRows.reduce(
+            (count, row) => count + activePlans(sessions[row.type]?.plans).length,
             0
         );
-
-        return {
-            enabledCount: enabledRows.length,
-            totalAfterDiscount,
-        };
+        return { enabledCount: enabledRows.length, totalPlans };
     }, [sessions]);
 
     const commitSessions = (nextSessions) => {
@@ -121,46 +147,33 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
         setPricing(nextSessions);
     };
 
-    const handleToggle = (type) => {
-        const current = sessions[type] || DEFAULT_PRICING[type];
-        const nextSession = normalizeSession(
-            {
-                ...current,
-                enabled: !current.enabled,
-            },
-            DEFAULT_PRICING[type]
-        );
-
+    const handleToggleSession = (type) => {
+        const current = sessions[type];
         commitSessions({
             ...sessions,
-            [type]: {
-                ...nextSession,
-                fullPayment: calculateFeeAfterDiscount(nextSession) || "",
-            },
+            [type]: toPersistedSession({ ...current, enabled: !current.enabled }),
         });
     };
 
-    const handleChange = (type, field, value) => {
-        const current = sessions[type] || DEFAULT_PRICING[type];
-        const patch =
-            field === "totalInstallments"
-                ? { totalInstallments: value, installments: value }
-                : { [field]: value };
-        const nextSession = normalizeSession(
-            {
-                ...current,
-                ...patch,
-            },
-            DEFAULT_PRICING[type]
+    const handlePlanToggle = (type, months) => {
+        const current = sessions[type];
+        const plans = current.plans.map((plan) =>
+            plan.months === months ? { ...plan, enabled: !plan.enabled } : plan
         );
-        const nextFullPayment = calculateFeeAfterDiscount(nextSession);
-
         commitSessions({
             ...sessions,
-            [type]: {
-                ...nextSession,
-                fullPayment: nextFullPayment || "",
-            },
+            [type]: toPersistedSession({ ...current, plans }),
+        });
+    };
+
+    const handlePlanChange = (type, months, field, value) => {
+        const current = sessions[type];
+        const plans = current.plans.map((plan) =>
+            plan.months === months ? { ...plan, [field]: value } : plan
+        );
+        commitSessions({
+            ...sessions,
+            [type]: toPersistedSession({ ...current, plans }),
         });
     };
 
@@ -176,11 +189,12 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                                 Course fees model
                             </p>
                             <h3 className="mt-3 text-3xl font-semibold tracking-tight">
-                                Build pricing from monthly fee, duration, and discount.
+                                Offer 3, 6 and 12-month plans.
                             </h3>
                             <p className="mt-3 max-w-2xl text-sm leading-6 text-white/70">
-                                The final course fee is calculated automatically and saved as
-                                the full payment amount students will see during enrollment.
+                                Set a monthly fee and discount for each duration you want to
+                                offer. Learners pick a plan at enrollment and the full amount is
+                                calculated automatically.
                             </p>
                         </div>
 
@@ -193,13 +207,9 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                             </div>
                             <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
-                                    Final total
+                                    Plans live
                                 </p>
-                                <p className="mt-2 text-2xl font-semibold">
-                                    {summary.totalAfterDiscount
-                                        ? toCurrency(summary.totalAfterDiscount)
-                                        : "-"}
-                                </p>
+                                <p className="mt-2 text-3xl font-semibold">{summary.totalPlans}</p>
                             </div>
                         </div>
                     </div>
@@ -208,12 +218,8 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
 
             <div className="grid gap-5 xl:grid-cols-2">
                 {SESSION_ROWS.map((row) => {
-                    const session = sessions[row.type] || DEFAULT_PRICING[row.type];
+                    const session = sessions[row.type];
                     const isEnabled = Boolean(session.enabled);
-                    const duration = getDuration(session);
-                    const fullCourseFee = calculateFullCourseFee(session);
-                    const discountAmount = calculateDiscountAmount(session);
-                    const feeAfterDiscount = calculateFeeAfterDiscount(session);
 
                     return (
                         <article
@@ -237,7 +243,7 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
 
                                 <button
                                     type="button"
-                                    onClick={() => handleToggle(row.type)}
+                                    onClick={() => handleToggleSession(row.type)}
                                     className={`inline-flex items-center gap-3 rounded-full px-3 py-2 text-sm font-semibold transition ${
                                         isEnabled
                                             ? "bg-slate-950 text-white"
@@ -255,126 +261,124 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                                 </button>
                             </div>
 
-                            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                                <label className="block">
-                                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                                        Duration {isEnabled && <span className="text-red-500">*</span>}
-                                    </span>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            required={isEnabled}
-                                            disabled={!isEnabled}
-                                            value={session.totalInstallments ?? session.installments ?? ""}
-                                            onChange={(event) =>
-                                                handleChange(row.type, "totalInstallments", event.target.value)
-                                            }
-                                            className={`w-full rounded-2xl border px-4 py-3 pr-16 text-sm font-semibold outline-none transition ${
-                                                isEnabled
-                                                    ? "border-slate-200 bg-white text-slate-950 focus:border-orange-400 focus:ring-4 focus:ring-orange-50"
-                                                    : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                                            }`}
-                                        />
-                                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-400">
-                                            months
-                                        </span>
-                                    </div>
-                                </label>
+                            <div className="mt-6 space-y-4">
+                                {session.plans.map((plan) => {
+                                    const planEnabled = isEnabled && plan.enabled;
+                                    const fullPayment = planFullPayment(plan);
+                                    const gross = toNumber(plan.monthlyFee) * plan.months;
 
-                                <label className="block">
-                                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                                        Monthly Fee {isEnabled && <span className="text-red-500">*</span>}
-                                    </span>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                                            ₹
-                                        </span>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            step="1"
-                                            required={isEnabled}
-                                            disabled={!isEnabled}
-                                            value={session.monthlyFee}
-                                            onChange={(event) =>
-                                                handleChange(row.type, "monthlyFee", event.target.value)
-                                            }
-                                            className={`w-full rounded-2xl border py-3 pl-8 pr-4 text-sm font-semibold outline-none transition ${
-                                                isEnabled
-                                                    ? "border-slate-200 bg-white text-slate-950 focus:border-orange-400 focus:ring-4 focus:ring-orange-50"
-                                                    : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+                                    return (
+                                        <div
+                                            key={plan.months}
+                                            className={`rounded-[24px] border p-4 transition ${
+                                                planEnabled
+                                                    ? "border-orange-200 bg-orange-50/40"
+                                                    : "border-slate-200 bg-slate-50"
                                             }`}
-                                        />
-                                    </div>
-                                </label>
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-sm font-bold text-white">
+                                                        {plan.months}
+                                                    </span>
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-900">
+                                                            {plan.months}-month plan
+                                                        </p>
+                                                        <p className="text-xs text-slate-500">
+                                                            {planEnabled && fullPayment
+                                                                ? `${toCurrency(fullPayment)} total`
+                                                                : "Not offered"}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                <label className="block">
-                                    <span className="mb-2 block text-sm font-medium text-slate-700">
-                                        Discount
-                                    </span>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            step="1"
-                                            disabled={!isEnabled}
-                                            value={session.discount}
-                                            onChange={(event) =>
-                                                handleChange(row.type, "discount", event.target.value)
-                                            }
-                                            className={`w-full rounded-2xl border px-4 py-3 pr-10 text-sm font-semibold outline-none transition ${
-                                                isEnabled
-                                                    ? "border-slate-200 bg-white text-slate-950 focus:border-orange-400 focus:ring-4 focus:ring-orange-50"
-                                                    : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-                                            }`}
-                                        />
-                                        <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
-                                            %
-                                        </span>
-                                    </div>
-                                </label>
-                            </div>
+                                                <button
+                                                    type="button"
+                                                    disabled={!isEnabled}
+                                                    onClick={() => handlePlanToggle(row.type, plan.months)}
+                                                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                                        planEnabled
+                                                            ? "bg-orange-500 text-white"
+                                                            : "bg-white text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100"
+                                                    } ${!isEnabled ? "cursor-not-allowed opacity-50" : ""}`}
+                                                >
+                                                    {planEnabled ? "Offered" : "Add plan"}
+                                                </button>
+                                            </div>
 
-                            <div className="mt-6 rounded-[26px] border border-slate-200 bg-slate-50 p-4">
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                            Full course fee
-                                        </p>
-                                        <p className="mt-2 text-lg font-semibold text-slate-950">
-                                            {fullCourseFee ? toCurrency(fullCourseFee) : "-"}
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            {duration} x monthly fee
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                            Discount
-                                        </p>
-                                        <p className="mt-2 text-lg font-semibold text-slate-950">
-                                            {discountAmount ? toCurrency(discountAmount) : "-"}
-                                        </p>
-                                        <p className="mt-1 text-xs text-slate-500">
-                                            {toNumber(session.discount)}% off
-                                        </p>
-                                    </div>
-                                    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-                                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
-                                            Fee after discount
-                                        </p>
-                                        <p className="mt-2 text-2xl font-bold text-slate-950">
-                                            {feeAfterDiscount ? toCurrency(feeAfterDiscount) : "-"}
-                                        </p>
-                                        <input
-                                            type="hidden"
-                                            value={session.fullPayment || ""}
-                                            readOnly
-                                        />
-                                    </div>
-                                </div>
+                                            {planEnabled && (
+                                                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                            Monthly Fee <span className="text-red-500">*</span>
+                                                        </span>
+                                                        <div className="relative">
+                                                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                                                                ₹
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                step="1"
+                                                                required
+                                                                value={plan.monthlyFee}
+                                                                onChange={(event) =>
+                                                                    handlePlanChange(
+                                                                        row.type,
+                                                                        plan.months,
+                                                                        "monthlyFee",
+                                                                        event.target.value
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-7 pr-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-50"
+                                                            />
+                                                        </div>
+                                                    </label>
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                            Discount
+                                                        </span>
+                                                        <div className="relative">
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                step="1"
+                                                                value={plan.discount}
+                                                                onChange={(event) =>
+                                                                    handlePlanChange(
+                                                                        row.type,
+                                                                        plan.months,
+                                                                        "discount",
+                                                                        event.target.value
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 pr-8 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-4 focus:ring-orange-50"
+                                                            />
+                                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                                                                %
+                                                            </span>
+                                                        </div>
+                                                    </label>
+
+                                                    <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+                                                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-500">
+                                                            Total after discount
+                                                        </p>
+                                                        <p className="mt-1 text-lg font-bold text-slate-950">
+                                                            {fullPayment ? toCurrency(fullPayment) : "-"}
+                                                        </p>
+                                                        <p className="mt-0.5 text-[11px] text-slate-500">
+                                                            {gross ? `${toCurrency(gross)} before discount` : ""}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </article>
                     );
@@ -383,8 +387,9 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-5 text-sm leading-6 text-slate-500 shadow-sm">
                 <span className="font-semibold text-slate-900">Pricing rule:</span>{" "}
-                full course fee = monthly fee x duration. The saved full payment
-                amount is the calculated fee after discount.
+                each plan total = monthly fee x months, minus the discount. Learners
+                choose a plan (3 / 6 / 12 months) at enrollment; the 6-month plan is
+                used as the headline price where a single figure is shown.
             </div>
         </div>
     );

@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { toast } from "react-hot-toast";
 import { FaUpload, FaSave, FaPaperPlane, FaTimes } from "react-icons/fa";
 import { createNotice, sendNotice } from "../../../redux/AdminNotice/AdminNoticeSlice";
+import BackButton from "../../../components/BackButton";
 
 const CreateUpdateForm = () => {
   const navigate = useNavigate();
@@ -177,6 +178,7 @@ const CreateUpdateForm = () => {
 
   return (
     <div className="p-6 bg-white min-h-screen">
+      <BackButton className="mb-4" />
       <h2 className="text-xl font-semibold mb-6">Create Update</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

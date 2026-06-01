@@ -11,6 +11,7 @@ import { X } from "react-feather";
 import { FileDoc, FilePdf, FileVideo } from "phosphor-react";
 import { FaTrash } from "react-icons/fa";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+import BackButton from "../../../../components/BackButton";
 
 const resolveAssetUrl = (path) => resolveImageUrl(path, "");
 
@@ -175,6 +176,7 @@ const ApplicationDetails = () => {
 
     return (
         <div className="max-w-7xl mx-auto p-4">
+            <BackButton className="mb-4" />
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-2xl font-semibold">Application Details</h2>
                 <button

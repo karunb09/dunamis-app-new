@@ -311,8 +311,32 @@ exports.getAvailableSlots = async (req, res) => {
       },
     };
 
-    if (courseId) query.courseId = courseId;
-    if (teacherId) query.createdBy = teacherId;
+    if (courseId) {
+      const course = await Course.findById(courseId).select("teacher");
+      if (!course) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Course not found" });
+      }
+
+      const assignedTeacherIds = Array.isArray(course.teacher)
+        ? course.teacher.map((id) => id.toString())
+        : [];
+
+      if (teacherId && !assignedTeacherIds.includes(teacherId)) {
+        return res.status(200).json({
+          success: true,
+          message: "Available slots fetched successfully",
+          slots: [],
+        });
+      }
+
+      query.courseId = courseId;
+      query.createdBy = teacherId || { $in: assignedTeacherIds };
+    } else if (teacherId) {
+      query.createdBy = teacherId;
+    }
+
     if (sessionType) query.sessionType = sessionType;
     if (slotType) query.slotType = slotType;
     if (branchId) query.branchId = branchId;
@@ -346,10 +370,12 @@ exports.getAvailableSlots = async (req, res) => {
       if (teacherId) {
         teacherIds = [teacherId];
       } else if (courseId) {
-        const course = await Course.findById(courseId).select("teacher");
-        teacherIds = Array.isArray(course?.teacher)
-          ? course.teacher.map((id) => id.toString())
-          : [];
+        const createdByFilter = query.createdBy;
+        teacherIds = Array.isArray(createdByFilter?.$in)
+          ? createdByFilter.$in
+          : createdByFilter
+            ? [createdByFilter]
+            : [];
       }
 
       for (const currentTeacherId of teacherIds) {

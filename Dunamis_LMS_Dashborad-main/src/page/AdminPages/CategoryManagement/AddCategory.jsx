@@ -9,6 +9,7 @@ import {
 import CategoryForm from "./CategoryForm";
 import { createSubCategory } from "../../../redux/SubCategory/SubCategorySlice";
 import toast from "react-hot-toast";
+import BackButton from "../../../components/BackButton";
 
 const AddCategory = () => {
   const navigate = useNavigate();
@@ -175,6 +176,7 @@ const AddCategory = () => {
 
   return (
     <div className="max-w-7xl mx-auto bg-gray-100 p-6 rounded-xl shadow">
+      <BackButton fallback="/admin/category-management" className="mb-4" />
       <h2 className="text-lg font-semibold mb-6">
         {editingCategory ? "Edit Category" : "Add New Category"}
       </h2>

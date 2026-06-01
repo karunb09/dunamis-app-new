@@ -10,6 +10,7 @@ import TermsAndConditions from "./components/TermsAndConditions";
 import SignInNavbar from "./components/signInNavbar";
 import { PublicOnlyRoute, RequireAuth } from "./components/auth/AuthGuard";
 import { hydrateSession } from "./redux/authSlice";
+import { pushPath } from "./utils/navHistory";
 
 // Hot Toast
 import { Toaster } from "react-hot-toast";
@@ -75,6 +76,12 @@ const App = () => {
   useEffect(() => {
     dispatch(hydrateSession());
   }, [dispatch]);
+
+  // Track visited routes in localStorage so the shared BackButton can return
+  // to the previous screen even after a hard reload.
+  useEffect(() => {
+    pushPath(`${location.pathname}${location.search}`);
+  }, [location.pathname, location.search]);
 
   if (location.pathname === "/" || location.pathname === "/terms") {
     return (

@@ -97,6 +97,7 @@ export default function PaymentConfirmation() {
 
   const selectedSessionType = sel?.sessionType || sel?.slot?.sessionType || null;
   const planType = sel?.planType || null;
+  const planMonths = sel?.planMonths ?? null;
   const courseName = sel?.courseName || null;
   const category = sel?.category || null;
   const duration = sel?.duration || null;
@@ -153,7 +154,10 @@ export default function PaymentConfirmation() {
     return resolveImageUrl(courseImageParam, '');
   }, [courseImageParam]);
 
-  const handleBackToCourse = () => router.push('/courses');
+  // Return to the specific course so the saved selection (instructor / slot /
+  // plan) can be resumed, instead of dropping the user on the courses list.
+  const handleBackToCourse = () =>
+    router.push(courseId ? `/courses/${courseId}` : '/courses');
 
   const submitPayment = async (account = user) => {
     if (String(account?.accountType || '').toLowerCase() !== 'student') {
@@ -186,6 +190,7 @@ export default function PaymentConfirmation() {
       courseId: courseId,
       sessionType: selectedSessionType,
       planType,
+      planMonths,
       teacherId: instructorId,
       slotId: slot.slotId,
       deliveryMode,
