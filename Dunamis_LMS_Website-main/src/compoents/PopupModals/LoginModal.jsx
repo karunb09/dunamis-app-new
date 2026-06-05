@@ -4,13 +4,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import toast from 'react-hot-toast';
 import { login, logoutSession } from '@/store/authSlice';
 import {
     getPortalForAccountType,
     getPortalLabel,
     getRoleDestination,
-    navigateToRoleDestination,
 } from '@/lib/roleRouting';
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
 
@@ -19,6 +17,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const router = useRouter();
     const { loading, error } = useSelector((s) => s.auth);
     const [showPassword, setShowPassword] = useState(false);
+    const [staffPortalNotice, setStaffPortalNotice] = useState(null);
     if (!open) return null;
 
     const signupHref = nextHref
@@ -37,9 +36,11 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
             const destination = getRoleDestination(accountType);
 
             if (actualPortal && actualPortal !== 'student') {
-                toast.error(`This account is registered as ${getPortalLabel(actualPortal)}. Please sign in from the staff portal.`);
                 await dispatch(logoutSession());
-                navigateToRoleDestination(router, destination);
+                setStaffPortalNotice({
+                    portalLabel: getPortalLabel(actualPortal),
+                    href: destination,
+                });
                 return;
             }
 
@@ -91,10 +92,35 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                         </div>
 
                         <div className="p-5 sm:p-8">
-                            <h3 className="text-2xl font-semibold text-gray-900">Student sign in</h3>
-                            <p className="mt-1 text-sm text-gray-500">Use this form for student accounts only. Instructors and admins should use the Staff Portal.</p>
+                            {staffPortalNotice ? (
+                                <div className="flex min-h-[440px] flex-col justify-center text-center">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">Staff Portal Required</p>
+                                    <h3 className="mt-3 text-2xl font-semibold text-gray-900">Use the dashboard to sign in</h3>
+                                    <p className="mt-3 text-sm leading-6 text-gray-500">
+                                        This email belongs to a {staffPortalNotice.portalLabel} account. Admins and instructors sign in from the Staff Portal, not the student website.
+                                    </p>
+                                    <div className="mt-6 grid gap-3">
+                                        <a
+                                            href={staffPortalNotice.href}
+                                            className="inline-flex items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700"
+                                        >
+                                            Open Staff Portal
+                                        </a>
+                                        <button
+                                            type="button"
+                                            onClick={() => setStaffPortalNotice(null)}
+                                            className="inline-flex items-center justify-center rounded-full border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                                        >
+                                            Try another student account
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <h3 className="text-2xl font-semibold text-gray-900">Student sign in</h3>
+                                    <p className="mt-1 text-sm text-gray-500">Use this form for student accounts only. Instructors and admins should use the Staff Portal.</p>
 
-                            <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+                                    <form onSubmit={handleSubmit} className="mt-6 space-y-5">
                                 <div>
                                     <label className="mb-2 block text-sm font-medium text-gray-700">Email address</label>
                                     <div className="relative">
@@ -172,7 +198,9 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                 </p>
 
                                 <p className="text-center text-xs text-gray-500">By continuing you agree to our Terms and Privacy Policy.</p>
-                            </form>
+                                    </form>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

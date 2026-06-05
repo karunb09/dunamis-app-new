@@ -4,8 +4,10 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import StudentShell from "@/components/student/StudentShell";
 import { getWebsiteToken } from "@/lib/authSession";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+// Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
+const BASE_URL = API_BASE;
 
 export default function StudentUploadPage() {
   const [assignmentId, setAssignmentId] = useState("");

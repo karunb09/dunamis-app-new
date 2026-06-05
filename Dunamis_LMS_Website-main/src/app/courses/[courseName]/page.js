@@ -6,7 +6,6 @@ import { motion } from "framer-motion";
 import { Clock, Users } from "lucide-react";
 import BookDemoModal from "@/compoents/PopupModals/BookDemoModal";
 import EnrollTerm from "@/compoents/PopupModals/EnrollTerms";
-import EnrollModal from "@/compoents/PopupModals/EnrollModal";
 import LoginModal from "@/compoents/PopupModals/LoginModal";
 import { IoMdStar } from "react-icons/io";
 import toast from "react-hot-toast";
@@ -24,6 +23,8 @@ import {
 } from "@/lib/resolveImageUrl";
 import { buildTeacherName } from "@/helpers/courseSlots";
 
+// Public course read; stays direct. Auth state comes from the store (seeded from
+// the httpOnly session cookie), not from localStorage.
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
 
 const buildCurriculum = (contentItems = []) => {
@@ -123,45 +124,91 @@ const buildInstructorCards = (courseRecord) =>
 
 const mapFeeStructure = (price, type = "monthly") => {
   const sessionType = price?.sessionType || "standard";
+  const sessionLabel = sessionType === "premium" ? "Individual" : "Group";
+  const mentorshipFeature =
+    sessionType === "premium" ? "1-on-1 mentorship" : "Group mentorship";
 
-  if (type === "monthly") {
-    return {
-      plan: sessionType.charAt(0).toUpperCase() + sessionType.slice(1),
-      price: `₹${price?.monthlyFee || 0}/month`,
-      originalPrice: price?.installments
-        ? `₹${(price?.monthlyFee || 0) * price.installments}`
-        : null,
-      features: [
-        "Full course access",
-        "Live sessions",
-        sessionType === "premium"
-          ? "1-on-1 mentorship"
-          : "Group mentorship",
-        price?.discount > 0
-          ? `${price.discount}% discount on full payment`
-          : "Flexible payment",
-        "Certificate upon completion",
-      ],
-    };
+  // Use tenurePlans when available (new courses); fall back to legacy single-price fields.
+  const tenurePlans = Array.isArray(price?.tenurePlans)
+    ? price.tenurePlans.filter(
+        (p) =>
+          p.isActive !== false &&
+          (Number(p.monthlyFee) > 0 || Number(p.fullPayment) > 0)
+      )
+    : [];
+
+  if (tenurePlans.length > 0) {
+    return tenurePlans.map((plan) => {
+      const pct = Number(plan.discount) || 0;
+
+      if (type === "monthly") {
+        return {
+          plan: `${sessionLabel} · ${plan.months}-month`,
+          price: `₹${plan.monthlyFee || 0}/month`,
+          features: [
+            "Full course access",
+            "Live sessions",
+            mentorshipFeature,
+            pct > 0 ? `${pct}% off on full payment` : "Flexible payment",
+            "Certificate upon completion",
+          ],
+        };
+      }
+
+      return {
+        plan: `${sessionLabel} · ${plan.months}-month`,
+        // Show percentage only — don't repeat the ₹ amount already visible in monthly card.
+        price: pct > 0 ? `Save ${pct}%` : "One-time",
+        features: [
+          "Full course access",
+          "All course materials",
+          pct > 0
+            ? `Pay ₹${plan.fullPayment || 0} one-time (${pct}% off)`
+            : `₹${plan.fullPayment || 0} one-time`,
+          "Lifetime access",
+          sessionType === "premium" ? "Priority support" : "Standard support",
+          "Certificate upon completion",
+        ],
+      };
+    });
   }
 
-  return {
-    plan: sessionType.charAt(0).toUpperCase() + sessionType.slice(1),
-    price: `₹${price?.fullPayment || 0}`,
-    savings:
-      price?.discount > 0 && price?.installments
-        ? Math.round((price?.monthlyFee || 0) * price.installments - (price?.fullPayment || 0))
-        : null,
-    discount: price?.discount || 0,
-    features: [
-      "Full course access",
-      "All course materials",
-      price?.discount > 0 ? `Save ${price.discount}%` : "One-time payment",
-      "Lifetime access",
-      sessionType === "premium" ? "Priority support" : "Standard support",
-      "Certificate upon completion",
-    ],
-  };
+  // Legacy single-price fallback.
+  if (type === "monthly") {
+    return [
+      {
+        plan: sessionLabel,
+        price: `₹${price?.monthlyFee || 0}/month`,
+        features: [
+          "Full course access",
+          "Live sessions",
+          mentorshipFeature,
+          price?.discount > 0
+            ? `${price.discount}% discount on full payment`
+            : "Flexible payment",
+          "Certificate upon completion",
+        ],
+      },
+    ];
+  }
+
+  const pct = Number(price?.discount) || 0;
+  return [
+    {
+      plan: sessionLabel,
+      price: pct > 0 ? `Save ${pct}%` : "One-time",
+      features: [
+        "Full course access",
+        "All course materials",
+        pct > 0
+          ? `Pay ₹${price?.fullPayment || 0} one-time (${pct}% off)`
+          : `₹${price?.fullPayment || 0} one-time`,
+        "Lifetime access",
+        sessionType === "premium" ? "Priority support" : "Standard support",
+        "Certificate upon completion",
+      ],
+    },
+  ];
 };
 
 const transformCourseData = (courseRecord, courseFallbackImage) => {
@@ -213,11 +260,11 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
       monthly:
         courseRecord?.price
           ?.filter((price) => price?.isActive !== false)
-          .map((price) => mapFeeStructure(price, "monthly")) || [],
+          .flatMap((price) => mapFeeStructure(price, "monthly")) || [],
       full:
         courseRecord?.price
           ?.filter((price) => price?.isActive !== false)
-          .map((price) => mapFeeStructure(price, "full")) || [],
+          .flatMap((price) => mapFeeStructure(price, "full")) || [],
     },
     branches: courseRecord?.branches || [],
     branchCount: courseRecord?.branchCount || 0,
@@ -233,10 +280,8 @@ export default function CourseDetailPage() {
   const { courseName } = useParams();
 
   const [isEnrollTermOpen, setEnrollTermOpen] = useState(false);
-  const [isEnrollOpen, setEnrollOpen] = useState(false);
   const [isBookDemoOpen, setBookDemoOpen] = useState(false);
   const [isLoginOpen, setLoginOpen] = useState(false);
-  const [enrollSelection, setEnrollSelection] = useState(null);
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
@@ -248,10 +293,7 @@ export default function CourseDetailPage() {
   const [rawCourse, setRawCourse] = useState(null);
   const courseFallbackImage = getCoursePlaceholderImage();
 
-  const hasActiveAuth = () => {
-    if (typeof window === "undefined") return Boolean(token);
-    return Boolean(token || window.localStorage.getItem("auth_token"));
-  };
+  const hasActiveAuth = () => Boolean(token);
 
   const isStudentAccount = (account = user) =>
     String(account?.accountType || "").toLowerCase() === "student";
@@ -912,22 +954,6 @@ export default function CourseDetailPage() {
         onClose={() => setEnrollTermOpen(false)}
         course={rawCourse}
         preferredInstructorId={preferredInstructorId}
-        onNext={(selection) => {
-          setEnrollSelection(selection);
-          setEnrollTermOpen(false);
-          setEnrollOpen(true);
-        }}
-      />
-
-      <EnrollModal
-        isOpen={isEnrollOpen}
-        onClose={() => setEnrollOpen(false)}
-        onBack={() => {
-          setEnrollOpen(false);
-          setEnrollTermOpen(true);
-        }}
-        course={rawCourse}
-        selection={enrollSelection}
       />
 
       <BookDemoModal

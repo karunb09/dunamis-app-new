@@ -49,8 +49,8 @@ const buildPlans = (session = {}) => {
         if (match) {
             return {
                 months,
-                enabled: match.isActive ?? true,
-                monthlyFee: match.monthlyFee ?? "",
+                enabled: true,
+                monthlyFee: match.monthlyFee != null ? String(match.monthlyFee || "") : "",
                 discount: normalizeDiscount(match.discount),
             };
         }
@@ -102,13 +102,15 @@ const toPersistedSession = (session) => {
         totalInstallments: primary ? primary.months : DEFAULT_PRIMARY_MONTHS,
         installments: primary ? primary.months : DEFAULT_PRIMARY_MONTHS,
         fullPayment: primary ? planFullPayment(primary) : "",
-        tenurePlans: active.map((plan) => ({
-            months: plan.months,
-            monthlyFee: toNumber(plan.monthlyFee),
-            discount: toNumber(plan.discount),
-            fullPayment: planFullPayment(plan),
-            isActive: true,
-        })),
+        tenurePlans: plans
+            .filter((plan) => plan.enabled)
+            .map((plan) => ({
+                months: plan.months,
+                monthlyFee: toNumber(plan.monthlyFee),
+                discount: toNumber(plan.discount),
+                fullPayment: planFullPayment(plan),
+                isActive: toNumber(plan.monthlyFee) > 0,
+            })),
     };
 };
 

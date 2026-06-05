@@ -2,11 +2,10 @@ const jwt = require("jsonwebtoken");
 
 exports.isAuth = async (req, res, next) => {
   try {
-    const token =
-      req.cookies?.token ||
-      req.body?.token ||
-      req.headers.authorization?.replace(/^\s*\w+\s+/, "").trim() ||
-      req.headers.authorization?.split(" ")[1];
+    const headerToken = req.headers.authorization
+      ?.replace(/^\s*\w+\s+/, "")
+      .trim();
+    const token = headerToken || req.body?.token || req.cookies?.token;
 
     if (!token) {
       return res.status(401).json({

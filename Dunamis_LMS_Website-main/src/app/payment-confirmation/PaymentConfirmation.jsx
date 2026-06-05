@@ -41,8 +41,8 @@ export default function PaymentConfirmation() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const t = token || localStorage.getItem('auth_token');
-    setHasToken(Boolean(t));
+    // Auth comes from the store (seeded from the httpOnly session cookie).
+    setHasToken(Boolean(token));
   }, [token]);
 
   useEffect(() => {
@@ -82,7 +82,9 @@ export default function PaymentConfirmation() {
         clearEnrollmentResume();
         setReturnVerificationStatus(
           result.payload?.transactionStatus === 'paid_pending_fulfillment'
-            ? 'pending_fulfillment'
+            ? result.payload?.courseAccessGranted
+              ? 'pending_fulfillment'
+              : 'failed'
             : 'success'
         );
       } else {
@@ -126,9 +128,11 @@ export default function PaymentConfirmation() {
       if (!Number.isFinite(fee) || fee <= 0) return { error: 'Invalid monthlyFee amount.' };
       return {
         courseFee: fee,
-        planName: 'Monthly Plan',
-        planDuration: '1 month',
-        billingText: 'Billed monthly • Cancel anytime',
+        planName: planMonths ? `${planMonths}-Month Plan` : 'Monthly Plan',
+        planDuration: planMonths ? `${planMonths} months` : '1 month',
+        billingText: planMonths
+          ? `Paid monthly over ${planMonths} months`
+          : 'Billed monthly • Cancel anytime',
       };
     }
 
@@ -141,8 +145,8 @@ export default function PaymentConfirmation() {
     const savings = mrp ? mrp - fee : null;
     return {
       courseFee: fee,
-      planName: 'Full Course Plan',
-      planDuration: 'full',
+      planName: planMonths ? `${planMonths}-Month Plan` : 'Full Course Plan',
+      planDuration: planMonths ? `${planMonths} months` : 'Full course',
       billingText: hasPct ? `One-time payment • Save ${pct}%` : 'One-time payment',
       mrp,
       savings,
@@ -251,8 +255,13 @@ export default function PaymentConfirmation() {
 
     if (verifyEnrollmentPayment.fulfilled.match(result)) {
       if (result.payload?.transactionStatus === 'paid_pending_fulfillment') {
-        alert(result.payload?.message || 'Payment verified, but enrollment needs support assistance.');
+        alert(result.payload?.message || 'Payment verified. Support will review your slot assignment.');
         setPayOpen(false);
+        if (result.payload?.courseAccessGranted) {
+          clearEnrollSelection();
+          clearEnrollmentResume();
+          router.push('/student/my-courses');
+        }
         return;
       }
 
@@ -311,8 +320,14 @@ export default function PaymentConfirmation() {
             </>
           ) : returnVerificationStatus === 'pending_fulfillment' ? (
             <>
-              <p className="mt-4 text-gray-600">Your payment is verified, but enrollment needs support assistance before your course appears.</p>
+              <p className="mt-4 text-gray-600">Your payment is verified and course access is enabled. Support will review your slot assignment.</p>
               <p className="mt-3 break-all rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-500">{returnOrderId}</p>
+              <button
+                onClick={() => router.push('/student/my-courses')}
+                className="mt-6 rounded-full bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600"
+              >
+                Go to My Courses
+              </button>
             </>
           ) : returnVerificationStatus === 'failed' ? (
             <>

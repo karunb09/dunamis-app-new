@@ -4,9 +4,11 @@ import "./globals.css";
 import Navigation from "@/compoents/Navigation";
 import MobileBottomNav from "@/compoents/MobileBottomNav";
 import RouteProgress from "@/compoents/RouteProgress";
+import ScrollProgressBar from "@/compoents/ScrollProgressBar";
 import Footer from "@/compoents/Footer";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
+import { readServerAuth } from "@/lib/serverAuth";
 import {
   SITE_URL,
   SITE_NAME,
@@ -92,7 +94,9 @@ const websiteJsonLd = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const initialAuth = await readServerAuth();
+
   return (
     <html lang="en">
       <body
@@ -106,11 +110,12 @@ export default function RootLayout({ children }) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
+        <ScrollProgressBar />
         <Suspense fallback={null}>
           <RouteProgress />
         </Suspense>
         <Toaster />
-        <Providers>
+        <Providers initialAuth={initialAuth}>
           <Navigation />
           {/* pb-16 on mobile keeps content clear of the bottom nav bar */}
           <main className="flex-grow pb-16 md:pb-0">{children}</main>

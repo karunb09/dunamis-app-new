@@ -116,6 +116,7 @@ const paymentTransactionSchema = new mongoose.Schema(
     paidAt: { type: Date, default: null },
     failedAt: { type: Date, default: null },
     fulfilledAt: { type: Date, default: null },
+    notificationsSentAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
   },
   { timestamps: true }

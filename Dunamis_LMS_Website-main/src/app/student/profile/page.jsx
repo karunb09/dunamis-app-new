@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaPhone, FaTimes, FaUser } from "react-icons/fa";
 import StudentShell from "@/components/student/StudentShell";
+import PaymentModal from "@/compoents/PopupModals/PaymentModal";
 import { getWebsiteToken, getWebsiteUser } from "@/lib/authSession";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { updateAuthUser } from "@/store/authSlice";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+// Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
+const BASE_URL = API_BASE;
 
 const getNameText = (user) => {
   const name = user?.name;
@@ -125,7 +128,14 @@ export default function StudentProfilePage() {
   const [saving, setSaving] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [userRecord, setUserRecord] = useState(null);
+  const [accessStatus, setAccessStatus] = useState(null);
+  const [paymentOrder, setPaymentOrder] = useState(null);
+  const [payOpen, setPayOpen] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [fields, setFields] = useState({ fullName: "", email: "", mobile: "", image: "" });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
 
   const session = useMemo(() => {
     if (typeof window === "undefined") return { user: authUser, token: authToken };
@@ -163,9 +173,82 @@ export default function StudentProfilePage() {
     }
   };
 
+  const loadAccessStatus = async () => {
+    if (!session.token) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/v1/enrollment/access-status`, {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${session.token}` },
+      });
+      const data = await response.json();
+      if (response.ok && data.success !== false) {
+        setAccessStatus(data);
+      }
+    } catch (error) {
+      setAccessStatus(null);
+    }
+  };
+
   useEffect(() => {
     loadProfile();
   }, [userId, session.token]);
+
+  useEffect(() => {
+    loadAccessStatus();
+  }, [session.token]);
+
+  const createOverduePaymentOrder = async () => {
+    setPaymentLoading(true);
+    try {
+      const overduePayment = accessStatus?.overduePayments?.[0];
+      const response = await fetch(`${BASE_URL}/v1/enrollment/next-installment-order`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
+        },
+        body: JSON.stringify({
+          courseId: overduePayment?.courseId,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) throw new Error(data.message || "Failed to create payment order");
+
+      setPaymentOrder(data.order);
+      setPayOpen(true);
+    } catch (error) {
+      toast.error(error.message || "Failed to create payment order");
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
+  const verifyOverduePayment = async (paymentDetails) => {
+    try {
+      const orderId = paymentDetails.cashfree_order_id || paymentOrder?.orderId || paymentOrder?.id;
+      const response = await fetch(`${BASE_URL}/v1/enrollment/verify-payment`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
+        },
+        body: JSON.stringify({ cashfree_order_id: orderId }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.success === false) throw new Error(data.message || "Payment verification failed");
+
+      toast.success(data.message || "Payment verified");
+      setPayOpen(false);
+      setPaymentOrder(null);
+      await loadAccessStatus();
+    } catch (error) {
+      toast.error(error.message || "Payment verification failed");
+      setPayOpen(false);
+    }
+  };
 
   const saveDetails = async () => {
     if (!userId) return toast.error("User ID not found. Please login again.");
@@ -177,6 +260,7 @@ export default function StudentProfilePage() {
     formData.append("lastName", lastParts.join(" "));
     formData.append("email", fields.email);
     formData.append("mobileNo", fields.mobile);
+    if (imageFile) formData.append("profileImage", imageFile);
 
     setSaving(true);
     try {
@@ -193,6 +277,8 @@ export default function StudentProfilePage() {
       dispatch(updateAuthUser(updatedUser));
       setUserRecord(updatedUser);
       setEditing(false);
+      setImageFile(null);
+      setImagePreview(null);
       toast.success("Profile updated");
     } catch (err) {
       toast.error(err.message || "Failed to update profile");
@@ -257,21 +343,69 @@ export default function StudentProfilePage() {
         ) : tab === "profile" ? (
           <>
             <div className="mb-8 flex flex-col items-start gap-4">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 shadow-sm">
-                {image ? (
-                  <img src={image} alt="Profile" className="h-full w-full object-cover object-top" />
-                ) : (
-                  <span className="text-2xl font-bold text-gray-400">{initials}</span>
+              <div className="relative">
+                <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-gray-100 shadow-sm">
+                  {imagePreview ? (
+                    <img src={imagePreview} alt="Profile preview" className="h-full w-full object-cover object-top" />
+                  ) : image ? (
+                    <img src={image} alt="Profile" className="h-full w-full object-cover object-top" />
+                  ) : (
+                    <span className="text-2xl font-bold text-gray-400">{initials}</span>
+                  )}
+                </div>
+                {editing && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-gray-900 text-white shadow transition hover:bg-black"
+                    aria-label="Change photo"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                      <path d="M13.488 2.513a1.75 1.75 0 0 0-2.475 0L6.75 6.774a2.75 2.75 0 0 0-.596.892l-.79 2.11a.75.75 0 0 0 .965.965l2.11-.79a2.75 2.75 0 0 0 .892-.597l4.261-4.263a1.75 1.75 0 0 0 0-2.478Z" />
+                      <path d="M2.25 8.5a.75.75 0 0 1 .75-.75h2a.75.75 0 0 1 0 1.5H3a.75.75 0 0 1-.75-.75ZM2.25 12A.75.75 0 0 1 3 11.25h10a.75.75 0 0 1 0 1.5H3A.75.75 0 0 1 2.25 12Z" />
+                    </svg>
+                  </button>
                 )}
               </div>
-              <div className="flex gap-2">
-                <button className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-400" disabled type="button">
-                  Edit
-                </button>
-                <button className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-400" disabled type="button">
-                  Remove Photo
-                </button>
-              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setImageFile(file);
+                  setImagePreview(URL.createObjectURL(file));
+                }}
+              />
+
+              {editing && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    {imagePreview ? "Change Photo" : "Upload Photo"}
+                  </button>
+                  {(imagePreview || image) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setFields((f) => ({ ...f, image: "" }));
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-red-500 hover:bg-gray-50"
+                    >
+                      Remove Photo
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <h2 className="mb-5 text-base font-semibold text-gray-900">Profile Details</h2>
@@ -294,7 +428,7 @@ export default function StudentProfilePage() {
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => { setEditing(false); loadProfile(); }} className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" disabled={saving}>
+                  <button type="button" onClick={() => { setEditing(false); setImageFile(null); setImagePreview(null); loadProfile(); }} className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50" disabled={saving}>
                     Cancel
                   </button>
                   <button type="button" onClick={saveDetails} className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-50" disabled={saving}>
@@ -305,11 +439,36 @@ export default function StudentProfilePage() {
             </div>
           </>
         ) : tab === "payment" ? (
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
             <h2 className="text-xl font-semibold text-gray-900">Payment Details</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-gray-500">
-              This tab is ready in the new student portal. The detailed payment table will be connected after course/payment parity is completed.
-            </p>
+            {accessStatus?.accessRestricted ? (
+              <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 p-5">
+                <p className="font-semibold text-red-700">Installment overdue</p>
+                <p className="mt-2 text-sm text-red-700">
+                  {accessStatus.message || "Please clear your overdue installment to restore course access."}
+                </p>
+                {(accessStatus.overduePayments || []).map((payment) => (
+                  <div key={`${payment.courseId}-${payment.dueDate}`} className="mt-4 rounded-xl bg-white p-4 text-sm text-gray-700">
+                    <p className="font-semibold text-gray-900">{payment.courseName || "Course"}</p>
+                    <p className="mt-1">Amount: ₹{Number(payment.amount || 0).toLocaleString("en-IN")}</p>
+                    <p className="mt-1">Due date: {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString("en-IN") : "N/A"}</p>
+                    <p className="mt-1">Installment: {payment.installmentNo + 1} of {payment.installmentTotal}</p>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={createOverduePaymentOrder}
+                  disabled={paymentLoading}
+                  className="mt-5 rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {paymentLoading ? "Creating order..." : "Pay overdue installment"}
+                </button>
+              </div>
+            ) : (
+              <p className="mt-3 max-w-xl text-sm text-gray-500">
+                Your course payment access is active. Detailed payment history will be connected after full payment parity is completed.
+              </p>
+            )}
           </div>
         ) : (
           <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
@@ -322,6 +481,18 @@ export default function StudentProfilePage() {
       </main>
 
       <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onSubmit={changePassword} loading={saving} />
+      {payOpen && paymentOrder ? (
+        <PaymentModal
+          open={payOpen}
+          onClose={() => setPayOpen(false)}
+          order={paymentOrder}
+          onSuccess={verifyOverduePayment}
+          onFailure={(error) => {
+            toast.error(error?.description || "Payment failed. Please try again.");
+            setPayOpen(false);
+          }}
+        />
+      ) : null}
     </StudentShell>
   );
 }

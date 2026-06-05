@@ -5,9 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { ChevronDown, Menu, X } from "lucide-react";
-import { logoutSession } from "@/store/authSlice";
-import { getRoleDestination, navigateToRoleDestination } from "@/lib/roleRouting";
+import { AnimatePresence, motion } from "framer-motion";
+import { BookOpen, ChevronDown, Home, LogIn, MapPin, Menu, MoreHorizontal, UserCircle, X } from "lucide-react";
+import { logout, logoutSession } from "@/store/authSlice";
+import { isStudentAccount } from "@/lib/roleRouting";
 
 const primaryLinks = [
   { label: "Home", href: "/" },
@@ -37,7 +38,10 @@ const Navigation = () => {
   const pathname = usePathname();
   const router = useRouter();
   const dispatch = useDispatch();
+  // Seeded from the server-read session cookie, so this is correct on the very
+  // first render on both server and client (no hydration mismatch).
   const { user, token } = useSelector((state) => state.auth || {});
+  const isStudentSession = Boolean(token && user && isStudentAccount(user));
   const dropdownRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoreDropdownOpen, setIsMoreDropdownOpen] = useState(false);
@@ -110,16 +114,11 @@ const Navigation = () => {
     setIsMoreDropdownOpen(false);
   };
 
-  const dashboardHref = user ? getRoleDestination(user.accountType) : "/login";
-  const dashboardLabel = user?.accountType === "student" ? "Student Portal" : "Dashboard";
-
-  const handleDashboardClick = (event) => {
-    if (!user || !dashboardHref) return;
-    if (/^https?:\/\//i.test(dashboardHref)) {
-      event.preventDefault();
-      navigateToRoleDestination(router, dashboardHref);
+  useEffect(() => {
+    if (token && user && !isStudentAccount(user)) {
+      dispatch(logout());
     }
-  };
+  }, [dispatch, token, user]);
 
   const handleLogout = () => {
     dispatch(logoutSession());
@@ -128,7 +127,7 @@ const Navigation = () => {
   };
 
   const renderAuthActions = (mobile = false) => {
-    if (!token || !user) {
+    if (!isStudentSession) {
       return (
         <>
           <a
@@ -156,16 +155,15 @@ const Navigation = () => {
     return (
       <>
         <Link
-          href={dashboardHref}
-          onClick={(event) => {
+          href="/student"
+          onClick={() => {
             closeMenus();
-            handleDashboardClick(event);
           }}
           className={mobile
             ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
             : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"}
         >
-          {dashboardLabel}
+          Student Portal
         </Link>
         <button
           type="button"
@@ -275,7 +273,7 @@ const Navigation = () => {
             </div>
           </Link>
 
-          <div className="hidden flex-1 items-center justify-between rounded-full border border-stone-200 bg-white/90 px-3 py-2 shadow-sm xl:flex">
+          <div className="hidden flex-1 items-center justify-between rounded-full border border-stone-200 bg-white/90 px-3 py-2 shadow-sm lg:flex">
             <nav className="flex items-center gap-1">
               {primaryLinks.map((link) => renderPrimaryLink(link))}
 
@@ -303,11 +301,19 @@ const Navigation = () => {
                   />
                 </button>
 
-                {isMoreDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-3 w-60 overflow-hidden rounded-3xl border border-stone-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.65)]">
-                    {renderSecondaryLinks()}
-                  </div>
-                )}
+                <AnimatePresence>
+                  {isMoreDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.18, ease: "easeOut" }}
+                      className="absolute left-0 top-full mt-3 w-60 overflow-hidden rounded-3xl border border-stone-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.65)]"
+                    >
+                      {renderSecondaryLinks()}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </nav>
 
@@ -316,13 +322,13 @@ const Navigation = () => {
             </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-2 xl:hidden">
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
             <Link
-              href={token && user ? dashboardHref : "/login"}
-              onClick={handleDashboardClick}
+              href={isStudentSession ? "/student" : "/login"}
+              onClick={closeMenus}
               className="hidden items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95b27] sm:inline-flex"
             >
-              {token && user ? dashboardLabel : "Login"}
+              {isStudentSession ? "Student Portal" : "Login"}
             </Link>
 
             <button
@@ -337,20 +343,73 @@ const Navigation = () => {
         </div>
       </header>
 
-      <div
-        className={[
-          "fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm transition-opacity duration-300 xl:hidden",
-          isMobileMenuOpen ? "visible opacity-100" : "invisible opacity-0",
-        ].join(" ")}
-        onClick={closeMenus}
-      />
+      {/* Bottom nav — tablet only (sm → lg) */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 hidden border-t border-stone-200 bg-white/95 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:flex lg:hidden">
+        <div className="mx-auto flex w-full max-w-7xl items-stretch justify-around">
+          {[
+            { href: "/", icon: <Home className="h-5 w-5" />, label: "Home" },
+            { href: "/courses", icon: <BookOpen className="h-5 w-5" />, label: "Courses" },
+            { href: "/centers", icon: <MapPin className="h-5 w-5" />, label: "Centres" },
+          ].map(({ href, icon, label }) => {
+            const active = isActivePath(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                onClick={closeMenus}
+                className={`flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold transition-colors ${
+                  active ? "text-[#ef6a32]" : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                <span className={active ? "text-[#ef6a32]" : ""}>{icon}</span>
+                {label}
+              </Link>
+            );
+          })}
 
-      <div
-        className={[
-          "fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[420px] flex-col bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_60%,#fff7ef_100%)] shadow-2xl transition-transform duration-300 xl:hidden",
-          isMobileMenuOpen ? "translate-x-0" : "translate-x-full",
-        ].join(" ")}
-      >
+          <Link
+            href={isStudentSession ? "/student" : "/login"}
+            onClick={closeMenus}
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
+          >
+            {isStudentSession ? <UserCircle className="h-5 w-5" /> : <LogIn className="h-5 w-5" />}
+            {isStudentSession ? "Portal" : "Login"}
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
+            aria-label="More pages"
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            More
+          </button>
+        </div>
+      </nav>
+
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.22 }}
+            className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-sm lg:hidden"
+            onClick={closeMenus}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 34 }}
+            className="fixed inset-y-0 right-0 z-50 flex h-full w-full max-w-[420px] flex-col bg-[linear-gradient(180deg,#fffaf4_0%,#ffffff_60%,#fff7ef_100%)] shadow-2xl xl:hidden"
+          >
         <div className="flex items-center justify-between border-b border-stone-200 px-5 py-4">
           <Link
             href="/"
@@ -394,7 +453,9 @@ const Navigation = () => {
             </div>
           </div>
         </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

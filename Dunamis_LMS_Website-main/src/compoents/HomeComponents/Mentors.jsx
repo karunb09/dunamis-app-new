@@ -195,8 +195,18 @@ export default function Mentors() {
 
     return (
         <div>
-            <section className="bg-[#F5F5F5] py-16 px-6 relative">
-                <div className="max-w-7xl mx-auto">
+            <section className="relative overflow-hidden bg-[#060A18] py-16 px-6">
+                {/* Background orbs */}
+                <div
+                    className="orb w-[350px] h-[350px] right-[-5%] top-[-10%] opacity-20"
+                    style={{ background: "#ef6a32", "--dur": "15s" }}
+                />
+                <div
+                    className="orb w-[280px] h-[280px] left-[-5%] bottom-[-5%] opacity-15"
+                    style={{ background: "#47c9c4", "--dur": "12s", animationDelay: "5s" }}
+                />
+
+                <div className="max-w-7xl mx-auto relative z-10">
                     {/* Header */}
                     <motion.div
                         className="text-center mb-10"
@@ -205,9 +215,11 @@ export default function Mentors() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.6 }}
                     >
-                        <p className="text-[#FF6B35] font-medium mb-2">Learn from the Best</p>
-                        <h2 className="text-3xl sm:text-4xl font-bold text-[#2D2D2D] mb-3">Meet Your Mentors</h2>
-                        <p className="text-[#2D2D2D] opacity-70 max-w-2xl mx-auto">
+                        <span className="inline-block mb-3 rounded-full bg-white/10 border border-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/60 backdrop-blur-sm">
+                            Learn from the Best
+                        </span>
+                        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">Meet Your Mentors</h2>
+                        <p className="text-white/50 max-w-2xl mx-auto">
                             Our expert instructors bring years of professional experience and a passion for teaching. They're here
                             to guide you on your creative journey with personalized attention and proven methods.
                         </p>
@@ -237,16 +249,20 @@ export default function Mentors() {
                                         return (
                                             <motion.div
                                                 key={mentor.id}
-                                                className="bg-white group relative flex flex-col w-full max-w-[320px] shadow-sm border border-gray-200 rounded-xl overflow-hidden cursor-pointer"
+                                                className="group relative flex flex-col w-full max-w-[320px] rounded-xl overflow-hidden cursor-pointer"
+                                                style={{
+                                                    background: "linear-gradient(135deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%)",
+                                                    border: "1px solid rgba(255,255,255,0.10)",
+                                                }}
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ duration: 0.45, delay: idx * 0.06 }}
-                                                whileHover={{ scale: 1.02, y: -6 }}
+                                                whileHover={{ scale: 1.02, y: -6, boxShadow: "0 24px 48px -16px rgba(239,106,50,0.25)" }}
                                                 onClick={() => setSelectedCard(isSelected ? null : globalIndex)}
                                             >
                                                 {/* Image block */}
                                                 <div className="flex justify-center items-center w-full h-[220px] p-6 transition-all duration-500">
-                                                    <div className="h-[140px] w-[140px] shrink-0 rounded-full overflow-hidden border-4 border-blue-50 bg-gradient-to-br from-amber-100 via-orange-50 to-blue-50 transition-all duration-500">
+                                                    <div className="h-[140px] w-[140px] shrink-0 rounded-full overflow-hidden ring-2 ring-[#ef6a32]/50 group-hover:ring-[#ef6a32] transition-all duration-300 bg-gradient-to-br from-[#1a0f06] via-[#0f0f22] to-[#060A18]">
                                                         {mentor.image && !failedImages[mentor.id] ? (
                                                             <img
                                                                 src={mentor.image}
@@ -261,7 +277,7 @@ export default function Mentors() {
                                                                 }
                                                             />
                                                         ) : (
-                                                            <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#FF6B35]">
+                                                            <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#ef6a32]">
                                                                 {getInitials(mentor.name)}
                                                             </div>
                                                         )}
@@ -270,112 +286,99 @@ export default function Mentors() {
 
                                                 {/* Basic content */}
                                                 <div className="p-5 text-center flex-1 flex flex-col justify-start gap-3">
-                                                    <h3 className="font-semibold text-lg text-gray-800">{mentor.name}</h3>
+                                                    <h3 className="font-semibold text-lg text-white">{mentor.name}</h3>
                                                     <div className="flex flex-wrap justify-center gap-2">
                                                         {mentor.tags.map((t, i) => (
                                                             <span
                                                                 key={i}
-                                                                className="bg-[#FF6B35] text-white text-xs px-3 py-1 rounded-full font-medium"
+                                                                className="bg-[#ef6a32]/20 text-[#ef6a32] border border-[#ef6a32]/30 text-xs px-3 py-1 rounded-full font-medium"
                                                             >
                                                                 {t}
                                                             </span>
                                                         ))}
                                                     </div>
-                                                    <p className="text-sm text-gray-700 opacity-90 mt-2 line-clamp-3">{mentor.description}</p>
+                                                    <p className="text-sm text-white/55 mt-2 line-clamp-3">{mentor.description}</p>
 
-                                                    <div className="flex justify-between items-center text-sm text-gray-700 font-medium pt-3">
+                                                    <div className="flex justify-between items-center text-sm text-white/60 font-medium pt-3 border-t border-white/10">
                                                         <span>{mentor.experience}</span>
 
-                                                        <div className="flex items-center text-sm gap-2 text-gray-700">
-                                                            <div className="flex">
-                                                                <IoMdStar className="text-amber-500" />
-                                                            </div>
+                                                        <div className="flex items-center text-sm gap-2">
+                                                            <IoMdStar className="text-amber-400" />
                                                             <span>{mentor.rating > 0 ? mentor.rating.toFixed(1) : "0"}</span>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center justify-center gap-2 text-xs text-gray-600 mt-2">
+                                                    <div className="flex items-center justify-center gap-2 text-xs text-white/40 mt-1">
                                                         <span>{mentor.studentCount} {mentor.studentCount === 1 ? 'Student' : 'Students'}</span>
                                                         <span>•</span>
                                                         <span className="capitalize">{mentor.sessionType}</span>
                                                     </div>
                                                 </div>
 
-                                                {/* Overlay details */}
+                                                {/* Overlay details — dark glass */}
                                                 <motion.div
-                                                    className={`absolute inset-0 bg-white/95 p-4 flex flex-col justify-center overflow-y-auto pointer-events-none transition-all duration-300 ${isSelected
+                                                    className={`absolute inset-0 p-4 flex flex-col justify-center overflow-y-auto pointer-events-none transition-all duration-300 ${isSelected
                                                         ? "opacity-100 pointer-events-auto"
                                                         : "opacity-0 group-hover:opacity-100 group-hover:pointer-events-auto"
                                                         }`}
+                                                    style={{ background: "rgba(6,10,24,0.95)", backdropFilter: "blur(12px)" }}
                                                     initial={{ y: 12 }}
                                                     animate={{ y: 0 }}
                                                     transition={{ duration: 0.25 }}
                                                 >
                                                     <div className="p-3 rounded-lg space-y-3">
                                                         <div className="space-y-2 text-left text-xs">
-                                                            {/* Gender & Qualification */}
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Gender</h4>
-                                                                    <p className="text-xs text-gray-700 capitalize">{mentor.gender}</p>
+                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Gender</h4>
+                                                                    <p className="text-xs text-white/65 capitalize">{mentor.gender}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Students</h4>
-                                                                    <p className="text-xs text-gray-700">{mentor.studentCount}</p>
+                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Students</h4>
+                                                                    <p className="text-xs text-white/65">{mentor.studentCount}</p>
                                                                 </div>
                                                             </div>
-
-                                                            {/* Qualification */}
                                                             <div>
-                                                                <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Qualification</h4>
-                                                                <p className="text-xs text-gray-700">{mentor.highestQualification}</p>
+                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Qualification</h4>
+                                                                <p className="text-xs text-white/65">{mentor.highestQualification}</p>
                                                             </div>
-
-                                                            {/* Languages */}
                                                             <div>
-                                                                <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Languages</h4>
-                                                                <p className="text-xs text-gray-700">
+                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Languages</h4>
+                                                                <p className="text-xs text-white/65">
                                                                     Speak: {mentor.languages.speak.join(", ") || "N/A"}
                                                                     <br />
                                                                     Read: {mentor.languages.read.join(", ") || "N/A"}
                                                                 </p>
                                                             </div>
-
-                                                            {/* Course Category & Slot */}
                                                             <div>
-                                                                <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Course Category</h4>
-                                                                <p className="text-xs text-gray-700">{mentor.courseCategory}</p>
+                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Course Category</h4>
+                                                                <p className="text-xs text-white/65">{mentor.courseCategory}</p>
                                                             </div>
-
                                                             <div>
-                                                                <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Available Slot</h4>
-                                                                <p className="text-xs text-gray-700">{mentor.slot}</p>
+                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Available Slot</h4>
+                                                                <p className="text-xs text-white/65">{mentor.slot}</p>
                                                             </div>
-
-                                                            {/* Session Type & Mode */}
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Mode</h4>
-                                                                    <p className="text-xs text-gray-700 capitalize">{mentor.sessionType}</p>
+                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Mode</h4>
+                                                                    <p className="text-xs text-white/65 capitalize">{mentor.sessionType}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Rating</h4>
-                                                                    <p className="text-xs text-gray-700 flex items-center gap-1">
-                                                                        <IoMdStar className="text-amber-500" />
+                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Rating</h4>
+                                                                    <p className="text-xs text-white/65 flex items-center gap-1">
+                                                                        <IoMdStar className="text-amber-400" />
                                                                         {mentor.rating > 0 ? mentor.rating.toFixed(1) : "0"}
                                                                     </p>
                                                                 </div>
                                                             </div>
-
-                                                            {/* Courses */}
                                                             {mentor.courses.length > 0 && (
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Courses</h4>
+                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Courses</h4>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {mentor.courses.map((course, i) => (
                                                                             <span
                                                                                 key={i}
-                                                                                className="bg-[#FF6B35]/10 text-[#FF6B35] px-2 py-1 rounded-full text-xs font-medium"
+                                                                                className="bg-[#ef6a32]/15 text-[#ef6a32] px-2 py-1 rounded-full text-xs font-medium"
                                                                             >
                                                                                 {course.name}
                                                                             </span>
@@ -383,11 +386,9 @@ export default function Mentors() {
                                                                     </div>
                                                                 </div>
                                                             )}
-
-                                                            {/* Availability */}
                                                             <div>
-                                                                <h4 className="font-semibold text-[#FF6B35] text-xs mb-1">Availability</h4>
-                                                                <p className="text-xs text-gray-700">{mentor.availability}</p>
+                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Availability</h4>
+                                                                <p className="text-xs text-white/65">{mentor.availability}</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -395,7 +396,7 @@ export default function Mentors() {
 
                                                 {/* Hover icon */}
                                                 <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                    <div className="bg-[#FF6B35] text-white rounded-full p-1">
+                                                    <div className="bg-[#ef6a32] text-white rounded-full p-1">
                                                         <GoArrowUpRight className="w-3 h-3" />
                                                     </div>
                                                 </div>
@@ -411,21 +412,23 @@ export default function Mentors() {
                             <>
                                 <motion.button
                                     onClick={prevSlide}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 -translate-x-2 z-10 bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 -translate-x-2 z-10 p-2 rounded-full"
+                                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     aria-label="Previous slide"
                                 >
-                                    <ChevronLeft className="w-5 h-5 text-gray-600" />
+                                    <ChevronLeft className="w-5 h-5 text-white/70" />
                                 </motion.button>
                                 <motion.button
                                     onClick={nextSlide}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-2 z-10 bg-white p-2 rounded-full shadow hover:bg-gray-100"
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 translate-x-2 z-10 p-2 rounded-full"
+                                    style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.15)" }}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     aria-label="Next slide"
                                 >
-                                    <ChevronRight className="w-5 h-5 text-gray-600" />
+                                    <ChevronRight className="w-5 h-5 text-white/70" />
                                 </motion.button>
                             </>
                         )}
@@ -437,8 +440,7 @@ export default function Mentors() {
                                     <button
                                         key={i}
                                         onClick={() => goToSlide(i)}
-                                        className={`rounded-full transition-all duration-300 ${currentSlide === i ? "bg-[#FF6B35] w-6 h-3 rounded-full" : "bg-gray-300 w-3 h-3"
-                                            }`}
+                                        className={`rounded-full transition-all duration-300 ${currentSlide === i ? "bg-[#ef6a32] w-6 h-3" : "bg-white/20 w-3 h-3"}`}
                                         aria-label={`Go to slide ${i + 1}`}
                                     />
                                 ))}
@@ -447,7 +449,7 @@ export default function Mentors() {
 
                         {/* Slide counter */}
                         {totalSlides > 1 && (
-                            <div className="text-center mt-4 text-sm text-gray-500">
+                            <div className="text-center mt-4 text-sm text-white/30">
                                 {currentSlide + 1} of {totalSlides}
                             </div>
                         )}
@@ -456,16 +458,24 @@ export default function Mentors() {
             </section>
 
             <motion.section
-                className="bg-teal-100 text-gray-800 py-16 px-4 text-center"
+                className="relative overflow-hidden bg-[#060A18] py-16 px-4 text-center"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
                 initial={{ opacity: 0, y: 40 }}
                 whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.05 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
             >
-                <div className="max-w-3xl mx-auto">
-                    <p className="text-2xl md:text-3xl font-bold leading-relaxed">
+                <div
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center text-[180px] font-serif leading-none select-none opacity-[0.03] text-white"
+                    aria-hidden
+                >
+                    ❝
+                </div>
+                <div className="relative z-10 max-w-3xl mx-auto">
+                    <p className="text-xl md:text-2xl font-semibold leading-relaxed text-white/80">
                         "Every expert was once a beginner. Every professional was once an amateur. Every icon was once an unknown."
                     </p>
-                    <p className="text-black/80 mt-4">— Robin Sharma</p>
+                    <p className="text-[#ef6a32] mt-5 font-medium">— Robin Sharma</p>
                 </div>
             </motion.section>
         </div>

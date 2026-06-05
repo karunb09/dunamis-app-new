@@ -1,14 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { getWebsiteUser } from "@/lib/authSession";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-const getAuthHeaders = () => {
-  if (typeof window === "undefined") return {};
-  const token = window.localStorage.getItem("auth_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// Authenticated calls route through the BFF proxy, which injects the JWT from
+// the httpOnly cookie server-side.
+const BASE_URL = API_BASE;
+const getAuthHeaders = () => ({});
 
 const isStudentUser = (user) =>
   String(user?.accountType || "").toLowerCase() === "student";

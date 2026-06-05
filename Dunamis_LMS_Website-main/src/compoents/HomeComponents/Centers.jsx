@@ -26,16 +26,16 @@ export default function Centers() {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.3 },
+      transition: { staggerChildren: 0.12 },
     },
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
+    hidden: { opacity: 0, y: 35 },
     visible: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.6, ease: "easeOut" },
+      transition: { duration: 0.5, ease: "easeOut" },
     },
   };
 
@@ -50,6 +50,7 @@ export default function Centers() {
         className="text-[#FF6B35] font-medium mb-2 text-sm sm:text-base"
         initial={{ opacity: 0, y: -20 }}
         whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.05 }}
         transition={{ duration: 0.6 }}
       >
         Experience Learning in Person
@@ -59,6 +60,7 @@ export default function Centers() {
         className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-3 sm:mb-4 px-2"
         initial={{ opacity: 0, y: -20 }}
         whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.05 }}
         transition={{ duration: 0.8 }}
       >
         Find Your Nearest Centre
@@ -68,6 +70,7 @@ export default function Centers() {
         className="text-[#2D2D2D] text-sm sm:text-base mb-8 sm:mb-10 max-w-3xl mx-auto px-2"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
+        viewport={{ once: true, amount: 0.05 }}
         transition={{ duration: 1 }}
       >
         Visit our physical branches for personalized instruction, hands-on learning, and
@@ -81,7 +84,7 @@ export default function Centers() {
         variants={containerVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: false, amount: 0.2 }}
+        viewport={{ once: true, amount: 0.05 }}
       >
         {allCenters.length > 0 ? (
           allCenters.map((center, index) => (

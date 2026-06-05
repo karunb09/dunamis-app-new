@@ -200,6 +200,14 @@ const studentSchema = new mongoose.Schema(
             return this.paymentType === "Installment";
           },
         },
+        reminderSentAt: {
+          type: Date,
+          default: null,
+        },
+        overdueNoticeSentAt: {
+          type: Date,
+          default: null,
+        },
         paymentMode: {
           type: String,
           enum: [

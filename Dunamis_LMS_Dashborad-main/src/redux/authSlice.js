@@ -13,22 +13,28 @@ export const hydrateSession = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const token = getStoredToken();
+      if (!token) {
+        return rejectWithValue("No dashboard session found");
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_BASE_URL}/user/me`,
         {
           method: "GET",
-          headers: token
-            ? {
-                Authorization: `Bearer ${token}`,
-              }
-            : {},
-          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
 
       const data = await response.json();
       if (!response.ok || data.success === false) {
         return rejectWithValue(data.message || "Session expired");
+      }
+
+      if (data.user?.accountType === "student") {
+        clearAuthSession();
+        return rejectWithValue("Students use the website student portal");
       }
 
       return {
@@ -52,7 +58,6 @@ export const login = createAsyncThunk(
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include",
           body: JSON.stringify({ email, password }),
         }
       );
@@ -84,7 +89,6 @@ export const logoutUser = createAsyncThunk(
                 Authorization: `Bearer ${token}`,
               }
             : {},
-          credentials: "include",
         }
       );
 

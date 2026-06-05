@@ -95,6 +95,7 @@ const PORT = process.env.PORT || 3000;
 database.connect();
 
 require("./cronJobs/overdueReminder");
+require("./cronJobs/installmentReminder");
 require("./cronJobs/generateWeeklySlots.job");
 require("./cronJobs/runAssessmentCycle")
 require("./cronJobs/assignment.cron")

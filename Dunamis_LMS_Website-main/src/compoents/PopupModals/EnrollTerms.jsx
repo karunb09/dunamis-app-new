@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'next/navigation';
 import {
   HiOutlineLocationMarker,
   HiOutlineCalendar,
   HiUser,
   HiX,
+  HiUsers,
+  HiClock,
+  HiCheckCircle,
 } from 'react-icons/hi';
+import { FaUser } from 'react-icons/fa';
 import { fetchAvailableSlots } from '@/store/demoBookingSlice';
 import { getCurrentSelection, upsertEnrollSelection } from '@/helpers/session';
 import { getInitialsImage } from '@/lib/resolveImageUrl';
@@ -16,10 +21,12 @@ import {
   buildInstructorOptions,
   buildModeOptions,
   filterSlotsForSelection,
+  formatTimeLabel,
   normalizeCityName,
   normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
+import { getActiveTenurePlans, pickDefaultTenure, findTenure } from '@/helpers/tenurePlans';
 
 const DAY_PAIR_OPTIONS = [
   { id: 'mon-thu', label: 'Mon - Thu', days: ['monday', 'thursday'] },
@@ -28,7 +35,32 @@ const DAY_PAIR_OPTIONS = [
   { id: 'sat-sun', label: 'Sat - Sun', days: ['saturday', 'sunday'] },
 ];
 
-const STEPS = ['Delivery', 'Instructor', 'Schedule'];
+const DAY_NAME_TO_INDEX = {
+  sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
+  thursday: 4, friday: 5, saturday: 6,
+};
+
+const getNextStartDate = (days = []) => {
+  if (!days.length) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIndex = today.getDay();
+
+  let minOffset = 7;
+  for (const day of days) {
+    const idx = DAY_NAME_TO_INDEX[String(day).toLowerCase()];
+    if (idx === undefined) continue;
+    const offset = (idx - todayIndex + 7) % 7;
+    if (offset < minOffset) minOffset = offset;
+  }
+
+  if (minOffset === 7) return null;
+  const next = new Date(today);
+  next.setDate(today.getDate() + minOffset);
+  return next;
+};
+
+const STEPS = ['Delivery', 'Instructor', 'Schedule', 'Session type', 'Plan'];
 
 const hasPositivePrice = (price) => {
   const monthly = Number(price?.monthlyFee);
@@ -37,6 +69,12 @@ const hasPositivePrice = (price) => {
     (Number.isFinite(monthly) && monthly > 0) ||
     (Number.isFinite(full) && full > 0)
   );
+};
+
+const toMoney = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return `₹${amount.toLocaleString('en-IN')}`;
 };
 
 const getPricedSessionTypes = (course) => {
@@ -132,6 +170,7 @@ export default function EnrollTerm({
   onNext,
   preferredInstructorId = '',
 }) {
+  const router = useRouter();
   const dispatch = useDispatch();
   const {
     availableSlots = [],
@@ -180,6 +219,10 @@ export default function EnrollTerm({
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
   const [selectedBranchCity, setSelectedBranchCity] = useState('all');
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const [selectedSessionType, setSelectedSessionType] = useState('');
+  const [selectedPlanType, setSelectedPlanType] = useState('');
+  const [selectedMonths, setSelectedMonths] = useState(null);
 
   const branchCityOptions = useMemo(() => {
     const cityMap = new Map();
@@ -206,6 +249,104 @@ export default function EnrollTerm({
     );
   }, [branchCityOptions.length, branchOptions, selectedBranchCity]);
 
+  const filterPricedSlots = (slots = []) =>
+    slots.filter(
+      (slot) =>
+        !shouldLimitByPricing ||
+        pricedSessionTypes.has(slot.sessionType || 'standard')
+    );
+
+  const getVisibleSlotsForInstructor = (instructor) =>
+    filterPricedSlots(
+      filterSlotsForSelection(instructor?.slots || [], {
+        deliveryMode: selectedDeliveryMode,
+        branchId: selectedBranchId,
+      })
+    );
+
+  const visibleInstructors = useMemo(
+    () =>
+      instructors.filter(
+        (instructor) => getVisibleSlotsForInstructor(instructor).length > 0
+      ),
+    [
+      instructors,
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      shouldLimitByPricing,
+    ]
+  );
+
+  const selectedInstructor = useMemo(
+    () =>
+      visibleInstructors.find(
+        (instructor) => instructor.id === selectedInstructorId
+      ) || null,
+    [selectedInstructorId, visibleInstructors]
+  );
+
+  const visibleSlots = useMemo(
+    () => getVisibleSlotsForInstructor(selectedInstructor),
+    [
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      selectedInstructor,
+      shouldLimitByPricing,
+    ]
+  );
+
+  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
+
+  const selectedSlot = useMemo(
+    () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
+    [selectedSlotId, visibleSlots]
+  );
+
+  // Price memos
+  const prices = useMemo(() => {
+    const source = Array.isArray(course?.price)
+      ? course.price
+      : course?.price
+        ? [course.price]
+        : [];
+    return source.map((item) => ({
+      id: item?._id || item?.id || '',
+      sessionType: item?.sessionType || '',
+      monthlyFee: item?.monthlyFee,
+      fullPayment: item?.fullPayment,
+      discount: item?.discount ?? 0,
+      isActive: item?.isActive ?? true,
+      tenurePlans: Array.isArray(item?.tenurePlans) ? item.tenurePlans : [],
+      installments: item?.installments ?? null,
+    }));
+  }, [course]);
+
+  const groupPrice = useMemo(() => {
+    const items = prices.filter(
+      (p) => p.isActive !== false && p.sessionType === 'standard' && hasPositivePrice(p)
+    );
+    return items[0] || null;
+  }, [prices]);
+
+  const premiumPrice = useMemo(() => {
+    const items = prices.filter(
+      (p) => p.isActive !== false && p.sessionType === 'premium' && hasPositivePrice(p)
+    );
+    return items[0] || null;
+  }, [prices]);
+
+  const activePriceObj = useMemo(
+    () => (selectedSessionType === 'premium' ? premiumPrice : (groupPrice || premiumPrice)),
+    [selectedSessionType, premiumPrice, groupPrice]
+  );
+
+  const tenurePlans = useMemo(
+    () => getActiveTenurePlans(activePriceObj),
+    [activePriceObj]
+  );
+
   useEffect(() => {
     if (!isOpen || !courseId) return;
     dispatch(fetchAvailableSlots({ courseId, slotType: 'enrolled' }));
@@ -226,6 +367,9 @@ export default function EnrollTerm({
     setSelectedBranchId(current.branchId || '');
     setSelectedInstructorId(current.instructorId || '');
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
+    setSelectedSessionType('');
+    setSelectedPlanType('');
+    setSelectedMonths(null);
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
   }, [course?.mode, enrollmentModeOptions, isOpen]);
@@ -322,61 +466,6 @@ export default function EnrollTerm({
     }
   }, [branchOptions, selectedBranchId]);
 
-  const filterPricedSlots = (slots = []) =>
-    slots.filter(
-      (slot) =>
-        !shouldLimitByPricing ||
-        pricedSessionTypes.has(slot.sessionType || 'standard')
-    );
-
-  const getVisibleSlotsForInstructor = (instructor) =>
-    filterPricedSlots(
-      filterSlotsForSelection(instructor?.slots || [], {
-        deliveryMode: selectedDeliveryMode,
-        branchId: selectedBranchId,
-      })
-    );
-
-  const visibleInstructors = useMemo(
-    () =>
-      instructors.filter(
-        (instructor) => getVisibleSlotsForInstructor(instructor).length > 0
-      ),
-    [
-      instructors,
-      pricedSessionTypes,
-      selectedBranchId,
-      selectedDeliveryMode,
-      shouldLimitByPricing,
-    ]
-  );
-
-  const selectedInstructor = useMemo(
-    () =>
-      visibleInstructors.find(
-        (instructor) => instructor.id === selectedInstructorId
-      ) || null,
-    [selectedInstructorId, visibleInstructors]
-  );
-
-  const visibleSlots = useMemo(
-    () => getVisibleSlotsForInstructor(selectedInstructor),
-    [
-      pricedSessionTypes,
-      selectedBranchId,
-      selectedDeliveryMode,
-      selectedInstructor,
-      shouldLimitByPricing,
-    ]
-  );
-
-  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
-
-  const selectedSlot = useMemo(
-    () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
-    [selectedSlotId, visibleSlots]
-  );
-
   useEffect(() => {
     if (!selectedInstructorId) return;
     if (
@@ -395,6 +484,43 @@ export default function EnrollTerm({
     setSelectedSlotId('');
   }, [selectedSlotId, visibleSlots]);
 
+  // Auto-select the group containing the active slot, or the first group.
+  useEffect(() => {
+    if (slotGroups.length === 0) {
+      setSelectedGroupId(null);
+      return;
+    }
+    const groupWithSelection = selectedSlotId
+      ? slotGroups.find((g) => g.slots.some((s) => s.id === selectedSlotId))
+      : null;
+    setSelectedGroupId((prev) => {
+      if (prev && slotGroups.some((g) => g.id === prev)) return prev;
+      return groupWithSelection?.id ?? slotGroups[0].id;
+    });
+  }, [slotGroups]);
+
+  // Auto-select the first slot in the active group (slot selection is not user-driven).
+  useEffect(() => {
+    if (!selectedGroupId) return;
+    const group = slotGroups.find((g) => g.id === selectedGroupId);
+    if (!group?.slots.length) return;
+    if (group.slots.some((s) => s.id === selectedSlotId)) return;
+    setSelectedSlotId(group.slots[0].id || '');
+  }, [selectedGroupId, slotGroups, selectedSlotId]);
+
+  // Reset months when tenure plans change (happens when session type changes).
+  useEffect(() => {
+    setSelectedMonths(pickDefaultTenure(tenurePlans)?.months ?? null);
+  }, [tenurePlans]);
+
+  // Reset session/plan choice when user navigates back before step 3.
+  useEffect(() => {
+    if (step < 3) {
+      setSelectedSessionType('');
+      setSelectedPlanType('');
+    }
+  }, [step]);
+
   if (!isOpen) return null;
 
   const selectedBranch =
@@ -405,15 +531,50 @@ export default function EnrollTerm({
     typeof slotsError === 'string'
       ? slotsError
       : slotsError?.message || slotsError?.error || '';
+
+  const slotSessionType = selectedSlot?.sessionType || null;
+  const canChooseStandard =
+    Boolean(groupPrice) && (!slotSessionType || slotSessionType === 'standard');
+  const canChoosePremium =
+    Boolean(premiumPrice) && (!slotSessionType || slotSessionType === 'premium');
+
+  const activeTenure =
+    findTenure(tenurePlans, selectedMonths) || pickDefaultTenure(tenurePlans);
+  const planMonthlyFee =
+    activeTenure?.monthlyFee || Number(activePriceObj?.monthlyFee) || null;
+  const planFullFee =
+    activeTenure?.fullPayment || Number(activePriceObj?.fullPayment) || null;
+  const planDiscountPct = activeTenure
+    ? Number(activeTenure.discount) || 0
+    : Number(activePriceObj?.discount) || 0;
+  const planDurationMonths =
+    activeTenure?.months ||
+    (Number(activePriceObj?.installments) > 1
+      ? Number(activePriceObj?.installments)
+      : null);
+  const planMrpFull =
+    planFullFee && planDiscountPct
+      ? Math.round(planFullFee / (1 - planDiscountPct / 100))
+      : null;
+  const planSavings =
+    planMrpFull && planFullFee ? planMrpFull - planFullFee : null;
+
   const canContinue =
     step === 0
       ? Boolean(selectedDeliveryMode) && (!shouldPickBranch || Boolean(selectedBranchId))
       : step === 1
         ? Boolean(selectedInstructorId) && slotsStatus !== 'loading'
-        : Boolean(selectedSlot?.slotId) && slotsStatus !== 'loading';
+        : step === 2
+          ? Boolean(selectedSlot?.slotId || selectedSlot?.id) && slotsStatus !== 'loading'
+          : step === 3
+            ? Boolean(selectedSessionType)
+            : Boolean(selectedPlanType);
 
-  const persistSelectionAndContinue = () => {
-    if (!selectedSlot) return;
+  const persistAllAndGoToPayment = () => {
+    const courseCategory =
+      typeof course?.category === 'string'
+        ? course.category
+        : course?.category?.name || '';
 
     upsertEnrollSelection({
       courseId,
@@ -425,31 +586,30 @@ export default function EnrollTerm({
       instructorId: selectedInstructor?.id || null,
       instructorLabel: selectedInstructor?.name || null,
       slot: selectedSlot,
-      sessionType: selectedSlot?.sessionType || null,
-      slotType: selectedSlot?.slotType || null,
+      sessionType: selectedSessionType,
+      planType: selectedPlanType,
+      planMonths: planDurationMonths,
+      priceId: activePriceObj?.id || null,
+      code: course?.code || '',
+      category: courseCategory,
+      courseImage: course?.image || '',
+      monthlyFee: planMonthlyFee,
+      fullPayment: planFullFee,
+      discount: planDiscountPct,
+      duration: planDurationMonths ? `${planDurationMonths} months` : '',
     });
 
-    onNext?.({
-      branchId: selectedBranch?.id || null,
-      branchLabel: selectedBranch?.label || null,
-      branch: selectedBranch?.label || null,
-      instructorId: selectedInstructor?.id || null,
-      instructorLabel: selectedInstructor?.name || null,
-      slot: selectedSlot,
-      sessionType: selectedSlot?.sessionType || null,
-      deliveryMode: selectedDeliveryMode || null,
-    });
+    router.push('/payment-confirmation');
+    onClose?.();
   };
 
   const handlePrimaryAction = () => {
     if (!canContinue) return;
-
-    if (step < STEPS.length - 1) {
-      setStep((currentStep) => currentStep + 1);
+    if (step === STEPS.length - 1) {
+      persistAllAndGoToPayment();
       return;
     }
-
-    persistSelectionAndContinue();
+    setStep((currentStep) => currentStep + 1);
   };
 
   return (
@@ -474,7 +634,7 @@ export default function EnrollTerm({
           <p className="mt-1 text-sm text-gray-500">Course: {courseTitle}</p>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+        <div className="mt-6 grid gap-3 sm:grid-cols-5">
           {STEPS.map((label, index) => {
             const active = step === index;
             const completed = step > index;
@@ -485,7 +645,7 @@ export default function EnrollTerm({
                 type="button"
                 disabled={index > step}
                 onClick={() => setStep(index)}
-                className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                className={`rounded-2xl border px-3 py-3 text-left text-xs transition ${
                   active
                     ? 'border-orange-500 bg-orange-50 text-orange-700'
                     : completed
@@ -735,7 +895,7 @@ export default function EnrollTerm({
                 Select Class Schedule
               </label>
               <p className="text-xs text-gray-500">
-                Showing the day pairs published by {selectedInstructor?.name || 'the selected instructor'}.
+                Choose when your classes run — we&apos;ll show you the exact start date automatically.
               </p>
             </div>
 
@@ -744,72 +904,112 @@ export default function EnrollTerm({
                 Loading available class slots...
               </div>
             ) : selectedInstructorId && slotGroups.length > 0 ? (
-              <div className="space-y-5">
-                {slotGroups.map((group) => (
-                  <section
-                    key={group.id}
-                    className="rounded-3xl border border-gray-200 bg-gray-50 p-4"
-                  >
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="font-semibold text-gray-900">{group.label}</p>
-                        <p className="text-xs text-gray-500">
-                          {group.slots.length} available class slot
-                          {group.slots.length === 1 ? '' : 's'}
-                        </p>
-                      </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
-                        Day pair
+              <>
+                {/* Day pair selector */}
+                <div className="flex flex-wrap gap-2">
+                  {slotGroups.map((group) => {
+                    const isActive = selectedGroupId === group.id;
+                    const hasSelectedSlot = group.slots.some((s) => s.id === selectedSlotId);
+                    return (
+                      <button
+                        key={group.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedGroupId(group.id);
+                          setSelectedSlotId('');
+                        }}
+                        className={`rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+                          isActive
+                            ? 'border-orange-500 bg-orange-50 text-orange-700'
+                            : hasSelectedSlot
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-orange-200 hover:bg-orange-50/30'
+                        }`}
+                      >
+                        {group.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Start date banner */}
+                {(() => {
+                  const activeGroup = slotGroups.find((g) => g.id === selectedGroupId);
+                  const startDate = activeGroup ? getNextStartDate(activeGroup.days) : null;
+                  if (!startDate) return null;
+                  return (
+                    <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                      <HiOutlineCalendar className="shrink-0 text-emerald-600" />
+                      <span>
+                        <span className="font-semibold">Classes start: </span>
+                        {startDate.toLocaleDateString('en-IN', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
                       </span>
                     </div>
+                  );
+                })()}
 
-                    <div className="grid gap-3 md:grid-cols-2">
-                      {group.slots.map((slot) => {
-                        const active = selectedSlotId === slot.id;
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() => setSelectedSlotId(slot.id)}
-                            className={`rounded-2xl border p-4 text-left transition ${
-                              active
-                                ? 'border-orange-500 bg-orange-50'
-                                : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
-                            }`}
-                          >
-                            <p className="font-semibold text-gray-900">
-                              {slot.label}
-                            </p>
-                            <p className="mt-1 text-xs text-gray-500">
-                              {slot.branchLabel
-                                ? `Branch: ${slot.branchLabel}`
-                                : 'Online class'}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-gray-600 ring-1 ring-gray-200">
-                                {slot.sessionType === 'premium'
-                                  ? 'Individual'
-                                  : 'Group'}
-                              </span>
-                              {slot.bookingTag ? (
-                                <span
-                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                    slot.bookingTag === 'Filling fast'
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : 'bg-emerald-100 text-emerald-700'
-                                  }`}
-                                >
-                                  {slot.bookingTag}
+                {/* Class times — informational, slot is auto-selected */}
+                {(() => {
+                  const activeGroup = slotGroups.find((g) => g.id === selectedGroupId);
+                  if (!activeGroup) return null;
+                  const seenTimes = new Set();
+                  const uniqueSlots = activeGroup.slots.filter((slot) => {
+                    const key = `${String(slot.startTime || '').trim().toLowerCase()}|${String(slot.endTime || '').trim().toLowerCase()}`;
+                    if (seenTimes.has(key)) return false;
+                    seenTimes.add(key);
+                    return true;
+                  });
+                  return (
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="mb-3 text-sm font-medium text-gray-700">
+                        Class times — {activeGroup.label}
+                      </p>
+                      <div className="space-y-2">
+                        {uniqueSlots.map((slot) => {
+                          const timeLabel =
+                            slot.startTime && slot.endTime
+                              ? `${formatTimeLabel(slot.startTime)} – ${formatTimeLabel(slot.endTime)}`
+                              : slot.label;
+                          return (
+                            <div
+                              key={slot.id}
+                              className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-gray-900">{timeLabel}</p>
+                                <p className="mt-0.5 text-xs text-gray-500">
+                                  {slot.branchLabel ? `Branch: ${slot.branchLabel}` : 'Online class'}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-600">
+                                  {slot.sessionType === 'premium' ? 'Individual' : 'Group'}
                                 </span>
-                              ) : null}
+                                {slot.bookingTag ? (
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                      slot.bookingTag === 'Filling fast'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                    }`}
+                                  >
+                                    {slot.bookingTag}
+                                  </span>
+                                ) : null}
+                              </div>
                             </div>
-                          </button>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
-                  </section>
-                ))}
-              </div>
+                  );
+                })()}
+              </>
             ) : (
               <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
                 {selectedInstructorId
@@ -817,6 +1017,246 @@ export default function EnrollTerm({
                   : 'Choose an instructor first to view available slots.'}
               </div>
             )}
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className="mt-7 space-y-4">
+            <p className="text-sm text-gray-500">
+              Select the type of session that best fits your learning preferences.
+            </p>
+
+            {!canChooseStandard && !canChoosePremium ? (
+              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
+                No pricing is configured for this course yet. Please contact support.
+              </div>
+            ) : null}
+
+            {canChooseStandard ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedSessionType('standard')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('standard'); } }}
+                className={`cursor-pointer rounded-3xl border p-5 transition ${
+                  selectedSessionType === 'standard'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">Group sessions</p>
+                    <p className="mt-0.5 text-sm text-gray-500">Learn together with peers</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                      Popular
+                    </span>
+                    {selectedSessionType === 'standard' ? (
+                      <HiCheckCircle className="text-xl text-orange-500" />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 text-sm text-gray-700">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {toMoney(groupPrice?.monthlyFee) || toMoney(groupPrice?.fullPayment) || '—'}
+                    <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <HiUsers className="shrink-0 text-gray-500" />
+                    <span>Small group · interactive sessions</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <HiClock className="shrink-0 text-gray-500" />
+                    <span>
+                      {selectedSlot?.startTime && selectedSlot?.endTime
+                        ? `${formatTimeLabel(selectedSlot.startTime)} – ${formatTimeLabel(selectedSlot.endTime)}`
+                        : 'Your selected schedule'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {canChoosePremium ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedSessionType('premium')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('premium'); } }}
+                className={`cursor-pointer rounded-3xl border p-5 transition ${
+                  selectedSessionType === 'premium'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 border-green-200 hover:border-orange-200 hover:bg-orange-50/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">Individual sessions</p>
+                    <p className="mt-0.5 text-sm text-gray-500">1-on-1 personalized learning</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                      Personalized
+                    </span>
+                    {selectedSessionType === 'premium' ? (
+                      <HiCheckCircle className="text-xl text-orange-500" />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 text-sm text-gray-700">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {toMoney(premiumPrice?.monthlyFee) || toMoney(premiumPrice?.fullPayment) || '—'}
+                    <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <FaUser className="shrink-0 text-gray-500" />
+                    <span>One-on-one · customized pace</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <HiClock className="shrink-0 text-gray-500" />
+                    <span>
+                      {selectedSlot?.startTime && selectedSlot?.endTime
+                        ? `${formatTimeLabel(selectedSlot.startTime)} – ${formatTimeLabel(selectedSlot.endTime)}`
+                        : 'Your selected schedule'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {step === 4 ? (
+          <div className="mt-7 space-y-5">
+            <p className="text-sm text-gray-500">
+              {selectedSessionType === 'premium' ? 'Individual (1:1)' : 'Group'} sessions •{' '}
+              {courseTitle}
+            </p>
+
+            {tenurePlans.length > 0 ? (
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-700">Select duration</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {tenurePlans.map((plan) => {
+                    const isSelected = plan.months === selectedMonths;
+                    return (
+                      <button
+                        key={plan.months}
+                        type="button"
+                        onClick={() => setSelectedMonths(plan.months)}
+                        className={`rounded-2xl border px-3 py-3 text-center transition ${
+                          isSelected
+                            ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <span className="block text-base font-semibold text-gray-900">
+                          {plan.months} mo
+                        </span>
+                        <span className="block text-[11px] text-gray-500">
+                          {toMoney(plan.fullPayment) || '—'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {/* Monthly plan */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedPlanType('monthly')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPlanType('monthly'); } }}
+              className={`cursor-pointer rounded-3xl border p-5 transition ${
+                selectedPlanType === 'monthly'
+                  ? 'border-orange-500 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-gray-900">Monthly plan</p>
+                  <span className="mt-1 inline-block rounded-full bg-purple-100 px-3 py-0.5 text-xs font-medium text-purple-700">
+                    Flexible
+                  </span>
+                </div>
+                {selectedPlanType === 'monthly' ? (
+                  <HiCheckCircle className="text-xl text-orange-500" />
+                ) : null}
+              </div>
+              <p className="mt-3 text-2xl font-bold text-gray-900">
+                {toMoney(planMonthlyFee) || '—'}
+                <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
+              </p>
+              <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
+                <HiCheckCircle className="text-green-500" />
+                <span>
+                  {planDurationMonths
+                    ? `Paid over ${planDurationMonths} months`
+                    : 'Pay as you go · cancel anytime'}
+                </span>
+              </div>
+            </div>
+
+            {/* Full payment plan */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => setSelectedPlanType('full')}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPlanType('full'); } }}
+              className={`cursor-pointer rounded-3xl border p-5 transition ${
+                selectedPlanType === 'full'
+                  ? 'border-orange-500 bg-orange-50'
+                  : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-gray-900">
+                    {planDurationMonths ? `${planDurationMonths}-month plan` : 'Full course plan'}
+                  </p>
+                  <span className="mt-1 inline-block rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-700">
+                    Best value
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {planDiscountPct ? (
+                    <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                      Save {planDiscountPct}%
+                    </span>
+                  ) : null}
+                  {selectedPlanType === 'full' ? (
+                    <HiCheckCircle className="text-xl text-orange-500" />
+                  ) : null}
+                </div>
+              </div>
+              <p className="mt-3 text-2xl font-bold text-gray-900">
+                {toMoney(planFullFee) || '—'}
+                <span className="ml-1 text-sm font-medium text-gray-500">one-time</span>
+              </p>
+              {planMrpFull ? (
+                <p className="mt-0.5 text-sm text-gray-400 line-through">{toMoney(planMrpFull)}</p>
+              ) : null}
+              {planSavings ? (
+                <p className="text-sm font-medium text-green-600">Save {toMoney(planSavings)}</p>
+              ) : null}
+              <div className="mt-3 space-y-1">
+                {[
+                  'Best overall price',
+                  'Priority support',
+                  'Certificate on completion',
+                ].map((feat) => (
+                  <div key={feat} className="flex items-center gap-2 text-sm text-gray-600">
+                    <HiCheckCircle className="shrink-0 text-green-500" />
+                    <span>{feat}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -849,7 +1289,7 @@ export default function EnrollTerm({
                 : 'cursor-not-allowed bg-gray-300'
             }`}
           >
-            {step === STEPS.length - 1 ? 'Continue to plans' : 'Continue'}
+            {step === STEPS.length - 1 ? 'Proceed to payment' : 'Continue'}
           </button>
         </div>
       </div>

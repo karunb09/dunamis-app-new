@@ -7,8 +7,10 @@ import { HiArrowRight, HiBookOpen, HiRefresh } from "react-icons/hi";
 import StudentShell from "@/components/student/StudentShell";
 import { getWebsiteToken, getWebsiteUser } from "@/lib/authSession";
 import { resolveImageUrl, getCoursePlaceholderImage } from "@/lib/resolveImageUrl";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+// Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
+const BASE_URL = API_BASE;
 
 const getCourseId = (course) => course?._id || course?.id || "";
 

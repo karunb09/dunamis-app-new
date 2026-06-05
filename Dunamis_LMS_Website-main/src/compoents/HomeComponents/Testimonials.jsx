@@ -7,169 +7,191 @@ import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
-export default function Testimonials() {
-    const router = useRouter();
-    const [isInterestModalOpen, setInterestModalOpen] = useState(false);
-    const [testimonials, setTestimonials] = useState([]);
+function TestimonialCard({ item, index }) {
+  const stars = Math.round(item.rating || 5);
+  return (
+    <div
+      className="shrink-0 w-[300px] sm:w-[340px] rounded-2xl p-5 flex flex-col gap-3"
+      style={{
+        background: "rgba(255,255,255,0.06)",
+        border: "1px solid rgba(255,255,255,0.10)",
+        backdropFilter: "blur(12px)",
+      }}
+    >
+      {/* Large quote mark */}
+      <span className="text-4xl font-serif leading-none text-[#ef6a32]/70 select-none">"</span>
 
-    useEffect(() => {
-        let mounted = true;
+      {/* Stars */}
+      <div className="flex gap-0.5">
+        {[...Array(stars)].map((_, i) => (
+          <Star key={i} className="h-3.5 w-3.5 fill-[#ef6a32] text-[#ef6a32]" />
+        ))}
+      </div>
 
-        const loadTestimonials = async () => {
-            try {
-                const items = await fetchPublicSiteContent("testimonial");
-                if (mounted) {
-                    setTestimonials(items.slice(0, 3));
-                }
-            } catch {
-                if (mounted) {
-                    setTestimonials([]);
-                }
-            }
-        };
+      {/* Body */}
+      <p className="text-white/65 text-sm leading-relaxed line-clamp-4">{item.body}</p>
 
-        loadTestimonials();
-
-        return () => {
-            mounted = false;
-        };
-    }, []);
-
-    const containerVariants = {
-        hidden: { opacity: 0 },
-        visible: {
-            opacity: 1,
-            transition: { staggerChildren: 0.3 },
-        },
-    };
-
-    const cardVariants = {
-        hidden: { opacity: 0, y: 40 },
-        visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
-    };
-
-    return (
+      {/* Author */}
+      <div className="mt-auto flex items-center gap-3 pt-3 border-t border-white/10">
+        <img
+          src={resolveImageUrl(item.image, getInitialsImage(item.title))}
+          alt={item.title}
+          className="h-9 w-9 rounded-full object-cover object-top shrink-0"
+          loading="lazy"
+          decoding="async"
+        />
         <div>
-            {/* Reviews Section */}
-            <motion.section
-                className="py-20 bg-white px-6 text-center"
-                initial="hidden"
-                whileInView="visible"
-                viewport={{ once: false, amount: 0.2 }}
-                variants={containerVariants}
-            >
-                <motion.p
-                    className="text-[#FF6B35] font-medium mb-2"
-                    initial={{ opacity: 0, y: -20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                >
-                    Student Reviews
-                </motion.p>
-                <motion.h2
-                    className="text-3xl font-bold mb-4"
-                    initial={{ opacity: 0, y: -20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8 }}
-                >
-                    What Our Students Say
-                </motion.h2>
-                <motion.p
-                    className="text-gray-600 mb-10 max-w-3xl mx-auto"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    transition={{ duration: 1 }}
-                >
-                    Join thousands of students who have discovered their creative potential
-                    and achieved their learning goals with Dunamis.
-                </motion.p>
-
-                {/* Review Cards */}
-                <motion.div
-                    className=" grid md:grid-cols-3 gap-6 max-w-7xl mx-auto"
-                    variants={containerVariants}
-                >
-                    {testimonials.length === 0 ? (
-                        <p className="col-span-full text-center text-gray-500">
-                            Student stories are being updated.
-                        </p>
-                    ) : testimonials.map((item, index) => (
-                        <motion.div
-                            key={item._id || index}
-                            className="bg-[#ff6b3514] rounded-xl border border-[#FF6B35] shadow p-6 text-left flex flex-col justify-between hover:shadow-lg hover:-translate-y-2 transition-transform duration-300"
-                            variants={cardVariants}
-                        >
-                            <div className="flex text-[#FF6B35] mb-3">
-                                {[...Array(Math.round(item.rating || 5))].map((_, i) => (
-                                    <Star key={i} className="h-4 w-4 fill-[#FF6B35] text-[#FF6B35]" />
-                                ))}
-                            </div>
-                            <p className="text-gray-700 mb-6 text-sm">"{item.body}"</p>
-
-                            <div className="flex items-center gap-3 mt-auto">
-                                <img
-                                    src={resolveImageUrl(item.image, getInitialsImage(item.title))}
-                                    alt={item.title}
-                                    className="h-10 w-10 rounded-full object-cover object-top"
-                                    loading="lazy"
-                                    decoding="async"
-                                />
-                                <div>
-                                    <p className="font-semibold text-sm">{item.title}</p>
-                                    <p className="text-gray-500 text-sm">{item.subtitle}</p>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ))}
-                </motion.div>
-
-                <motion.button
-                    className="cursor-pointer mt-10 px-6 py-3 border border-[#FF6B35] text-[#FF6B35] rounded-full hover:bg-[#FF6B35] hover:text-white transition text-sm font-medium"
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                >
-                    Read More Reviews
-                </motion.button>
-            </motion.section>
-
-            {/* Call-to-Action Section */}
-            <motion.section
-                className="py-24 px-6 text-center text-gray-800 bg-teal-100"
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                viewport={{ once: false }}
-            >
-                <h2 className="text-2xl md:text-3xl font-bold mb-6">
-                    Ready to Begin Your Creative Journey?
-                </h2>
-                <p className="text-lg md:text-xl text-gray-500 max-w-2xl mx-auto mb-10">
-                    Join our vibrant community of learners and discover your potential.
-                    Whether online or at our centres, your creative adventure starts here.
-                </p>
-               <div className="mt-6 flex flex-wrap gap-4 justify-center">
-                           <motion.button
-                             whileHover={{ scale: 1.08 }}
-                             whileTap={{ scale: 0.96 }}
-                             onClick={() => router.push("/courses")}
-                             className="cursor-pointer border border-orange-500 bg-orange-500 text-white transition-all duration-300 ease-in-out px-6 py-2 rounded-full"
-                           >
-                        Explore All Courses
-                    </motion.button>
-                   <motion.button
-                        whileHover={{ scale: 1.08 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => setInterestModalOpen(true)}
-                        className="text-[#47c9c4] cursor-pointer border border-[#47c9c4] hover:text-white hover:bg-[#47c9c4] transition-all duration-300 ease-in-out px-6 py-2 rounded-full"
-                        >
-                        Book a Demo
-                    </motion.button>
-                </div>
-            </motion.section>
-            <FilterQuestionsModal
-                isOpen={isInterestModalOpen}
-                onClose={() => setInterestModalOpen(false)}
-            />
+          <p className="text-white text-sm font-semibold leading-tight">{item.title}</p>
+          <p className="text-white/45 text-xs">{item.subtitle}</p>
         </div>
-    );
+      </div>
+    </div>
+  );
+}
+
+export default function Testimonials() {
+  const router = useRouter();
+  const [isInterestModalOpen, setInterestModalOpen] = useState(false);
+  const [testimonials, setTestimonials] = useState([]);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchPublicSiteContent("testimonial")
+      .then((items) => { if (mounted) setTestimonials(items || []); })
+      .catch(() => { if (mounted) setTestimonials([]); });
+    return () => { mounted = false; };
+  }, []);
+
+  // Split into two rows; fall back to single array duplicated if very few items
+  const row1 = testimonials.length >= 4
+    ? testimonials.slice(0, Math.ceil(testimonials.length / 2))
+    : testimonials;
+  const row2 = testimonials.length >= 4
+    ? testimonials.slice(Math.ceil(testimonials.length / 2))
+    : [...testimonials].reverse();
+
+  // Ensure we have enough cards to fill the scroll — duplicate until ≥ 4 items per row
+  const pad = (arr) => {
+    if (arr.length === 0) return [];
+    let out = [...arr];
+    while (out.length < 4) out = [...out, ...arr];
+    return out;
+  };
+
+  const r1 = pad(row1);
+  const r2 = pad(row2);
+
+  return (
+    <div>
+      {/* ── Infinite Scroll Reviews ─────────────────── */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0a0a16] via-[#0f0f22] to-[#0a0a16] py-24">
+        {/* Background orbs */}
+        <div
+          className="orb w-[500px] h-[500px] left-[-15%] top-[-20%] opacity-20"
+          style={{ background: "#ef6a32", "--dur": "18s" }}
+        />
+        <div
+          className="orb w-[400px] h-[400px] right-[-10%] bottom-[-15%] opacity-15"
+          style={{ background: "#47c9c4", "--dur": "14s", animationDelay: "4s" }}
+        />
+
+        <div className="relative z-10">
+          {/* Header */}
+          <motion.div
+            className="text-center mb-14 px-6"
+            initial={{ opacity: 0, y: -20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            viewport={{ once: true, amount: 0.05 }}
+          >
+            <span className="inline-block mb-4 rounded-full bg-white/10 border border-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/60 backdrop-blur-sm">
+              Student Reviews
+            </span>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
+              What Our{" "}
+              <span className="bg-gradient-to-r from-[#ef6a32] to-[#47c9c4] bg-clip-text text-transparent">
+                Students Say
+              </span>
+            </h2>
+            <p className="mt-4 text-white/45 max-w-xl mx-auto text-sm sm:text-base">
+              Join thousands who have discovered their creative potential with Dunamis.
+            </p>
+          </motion.div>
+
+          {testimonials.length === 0 ? (
+            <p className="text-center text-white/40 py-10">Student stories are being updated.</p>
+          ) : (
+            <div className="flex flex-col gap-5 overflow-hidden">
+              {/* Row 1 — scrolls left */}
+              <div className="flex gap-5 testimonial-track testimonial-track-left px-5">
+                {[...r1, ...r1].map((item, i) => (
+                  <TestimonialCard key={`r1-${i}`} item={item} index={i} />
+                ))}
+              </div>
+              {/* Row 2 — scrolls right */}
+              <div className="flex gap-5 testimonial-track testimonial-track-right px-5">
+                {[...r2, ...r2].map((item, i) => (
+                  <TestimonialCard key={`r2-${i}`} item={item} index={i} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── CTA Section ─────────────────────────────── */}
+      <motion.section
+        className="relative overflow-hidden py-24 px-6 text-center"
+        style={{
+          background: "linear-gradient(135deg, #0f0f1a 0%, #1a0f06 40%, #0a1a18 100%)",
+        }}
+        initial={{ opacity: 0, y: 50 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.9, ease: "easeOut" }}
+        viewport={{ once: true, amount: 0.05 }}
+      >
+        {/* Glow accents */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/4 top-0 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ef6a32]/20 blur-3xl" />
+          <div className="absolute right-1/4 bottom-0 h-48 w-48 translate-x-1/2 translate-y-1/2 rounded-full bg-[#47c9c4]/20 blur-3xl" />
+        </div>
+
+        <div className="relative z-10 max-w-2xl mx-auto">
+          <h2 className="text-2xl md:text-4xl font-bold text-white mb-4">
+            Ready to Begin Your{" "}
+            <span className="bg-gradient-to-r from-[#ef6a32] to-[#47c9c4] bg-clip-text text-transparent">
+              Creative Journey?
+            </span>
+          </h2>
+          <p className="text-white/50 text-sm sm:text-base max-w-lg mx-auto mb-10">
+            Join our vibrant community of learners and discover your potential.
+            Whether online or at our centres, your creative adventure starts here.
+          </p>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <motion.button
+              whileHover={{ scale: 1.06, boxShadow: "0 16px 36px -10px rgba(239,106,50,0.6)" }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => router.push("/courses")}
+              className="cursor-pointer rounded-full bg-[#ef6a32] border border-[#ef6a32] px-7 py-2.5 text-sm font-semibold text-white transition-all duration-200"
+            >
+              Explore All Courses
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setInterestModalOpen(true)}
+              className="cursor-pointer rounded-full border border-[#47c9c4]/60 px-7 py-2.5 text-sm font-semibold text-[#47c9c4] backdrop-blur-sm transition-all duration-200 hover:bg-[#47c9c4]/10"
+            >
+              Book a Demo
+            </motion.button>
+          </div>
+        </div>
+      </motion.section>
+
+      <FilterQuestionsModal
+        isOpen={isInterestModalOpen}
+        onClose={() => setInterestModalOpen(false)}
+      />
+    </div>
+  );
 }

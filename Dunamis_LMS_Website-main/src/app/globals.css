@@ -18,6 +18,8 @@ canvas,
 svg {
   max-width: 100%;
 }
+
+/* ─── Marquee ─────────────────────────────────────── */
 @keyframes marquee {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }
@@ -32,4 +34,167 @@ svg {
   display: flex;
   white-space: nowrap;
   animation: marquee 25s linear infinite;
+}
+
+.marquee:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Skeleton shimmer ────────────────────────────── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #ede8e1 25%, #d8d3cc 50%, #ede8e1 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── Floating music notes (hero) ────────────────── */
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.55; }
+  33%       { transform: translateY(-22px) rotate(6deg); opacity: 0.85; }
+  66%       { transform: translateY(-10px) rotate(-4deg); opacity: 0.65; }
+}
+
+.float-note {
+  position: absolute;
+  animation: float var(--dur, 6s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ─── Gradient text shimmer (hero heading) ───────── */
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.gradient-text-animate {
+  background: linear-gradient(135deg, #ffffff 0%, #fde68a 28%, #fb923c 58%, #ffffff 100%);
+  background-size: 300% 300%;
+  animation: gradientShift 5s ease infinite;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── CTA glow pulse ─────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 106, 50, 0.45); }
+  50%       { box-shadow: 0 0 0 10px rgba(239, 106, 50, 0); }
+}
+
+.btn-glow {
+  animation: pulse-glow 2.8s ease infinite;
+}
+
+/* ─── Background orb drift (dark sections) ───────── */
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(30px, -20px) scale(1.08); }
+  66%       { transform: translate(-20px, 15px) scale(0.95); }
+}
+
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  animation: orb-drift var(--dur, 12s) ease-in-out infinite;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ─── Testimonials infinite scroll ───────────────── */
+@keyframes scrollLeft {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes scrollRight {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+.testimonial-track {
+  display: flex;
+  width: max-content;
+  flex-shrink: 0;
+}
+
+.testimonial-track-left {
+  animation: scrollLeft 40s linear infinite;
+}
+
+.testimonial-track-right {
+  animation: scrollRight 34s linear infinite;
+}
+
+.testimonial-track:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Dot-grid texture (light sections) ──────────── */
+.dot-grid {
+  background-image: radial-gradient(circle, #c8c4be55 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* ─── Custom music-note cursor ──────────────────── */
+/*
+  Eighth-note (♪) in brand orange with a white glow ring so it's
+  readable on both dark and light sections.
+  Hotspot at (4,26) — the bottom-left of the note head.
+  Falls back to `default` / `pointer` on browsers that don't support
+  custom cursor URLs (e.g. some mobile browsers; mobile ignores cursors).
+*/
+*:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cellipse cx='8' cy='23' rx='7' ry='5' transform='rotate(-18 8 23)' fill='white' opacity='0.75'/%3E%3Cline x1='13' y1='20' x2='13' y2='4' stroke='white' stroke-width='5' stroke-linecap='round' opacity='0.75'/%3E%3Cpath d='M13 4 C22 1 25 10 16 16' fill='white' opacity='0.75'/%3E%3Cellipse cx='8' cy='23' rx='5.5' ry='3.8' transform='rotate(-18 8 23)' fill='%23ef6a32'/%3E%3Cline x1='13' y1='20' x2='13' y2='4' stroke='%23ef6a32' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M13 4 C22 1 25 10 16 16' fill='%23ef6a32'/%3E%3C/svg%3E") 4 26, default;
+}
+
+a, button, [role="button"], label, summary,
+.cursor-pointer, [tabindex]:not([tabindex="-1"]) {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cellipse cx='8' cy='23' rx='7' ry='5' transform='rotate(-18 8 23)' fill='white' opacity='0.75'/%3E%3Cline x1='13' y1='20' x2='13' y2='4' stroke='white' stroke-width='5' stroke-linecap='round' opacity='0.75'/%3E%3Cpath d='M13 4 C22 1 25 10 16 16' fill='white' opacity='0.75'/%3E%3Cellipse cx='8' cy='23' rx='5.5' ry='3.8' transform='rotate(-18 8 23)' fill='%23ef6a32'/%3E%3Cline x1='13' y1='20' x2='13' y2='4' stroke='%23ef6a32' stroke-width='2.8' stroke-linecap='round'/%3E%3Cpath d='M13 4 C22 1 25 10 16 16' fill='%23ef6a32'/%3E%3C/svg%3E") 4 26, pointer;
+}
+
+input, textarea, select, [contenteditable="true"] {
+  cursor: text;
+}
+
+/* ─── Touch tap feedback ─────────────────────────── */
+/* Replace ugly browser blue tap-highlight with brand orange */
+* {
+  -webkit-tap-highlight-color: rgba(239, 106, 50, 0.15);
+}
+
+/*
+  Press feedback on touch-only screens.
+  Uses filter:brightness so it doesn't conflict with
+  Framer Motion's transform animations on the same elements.
+*/
+@media (hover: none) and (pointer: coarse) {
+  a:active,
+  button:active,
+  [role="button"]:active,
+  label:active,
+  [tabindex]:not([tabindex="-1"]):active {
+    filter: brightness(0.82);
+    transition: filter 50ms ease;
+  }
+}
+
+/* ─── Reduced motion ─────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

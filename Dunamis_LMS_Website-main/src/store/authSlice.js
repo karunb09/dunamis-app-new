@@ -2,33 +2,50 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import {
   clearWebsiteAuthSession,
-  getWebsiteToken,
-  getWebsiteUser,
   persistWebsiteAuthSession,
 } from "@/lib/authSession";
+import { API_BASE, AUTH_BASE } from "@/lib/apiBase";
+import { SESSION_SENTINEL } from "@/lib/authConstants";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-const getAuthHeaders = () => {
-  const token = getWebsiteToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// Base shape for the auth slice. Intentionally free of any browser-only reads
+// (localStorage/cookies) so it is identical on server and client. The real
+// session is seeded as Redux preloadedState from the server-read cookie
+// (see lib/serverAuth.js + app/providers.js), which is what keeps the first
+// render hydration-safe.
+export const authInitialState = {
+  loading: false,
+  hydrating: true,
+  error: null,
+  user: null,
+  token: null,
+  notices: [],
+  noticesLoading: false,
+  forgotSent: false,
+  otpVerified: false,
+  passwordReset: false,
 };
 
-// Login
+// Authenticated calls go through the same-origin BFF proxy, which injects the
+// JWT from the httpOnly cookie. The client never holds the token, so no
+// Authorization header is built here.
+const BASE_URL = API_BASE;
+const getAuthHeaders = () => ({}); // auth is injected server-side by the proxy
+
+// Login — goes through the auth route handler, which sets the httpOnly cookie
+// and returns only the user (never the token).
 export const login = createAsyncThunk(
   "auth/login",
   async (payload, { rejectWithValue }) => {
     try {
-      const res = await fetch(`${BASE_URL}/v1/user/login`, {
+      const res = await fetch(`${AUTH_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false)
         return rejectWithValue(data.message || "Login failed");
-      return { user: data.user || null, token: data.token || null };
+      return { user: data.user || null };
     } catch {
       return rejectWithValue("Unable to login");
     }
@@ -39,16 +56,12 @@ export const hydrateSession = createAsyncThunk(
   "auth/hydrateSession",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await fetch(`${BASE_URL}/v1/user/me`, {
-        method: "GET",
-        headers: getAuthHeaders(),
-        credentials: "include",
-      });
+      const res = await fetch(`${AUTH_BASE}/session`, { method: "GET" });
       const data = await res.json();
       if (!res.ok || data.success === false) {
         return rejectWithValue(data.message || "Session expired");
       }
-      return { user: data.user || null, token: data.token || getWebsiteToken() };
+      return { user: data.user || null };
     } catch {
       return rejectWithValue("Unable to restore session");
     }
@@ -57,11 +70,7 @@ export const hydrateSession = createAsyncThunk(
 
 export const logoutSession = createAsyncThunk("auth/logoutSession", async () => {
   try {
-    await fetch(`${BASE_URL}/v1/user/logout`, {
-      method: "POST",
-      headers: getAuthHeaders(),
-      credentials: "include",
-    });
+    await fetch(`${AUTH_BASE}/logout`, { method: "POST" });
   } catch {}
   clearWebsiteAuthSession();
   return true;
@@ -74,7 +83,6 @@ export const getUserDashboardNotices = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/notices`, {
         method: "GET",
         headers: getAuthHeaders(),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false) {
@@ -94,7 +102,6 @@ export const markUserDashboardNoticeRead = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/notices/${noticeId}/read`, {
         method: "PATCH",
         headers: getAuthHeaders(),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false) {
@@ -114,7 +121,6 @@ export const markAllUserDashboardNoticesRead = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/notices/read-all`, {
         method: "PATCH",
         headers: getAuthHeaders(),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false) {
@@ -134,7 +140,6 @@ export const deleteUserDashboardNotice = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/notices/${noticeId}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false) {
@@ -154,7 +159,6 @@ export const clearUserDashboardNotices = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/notices`, {
         method: "DELETE",
         headers: getAuthHeaders(),
-        credentials: "include",
       });
       const data = await res.json();
       if (!res.ok || data.success === false) {
@@ -229,18 +233,7 @@ export const resetPassword = createAsyncThunk(
 
 const authSlice = createSlice({
   name: "auth",
-  initialState: {
-    loading: false,
-    hydrating: true,
-    error: null,
-    user: getWebsiteUser(),
-    token: getWebsiteToken(),
-    notices: [],
-    noticesLoading: false,
-    forgotSent: false,
-    otpVerified: false,
-    passwordReset: false,
-  },
+  initialState: authInitialState,
   reducers: {
     logout: (state) => {
       state.user = null;
@@ -258,7 +251,7 @@ const authSlice = createSlice({
     },
     updateAuthUser: (state, action) => {
       state.user = { ...(state.user || {}), ...(action.payload || {}) };
-      persistWebsiteAuthSession({ token: state.token, user: state.user });
+      persistWebsiteAuthSession({ user: state.user });
     },
   },
   extraReducers: (builder) => {
@@ -272,8 +265,8 @@ const authSlice = createSlice({
         state.loading = false;
         state.hydrating = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        persistWebsiteAuthSession(action.payload);
+        state.token = action.payload.user ? SESSION_SENTINEL : null;
+        persistWebsiteAuthSession({ user: action.payload.user });
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -286,8 +279,8 @@ const authSlice = createSlice({
       .addCase(hydrateSession.fulfilled, (state, action) => {
         state.hydrating = false;
         state.user = action.payload.user;
-        state.token = action.payload.token;
-        persistWebsiteAuthSession(action.payload);
+        state.token = action.payload.user ? SESSION_SENTINEL : null;
+        persistWebsiteAuthSession({ user: action.payload.user });
       })
       .addCase(hydrateSession.rejected, (state) => {
         state.hydrating = false;

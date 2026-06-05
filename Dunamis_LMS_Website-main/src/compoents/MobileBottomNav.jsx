@@ -26,10 +26,9 @@ const isActive = (pathname, href) =>
 export default function MobileBottomNav() {
   const pathname = usePathname() || "/";
 
-  // Keep the public bottom nav out of the authenticated/transactional areas.
+  // Keep the public bottom nav out of the authenticated areas.
   if (
     pathname.startsWith("/student") ||
-    pathname.startsWith("/payment-confirmation") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup")
   ) {

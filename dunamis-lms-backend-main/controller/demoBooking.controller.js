@@ -4,9 +4,14 @@ const Student = require("../model/student.model");
 const Category = require("../model/category.model");
 const mailSender = require("../utils/mailSender");
 const {
+  adminDemoBookingEmailTemplate,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,
 } = require("../mail/demoBookingEmail");
+const {
+  createDashboardNotice,
+  getAdminUsers,
+} = require("../utils/notificationService");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -76,6 +81,7 @@ const sendDemoBookingEmails = async ({
   const deliveries = [];
   const studentEmail = lead?.email || student?.userId?.email || "";
   const instructorEmail = slot.createdBy?.userId?.email || "";
+  const adminUsers = await getAdminUsers();
 
   if (studentEmail) {
     const { subject, html, attachments = [] } =
@@ -94,6 +100,37 @@ const sendDemoBookingEmails = async ({
       type: "instructor",
       recipient: instructorEmail,
       task: mailSender(instructorEmail, subject, html, attachments),
+    });
+  }
+
+  if (adminUsers.length) {
+    const { subject, html, attachments = [] } = adminDemoBookingEmailTemplate(payload);
+    adminUsers.forEach((admin) => {
+      if (!admin.email) return;
+      deliveries.push({
+        type: "admin",
+        recipient: admin.email,
+        task: mailSender(admin.email, subject, html, attachments),
+      });
+    });
+  }
+
+  const specificNoticeUsers = [
+    student?.userId?._id,
+    slot.createdBy?.userId?._id,
+    ...adminUsers.map((admin) => admin._id),
+  ].filter(Boolean);
+
+  if (specificNoticeUsers.length) {
+    deliveries.push({
+      type: "dashboard-notice",
+      recipient: "dashboard",
+      task: createDashboardNotice({
+        title: "New demo booking",
+        message: `${payload.student?.name?.firstName || payload.lead?.firstName || "A student"} booked a demo for ${slot.courseId?.name || "a course"}.`,
+        userIds: specificNoticeUsers,
+        creatorId: student?.userId?._id || slot.createdBy?.userId?._id,
+      }),
     });
   }
 

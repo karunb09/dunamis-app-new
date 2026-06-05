@@ -246,6 +246,36 @@ const instructorDemoBookingEmailTemplate = (input = {}) => {
   };
 };
 
+const adminDemoBookingEmailTemplate = (input = {}) => {
+  const ctx = buildDemoBookingContext(input);
+  const details = `
+    <p style="margin:0 0 12px;color:#0f172a;font-weight:700;font-size:16px;">New demo request</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(ctx.course.name)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(ctx.instructor?.name || "Instructor")}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Student:</strong> ${escapeHtml(ctx.student.name)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Student Email:</strong> ${escapeHtml(ctx.student.email || "N/A")}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Student Phone:</strong> ${escapeHtml(ctx.student.phone || "N/A")}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Date:</strong> ${escapeHtml(ctx.slot.date)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} - ${ctx.slot.endTime}`)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Mode:</strong> ${escapeHtml(ctx.slot.branch ? "Offline" : "Online")}</p>
+    ${ctx.branch?.name ? `<p style="margin:0;color:#334155;"><strong>Branch:</strong> ${escapeHtml(ctx.branch.name)}${ctx.branch.city ? `, ${escapeHtml(ctx.branch.city)}` : ""}</p>` : ""}
+  `;
+
+  return {
+    subject: `New demo request: ${ctx.course.name}`,
+    html: buildDemoBookingCard({
+      title: "New demo request received",
+      intro:
+        "A student has booked a demo. Please review the booking and follow up if required.",
+      details,
+      ctaText: "Open Dashboard",
+      ctaHref: `${ctx.dashboardUrl}/admin`,
+    }),
+    attachments: buildDemoEmailAttachments(),
+    context: ctx,
+  };
+};
+
 const buildDemoEmailAttachments = () => {
   if (!fs.existsSync(DEMO_EMAIL_LOGO_PATH)) {
     return [];
@@ -261,6 +291,7 @@ const buildDemoEmailAttachments = () => {
 };
 
 module.exports = {
+  adminDemoBookingEmailTemplate,
   buildDemoBookingContext,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,

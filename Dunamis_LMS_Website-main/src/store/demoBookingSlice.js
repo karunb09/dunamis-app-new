@@ -1,13 +1,11 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
-
-const getAuthHeaders = () => {
-  if (typeof window === "undefined") return {};
-  const token = window.localStorage.getItem("auth_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// Routes through the BFF proxy; the proxy injects auth from the httpOnly cookie
+// when a session exists (demo booking works for anonymous users too).
+const BASE_URL = API_BASE;
+const getAuthHeaders = () => ({});
 
 export const createDemoBooking = createAsyncThunk(
   "demoBooking/createDemoBooking",

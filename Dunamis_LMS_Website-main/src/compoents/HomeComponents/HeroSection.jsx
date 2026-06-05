@@ -110,14 +110,24 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(9,16,32,0.78)_0%,rgba(12,20,33,0.58)_38%,rgba(14,22,34,0.3)_62%,rgba(10,14,24,0.58)_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(71,201,196,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(239,106,50,0.22),transparent_38%)]" />
 
+        {/* Floating music note particles — pure CSS, zero JS cost */}
+        <span className="float-note text-white/30 text-3xl left-[8%] top-[22%]" style={{ "--dur": "7s", "--delay": "0s" }} aria-hidden>♩</span>
+        <span className="float-note text-white/25 text-5xl right-[12%] top-[18%]" style={{ "--dur": "9s", "--delay": "1.2s" }} aria-hidden>♪</span>
+        <span className="float-note text-white/20 text-2xl left-[18%] bottom-[28%]" style={{ "--dur": "8s", "--delay": "2.4s" }} aria-hidden>♫</span>
+        <span className="float-note text-white/30 text-4xl right-[22%] bottom-[32%]" style={{ "--dur": "6.5s", "--delay": "0.8s" }} aria-hidden>♬</span>
+        <span className="float-note text-white/20 text-xl left-[62%] top-[38%]" style={{ "--dur": "10s", "--delay": "3s" }} aria-hidden>♩</span>
+        <span className="float-note text-white/25 text-3xl right-[38%] top-[72%]" style={{ "--dur": "7.5s", "--delay": "1.8s" }} aria-hidden>♪</span>
+
         <div className="relative z-10 flex min-h-screen max-w-5xl flex-col items-start justify-center px-6">
           <motion.h1
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="mt-8 text-4xl font-bold leading-tight text-white md:mt-10 md:text-6xl"
+            className="mt-8 text-4xl font-bold leading-tight md:mt-10 md:text-6xl"
           >
-            Discover Your Creative Potential
+            <span className="gradient-text-animate">Discover Your</span>
+            <br />
+            <span className="text-white">Creative Potential</span>
           </motion.h1>
 
           <motion.p
@@ -137,19 +147,19 @@ export default function HeroSection() {
             className="mt-6 flex flex-wrap items-center justify-start gap-4"
           >
             <motion.button
-              whileHover={{ scale: 1.08 }}
+              whileHover={{ scale: 1.06, boxShadow: "0 20px 40px -14px rgba(239,106,50,0.7)" }}
               whileTap={{ scale: 0.96 }}
               onClick={() => router.push("/courses")}
-              className="cursor-pointer rounded-full border border-orange-500 bg-orange-500 px-6 py-2 text-white shadow-[0_18px_40px_-20px_rgba(239,106,50,0.9)] transition-all duration-300 ease-in-out hover:bg-orange-400"
+              className="btn-glow cursor-pointer rounded-full border border-orange-500 bg-orange-500 px-6 py-2 text-white transition-all duration-300 ease-in-out hover:bg-orange-400"
             >
               Explore Courses
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.08 }}
+              whileHover={{ scale: 1.06 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => setInterestModalOpen(true)}
-              className="cursor-pointer rounded-full border border-white/70 bg-white/14 px-6 py-2 text-white shadow-[0_18px_40px_-22px_rgba(15,23,42,0.85)] backdrop-blur-md transition-all duration-300 ease-in-out hover:border-[#47c9c4] hover:bg-[#47c9c4] hover:text-white"
+              className="cursor-pointer rounded-full border border-white/70 bg-white/14 px-6 py-2 text-white backdrop-blur-md transition-all duration-300 ease-in-out hover:border-[#47c9c4] hover:bg-[#47c9c4] hover:text-white"
             >
               Book a Demo
             </motion.button>

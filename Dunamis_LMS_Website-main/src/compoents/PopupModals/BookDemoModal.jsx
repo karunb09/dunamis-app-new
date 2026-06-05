@@ -22,8 +22,9 @@ import {
   filterSlotsForSelection as filterCourseSlots,
   normalizeCityName,
 } from '@/helpers/courseSlots';
+import { API_BASE } from '@/lib/apiBase';
 
-const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || '';
+// Authenticated/opportunistic calls go through the BFF proxy.
 const DRAFT_PREFIX = 'dunamis-demo-flow';
 
 const isEmail = (value) =>
@@ -156,6 +157,11 @@ export default function BookDemoModal({
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
   const [selectedBranchCity, setSelectedBranchCity] = useState('all');
+  const [selectedDemoDate, setSelectedDemoDate] = useState('');
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() };
+  });
 
   const branchCityOptions = useMemo(() => {
     const cityMap = new Map();
@@ -232,6 +238,52 @@ export default function BookDemoModal({
     () => availableSlots.find((slot) => slot.id === form.slotId) || null,
     [availableSlots, form.slotId]
   );
+
+  const slotsByDate = useMemo(() => {
+    const IST_MS = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(Date.now() + IST_MS);
+    const todayISTStr = nowIST.toISOString().slice(0, 10);
+    const nowISTMinutes = nowIST.getUTCHours() * 60 + nowIST.getUTCMinutes();
+
+    const parseTimeToMinutes = (timeStr) => {
+      const raw = String(timeStr || '').trim();
+      if (!raw) return -1;
+      if (raw.includes(':')) {
+        const [h, m] = raw.split(':').map(Number);
+        return Number.isNaN(h) || Number.isNaN(m) ? -1 : h * 60 + m;
+      }
+      const digits = raw.replace(/\D/g, '');
+      if (!digits) return -1;
+      if (digits.length <= 2) return Number(digits) * 60;
+      return Number(digits.slice(0, digits.length - 2)) * 60 + Number(digits.slice(-2));
+    };
+
+    const minsToKey = (mins) => (mins < 0 ? '' : `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`);
+
+    const byDate = new Map();
+    availableSlots.forEach((slot) => {
+      if (!slot.date) return;
+      const d = new Date(slot.date);
+      if (Number.isNaN(d.getTime())) return;
+      const dateKey = new Date(d.getTime() + IST_MS).toISOString().slice(0, 10);
+
+      if (dateKey < todayISTStr) return;
+      if (dateKey === todayISTStr) {
+        const slotMins = parseTimeToMinutes(slot.startTime);
+        if (slotMins >= 0 && slotMins <= nowISTMinutes) return;
+      }
+
+      if (!byDate.has(dateKey)) byDate.set(dateKey, new Map());
+      // Normalise to HH:MM so "10:00" and "1000" deduplicate correctly
+      const timeKey = `${minsToKey(parseTimeToMinutes(slot.startTime))}|${minsToKey(parseTimeToMinutes(slot.endTime))}`;
+      if (!byDate.get(dateKey).has(timeKey)) byDate.get(dateKey).set(timeKey, slot);
+    });
+    const result = new Map();
+    for (const [dateKey, byTime] of byDate) {
+      result.set(dateKey, Array.from(byTime.values()));
+    }
+    return result;
+  }, [availableSlots]);
 
   const steps = [
     'Student details',
@@ -347,8 +399,22 @@ export default function BookDemoModal({
     if (!form.instructorId) return;
     if (!availableSlots.find((slot) => slot.id === form.slotId)) {
       setForm((prev) => ({ ...prev, slotId: '' }));
+      setSelectedDemoDate('');
     }
   }, [availableSlots, form.instructorId, form.slotId]);
+
+  useEffect(() => {
+    setSelectedDemoDate('');
+    setCalendarMonth(() => {
+      const dates = Array.from(slotsByDate.keys()).sort();
+      if (dates.length > 0) {
+        const d = new Date(dates[0] + 'T00:00:00');
+        if (!Number.isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() };
+      }
+      const now = new Date();
+      return { year: now.getFullYear(), month: now.getMonth() };
+    });
+  }, [form.instructorId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (form.deliveryMode !== 'offline' && form.branchId) {
@@ -396,6 +462,7 @@ export default function BookDemoModal({
     if (!isOpen) {
       setVideoPreview(null);
       setAppliedPreferredInstructorId('');
+      setSelectedDemoDate('');
     }
   }, [isOpen]);
 
@@ -575,12 +642,12 @@ export default function BookDemoModal({
                 Demo booking
               </p>
               <h2 className="mt-3 text-3xl font-bold leading-tight">
-                Book a demo without forcing sign in.
+                Book your free demo class
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-white/80">
-                We collect the learner details first, then narrow down mode,
-                instructor, and real published demo slots. Progress stays saved
-                locally while the student moves through the wizard.
+                Tell us a little about the learner, choose your preferred mode and
+                instructor, and pick a demo slot that suits you. Your progress is
+                saved as you go — no account required.
               </p>
 
               <div className="mt-8 flex items-center gap-4 rounded-3xl bg-white/10 p-4 ring-1 ring-white/10">
@@ -606,7 +673,7 @@ export default function BookDemoModal({
               <div className="mt-6 space-y-3 text-sm text-white/80">
                 <div className="flex items-center gap-3">
                   <HiCheckCircle className="text-emerald-300" />
-                  <span>Guest-first demo entry</span>
+                  <span>No account needed to book</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <HiCheckCircle className="text-emerald-300" />
@@ -614,7 +681,7 @@ export default function BookDemoModal({
                 </div>
                 <div className="flex items-center gap-3">
                   <HiCheckCircle className="text-emerald-300" />
-                  <span>Progress is restored if the modal closes</span>
+                  <span>Your progress is saved automatically</span>
                 </div>
               </div>
             </div>
@@ -783,9 +850,8 @@ export default function BookDemoModal({
                     </div>
 
                     <div className="rounded-2xl bg-orange-50 p-4 text-sm text-gray-700">
-                      If you are already signed in, we will reuse your saved
-                      details. If not, this wizard will still capture the demo
-                      request.
+                      Already signed in? We'll use your saved details. If not,
+                      you can still book your demo here in a few quick steps.
                     </div>
                   </div>
                 ) : null}
@@ -1020,7 +1086,7 @@ export default function BookDemoModal({
                 ) : null}
 
                 {step === 3 ? (
-                  <div className="mt-6 space-y-4">
+                  <div className="mt-6 space-y-5">
                     {slotsError ? (
                       <div className="rounded-3xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                         {slotsError}
@@ -1035,38 +1101,151 @@ export default function BookDemoModal({
                       <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
                         Loading published demo slots...
                       </div>
-                    ) : availableSlots.length > 0 ? (
-                      availableSlots.map((slot) => {
-                        const isSelected = form.slotId === slot.id;
-                        return (
-                          <button
-                            key={slot.id}
-                            type="button"
-                            onClick={() => updateForm({ slotId: slot.id })}
-                            className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
-                              isSelected
-                                ? 'border-orange-500 bg-orange-50'
-                                : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50'
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p className="font-semibold text-gray-900">
-                                  {slot.label}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">
-                                  {slot.branchLabel
-                                    ? `Branch: ${slot.branchLabel}`
-                                    : 'Online demo'}
-                                </p>
+                    ) : slotsByDate.size > 0 ? (
+                      <>
+                        {(() => {
+                          const { year: calYear, month: calMonth } = calendarMonth;
+                          const nowISTCal = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+                          const todayISTStr = nowISTCal.toISOString().slice(0, 10);
+                          const todayISTYear = nowISTCal.getUTCFullYear();
+                          const todayISTMonth = nowISTCal.getUTCMonth();
+                          const firstDay = new Date(calYear, calMonth, 1).getDay();
+                          const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+                          const monthLabel = new Date(calYear, calMonth, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                          const DAY_HDRS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+                          const canGoPrev = calYear > todayISTYear || (calYear === todayISTYear && calMonth > todayISTMonth);
+                          const pad = (n) => String(n).padStart(2, '0');
+
+                          return (
+                            <div>
+                              <p className="mb-3 text-sm font-medium text-gray-700">Pick a date for your demo</p>
+                              <div className="rounded-3xl border border-gray-200 p-4">
+                                <div className="mb-4 flex items-center justify-between">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCalendarMonth(({ year, month }) =>
+                                        month === 0 ? { year: year - 1, month: 11 } : { year, month: month - 1 }
+                                      )
+                                    }
+                                    disabled={!canGoPrev}
+                                    className={`rounded-xl px-3 py-1.5 text-lg transition ${canGoPrev ? 'text-gray-700 hover:bg-gray-100' : 'cursor-not-allowed text-gray-300'}`}
+                                  >
+                                    ‹
+                                  </button>
+                                  <span className="text-sm font-semibold text-gray-900">{monthLabel}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCalendarMonth(({ year, month }) =>
+                                        month === 11 ? { year: year + 1, month: 0 } : { year, month: month + 1 }
+                                      )
+                                    }
+                                    className="rounded-xl px-3 py-1.5 text-lg text-gray-700 transition hover:bg-gray-100"
+                                  >
+                                    ›
+                                  </button>
+                                </div>
+
+                                <div className="mb-1 grid grid-cols-7">
+                                  {DAY_HDRS.map((h) => (
+                                    <div key={h} className="py-1 text-center text-xs font-medium text-gray-400">
+                                      {h}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="grid grid-cols-7 gap-y-1">
+                                  {Array.from({ length: firstDay }).map((_, i) => (
+                                    <div key={`e${i}`} />
+                                  ))}
+                                  {Array.from({ length: daysInMonth }).map((_, i) => {
+                                    const day = i + 1;
+                                    const dateStr = `${calYear}-${pad(calMonth + 1)}-${pad(day)}`;
+                                    const isPast = dateStr < todayISTStr;
+                                    const hasSlots = slotsByDate.has(dateStr);
+                                    const isDisabled = isPast || !hasSlots;
+                                    const isSelected = selectedDemoDate === dateStr;
+                                    const isToday = dateStr === todayISTStr;
+
+                                    return (
+                                      <div key={day} className="flex justify-center">
+                                        <button
+                                          type="button"
+                                          disabled={isDisabled}
+                                          onClick={() => {
+                                            setSelectedDemoDate(dateStr);
+                                            updateForm({ slotId: '' });
+                                          }}
+                                          className={`relative flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition ${
+                                            isSelected
+                                              ? 'bg-orange-500 text-white'
+                                              : hasSlots && !isPast
+                                                ? 'border border-orange-300 text-orange-700 hover:bg-orange-50'
+                                                : 'cursor-not-allowed text-gray-300'
+                                          }`}
+                                        >
+                                          {day}
+                                          {isToday && !isSelected ? (
+                                            <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400" />
+                                          ) : null}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                              <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
-                                {slot.sessionType}
-                              </span>
                             </div>
-                          </button>
-                        );
-                      })
+                          );
+                        })()}
+
+                        {selectedDemoDate ? (() => {
+                          const dateSlots = slotsByDate.get(selectedDemoDate) || [];
+                          const displayDate = new Date(selectedDemoDate + 'T00:00:00').toLocaleDateString('en-US', {
+                            weekday: 'long', month: 'long', day: 'numeric',
+                          });
+                          return (
+                            <div>
+                              <p className="mb-3 text-sm font-medium text-gray-700">
+                                Available times on {displayDate}
+                              </p>
+                              <div className="space-y-2">
+                                {dateSlots.map((slot) => {
+                                  const isSelected = form.slotId === slot.id;
+                                  const timeLabel =
+                                    slot.startTime && slot.endTime
+                                      ? `${formatTime(slot.startTime)} – ${formatTime(slot.endTime)}`
+                                      : slot.label || 'Time TBD';
+                                  return (
+                                    <button
+                                      key={slot.id}
+                                      type="button"
+                                      onClick={() => updateForm({ slotId: slot.id })}
+                                      className={`w-full rounded-3xl border px-4 py-4 text-left transition ${
+                                        isSelected
+                                          ? 'border-orange-500 bg-orange-50'
+                                          : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50'
+                                      }`}
+                                    >
+                                      <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div>
+                                          <p className="font-semibold text-gray-900">{timeLabel}</p>
+                                          <p className="mt-1 text-xs text-gray-500">
+                                            {slot.branchLabel ? `Branch: ${slot.branchLabel}` : 'Online demo'}
+                                          </p>
+                                        </div>
+                                        <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-gray-600 ring-1 ring-gray-200">
+                                          {slot.sessionType}
+                                        </span>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })() : null}
+                      </>
                     ) : (
                       <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
                         No demo slots are currently published for this
@@ -1116,9 +1295,9 @@ export default function BookDemoModal({
                     </div>
 
                     <div className="rounded-3xl bg-orange-50 p-4 text-sm text-gray-700">
-                      Once the request is submitted, the booking stays tied to
-                      the selected instructor and published slot. The backend
-                      can then trigger the student and instructor notifications.
+                      Once you submit, your demo is reserved with the selected
+                      instructor and time slot. You'll receive a confirmation
+                      with the joining details shortly.
                     </div>
                   </div>
                 ) : null}

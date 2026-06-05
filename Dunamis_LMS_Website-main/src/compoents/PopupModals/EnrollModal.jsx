@@ -92,6 +92,8 @@ export default function EnrollModal({
             discount: item?.discount ?? 0,
             isSelected: item?.isSelected ?? false,
             isActive: item?.isActive ?? true,
+            tenurePlans: Array.isArray(item?.tenurePlans) ? item.tenurePlans : [],
+            installments: item?.installments ?? null,
         }));
     }, [payload]);
 
@@ -140,7 +142,7 @@ export default function EnrollModal({
         if (!selectedSlot || (selectedSessionType && selectedSessionType !== sessionType)) {
             return {
                 maxStudents: null,
-                timeRange: 'Choose a matching slot in the previous step',
+                timeRange: 'Select a time slot to continue',
             };
         }
 
@@ -149,7 +151,7 @@ export default function EnrollModal({
             timeRange:
                 selectedSlot?.startTime && selectedSlot?.endTime
                     ? `${toTimeLabel(selectedSlot.startTime)} - ${toTimeLabel(selectedSlot.endTime)}`
-                    : selectedSlot?.label || 'Selected in previous step',
+                    : selectedSlot?.label || 'Your selected slot',
         };
     };
 
@@ -186,7 +188,7 @@ export default function EnrollModal({
     };
 
     const selectionLockedMessage = !hasChosenSlot
-        ? 'Choose instructor and slot in the previous step to continue.'
+        ? 'Please select an instructor and time slot to continue.'
         : selectedSessionType
             ? `Your selected slot is a ${selectedSessionType} session.`
             : '';
@@ -355,7 +357,7 @@ export default function EnrollModal({
                 ) : null}
 
                 <p className="mt-6 text-center text-xs text-gray-500">
-                    Click any option to continue with plan selection
+                    Select a session type to continue
                 </p>
             </div>
         </div>

@@ -7,8 +7,10 @@ import { LuArrowDownUp } from "react-icons/lu";
 import { RiFilter3Line, RiPenNibFill } from "react-icons/ri";
 import StudentShell from "@/components/student/StudentShell";
 import { getWebsiteToken } from "@/lib/authSession";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
+// Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
+const BASE_URL = API_BASE;
 
 const formatDueDate = (value) => {
   const dueDate = value ? new Date(value) : null;

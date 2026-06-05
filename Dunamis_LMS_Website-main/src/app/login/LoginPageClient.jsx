@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from "react-icons/hi";
 import { login, logoutSession } from "@/store/authSlice";
@@ -11,7 +10,6 @@ import {
   getPortalForAccountType,
   getPortalLabel,
   getRoleDestination,
-  navigateToRoleDestination,
 } from "@/lib/roleRouting";
 
 export default function LoginPageClient() {
@@ -22,6 +20,7 @@ export default function LoginPageClient() {
   const nextHref = params.get("next") || "";
 
   const [showPassword, setShowPassword] = useState(false);
+  const [staffPortalNotice, setStaffPortalNotice] = useState(null);
 
   const signupHref = useMemo(() => {
     const query = new URLSearchParams();
@@ -44,11 +43,11 @@ export default function LoginPageClient() {
     const destination = getRoleDestination(accountType);
 
     if (actualPortal && actualPortal !== "student") {
-      toast.error(
-        `This account is registered as ${getPortalLabel(actualPortal)}. Please sign in from the staff portal.`,
-      );
       await dispatch(logoutSession());
-      navigateToRoleDestination(router, destination);
+      setStaffPortalNotice({
+        portalLabel: getPortalLabel(actualPortal),
+        href: destination,
+      });
       return;
     }
 
@@ -57,12 +56,43 @@ export default function LoginPageClient() {
       return;
     }
 
-    navigateToRoleDestination(router, destination);
+    router.replace(destination);
   };
 
   return (
     <div className="bg-[radial-gradient(circle_at_top_left,#fff1e8,transparent_32%),#fffaf4] px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[2.25rem] border border-orange-100 bg-white shadow-[0_30px_100px_-60px_rgba(15,23,42,0.75)] lg:grid-cols-[0.9fr_1.1fr]">
+        {staffPortalNotice ? (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-[2rem] border border-orange-100 bg-white p-6 text-center shadow-2xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
+                Staff Portal Required
+              </p>
+              <h3 className="mt-3 text-2xl font-bold text-slate-950">
+                Use the dashboard to sign in
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                This email belongs to a {staffPortalNotice.portalLabel} account. Admins and instructors sign in from the Staff Portal, not the student website.
+              </p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <a
+                  href={staffPortalNotice.href}
+                  className="inline-flex items-center justify-center rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700"
+                >
+                  Open Staff Portal
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setStaffPortalNotice(null)}
+                  className="inline-flex items-center justify-center rounded-full border border-stone-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-stone-50"
+                >
+                  Stay here
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <section className="relative hidden min-h-[620px] flex-col justify-between overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-[#b93415] p-10 text-white lg:flex">
           <div className="relative z-10">
             <p className="text-sm font-semibold uppercase tracking-[0.28em] text-white/70">

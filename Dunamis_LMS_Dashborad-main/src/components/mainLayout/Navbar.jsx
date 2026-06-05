@@ -9,6 +9,7 @@ import {
   FiSettings,
   FiTrash2,
 } from "react-icons/fi";
+import BackButton from "../BackButton";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
@@ -184,6 +185,10 @@ const Navigation = ({ onMenuClick }) => {
   };
 
   const title = generateTitle(location.pathname);
+
+  const HOME_PATHS = new Set(["/", "/admin", "/teacher"]);
+  const showBackButton = !HOME_PATHS.has(location.pathname);
+
   const roleLabel =
     accountType === "superadmin"
       ? "Super Admin"
@@ -475,6 +480,8 @@ const Navigation = ({ onMenuClick }) => {
           >
             <FiMenu className="text-xl" />
           </button>
+
+          {showBackButton && <BackButton />}
 
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">

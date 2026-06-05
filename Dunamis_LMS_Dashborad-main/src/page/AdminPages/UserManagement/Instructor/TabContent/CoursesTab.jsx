@@ -1,4 +1,4 @@
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../../../../utils/resolveImageUrl";
 
 // Helper: convert hex color to rgba with alpha
 function hexToRgba(hex, alpha = 1) {
@@ -34,7 +34,7 @@ export default function CoursesTab({ instructor, categoryConfig }) {
                     >
                         <div className="flex-shrink-0">
                             <img
-                                src={course.image ? `${IMAGE}${course.image}` : course.category?.icon || ""}
+                                src={resolveImageUrl(course.image, course.category?.icon || "")}
                                 alt={course.name}
                                 className="h-full w-56 object-cover rounded-l-2xl"
                             />

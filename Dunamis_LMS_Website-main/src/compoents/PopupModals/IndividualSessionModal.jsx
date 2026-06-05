@@ -43,7 +43,11 @@ export default function IndividualSessionModal({
     const discountPct = activeTenure
         ? Number(activeTenure.discount) || 0
         : Number(price?.discount) || 0;
-    const planMonths = activeTenure ? activeTenure.months : null;
+    const planMonths = activeTenure
+        ? activeTenure.months
+        : Number(price?.installments) > 1
+            ? Number(price.installments)
+            : null;
 
     const mrpFull = full && discountPct ? Math.round(full / (1 - discountPct / 100)) : null;
     const savings = mrpFull && full ? mrpFull - full : null;
@@ -58,10 +62,7 @@ export default function IndividualSessionModal({
             code: course?.code || '',
             category: courseCategory || '',
             deliveryMode: course?.mode || null,
-            duration:
-                course?.startDate && course?.endDate
-                    ? `${new Date(course.startDate).toLocaleDateString()} - ${new Date(course.endDate).toLocaleDateString()}`
-                    : '',
+            duration: planMonths ? `${planMonths} months` : '',
             courseImage: course?.image || '',
             monthlyFee: monthly ?? null,
             fullPayment: full ?? null,
@@ -158,7 +159,7 @@ export default function IndividualSessionModal({
                     </ul>
                 </div>
 
-                <p className="text-center text-xs text-gray-500 mt-6">Click any plan to continue with enrollment</p>
+                <p className="text-center text-xs text-gray-500 mt-6">Select a plan to continue</p>
             </div>
         </div>
     );

@@ -169,13 +169,13 @@ export default function PopularCourses() {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.3 },
+      transition: { staggerChildren: 0.12 },
     },
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+    hidden: { opacity: 0, y: 40 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
   };
 
   if (loading || error || !transformedCourses.length) return null;
@@ -185,15 +185,15 @@ export default function PopularCourses() {
       className="py-16 px-6 max-w-7xl mx-auto"
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: false, amount: 0.2 }}
+      viewport={{ once: true, amount: 0.05 }}
       variants={containerVariants}
     >
       <motion.div
         className="text-center mb-10"
         initial={{ opacity: 0, y: -30 }}
         whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        viewport={{ once: false }}
+        transition={{ duration: 0.7 }}
+        viewport={{ once: true, amount: 0.05 }}
       >
         <p className="text-[#FF6B35] font-medium mb-2">Student Favorites</p>
         <h2 className="text-3xl font-bold text-[#2D2D2D]">Popular Courses</h2>
@@ -202,6 +202,7 @@ export default function PopularCourses() {
       <motion.div
         className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
         variants={containerVariants}
+        viewport={{ once: true, amount: 0.05 }}
       >
         {transformedCourses.map((course, index) => (
           <motion.div key={course.id || index} variants={cardVariants} className="h-full">
