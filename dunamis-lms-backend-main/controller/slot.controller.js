@@ -68,132 +68,263 @@ const getGroupSlotTag = (slot = {}) => {
   return null;
 };
 
-// Date to minutes for overlap check
-// const timeToMinutes = (date, timeStr) => {
-//   const [hours, minutes] = timeStr.split(":").map(Number);
-//   return new Date(date).setHours(hours, minutes, 0, 0);
-// };
+const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
+  ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
+  : "Contact IT support if this issue persists.";
 
-// Create a new slot
-// exports.createSlot = async (req, res) => {
-//   try {
-//     const {
-//       courseId,
-//       branchId,
-//       date,
-//       startTime,
-//       endTime,
-//       slotType,
-//       sessionType,
-//     } = req.body;
+// Parse "HH:MM" or "H:MM AM/PM" time strings to minutes since midnight.
+const parseTimeToMinutes = (timeStr) => {
+  const raw = String(timeStr || "").trim();
 
-//     // Validate required sessionType
-//     if (!sessionType || !["standard", "premium"].includes(sessionType)) {
-//       return res
-//         .status(400)
-//         .json({
-//           message: "Invalid sessionType; must be 'standard' or 'premium'",
-//         });
-//     }
+  // HH:MM (24-hour)
+  const hhmm = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) return Number(hhmm[1]) * 60 + Number(hhmm[2]);
 
-//     const teacher = await Teacher.findOne({ userId: req.user.userId });
-//     if (!teacher) {
-//       return res
-//         .status(403)
-//         .json({ message: "Only teachers can create slots" });
-//     }
+  // H:MM AM/PM (12-hour)
+  const ampm = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const m = Number(ampm[2]);
+    const period = ampm[3].toUpperCase();
+    if (period === "AM" && h === 12) h = 0;
+    if (period === "PM" && h !== 12) h += 12;
+    return h * 60 + m;
+  }
 
-//     // Validate courseId
-//     const courseExists = await Course.findById(courseId);
-//     if (!courseExists)
-//       return res.status(400).json({ message: "Invalid courseId" });
+  return NaN;
+};
 
-//     const teacherAssigned = (courseExists.teacher || []).some(
-//       (t) => t.toString() === teacher._id.toString()
-//     );
-//     if (!teacherAssigned) {
-//       return res.status(403).json({
-//         message:
-//           "You are not assigned to this course; cannot create a slot for it",
-//       });
-//     }
+exports.createSlot = async (req, res) => {
+  try {
+    const {
+      courseId,
+      branchId,
+      date,
+      startTime,
+      endTime,
+      slotType,
+      sessionType,
+      batchLabel,
+      recurringDays,
+      isRecurring,
+    } = req.body;
 
-//     // Validate branchId
-//     const branchExists = await Branch.findById(branchId);
-//     if (!branchExists)
-//       return res.status(400).json({ message: "Invalid branchId" });
+    const accountType = req.user?.accountType;
+    const isAdmin = ["admin", "superadmin"].includes(accountType);
 
-//     // Check for existing default slot timing for this course + sessionType
-//     let slotStart = startTime;
-//     let slotEnd = endTime;
-//     if (!Array.isArray(teacher.defaultSlots)) {
-//       teacher.defaultSlots = [];
-//     }
-//     const defaultSlot = teacher.defaultSlots.find(
-//       (s) => s.courseId.toString() === courseId && s.sessionType === sessionType
-//     );
+    // Resolve teacher — admins may pass teacherId; teachers use their own record
+    let teacher;
+    if (isAdmin && req.body.teacherId) {
+      teacher = await Teacher.findById(req.body.teacherId);
+    } else {
+      teacher = await Teacher.findOne({ userId: req.user.userId });
+    }
 
-//     if (defaultSlot) {
-//       slotStart = defaultSlot.startTime;
-//       slotEnd = defaultSlot.endTime;
-//     } else {
-//       // Save as default for future use
-//       teacher.defaultSlots.push({ courseId, sessionType, startTime, endTime });
-//       await teacher.save();
-//     }
+    if (!teacher) {
+      return res.status(403).json({
+        success: false,
+        message: isAdmin
+          ? "Teacher not found. Provide a valid teacherId."
+          : "Only teachers or admins can create slots.",
+        hint: IT_SUPPORT_HINT,
+      });
+    }
 
-//     // Validate startTime < endTime
-//     const startMinutes = timeToMinutes(date, slotStart);
-//     const endMinutes = timeToMinutes(date, slotEnd);
+    if (!slotType || !["demo", "enrolled"].includes(slotType)) {
+      return res.status(400).json({
+        success: false,
+        message: "slotType must be 'demo' or 'enrolled'.",
+      });
+    }
 
-//     if (startMinutes >= endMinutes) {
-//       return res
-//         .status(400)
-//         .json({ message: "startTime must be before endTime" });
-//     }
+    if (!sessionType || !["standard", "premium"].includes(sessionType)) {
+      return res.status(400).json({
+        success: false,
+        message: "sessionType must be 'standard' or 'premium'.",
+      });
+    }
 
-//     // Check overlapping slots
-//     const teacherSlots = await Slot.find({ createdBy: teacher._id, date });
+    if (!courseId || !date || !startTime || !endTime) {
+      return res.status(400).json({
+        success: false,
+        message: "courseId, date, startTime, and endTime are required.",
+      });
+    }
 
-//     // Check overlapping slots
-//     const overlapping = teacherSlots.some((s) => {
-//       const sStart = timeToMinutes(date, s.startTime);
-//       const sEnd = timeToMinutes(date, s.endTime);
-//       return startMinutes < sEnd && endMinutes > sStart;
-//     });
-//     if (overlapping)
-//       return res
-//         .status(400)
-//         .json({ message: "You already have a slot scheduled at this time" });
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return res.status(404).json({
+        success: false,
+        message: "Course not found. Verify the courseId and try again.",
+        hint: IT_SUPPORT_HINT,
+      });
+    }
 
-//     const slot = await Slot.create({
-//       courseId,
-//       branchId,
-//       date,
-//       startTime: slotStart,
-//       endTime: slotEnd,
-//       createdBy: teacher._id,
-//       slotType: slotType || "demo",
-//       sessionType,
-//     });
+    const teacherAssigned = (course.teacher || []).some(
+      (t) => t.toString() === teacher._id.toString()
+    );
+    if (!teacherAssigned && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not assigned to this course.",
+        hint: IT_SUPPORT_HINT,
+      });
+    }
 
-//     await slot.populate([
-//       {
-//         path: "createdBy",
-//         select: "_id userId",
-//         populate: { path: "userId", select: "name email mobileNo image" },
-//       },
-//       { path: "courseId", select: "name code category mode" },
-//       { path: "branchId", select: "name location" },
-//     ]);
+    // Branch validation — required for offline courses
+    const resolvedBranchId = branchId || null;
+    let branch = null;
+    if (resolvedBranchId) {
+      branch = await Branch.findById(resolvedBranchId);
+      if (!branch) {
+        return res.status(404).json({
+          success: false,
+          message: "Branch not found. Verify the branchId.",
+          hint: IT_SUPPORT_HINT,
+        });
+      }
+    }
 
-//     res
-//       .status(201)
-//       .json({ success: true, message: "Booking slot created", slot });
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// };
+    if (course.mode === "offline" && !branch) {
+      return res.status(400).json({
+        success: false,
+        message: "branchId is required for offline courses.",
+      });
+    }
+
+    // Time validation
+    const startMin = timeToMinutes(startTime);
+    const endMin = timeToMinutes(endTime);
+
+    if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid time format. Use HH:MM (e.g. 10:00).",
+      });
+    }
+
+    if (startMin >= endMin) {
+      return res.status(400).json({
+        success: false,
+        message: "startTime must be before endTime.",
+      });
+    }
+
+    // Demo slot duration enforcement — must be exactly 20 minutes
+    if (slotType === "demo") {
+      if (endMin - startMin !== 20) {
+        return res.status(400).json({
+          success: false,
+          message: "Demo slots must be exactly 20 minutes (e.g. 10:00 – 10:20).",
+        });
+      }
+    }
+
+    // Branch hours validation
+    if (branch) {
+      const slotDate = new Date(date);
+      const dayName = slotDate.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
+
+      const openDays = (branch.branchOpenDays || []).map((d) =>
+        String(d).trim().toLowerCase()
+      );
+      if (openDays.length && !openDays.some((d) => d.startsWith(dayName.slice(0, 3)))) {
+        return res.status(400).json({
+          success: false,
+          message: `This branch is not open on ${dayName}s. Open days: ${branch.branchOpenDays.join(", ")}.`,
+          hint: "Adjust the date or update branch open days. " + IT_SUPPORT_HINT,
+        });
+      }
+
+      if (Array.isArray(branch.branchTimings) && branch.branchTimings.length === 2) {
+        const branchOpen = parseTimeToMinutes(branch.branchTimings[0]);
+        const branchClose = parseTimeToMinutes(branch.branchTimings[1]);
+
+        if (Number.isFinite(branchOpen) && Number.isFinite(branchClose)) {
+          if (startMin < branchOpen || endMin > branchClose) {
+            return res.status(400).json({
+              success: false,
+              message: `Slot time ${startTime}–${endTime} falls outside branch hours (${branch.branchTimings[0]}–${branch.branchTimings[1]}).`,
+              hint: "Adjust the slot time to be within branch operating hours.",
+            });
+          }
+        }
+      }
+    }
+
+    // Overlap validation — block all conflicts for online; allow demo+enrolled overlap only when both slots are offline
+    const slotDate = new Date(date);
+    const dayStart = new Date(slotDate.setHours(0, 0, 0, 0));
+    const dayEnd = new Date(slotDate.setHours(23, 59, 59, 999));
+
+    const existingSlots = await Slot.find({
+      createdBy: teacher._id,
+      date: { $gte: dayStart, $lte: dayEnd },
+    });
+
+    for (const existing of existingSlots) {
+      const eStart = timeToMinutes(existing.startTime);
+      const eEnd = timeToMinutes(existing.endTime);
+      if (!Number.isFinite(eStart) || !Number.isFinite(eEnd)) continue;
+
+      const overlaps = startMin < eEnd && endMin > eStart;
+      if (!overlaps) continue;
+
+      // For offline slots (both have a branchId), allow demo+enrolled overlap —
+      // the demo student can visit the physical class location.
+      const bothOffline = !!resolvedBranchId && !!existing.branchId;
+      if (slotType !== existing.slotType && bothOffline) continue;
+
+      return res.status(400).json({
+        success: false,
+        message: `You already have a ${existing.slotType} slot at this time (${existing.startTime}–${existing.endTime}).`,
+        hint: "Choose a time that does not conflict with an existing slot.",
+      });
+    }
+
+    const slot = await Slot.create({
+      courseId,
+      branchId: resolvedBranchId,
+      date,
+      startTime,
+      endTime,
+      createdBy: teacher._id,
+      slotType,
+      sessionType,
+      batchLabel: batchLabel || null,
+      recurringDays: Array.isArray(recurringDays) ? recurringDays : [],
+      isRecurring: Boolean(isRecurring),
+    });
+
+    await slot.populate([
+      {
+        path: "createdBy",
+        select: "_id userId",
+        populate: { path: "userId", select: "name email mobileNo image" },
+      },
+      { path: "courseId", select: "name code category mode" },
+      {
+        path: "branchId",
+        select: "branchName location city branchTimings",
+        populate: { path: "city", select: "cityName" },
+      },
+    ]);
+
+    return res.status(201).json({
+      success: true,
+      message: "Slot created successfully",
+      slot,
+    });
+  } catch (err) {
+    console.error("Error creating slot:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create slot. Please try again.",
+      hint: IT_SUPPORT_HINT,
+      error: err.message,
+    });
+  }
+};
 
 // Get all slots
 exports.getAllSlots = async (req, res) => {
@@ -345,10 +476,10 @@ exports.getAvailableSlots = async (req, res) => {
       Slot.find(query)
       .populate({
         path: "branchId",
-        select: "branchName city",
+        select: "branchName location city branchTimings",
         populate: {
           path: "city",
-          select: "cityName location",
+          select: "cityName",
         },
       })
       .populate("courseId", "name code mode")
@@ -636,6 +767,47 @@ exports.setWeeklyAvailability = async (req, res) => {
                 : "Group class slots must be exactly 60 minutes",
         });
       }
+
+      if (slot.branchId) {
+        const branch = await Branch.findById(slot.branchId).select(
+          "branchName branchTimings branchOpenDays"
+        );
+
+        if (!branch) {
+          return res.status(400).json({
+            message: `Branch not found. ${IT_SUPPORT_HINT}`,
+          });
+        }
+
+        if (
+          Array.isArray(branch.branchOpenDays) &&
+          branch.branchOpenDays.length > 0
+        ) {
+          const openDays = branch.branchOpenDays.map((d) => d.toLowerCase());
+          for (const day of slot.days) {
+            if (!openDays.includes(day.toLowerCase())) {
+              return res.status(400).json({
+                message: `${branch.branchName} is not open on ${day}. Open days: ${branch.branchOpenDays.join(", ")}. ${IT_SUPPORT_HINT}`,
+              });
+            }
+          }
+        }
+
+        if (
+          Array.isArray(branch.branchTimings) &&
+          branch.branchTimings.length === 2
+        ) {
+          const branchOpen = parseTimeToMinutes(branch.branchTimings[0]);
+          const branchClose = parseTimeToMinutes(branch.branchTimings[1]);
+          if (Number.isFinite(branchOpen) && Number.isFinite(branchClose)) {
+            if (start < branchOpen || end > branchClose) {
+              return res.status(400).json({
+                message: `Slot ${slot.startTime}–${slot.endTime} is outside ${branch.branchName} open hours (${branch.branchTimings[0]}–${branch.branchTimings[1]}). ${IT_SUPPORT_HINT}`,
+              });
+            }
+          }
+        }
+      }
     }
 
     const allSlotsByDay = {};
@@ -649,6 +821,7 @@ exports.setWeeklyAvailability = async (req, res) => {
         allSlotsByDay[day].push({
           start: timeToMinutes(slot.startTime),
           end: timeToMinutes(slot.endTime),
+          slotType: slot.slotType,
         });
       }
     }
@@ -668,6 +841,9 @@ exports.setWeeklyAvailability = async (req, res) => {
         if (!allSlotsByDay[day]) allSlotsByDay[day] = [];
 
         for (const existing of allSlotsByDay[day]) {
+          // Demo and enrolled slots may overlap — teacher is at the branch for class,
+          // demo is a short adjoining session. Only block same-type overlaps.
+          if (existing.slotType && existing.slotType !== slot.slotType) continue;
           if (start < existing.end && end > existing.start) {
             return res.status(400).json({
               message: `Overlap detected on ${day} between ${slot.startTime}-${slot.endTime}`,
@@ -675,7 +851,7 @@ exports.setWeeklyAvailability = async (req, res) => {
           }
         }
 
-        allSlotsByDay[day].push({ start, end });
+        allSlotsByDay[day].push({ start, end, slotType: slot.slotType });
       }
     }
 

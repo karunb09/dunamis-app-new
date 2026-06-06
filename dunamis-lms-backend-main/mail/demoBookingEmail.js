@@ -73,17 +73,19 @@ const normalizeBranch = (branch) => {
   if (!branch) return null;
 
   if (typeof branch === "string") {
-    return {
-      id: branch,
-      name: branch,
-      city: "",
-    };
+    return { id: branch, name: branch, location: "", city: "", timings: [] };
   }
+
+  // city may be a populated City document with cityName, or a plain string/ObjectId
+  const cityName =
+    toText(branch.city?.cityName || (typeof branch.city === "string" ? branch.city : ""), "");
 
   return {
     id: String(branch._id || branch.id || branch.branchId || "").trim(),
-    name: toText(branch.branchName || branch.name || branch.location || "Branch"),
-    city: toText(branch.city || ""),
+    name: toText(branch.branchName || branch.name || "Branch"),
+    location: toText(branch.location || ""),
+    city: cityName,
+    timings: Array.isArray(branch.branchTimings) ? branch.branchTimings : [],
   };
 };
 
@@ -190,15 +192,25 @@ const buildDemoBookingCard = ({ title, intro, details, ctaText, ctaHref }) => `
 
 const studentDemoBookingEmailTemplate = (input = {}) => {
   const ctx = buildDemoBookingContext(input);
-  const modeLabel = ctx.slot.branch ? "Offline" : "Online";
+  const isOffline = Boolean(ctx.branch?.name);
+  const modeLabel = isOffline ? "Offline (In-person)" : "Online";
+
+  const branchLines = isOffline
+    ? `
+    <p style="margin:0 0 8px;color:#334155;"><strong>Branch:</strong> ${escapeHtml(ctx.branch.name)}${ctx.branch.city ? `, ${escapeHtml(ctx.branch.city)}` : ""}</p>
+    ${ctx.branch.location ? `<p style="margin:0 0 8px;color:#334155;"><strong>Address:</strong> ${escapeHtml(ctx.branch.location)}</p>` : ""}
+    ${ctx.branch.timings.length === 2 ? `<p style="margin:0 0 8px;color:#334155;"><strong>Branch hours:</strong> ${escapeHtml(ctx.branch.timings[0])} – ${escapeHtml(ctx.branch.timings[1])}</p>` : ""}
+    `
+    : "";
+
   const details = `
     <p style="margin:0 0 12px;color:#0f172a;font-weight:700;font-size:16px;">Demo booking confirmed</p>
     <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(ctx.course.name)}</p>
     <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(ctx.instructor?.name || "Instructor")}</p>
     <p style="margin:0 0 8px;color:#334155;"><strong>Date:</strong> ${escapeHtml(ctx.slot.date)}</p>
-    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} - ${ctx.slot.endTime}`)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} – ${ctx.slot.endTime}`)} (20 min)</p>
     <p style="margin:0 0 8px;color:#334155;"><strong>Mode:</strong> ${escapeHtml(modeLabel)}</p>
-    ${ctx.branch?.name ? `<p style="margin:0 0 8px;color:#334155;"><strong>Branch:</strong> ${escapeHtml(ctx.branch.name)}${ctx.branch.city ? `, ${escapeHtml(ctx.branch.city)}` : ""}</p>` : ""}
+    ${branchLines}
     <p style="margin:0;color:#334155;"><strong>Student:</strong> ${escapeHtml(ctx.student.name)}</p>
   `;
 

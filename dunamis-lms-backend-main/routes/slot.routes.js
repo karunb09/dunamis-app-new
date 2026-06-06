@@ -10,7 +10,7 @@ const {
 } = require("../controller/slot.controller");
 const { accessToRole, isAuth } = require("../middleware/auth");
 
-// router.post("/",isAuth, createSlot); // Create slot
+router.post("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), createSlot);
 router.get("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), getAllSlots);
 router.get("/available", getAvailableSlots);
 router.put("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), updateSlot);

@@ -1,262 +1,257 @@
 "use client";
 import { motion } from "framer-motion";
-import {
-  FiUsers,
-  FiStar,
-  FiTrendingUp,
-  FiTarget,
-  FiEye,
-  FiArrowRight,
-  FiPhone,
-  FiBook,
-} from "react-icons/fi";
-import { FaHandsHelping } from "react-icons/fa";
-import { GoBook } from "react-icons/go";
+import Link from "next/link";
+import { FiTarget, FiEye, FiBook, FiUsers, FiStar, FiTrendingUp } from "react-icons/fi";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.6 } },
 };
 
-const About = () => {
+const TIMELINE = [
+  {
+    year: "2020",
+    title: "The Beginning",
+    body: "Dunamis School of Music was born during the 2020 pandemic lockdown — a small online initiative designed to provide affordable, high-quality creative education at a time when connection and creativity were more important than ever.",
+    color: "#FF6B35",
+  },
+  {
+    year: "2024",
+    title: "Expansion & Establishment",
+    body: "Dunamis officially became a private limited company and expanded to new cities across India. With physical centres and a growing presence in communities, we began offering diverse programmes in music, dance, and more.",
+    color: "#47c9c4",
+  },
+  {
+    year: "2025",
+    title: "Digital Transformation",
+    body: "We launched our dedicated digital learning platform, making creative education even more accessible. By reaching learners through the internet, Dunamis continues to grow its impact across the country and beyond.",
+    color: "#a855f7",
+  },
+];
+
+const VALUES = [
+  {
+    icon: FiUsers,
+    label: "Community",
+    body: "Building connections and fostering a supportive environment where everyone belongs.",
+    color: "#3b82f6",
+  },
+  {
+    icon: FiStar,
+    label: "Excellence",
+    body: "Maintaining the highest standards in education while making learning enjoyable and accessible.",
+    color: "#eab308",
+  },
+  {
+    icon: FiTrendingUp,
+    label: "Growth",
+    body: "Encouraging personal development and artistic expression at every level of learning.",
+    color: "#22c55e",
+  },
+];
+
+export default function About() {
   return (
-    <div className="bg-white text-gray-800">
-      {/* Hero Section */}
-      <section className="text-center py-12 px-4">
-        <motion.h1
-          className="text-2xl sm:text-3xl md:text-3xl font-bold mt-2 text-[#2D2D2D]"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          About DUNAMIS
-        </motion.h1>
-      </section>
+    <div className="bg-[#fffaf4] text-gray-800">
 
-      {/* Mission and Vision Cards */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-6 px-6 md:px-20 pb-16">
-        <motion.div
-          className="bg-red-50 p-6 rounded-lg shadow-sm"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          <h3 className="flex items-center text-xl font-semibold text-red-600 mb-2">
-            <FiBook className="mr-2" />
+      {/* ── Dark Hero ─────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden bg-[#09090f] py-28 px-6 rounded-b-[52px]">
+        <div className="orb absolute -top-32 -left-32 w-96 h-96 bg-orange-500/18" style={{ "--dur": "14s" }} />
+        <div className="orb absolute top-10 right-0 w-80 h-80 bg-purple-600/12" style={{ "--dur": "18s", animationDelay: "4s" }} />
+        <div className="orb absolute bottom-0 left-1/3 w-72 h-72 bg-teal-500/10" style={{ "--dur": "22s", animationDelay: "8s" }} />
+
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-block rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          >
             Our Story
-          </h3>
-          <p>
-            More than just a institute, Dunamis is a vibrant learning community
-            where creativity is nurtured, confidence is built, and every
-            individual is encouraged to express, explore, and grow.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-green-50 p-6 rounded-lg shadow-sm"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          <h3 className="flex items-center text-xl font-semibold text-green-600 mb-2">
-            <FiTarget className="mr-2" />
-            Our Mission
-          </h3>
-          <p>
-            To provide exceptional creative education that nurtures talent,
-            builds confidence, and creates a supportive community where every
-            individual can discover and develop their artistic potential.
-          </p>
-        </motion.div>
-        <motion.div
-          className="bg-purple-50 p-6 rounded-lg shadow-sm"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          <h3 className="flex items-center text-xl font-semibold text-purple-600 mb-2">
-            <FiEye className="mr-2" />
-            Our Vision
-          </h3>
-          <p>
-            To be the leading platform for creative education, making
-            high-quality artistic training accessible to everyone, everywhere,
-            while fostering a global community of passionate learners and
-            creators.
-          </p>
-        </motion.div>
-      </section>
-
-      {/* Journey Section */}
-      <section className="px-6 md:px-20 pb-16">
-        <motion.h2
-          className="text-2xl sm:text-3xl md:text-3xl font-bold text-center mb-12"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          Our Journey
-        </motion.h2>
-
-        <div className="space-y-10">
-          {/* Step 1 */}
-          <motion.div
-            className="border-l-4 border-blue-500 pl-6"
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
+          </motion.span>
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
           >
-            <h4 className="text-xl font-semibold">The Beginning (2020)</h4>
-            <p className="text-gray-600 mt-2">
-              Dunamis School of Music began during the 2020 pandemic lockdown.
-              It started as a small online initiative designed to provide
-              affordable, high-quality creative education at a time when
-              connection and creativity were more important than ever. Our
-              founders believed that everyone should have access to meaningful
-              artistic learning.
-            </p>
-          </motion.div>
-
-          {/* Step 2 */}
-          <motion.div
-            className="border-l-4 border-green-500 pl-6"
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
+            About{" "}
+            <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+              DUNAMIS
+            </span>
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="mt-5 text-base text-white/60 max-w-2xl mx-auto leading-relaxed"
           >
-            <h4 className="text-xl font-semibold">
-              Expansion and Establishment (2024)
-            </h4>
-            <p className="text-gray-600 mt-2">
-              In 2024, Dunamis officially became a private limited company and
-              expanded to new cities across India. With physical centers and a
-              growing presence in various communities, we began offering more
-              diverse programs in music, dance, and games.
-            </p>
-          </motion.div>
-
-          {/* Step 3 */}
-          <motion.div
-            className="border-l-4 border-purple-500 pl-6"
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
-          >
-            <h4 className="text-xl font-semibold">
-              Digital Transformation (2025)
-            </h4>
-            <p className="text-gray-600 mt-2">
-              In 2025, we launched our dedicated digital learning platform to
-              make creative education even more accessible. By reaching learners
-              through the internet, Dunamis continues to grow its impact and
-              bring quality instruction to homes across the country and beyond.
-            </p>
-          </motion.div>
+            More than just an institute — Dunamis is a vibrant learning community
+            where creativity is nurtured, confidence is built, and every individual
+            is encouraged to express, explore, and grow.
+          </motion.p>
         </div>
-      </section>
 
-      {/* Values */}
-      <section className="bg-gray-50 py-16 px-6 md:px-20">
+      </div>
+
+      {/* ── Story / Mission / Vision ──────────────────────────────────────── */}
+      <div className="mx-auto max-w-7xl px-6 py-20">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[
+            {
+              icon: FiBook,
+              label: "Our Story",
+              body: "Dunamis is a vibrant learning community where creativity is nurtured, confidence is built, and every individual is encouraged to express, explore, and grow.",
+              accent: "#FF6B35",
+              bg: "from-orange-500/10 to-orange-600/5",
+              border: "border-orange-500/20",
+            },
+            {
+              icon: FiTarget,
+              label: "Our Mission",
+              body: "To provide exceptional creative education that nurtures talent, builds confidence, and creates a supportive community where every individual can discover and develop their artistic potential.",
+              accent: "#22c55e",
+              bg: "from-emerald-500/10 to-emerald-600/5",
+              border: "border-emerald-500/20",
+            },
+            {
+              icon: FiEye,
+              label: "Our Vision",
+              body: "To be the leading platform for creative education, making high-quality artistic training accessible to everyone, everywhere, while fostering a global community of passionate learners and creators.",
+              accent: "#a855f7",
+              bg: "from-purple-500/10 to-purple-600/5",
+              border: "border-purple-500/20",
+            },
+          ].map(({ icon: Icon, label, body, accent, bg, border }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 28 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.55, delay: i * 0.1 }}
+              className={`rounded-2xl border ${border} bg-gradient-to-br ${bg} p-6 backdrop-blur-sm`}
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl mb-4" style={{ background: `${accent}18` }}>
+                <Icon className="w-5 h-5" style={{ color: accent }} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">{label}</h3>
+              <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Journey Timeline — dark section ──────────────────────────────── */}
+      <div className="relative overflow-hidden bg-[#0d0d1a] py-24 px-6 rounded-[52px] mx-4 md:mx-8">
+        <div className="orb absolute top-0 right-0 w-96 h-96 bg-orange-500/10" style={{ "--dur": "20s" }} />
+
+        <div className="relative z-10 mx-auto max-w-3xl">
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6 }}
+            className="text-3xl md:text-4xl font-bold text-white text-center mb-16"
+          >
+            Our{" "}
+            <span className="bg-gradient-to-r from-orange-400 to-orange-500 bg-clip-text text-transparent">
+              Journey
+            </span>
+          </motion.h2>
+
+          <div className="relative">
+            {/* Vertical line */}
+            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-white/10" />
+
+            <div className="space-y-12">
+              {TIMELINE.map(({ year, title, body, color }, i) => (
+                <motion.div
+                  key={year}
+                  initial={{ opacity: 0, x: -24 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.55, delay: i * 0.1 }}
+                  className="relative pl-16"
+                >
+                  {/* Timeline dot */}
+                  <div
+                    className="absolute left-2.5 top-1.5 h-5 w-5 rounded-full border-2 border-[#0d0d1a]"
+                    style={{ background: color, boxShadow: `0 0 12px 2px ${color}50` }}
+                  />
+                  <span className="text-xs font-bold uppercase tracking-widest" style={{ color }}>
+                    {year}
+                  </span>
+                  <h3 className="mt-1 text-xl font-bold text-white">{title}</h3>
+                  <p className="mt-2 text-sm text-white/60 leading-relaxed">{body}</p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Values ───────────────────────────────────────────────────────── */}
+      <div className="mx-auto max-w-7xl px-6 py-20">
         <motion.h2
-          className="text-2xl sm:text-3xl md:text-3xl font-bold text-center mb-12"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="text-3xl font-bold text-center text-gray-900 mb-12"
         >
           Our Values
         </motion.h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-          {/* Community */}
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
-            className="flex flex-col items-center"
-          >
-            <FiUsers className="text-3xl text-blue-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Community</h3>
-            <p>
-              Building connections and fostering a supportive environment where
-              everyone belongs.
-            </p>
-          </motion.div>
-
-          {/* Excellence */}
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
-            className="flex flex-col items-center"
-          >
-            <FiStar className="text-3xl text-yellow-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Excellence</h3>
-            <p>
-              Maintaining the highest standards in education while making
-              learning enjoyable and accessible.
-            </p>
-          </motion.div>
-
-          {/* Growth */}
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            variants={fadeUp}
-            className="flex flex-col items-center"
-          >
-            <FiTrendingUp className="text-3xl text-green-500 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Growth</h3>
-            <p>
-              Encouraging personal development and artistic expression at every
-              level of learning.
-            </p>
-          </motion.div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {VALUES.map(({ icon: Icon, label, body, color }, i) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.5, delay: i * 0.1 }}
+              className="flex flex-col items-center text-center p-6 rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl mb-4" style={{ background: `${color}15` }}>
+                <Icon className="w-7 h-7" style={{ color }} />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">{label}</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">{body}</p>
+            </motion.div>
+          ))}
         </div>
-      </section>
+      </div>
 
-      {/* CTA Section */}
-      <section className="w-10/12 mx-auto bg-gradient-to-br from-[#47c9c4] via-[#c3b091] to-[#fc6d3f] py-8 px-6 md:px-20 text-center rounded-2xl shadow-lg mb-6 mt-6">
-        <motion.h3
-          className="text-2xl font-bold mb-4 text-white"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
+      {/* ── CTA ──────────────────────────────────────────────────────────── */}
+      <div className="px-6 pb-20">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+          className="mx-auto max-w-4xl rounded-3xl bg-gradient-to-br from-[#FF6B35] via-[#e05a25] to-[#c84400] p-10 text-center text-white"
         >
-          Join Our Community
-        </motion.h3>
-        <motion.p
-          className="mb-6 max-w-xl mx-auto text-white"
-          initial="hidden"
-          whileInView="visible"
-          variants={fadeUp}
-        >
-          Be part of a community that believes in the transformative power of
-          creative education.
-        </motion.p>
-
-        <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-          <motion.a
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            href="/courses"
-            className="inline-flex items-center gap-2 border border-white bg-white text-black px-6 py-3 rounded-full font-medium shadow-md"
-          >
-            <GoBook />
-
-            Explore Courses
-          </motion.a>
-          <motion.a
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            href="/contact"
-            className="inline-flex items-center gap-2 border border-white text-white hover:text-black hover:bg-white px-6 py-3 rounded-full font-medium shadow-md"
-          >
-            <FiPhone />
-            Get In Touch
-          </motion.a>
-        </div>
-      </section>
+          <h3 className="text-2xl md:text-3xl font-bold">Join Our Community</h3>
+          <p className="mt-3 text-white/80 max-w-xl mx-auto">
+            Be part of a community that believes in the transformative power of creative education.
+          </p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            <Link
+              href="/courses"
+              className="rounded-full bg-white px-7 py-3 text-sm font-semibold text-orange-600 hover:bg-orange-50 transition-colors"
+            >
+              Explore Courses
+            </Link>
+            <Link
+              href="/contact-us"
+              className="rounded-full border-2 border-white/50 px-7 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+            >
+              Get In Touch
+            </Link>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
-};
-
-export default About;
+}

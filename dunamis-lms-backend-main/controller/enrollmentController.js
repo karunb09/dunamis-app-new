@@ -4,6 +4,7 @@ const Course = require("../model/course.model");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
+const User = require("../model/user.model");
 const PaymentTransaction = require("../model/paymentTransaction.model");
 const updateTeacherStats = require("../utils/updateTeacherStats");
 const {
@@ -1519,5 +1520,193 @@ exports.generateInstallmentOrders = async (req, res) => {
   } catch (error) {
     console.error("Error generating Cashfree installment orders:", getCashfreeErrorMessage(error));
     return res.status(500).json({ success: false, message: getCashfreeErrorMessage(error) });
+  }
+};
+
+const IT_SUPPORT_EMAIL = process.env.IT_SUPPORT_EMAIL || "";
+const itHint = IT_SUPPORT_EMAIL
+  ? `Contact IT support at ${IT_SUPPORT_EMAIL} if this issue persists.`
+  : "Contact IT support if this issue persists.";
+
+// Enroll a student in an offline course with manual (cash) payment. Admin only.
+exports.adminEnrollStudent = async (req, res) => {
+  try {
+    if (!["admin", "superadmin"].includes(req.user?.accountType)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin accounts can manually enroll students.",
+      });
+    }
+
+    const {
+      studentId,
+      lead,
+      courseId,
+      slotId,
+      teacherId,
+      branchId,
+      sessionType,
+      planType,
+      planMonths,
+      amount,
+      paymentDate,
+      receiptRef,
+    } = req.body;
+
+    if (!courseId || !slotId || !teacherId || !branchId || !sessionType || !amount) {
+      return res.status(400).json({
+        success: false,
+        message: "courseId, slotId, teacherId, branchId, sessionType, and amount are required.",
+      });
+    }
+
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "amount must be a positive number.",
+      });
+    }
+
+    // Resolve student
+    let student = null;
+
+    if (studentId) {
+      if (!mongoose.isValidObjectId(studentId)) {
+        return res.status(400).json({ success: false, message: "Invalid studentId." });
+      }
+      student = await Student.findById(studentId).populate("userId");
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: "Student not found for the given studentId.",
+          hint: "Ask the student to register on the website first, then try again. " + itHint,
+        });
+      }
+    } else if (lead?.email || lead?.phone) {
+      const normalizedEmail = String(lead.email || "").trim().toLowerCase();
+      const rawPhone = String(lead.phone || "").replace(/\D/g, "");
+      const normalizedPhone = rawPhone.length >= 10 ? rawPhone.slice(-10) : null;
+
+      const userQuery = [];
+      if (normalizedEmail) userQuery.push({ email: normalizedEmail });
+      if (normalizedPhone) userQuery.push({ mobileNo: { $regex: normalizedPhone + "$" } });
+
+      const user = userQuery.length ? await User.findOne({ $or: userQuery }) : null;
+      if (user) {
+        student = await Student.findOne({ userId: user._id }).populate("userId");
+      }
+
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: `No student account found for ${normalizedEmail || normalizedPhone}.`,
+          hint: "Ask the student to complete registration on the website, then enroll them here. " + itHint,
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Provide either studentId or lead (email/phone) to identify the student.",
+      });
+    }
+
+    // Validate enrollment context
+    const context = await loadValidatedEnrollmentContext({
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode: "offline",
+      branchId,
+      allowExistingStudentId: student._id,
+    });
+
+    if (context.error) {
+      return res.status(context.error.status).json({
+        success: false,
+        message: context.error.message,
+        hint: "Verify the course, instructor, batch, and branch details are correct. " + itHint,
+      });
+    }
+
+    // Build pricing
+    const resolvedPlanType = resolvePlanType(planType);
+    const pricing = buildPricingForPlan(context.course, sessionType, resolvedPlanType, planMonths);
+    if (pricing.error) {
+      return res.status(400).json({
+        success: false,
+        message: pricing.error,
+        hint: "Check that the course has pricing set up for this session type. " + itHint,
+      });
+    }
+
+    // Create manual PaymentTransaction (skip Cashfree entirely)
+    const manualOrderId = `manual_${Date.now()}_${student._id.toString().slice(-6)}_${context.course._id.toString().slice(-6)}_${crypto.randomBytes(3).toString("hex")}`;
+
+    const transaction = await PaymentTransaction.create({
+      userId: student.userId._id || student.userId,
+      studentId: student._id,
+      courseId: context.course._id,
+      teacherId: context.teacher._id,
+      slotId: context.slot._id,
+      parentAvailabilityId: context.slot.parentAvailabilityId || null,
+      branchId: context.resolvedBranchId,
+      deliveryMode: "offline",
+      sessionType,
+      planType: resolvedPlanType,
+      planMonths: pricing.planMonths ?? null,
+      paymentType: pricing.paymentType,
+      installmentNo: 1,
+      installmentTotal: pricing.installmentTotal,
+      installmentAmount: pricing.installmentAmount,
+      amount: parsedAmount,
+      currency: "INR",
+      gateway: "manual",
+      merchantOrderId: manualOrderId,
+      bankReference: receiptRef || null,
+      status: "paid",
+      feeStatus: "Paid",
+      paidAt: paymentDate ? new Date(paymentDate) : new Date(),
+    });
+
+    // Fulfill enrollment using existing fulfillment logic
+    const fulfillment = await fulfillPaidTransaction(transaction._id);
+
+    if (!fulfillment.fulfilled) {
+      return res.status(500).json({
+        success: false,
+        message: "Payment recorded but enrollment fulfillment failed. The payment entry has been saved.",
+        error: fulfillment.error,
+        transactionId: transaction._id,
+        hint: itHint,
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Student enrolled successfully with manual payment.",
+      student: {
+        id: student._id,
+        name: getDisplayName(student.userId),
+        email: student.userId.email,
+      },
+      transaction: {
+        id: fulfillment.transaction._id,
+        merchantOrderId: manualOrderId,
+        gateway: "manual",
+        amount: parsedAmount,
+        status: "fulfilled",
+        receiptRef: receiptRef || null,
+      },
+    });
+  } catch (error) {
+    console.error("Error in adminEnrollStudent:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to enroll student. Please try again.",
+      hint: itHint,
+      error: error.message,
+    });
   }
 };

@@ -165,10 +165,12 @@ exports.updateAdmin = async (req, res) => {
     await user.save();
     await admin.save();
 
+    const populatedAdmin = await Admin.findById(admin._id).populate("userId", "-password");
+
     res.status(200).json({
       success: true,
       message: "Admin updated successfully",
-      admin,
+      admin: populatedAdmin,
       user,
     });
   } catch (error) {

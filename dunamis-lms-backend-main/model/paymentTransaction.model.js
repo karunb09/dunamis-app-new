@@ -80,7 +80,7 @@ const paymentTransactionSchema = new mongoose.Schema(
     dueDate: { type: Date, default: null },
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, enum: ["INR"], default: "INR" },
-    gateway: { type: String, enum: ["cashfree"], default: "cashfree" },
+    gateway: { type: String, enum: ["cashfree", "manual"], default: "cashfree" },
     merchantOrderId: { type: String, required: true, unique: true, index: true },
     cashfreeCfOrderId: { type: String, default: null },
     paymentSessionId: { type: String, default: null },

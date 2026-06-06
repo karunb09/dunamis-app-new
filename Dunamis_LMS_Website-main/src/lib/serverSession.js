@@ -23,6 +23,8 @@ export const slimUser = (user) =>
         accountType: user.accountType || null,
         email: user.email || null,
         image: user.image || null,
+        roleId: user.roleId || null,
+        roleModel: user.roleModel || null,
       }
     : null;
 

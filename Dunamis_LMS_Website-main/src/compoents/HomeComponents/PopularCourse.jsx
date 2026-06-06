@@ -158,7 +158,7 @@ export default function PopularCourses() {
     });
   };
 
-  const transformedCourses = coursedata(courses);
+  const transformedCourses = coursedata(courses).slice(0, 4);
 
   useEffect(() => {
     dispatch(fetchCourses());
@@ -238,6 +238,23 @@ export default function PopularCourses() {
             />
           </motion.div>
         ))}
+      </motion.div>
+
+      <motion.div
+        className="mt-10 flex justify-center"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        viewport={{ once: true, amount: 0.05 }}
+      >
+        <motion.button
+          whileHover={{ scale: 1.05, boxShadow: "0 12px 28px -8px rgba(255,107,53,0.45)" }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => router.push("/courses")}
+          className="rounded-full bg-[#FF6B35] px-8 py-3 text-sm font-semibold text-white transition-all duration-200"
+        >
+          Explore All Courses
+        </motion.button>
       </motion.div>
     </motion.section>
   );

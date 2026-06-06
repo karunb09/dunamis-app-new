@@ -242,7 +242,11 @@ exports.bookDemoSlot = async (req, res) => {
           { path: "teacher", model: "teacher", select: "_id userId" },
         ],
       })
-      .populate("branchId", "branchName city")
+      .populate({
+        path: "branchId",
+        select: "branchName location city branchTimings",
+        populate: { path: "city", select: "cityName" },
+      })
       .populate({
         path: "createdBy",
         populate: { path: "userId", select: "name email mobileNo image" },

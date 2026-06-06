@@ -127,6 +127,7 @@ const emptySlot = (courseId = "", sectionId = "group") => {
     slotType: section.slotType,
     maxStudents: SLOT_MAX_STUDENTS[sectionId] || 4,
     courseId,
+    branchId: "",
     isActive: true,
   };
 };
@@ -212,6 +213,22 @@ const getDayPairForDays = (days = []) => {
 const getDayPairIdForDays = (days = []) =>
   getDayPairForDays(days)?.id || DAY_PAIR_OPTIONS[0].id;
 
+const parseTimeToMinutes = (timeStr) => {
+  const raw = String(timeStr || "").trim();
+  const hhmm = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if (hhmm) return Number(hhmm[1]) * 60 + Number(hhmm[2]);
+  const ampm = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (ampm) {
+    let h = Number(ampm[1]);
+    const m = Number(ampm[2]);
+    const period = ampm[3].toUpperCase();
+    if (period === "AM" && h === 12) h = 0;
+    if (period === "PM" && h !== 12) h += 12;
+    return h * 60 + m;
+  }
+  return NaN;
+};
+
 const normalizeCourseOptions = (source) => {
   const rawCourses =
     source?.courses || source?.course || source?.roleId?.course || [];
@@ -219,19 +236,30 @@ const normalizeCourseOptions = (source) => {
   return rawCourses
     .map((course, index) => {
       if (typeof course === "string") {
-        return {
-          id: course,
-          label: `Assigned Course ${index + 1}`,
-        };
+        return { id: course, label: `Assigned Course ${index + 1}`, mode: "online", branches: [] };
       }
 
       const id = String(course?._id || course?.id || "").trim();
       if (!id) return null;
 
+      const branches = Array.isArray(course?.branches)
+        ? course.branches
+            .map((b) => ({
+              id: String(b._id || b.id || "").trim(),
+              name: b.branchName || b.name || "Branch",
+              timings: Array.isArray(b.branchTimings) ? b.branchTimings : [],
+              openDays: Array.isArray(b.branchOpenDays)
+                ? b.branchOpenDays.map((d) => d.toLowerCase())
+                : [],
+            }))
+            .filter((b) => b.id)
+        : [];
+
       return {
         id,
-        label:
-          course?.name || course?.title || course?.code || `Course ${index + 1}`,
+        label: course?.name || course?.title || course?.code || `Course ${index + 1}`,
+        mode: course?.mode || "online",
+        branches,
       };
     })
     .filter(Boolean);
@@ -254,6 +282,7 @@ const normalizeAvailabilitySlots = (sourceSlots = []) =>
       Number(slot?.maxStudents) ||
       (slot?.slotType === "demo" ? 1 : slot?.sessionType === "premium" ? 1 : 4),
     courseId: String(slot?.courseId?._id || slot?.courseId || "").trim(),
+    branchId: String(slot?.branchId?._id || slot?.branchId || "").trim(),
     isActive:
       typeof slot?.isActive === "boolean"
         ? slot.isActive
@@ -304,7 +333,18 @@ const Availability = ({
 
   const [slots, setSlots] = useState([]);
   const [draftSlot, setDraftSlot] = useState(emptySlot());
-  const [activeSectionId, setActiveSectionId] = useState("group");
+
+  const selectedCourse = useMemo(
+    () => courseOptions.find((c) => c.id === draftSlot.courseId) || null,
+    [courseOptions, draftSlot.courseId]
+  );
+  const isOfflineCourse = selectedCourse?.mode === "offline";
+  const branchOptions = isOfflineCourse ? (selectedCourse?.branches || []) : [];
+  const selectedBranch = useMemo(
+    () => branchOptions.find((b) => b.id === draftSlot.branchId) || null,
+    [branchOptions, draftSlot.branchId]
+  );
+  const [activeSectionId, setActiveSectionId] = useState(null);
   const [editingSlotId, setEditingSlotId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -316,7 +356,7 @@ const Availability = ({
     setSlots(nextSlots);
     setHasUnsavedChanges(false);
     setEditingSlotId(null);
-    setDraftSlot(emptySlot(courseOptions[0]?.id || "", activeSectionId));
+    setDraftSlot(emptySlot(courseOptions[0]?.id || "", activeSectionId || "group"));
   }, [teacher, user]);
 
   useEffect(() => {
@@ -385,6 +425,7 @@ const Availability = ({
     setDraftSlot({
       ...nextSlot,
       days: getDayPairForDays(nextSlot.days)?.days || DAY_PAIR_OPTIONS[0].days,
+      branchId: nextSlot.branchId || "",
       startTime,
       endTime: addMinutesToTime(startTime, duration),
       maxStudents: SLOT_MAX_STUDENTS[nextSectionId] || 4,
@@ -437,9 +478,25 @@ const Availability = ({
   };
 
   const getTimeOptionDisabledReason = (option, days = draftSlot.days) => {
+    if (selectedBranch && selectedBranch.timings.length === 2) {
+      const branchOpen = parseTimeToMinutes(selectedBranch.timings[0]);
+      const branchClose = parseTimeToMinutes(selectedBranch.timings[1]);
+      const optStart = toMinutes(option.startTime);
+      const optEnd = toMinutes(option.endTime);
+      if (Number.isFinite(branchOpen) && Number.isFinite(branchClose)) {
+        if (optStart < branchOpen || optEnd > branchClose) {
+          return `Outside branch hours (${selectedBranch.timings[0]}–${selectedBranch.timings[1]})`;
+        }
+      }
+    }
+
     const overlappingSlot = slots.find((slot) => {
       if (slot.localId === editingSlotId) return false;
       if (slot.isActive === false) return false;
+      // For offline courses, demo and enrolled slots at the same branch may overlap
+      // (demo student visits the ongoing class). For online, all slots must be fully separate.
+      const bothOffline = isOfflineCourse && !!slot.branchId;
+      if (slot.slotType !== (activeSectionId === "demo" ? "demo" : "enrolled") && bothOffline) return false;
 
       const sharesDay = slot.days.some((day) => days.includes(day));
       if (!sharesDay) return false;
@@ -492,9 +549,16 @@ const Availability = ({
       return false;
     }
 
+    if (isOfflineCourse && !draftSlot.branchId) {
+      toast.error("Select a branch for this offline course slot");
+      return false;
+    }
+
     const overlappingSlot = slots.find((slot) => {
       if (slot.localId === editingSlotId) return false;
       if (slot.isActive === false) return false;
+      const bothOffline = isOfflineCourse && !!slot.branchId;
+      if (slot.slotType !== (activeSectionId === "demo" ? "demo" : "enrolled") && bothOffline) return false;
 
       const sharesDay = slot.days.some((day) => draftSlot.days.includes(day));
       if (!sharesDay) return false;
@@ -508,7 +572,7 @@ const Availability = ({
     });
 
     if (overlappingSlot) {
-      toast.error("This slot overlaps with another active schedule entry");
+      toast.error("This slot overlaps with an existing schedule entry");
       return false;
     }
 
@@ -526,6 +590,7 @@ const Availability = ({
       sessionType:
         activeSectionId === "individual" ? "premium" : "standard",
       maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
+      branchId: draftSlot.branchId || "",
       isActive: draftSlot.isActive !== false,
     };
 
@@ -603,6 +668,7 @@ const Availability = ({
             ? SLOT_MAX_STUDENTS.individual
             : SLOT_MAX_STUDENTS.group,
       ...(slot.courseId ? { courseId: slot.courseId } : {}),
+      ...(slot.branchId ? { branchId: slot.branchId } : {}),
     }));
 
     setIsSaving(true);
@@ -656,13 +722,17 @@ const Availability = ({
             </span>
             <select
               value={draftSlot.courseId}
-              onChange={(event) => updateDraft({ courseId: event.target.value })}
+              onChange={(event) => {
+                const courseId = event.target.value;
+                const course = courseOptions.find((c) => c.id === courseId);
+                updateDraft({ courseId, branchId: course?.mode === "offline" ? draftSlot.branchId : "" });
+              }}
               className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
             >
               <option value="">Choose course</option>
               {courseOptions.map((course) => (
                 <option key={course.id} value={course.id}>
-                  {course.label}
+                  {course.label}{course.mode === "offline" ? " (Offline)" : ""}
                 </option>
               ))}
             </select>
@@ -703,6 +773,51 @@ const Availability = ({
           </div>
         </div>
 
+        {isOfflineCourse ? (
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium text-slate-900">
+                Select Branch
+              </span>
+              {branchOptions.length > 0 ? (
+                <select
+                  value={draftSlot.branchId}
+                  onChange={(event) => updateDraft({ branchId: event.target.value })}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
+                >
+                  <option value="">Choose branch</option>
+                  {branchOptions.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  No branches assigned to this course. Contact admin to assign branches.
+                </p>
+              )}
+            </label>
+
+            {selectedBranch ? (
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-600">
+                <p className="font-semibold text-slate-900">{selectedBranch.name}</p>
+                {selectedBranch.timings.length === 2 ? (
+                  <p className="mt-1">
+                    Open: <span className="font-medium text-slate-800">{selectedBranch.timings[0]} – {selectedBranch.timings[1]}</span>
+                    <span className="ml-2 text-xs text-slate-500">(slots outside these hours are disabled)</span>
+                  </p>
+                ) : null}
+                {selectedBranch.openDays.length > 0 ? (
+                  <p className="mt-1">
+                    Open days: <span className="font-medium text-slate-800">{selectedBranch.openDays.map((d) => DAY_LABELS[d] || d).join(", ")}</span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="mt-5">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -710,19 +825,29 @@ const Availability = ({
                 Select {getSectionDurationLabel(activeSectionId)} time slot
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                Disabled slots overlap with another group, individual, or demo
-                schedule entry for {selectedPair.label}.
+                {isOfflineCourse && !selectedBranch
+                  ? "Select a branch above to see available time slots."
+                  : isOfflineCourse && selectedBranch
+                    ? `Slots outside ${selectedBranch.name} open hours are disabled. Demo sessions may overlap with enrolled sessions at the same branch.`
+                    : `Disabled slots overlap with an existing slot for ${selectedPair.label}.`}
               </p>
             </div>
-            <div className="text-xs font-medium text-slate-500">
-              Selected:{" "}
-              <span className="text-slate-800">
-                {convertTo12Hour(draftSlot.startTime)} -{" "}
-                {convertTo12Hour(draftSlot.endTime)}
-              </span>
-            </div>
+            {!isOfflineCourse || selectedBranch ? (
+              <div className="text-xs font-medium text-slate-500">
+                Selected:{" "}
+                <span className="text-slate-800">
+                  {convertTo12Hour(draftSlot.startTime)} -{" "}
+                  {convertTo12Hour(draftSlot.endTime)}
+                </span>
+              </div>
+            ) : null}
           </div>
 
+          {isOfflineCourse && !selectedBranch ? (
+            <div className="flex min-h-[96px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-sm text-slate-400">
+              Choose a branch to unlock time slots
+            </div>
+          ) : (
           <div className="grid max-h-72 gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {timeOptions.map((option) => {
               const disabledReason = getTimeOptionDisabledReason(
@@ -760,6 +885,7 @@ const Availability = ({
               );
             })}
           </div>
+          )}
         </div>
 
         <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_auto]">

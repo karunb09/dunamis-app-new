@@ -728,9 +728,24 @@ export default function BookDemoModal({
                       <span className="capitalize">{form.deliveryMode || 'online'}</span>
                     </p>
                     {selectedBranch ? (
-                      <p>
-                        <span className="font-medium">Branch:</span> {selectedBranch.label}
-                      </p>
+                      <>
+                        <p>
+                          <span className="font-medium">Branch:</span> {selectedBranch.label}
+                        </p>
+                        {selectedBranch.raw?.location ? (
+                          <p>
+                            <span className="font-medium">Address:</span>{' '}
+                            {selectedBranch.raw.location}
+                          </p>
+                        ) : null}
+                        {Array.isArray(selectedBranch.raw?.branchTimings) &&
+                        selectedBranch.raw.branchTimings.length === 2 ? (
+                          <p>
+                            <span className="font-medium">Branch hours:</span>{' '}
+                            {selectedBranch.raw.branchTimings[0]} – {selectedBranch.raw.branchTimings[1]}
+                          </p>
+                        ) : null}
+                      </>
                     ) : null}
                     <p>
                       <span className="font-medium">Instructor:</span>{' '}
@@ -741,6 +756,11 @@ export default function BookDemoModal({
                       {selectedSlot?.label || 'Not selected'}
                     </p>
                   </div>
+                  {form.deliveryMode === 'offline' && selectedBranch ? (
+                    <p className="mt-3 rounded-xl bg-orange-50 px-4 py-3 text-xs text-orange-700">
+                      Please arrive at the branch 5 minutes before your demo slot. Bring a valid ID.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-6 flex flex-wrap gap-3">
@@ -1005,13 +1025,11 @@ export default function BookDemoModal({
                           >
                             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                               <img
-                                src={instructor.profilePicture}
+                                src={instructor.profilePicture || getInitialsImage(instructor.name)}
                                 alt={instructor.name}
                                 className="h-20 w-20 rounded-2xl object-cover object-top"
                                 onError={(e) => {
-                                  e.currentTarget.src = getInitialsImage(
-                                    instructor.name
-                                  );
+                                  e.currentTarget.src = getInitialsImage(instructor.name);
                                 }}
                               />
 

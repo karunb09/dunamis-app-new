@@ -761,6 +761,11 @@ exports.getTeacherById = async (req, res) => {
             model: "SubCategory",
           },
           {
+            path: "branches",
+            model: "Branch",
+            select: "branchName location branchTimings branchOpenDays",
+          },
+          {
             path: "content",
             model: "Content",
             populate: [

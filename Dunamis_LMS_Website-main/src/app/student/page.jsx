@@ -50,7 +50,7 @@ export default function StudentHomePage() {
         })}
       </div>
 
-      <div className="mt-6 rounded-[2rem] border border-orange-100 bg-gradient-to-br from-white via-[#fff8f3] to-[#fff1e8] p-6 shadow-sm">
+      {/* <div className="mt-6 rounded-[2rem] border border-orange-100 bg-gradient-to-br from-white via-[#fff8f3] to-[#fff1e8] p-6 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-orange-700 shadow-sm">
@@ -69,7 +69,7 @@ export default function StudentHomePage() {
             Browse Courses
           </Link>
         </div>
-      </div>
+      </div> */}
     </StudentShell>
   );
 }

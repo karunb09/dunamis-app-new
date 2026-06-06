@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { HelpCircle } from "lucide-react";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 
 const FAQPage = () => {
@@ -55,31 +56,49 @@ const FAQPage = () => {
   };
 
   return (
-    <section className="py-20">
-      <div className="max-w-5xl mx-auto px-6">
-        <motion.h4 className="text-[#FF6B35] font-medium mb-2 flex items-center justify-center">
-          Get Answer
-        </motion.h4>
-        <motion.h2
-          className="text-2xl sm:text-3xl md:text-3xl font-bold mt-2 text-[#2D2D2D] text-center mb-4"
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: false }}
-        >
-          Frequently Asked Questions
-        </motion.h2>
+    <div className="bg-[#fffaf4]">
 
-        <motion.p
-          className="text-center text-xl text-gray-600 mb-16 max-w-2xl mx-auto"
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
-          viewport={{ once: false }}
-        >
-          Find answers to the most common questions about DUNAMIS courses,
-          pricing, scheduling, and more.
-        </motion.p>
+      {/* ── Dark Hero ──────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden bg-[#09090f] py-28 px-6 rounded-b-[52px]">
+        <div className="orb absolute -top-32 -left-20 w-96 h-96 bg-orange-500/18" style={{ "--dur": "14s" }} />
+        <div className="orb absolute top-10 right-0 w-80 h-80 bg-teal-500/12" style={{ "--dur": "18s", animationDelay: "5s" }} />
+
+        <div className="relative z-10 mx-auto max-w-3xl text-center">
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          >
+            <HelpCircle className="w-4 h-4" /> Get Answers
+          </motion.span>
+
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          >
+            Frequently Asked{" "}
+            <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
+              Questions
+            </span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+            className="mt-5 text-base text-white/60 max-w-2xl mx-auto"
+          >
+            Find answers to the most common questions about DUNAMIS courses, pricing, scheduling, and more.
+          </motion.p>
+        </div>
+
+      </div>
+
+    <section className="py-16">
+      <div className="max-w-5xl mx-auto px-6">
 
         {loading && (
           <p className="py-12 text-center text-gray-500">Loading FAQs...</p>
@@ -154,6 +173,7 @@ const FAQPage = () => {
           ))}
       </div>
     </section>
+    </div>
   );
 };
 

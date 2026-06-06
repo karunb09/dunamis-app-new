@@ -223,6 +223,7 @@ export default function EnrollTerm({
   const [selectedSessionType, setSelectedSessionType] = useState('');
   const [selectedPlanType, setSelectedPlanType] = useState('');
   const [selectedMonths, setSelectedMonths] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const branchCityOptions = useMemo(() => {
     const cityMap = new Map();
@@ -372,6 +373,7 @@ export default function EnrollTerm({
     setSelectedMonths(null);
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
+    setIsNavigating(false);
   }, [course?.mode, enrollmentModeOptions, isOpen]);
 
   useEffect(() => {
@@ -420,9 +422,8 @@ export default function EnrollTerm({
 
   useEffect(() => {
     if (selectedDeliveryMode === 'offline') return;
-    if (!selectedBranchId) return;
     setSelectedBranchId('');
-  }, [selectedBranchId, selectedDeliveryMode]);
+  }, [selectedDeliveryMode]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -508,9 +509,9 @@ export default function EnrollTerm({
     setSelectedSlotId(group.slots[0].id || '');
   }, [selectedGroupId, slotGroups, selectedSlotId]);
 
-  // Reset months when tenure plans change (happens when session type changes).
+  // Reset months when tenure plans change so user must explicitly pick a duration.
   useEffect(() => {
-    setSelectedMonths(pickDefaultTenure(tenurePlans)?.months ?? null);
+    setSelectedMonths(null);
   }, [tenurePlans]);
 
   // Reset session/plan choice when user navigates back before step 3.
@@ -565,12 +566,13 @@ export default function EnrollTerm({
       : step === 1
         ? Boolean(selectedInstructorId) && slotsStatus !== 'loading'
         : step === 2
-          ? Boolean(selectedSlot?.slotId || selectedSlot?.id) && slotsStatus !== 'loading'
+          ? Boolean(selectedSlotId) && slotsStatus !== 'loading'
           : step === 3
             ? Boolean(selectedSessionType)
             : Boolean(selectedPlanType);
 
   const persistAllAndGoToPayment = () => {
+    setIsNavigating(true);
     const courseCategory =
       typeof course?.category === 'string'
         ? course.category
@@ -809,13 +811,11 @@ export default function EnrollTerm({
                     >
                       <div className="flex gap-4">
                         <img
-                          src={instructor.profilePicture}
+                          src={instructor.profilePicture || getInitialsImage(instructor.name)}
                           alt={instructor.name}
                           className="h-20 w-20 rounded-2xl object-cover object-top"
                           onError={(event) => {
-                            event.currentTarget.src = getInitialsImage(
-                              instructor.name
-                            );
+                            event.currentTarget.src = getInitialsImage(instructor.name);
                           }}
                         />
 
@@ -953,7 +953,7 @@ export default function EnrollTerm({
                   );
                 })()}
 
-                {/* Class times — informational, slot is auto-selected */}
+                {/* Class time slots — selectable when multiple exist */}
                 {(() => {
                   const activeGroup = slotGroups.find((g) => g.id === selectedGroupId);
                   if (!activeGroup) return null;
@@ -964,45 +964,62 @@ export default function EnrollTerm({
                     seenTimes.add(key);
                     return true;
                   });
+                  const multipleSlots = uniqueSlots.length > 1;
                   return (
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                       <p className="mb-3 text-sm font-medium text-gray-700">
-                        Class times — {activeGroup.label}
+                        {multipleSlots
+                          ? `Select a time — ${activeGroup.label}`
+                          : `Class time — ${activeGroup.label}`}
                       </p>
                       <div className="space-y-2">
                         {uniqueSlots.map((slot) => {
+                          const isSelected = selectedSlotId === slot.id;
                           const timeLabel =
                             slot.startTime && slot.endTime
                               ? `${formatTimeLabel(slot.startTime)} – ${formatTimeLabel(slot.endTime)}`
                               : slot.label;
                           return (
-                            <div
+                            <button
                               key={slot.id}
-                              className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 ring-1 ring-gray-200"
+                              type="button"
+                              onClick={() => setSelectedSlotId(slot.id)}
+                              className={`w-full rounded-xl border px-4 py-3 text-left transition ${
+                                isSelected
+                                  ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-300'
+                                  : multipleSlots
+                                    ? 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
+                                    : 'border-gray-200 bg-white cursor-default'
+                              }`}
                             >
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900">{timeLabel}</p>
-                                <p className="mt-0.5 text-xs text-gray-500">
-                                  {slot.branchLabel ? `Branch: ${slot.branchLabel}` : 'Online class'}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-600">
-                                  {slot.sessionType === 'premium' ? 'Individual' : 'Group'}
-                                </span>
-                                {slot.bookingTag ? (
-                                  <span
-                                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                      slot.bookingTag === 'Filling fast'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
-                                    }`}
-                                  >
-                                    {slot.bookingTag}
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-gray-900">{timeLabel}</p>
+                                  <p className="mt-0.5 text-xs text-gray-500">
+                                    {slot.branchLabel ? `Branch: ${slot.branchLabel}` : 'Online class'}
+                                  </p>
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-600">
+                                    {slot.sessionType === 'premium' ? 'Individual' : 'Group'}
                                   </span>
-                                ) : null}
+                                  {slot.bookingTag ? (
+                                    <span
+                                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                        slot.bookingTag === 'Filling fast'
+                                          ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-emerald-100 text-emerald-700'
+                                      }`}
+                                    >
+                                      {slot.bookingTag}
+                                    </span>
+                                  ) : null}
+                                  {isSelected ? (
+                                    <HiCheckCircle className="text-lg text-orange-500" />
+                                  ) : null}
+                                </div>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -1145,11 +1162,14 @@ export default function EnrollTerm({
                       <button
                         key={plan.months}
                         type="button"
-                        onClick={() => setSelectedMonths(plan.months)}
+                        onClick={() => {
+                          setSelectedMonths(plan.months);
+                          setSelectedPlanType('');
+                        }}
                         className={`rounded-2xl border px-3 py-3 text-center transition ${
                           isSelected
                             ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
-                            : 'border-gray-200 hover:border-gray-300'
+                            : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/20'
                         }`}
                       >
                         <span className="block text-base font-semibold text-gray-900">
@@ -1162,10 +1182,17 @@ export default function EnrollTerm({
                     );
                   })}
                 </div>
+                {selectedMonths === null ? (
+                  <p className="mt-3 text-xs text-gray-400">
+                    Choose a duration above to see payment options.
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
-            {/* Monthly plan */}
+            {/* Payment plan cards — shown after duration is chosen (or no tenure plans) */}
+            {(tenurePlans.length === 0 || selectedMonths !== null) ? (
+            <>
             <div
               role="button"
               tabIndex={0}
@@ -1257,6 +1284,7 @@ export default function EnrollTerm({
                 ))}
               </div>
             </div>
+            </>) : null}
           </div>
         ) : null}
 
@@ -1282,14 +1310,23 @@ export default function EnrollTerm({
           <button
             type="button"
             onClick={handlePrimaryAction}
-            disabled={!canContinue}
-            className={`rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${
-              canContinue
+            disabled={!canContinue || isNavigating}
+            className={`inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${
+              canContinue && !isNavigating
                 ? 'bg-[#FF6B35] hover:bg-[#fd5a1f]'
                 : 'cursor-not-allowed bg-gray-300'
             }`}
           >
-            {step === STEPS.length - 1 ? 'Proceed to payment' : 'Continue'}
+            {isNavigating ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                Redirecting…
+              </>
+            ) : step === STEPS.length - 1 ? (
+              'Proceed to payment'
+            ) : (
+              'Continue'
+            )}
           </button>
         </div>
       </div>

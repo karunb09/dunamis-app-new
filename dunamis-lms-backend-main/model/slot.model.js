@@ -54,6 +54,7 @@ const slotSchema = new mongoose.Schema(
       },
     ],
     isRecurring: { type: Boolean, default: false },
+    batchLabel: { type: String, default: null },
     maxStudents: {
       type: Number,
       default: function () {

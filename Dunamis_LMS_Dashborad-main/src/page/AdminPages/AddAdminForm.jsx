@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { createAdmin, fetchAdminById, updateAdmin } from "../../redux/Admin/AdminSlice";
+import { createAdmin, fetchAdminById, fetchAdmins, updateAdmin } from "../../redux/Admin/AdminSlice";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 
@@ -181,6 +181,7 @@ const AddAdminForm = () => {
             dispatch(updateAdmin({ id, adminData: formDataWithName }))
                 .unwrap()
                 .then(() => {
+                    dispatch(fetchAdmins());
                     toast.success("Admin updated successfully!");
                     navigate("/admin/admin-management", { replace: true });
                 })

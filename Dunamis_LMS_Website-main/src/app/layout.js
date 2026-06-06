@@ -6,6 +6,7 @@ import MobileBottomNav from "@/compoents/MobileBottomNav";
 import RouteProgress from "@/compoents/RouteProgress";
 import ScrollProgressBar from "@/compoents/ScrollProgressBar";
 import Footer from "@/compoents/Footer";
+import CustomCursor from "@/compoents/CustomCursor";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
 import { readServerAuth } from "@/lib/serverAuth";
@@ -110,6 +111,7 @@ export default async function RootLayout({ children }) {
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
         />
+        <CustomCursor />
         <ScrollProgressBar />
         <Suspense fallback={null}>
           <RouteProgress />
