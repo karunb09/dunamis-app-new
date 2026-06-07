@@ -45,10 +45,9 @@ async function sendAttendanceDigest() {
     const teacherMap = new Map();
     for (const record of records) {
       const teacherKey = record.teacherId?._id?.toString() || "unknown";
-      const teacherName =
-        record.teacherId?.userId?.name ||
-        record.teacherId?.name ||
-        "Unknown Instructor";
+      const teacherName = record.teacherId?.userId?.name
+        ? `${record.teacherId.userId.name.firstName} ${record.teacherId.userId.name.lastName}`.trim()
+        : "Unknown Instructor";
       const teacherEmail = record.teacherId?.userId?.email || null;
 
       if (!teacherMap.has(teacherKey)) {
@@ -57,7 +56,9 @@ async function sendAttendanceDigest() {
 
       teacherMap.get(teacherKey).records.push({
         courseName: record.courseId?.name || "N/A",
-        studentName: record.studentId?.userId?.name || "Unknown",
+        studentName: record.studentId?.userId?.name
+          ? `${record.studentId.userId.name.firstName} ${record.studentId.userId.name.lastName}`.trim()
+          : "Unknown",
         attendanceStatus: record.attendanceStatus || "Unknown",
         homework: record.homework || "",
         sessionType: record.sessionType || "",

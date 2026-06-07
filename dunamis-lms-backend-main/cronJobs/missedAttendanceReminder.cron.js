@@ -54,7 +54,9 @@ async function checkMissedAttendance() {
             .populate("userId", "name email _id")
             .lean();
 
-          const teacherName = teacher?.userId?.name || "The instructor";
+          const teacherName = teacher?.userId?.name
+            ? `${teacher.userId.name.firstName} ${teacher.userId.name.lastName}`.trim()
+            : "The instructor";
           const teacherUser = teacher?.userId
             ? { _id: teacher.userId._id, email: teacher.userId.email }
             : null;
