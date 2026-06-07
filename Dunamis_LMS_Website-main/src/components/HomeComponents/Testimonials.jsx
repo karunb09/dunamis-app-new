@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
+import FilterQuestionsModal from "@/components/PopupModals/FilterQuestionsModal";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 

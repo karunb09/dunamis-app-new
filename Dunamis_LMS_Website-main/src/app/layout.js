@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import { Poppins } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/compoents/Navigation";
-import MobileBottomNav from "@/compoents/MobileBottomNav";
-import RouteProgress from "@/compoents/RouteProgress";
-import ScrollProgressBar from "@/compoents/ScrollProgressBar";
-import Footer from "@/compoents/Footer";
-import CustomCursor from "@/compoents/CustomCursor";
+import Navigation from "@/components/Navigation";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import RouteProgress from "@/components/RouteProgress";
+import ScrollProgressBar from "@/components/ScrollProgressBar";
+import Footer from "@/components/Footer";
+import CustomCursor from "@/components/CustomCursor";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
 import { readServerAuth } from "@/lib/serverAuth";

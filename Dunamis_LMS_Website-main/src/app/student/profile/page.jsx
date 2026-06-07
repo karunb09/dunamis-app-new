@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaPhone, FaTimes, FaUser } from "react-icons/fa";
 import StudentShell from "@/components/student/StudentShell";
-import PaymentModal from "@/compoents/PopupModals/PaymentModal";
+import PaymentModal from "@/components/PopupModals/PaymentModal";
 import { getWebsiteToken, getWebsiteUser } from "@/lib/authSession";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { updateAuthUser } from "@/store/authSlice";

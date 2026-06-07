@@ -1,35 +1,35 @@
 import dynamic from "next/dynamic";
-import HeroSection from "@/compoents/HomeComponents/HeroSection";
-import MusicNoteShower from "@/compoents/MusicNoteShower";
-import { SectionSkeleton, CardGridSkeleton } from "@/compoents/Skeletons";
+import HeroSection from "@/components/HomeComponents/HeroSection";
+import MusicNoteShower from "@/components/MusicNoteShower";
+import { SectionSkeleton, CardGridSkeleton } from "@/components/Skeletons";
 
 const Offerings = dynamic(
-  () => import("@/compoents/HomeComponents/Offerings"),
+  () => import("@/components/HomeComponents/Offerings"),
   { loading: () => <SectionSkeleton /> }
 );
 
 const PopularCourses = dynamic(
-  () => import("@/compoents/HomeComponents/PopularCourse"),
+  () => import("@/components/HomeComponents/PopularCourse"),
   { loading: () => <CardGridSkeleton /> }
 );
 
 const Mentors = dynamic(
-  () => import("@/compoents/HomeComponents/Mentors"),
+  () => import("@/components/HomeComponents/Mentors"),
   { loading: () => <CardGridSkeleton /> }
 );
 
 const Testimonials = dynamic(
-  () => import("@/compoents/HomeComponents/Testimonials"),
+  () => import("@/components/HomeComponents/Testimonials"),
   { loading: () => <SectionSkeleton /> }
 );
 
 const Centers = dynamic(
-  () => import("@/compoents/HomeComponents/Centers"),
+  () => import("@/components/HomeComponents/Centers"),
   { loading: () => <CardGridSkeleton /> }
 );
 
 const About = dynamic(
-  () => import("@/compoents/HomeComponents/About"),
+  () => import("@/components/HomeComponents/About"),
   { loading: () => <SectionSkeleton /> }
 );
 

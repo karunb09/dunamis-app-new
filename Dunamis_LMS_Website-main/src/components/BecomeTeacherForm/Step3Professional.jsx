@@ -6,7 +6,7 @@ import {
   SelectInput,
   TextInput,
 } from "./FormFields";
-import ProfileImageCropper from "@/compoents/ProfileImageCropper";
+import ProfileImageCropper from "@/components/ProfileImageCropper";
 
 export default function Step3Professional({
   formData,

@@ -7,10 +7,10 @@ import {
   Clock, Users, Star, ChevronDown, ChevronLeft,
   CheckCircle, MapPin, Wifi, BookOpen, Award, Play,
 } from "lucide-react";
-import BookDemoModal from "@/compoents/PopupModals/BookDemoModal";
-import EnrollTerm from "@/compoents/PopupModals/EnrollTerms";
-import EnrollModal from "@/compoents/PopupModals/EnrollModal";
-import LoginModal from "@/compoents/PopupModals/LoginModal";
+import BookDemoModal from "@/components/PopupModals/BookDemoModal";
+import EnrollTerm from "@/components/PopupModals/EnrollTerms";
+import EnrollModal from "@/components/PopupModals/EnrollModal";
+import LoginModal from "@/components/PopupModals/LoginModal";
 import { IoMdStar } from "react-icons/io";
 import toast from "react-hot-toast";
 import { fetchCourses } from "@/store/courseSlice";

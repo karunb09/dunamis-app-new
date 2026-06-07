@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import SignUpForm from "@/compoents/SignUpForm";
+import SignUpForm from "@/components/SignUpForm";
 
 export default function PersonalInfoPage() {
   const images = [

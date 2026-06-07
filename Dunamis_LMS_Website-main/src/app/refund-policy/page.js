@@ -1,4 +1,4 @@
-import LegalPolicyPage, { Section } from "@/compoents/LegalPolicyPage";
+import LegalPolicyPage, { Section } from "@/components/LegalPolicyPage";
 
 export default function RefundPolicyPage() {
   return (

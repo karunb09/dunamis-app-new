@@ -9,7 +9,7 @@ import { sendOtp, createStudent, setStep } from "../store/signupSlice";
 import { Country } from "country-state-city";
 import * as Select from "@radix-ui/react-select";
 import { IoMdArrowDropdown } from "react-icons/io";
-import LoginModal from "@/compoents/PopupModals/LoginModal";
+import LoginModal from "@/components/PopupModals/LoginModal";
 import {
   clearEnrollmentResume,
   readEnrollmentResume,

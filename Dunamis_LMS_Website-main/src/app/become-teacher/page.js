@@ -1,6 +1,6 @@
 "use client";
 
-import MultiStepForm from "@/compoents/BecomeTeacherForm/BecomeTeacherForm";
+import MultiStepForm from "@/components/BecomeTeacherForm/BecomeTeacherForm";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Heart, Clock, Users, Award, GraduationCap } from "lucide-react";
 import { useEffect, useState } from "react";

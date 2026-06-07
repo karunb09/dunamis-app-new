@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import FilterQuestionsModal from "@/compoents/PopupModals/FilterQuestionsModal";
+import FilterQuestionsModal from "@/components/PopupModals/FilterQuestionsModal";
 
 const heroImages = [
   { src: "/BG-1-hero.jpg", alt: "Students learning music together" },

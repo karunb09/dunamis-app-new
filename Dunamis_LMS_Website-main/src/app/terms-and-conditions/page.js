@@ -1,4 +1,4 @@
-import LegalPolicyPage, { BulletList, Section } from "@/compoents/LegalPolicyPage";
+import LegalPolicyPage, { BulletList, Section } from "@/components/LegalPolicyPage";
 
 const terms = [
   "To access and use the Services, you agree to provide true, accurate and complete information to us during and after registration, and you shall be responsible for all acts done through the use of your registered account.",
