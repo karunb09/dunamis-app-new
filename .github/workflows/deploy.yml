@@ -24,19 +24,67 @@ jobs:
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
             cd /root/dunamis-app-new
+
+            # Capture HEAD before pull to detect which files changed
+            PREV_HEAD=$(git rev-parse HEAD)
             git pull origin main
 
-            echo "--- Building dashboard ---"
-            cd Dunamis_LMS_Dashborad-main
-            npm install --prefer-offline
-            npm run build
+            CHANGED=$(git diff "$PREV_HEAD" HEAD --name-only 2>/dev/null || echo "ALL")
 
-            echo "--- Building website ---"
-            cd ../Dunamis_LMS_Website-main
-            npm install --prefer-offline
-            npm run build
+            if [ -z "$CHANGED" ]; then
+              echo "Already up to date. Nothing to do."
+              exit 0
+            fi
 
-            echo "--- Restarting PM2 ---"
-            cd ..
-            pm2 restart all
-            echo "Deploy complete."
+            echo "Changed files:"
+            echo "$CHANGED"
+            echo "---"
+
+            NEEDS_RESTART=0
+
+            # Install deps + fix high vulnerabilities without leaving dirty lock file
+            run_install_and_fix() {
+              npm install --prefer-offline
+              if ! npm audit --audit-level=high &>/dev/null; then
+                echo "High vulnerabilities found — running npm audit fix..."
+                npm audit fix 2>/dev/null || true
+                git checkout -- package-lock.json 2>/dev/null || true
+              fi
+            }
+
+            # Dashboard (React/Vite — needs build)
+            if echo "$CHANGED" | grep -q "^Dunamis_LMS_Dashborad-main/"; then
+              echo "--- Building dashboard ---"
+              cd Dunamis_LMS_Dashborad-main
+              run_install_and_fix
+              npm run build
+              cd ..
+              NEEDS_RESTART=1
+            fi
+
+            # Website (Next.js — needs build)
+            if echo "$CHANGED" | grep -q "^Dunamis_LMS_Website-main/"; then
+              echo "--- Building website ---"
+              cd Dunamis_LMS_Website-main
+              run_install_and_fix
+              npm run build
+              cd ..
+              NEEDS_RESTART=1
+            fi
+
+            # Backend (Node/Express — no build, just install new packages)
+            if echo "$CHANGED" | grep -q "^dunamis-lms-backend-main/"; then
+              echo "--- Installing backend dependencies ---"
+              cd dunamis-lms-backend-main
+              run_install_and_fix
+              cd ..
+              NEEDS_RESTART=1
+            fi
+
+            if [ "$NEEDS_RESTART" = "1" ]; then
+              echo "--- Restarting PM2 ---"
+              pm2 restart all
+              echo "Deploy complete."
+            else
+              echo "No app changes detected. PM2 not restarted."
+            fi
