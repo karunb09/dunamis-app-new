@@ -7,6 +7,7 @@ import StudentTable from "./StudentTable";
 import Curriculum from "./Curriculum";
 import toast from "react-hot-toast";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 const MyCourses = () => {
   const dispatch = useDispatch();
@@ -108,7 +109,7 @@ const MyCourses = () => {
       return {
         id: student.id || student._id || `student-${index}`, // Keep ID for React key, but won't display
         avatar: student.studentDetails?.profilePicture
-          ? `${import.meta.env.VITE_IMAGE}${student.studentDetails.profilePicture}`
+          ? resolveImageUrl(student.studentDetails.profilePicture)
           : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(studentName)}`,
         name: studentName || "Unknown Student",
         course: courses.find((c) => c._id === courseId)?.name || "",
@@ -200,11 +201,7 @@ const MyCourses = () => {
                 onClick={() => handleCardClick(course._id)}
               >
                 <img
-                  src={
-                    course.image?.startsWith("http")
-                      ? course.image
-                      : `${import.meta.env.VITE_IMAGE}${course.image}`
-                  }
+                  src={resolveImageUrl(course.image)}
                   alt={course.name}
                   className="w-full sm:w-1/2 h-28 sm:h-32 object-cover"
                   onError={(e) => {

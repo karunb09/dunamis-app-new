@@ -4,7 +4,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { getCourseDetails } from '../../redux/Course/CourseSlice';
 
-const IMAGE = import.meta.env.VITE_IMAGE;
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 export default function PaymentConfirmation() {
   const navigate = useNavigate();
@@ -30,9 +30,10 @@ export default function PaymentConfirmation() {
 
   const courseName = courseData.name || 'Course Name';
   const category = courseData.category?.name || 'Music';
-  const courseImage = courseData.image 
-    ? `${IMAGE}${courseData.image}` 
-    : courseData.thumbnail || 'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=400&h=400&fit=crop';
+  const courseImage = resolveImageUrl(
+    courseData.image || courseData.thumbnail,
+    'https://images.unsplash.com/photo-1510915361894-db8b60106cb1?w=400&h=400&fit=crop'
+  );
 
   const startDate = courseData.startDate ? new Date(courseData.startDate) : null;
   const endDate = courseData.endDate ? new Date(courseData.endDate) : null;

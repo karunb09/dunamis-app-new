@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getAssignmentsByStatus, createAssignment, reviewSubmission } from "../../redux/Assignment/AssignmentSlice";
 import toast from "react-hot-toast";
 import { FiMusic } from "react-icons/fi";
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const Tabs = ["All", "Pending", "Reviewed", "Overdue", "Reminders"];
 
@@ -502,7 +503,7 @@ function ReviewAssignment({ assignment, student, onCancel, onSubmit }) {
           {student.submissionFile.map((file, idx) => (
             <a
               key={idx}
-              href={`${import.meta.env.VITE_IMAGE}${file}`}
+              href={resolveImageUrl(file)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-blue-600 hover:underline block"
@@ -647,7 +648,7 @@ function ViewAssignment({ assignment, student, onClose }) {
             {student.submissionFile.map((file, idx) => (
               <a
                 key={idx}
-                href={`${import.meta.env.VITE_IMAGE}${file}`}
+                href={resolveImageUrl(file)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 hover:underline block mb-1"

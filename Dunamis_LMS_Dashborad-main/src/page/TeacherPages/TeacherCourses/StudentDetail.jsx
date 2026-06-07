@@ -3,6 +3,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { HiDotsHorizontal } from "react-icons/hi";
 import { getAssignmentsByStatus } from "../../../redux/Assignment/AssignmentSlice";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
+import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 
 const StudentDetail = ({ onBack }) => {
   const dispatch = useDispatch();
@@ -42,7 +43,7 @@ const StudentDetail = ({ onBack }) => {
     name: studentName,
     subject: courseName,
     avatar: fullStudentData.studentDetails?.profilePicture
-      ? `${import.meta.env.VITE_IMAGE}${fullStudentData.studentDetails.profilePicture}`
+      ? resolveImageUrl(fullStudentData.studentDetails.profilePicture)
       : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(studentName)}`,
     progress: fullStudentData.progress || 0,
     time: fullStudentData.schedule || "Schedule not set",
@@ -85,11 +86,7 @@ const StudentDetail = ({ onBack }) => {
                   className="flex flex-col sm:flex-row items-start sm:items-center gap-4 border rounded-2xl p-4 bg-white shadow-sm mb-4"
                 >
                   <img
-                    src={
-                      course.image?.startsWith("http")
-                        ? course.image
-                        : `${import.meta.env.VITE_IMAGE}${course.image}`
-                    }
+                    src={resolveImageUrl(course.image, "/music.png")}
                     alt={course.name}
                     className="w-full sm:w-32 h-40 sm:h-24 object-cover rounded-xl"
                     onError={(e) => {
