@@ -18,6 +18,11 @@ jobs:
           key: ${{ secrets.VPC_SSH_KEY }}
           script: |
             set -e
+
+            # Load nvm so npm/node are available in non-interactive SSH sessions
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
             cd /root/dunamis-app-new
             git pull origin main
 
