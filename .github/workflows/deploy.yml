@@ -53,9 +53,9 @@ jobs:
             }
 
             # Dashboard (React/Vite — needs build)
-            if echo "$CHANGED" | grep -q "^Dunamis_LMS_Dashborad-main/"; then
+            if echo "$CHANGED" | grep -q "^Dunamis_LMS_Dashboard-main/"; then
               echo "--- Building dashboard ---"
-              cd Dunamis_LMS_Dashborad-main
+              cd Dunamis_LMS_Dashboard-main
               run_install_and_fix
               npm run build
               cd ..
