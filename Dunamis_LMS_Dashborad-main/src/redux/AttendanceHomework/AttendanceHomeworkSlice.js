@@ -108,14 +108,58 @@ export const getStudentHomeworkDashboard = createAsyncThunk(
   }
 );
 
+// getTeacherPastClasses
+export const getTeacherPastClasses = createAsyncThunk(
+  "attendanceHomework/getPastClasses",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("Authentication token not found. Please login again.");
+      const response = await axios.get(
+        `${BASE_URL}/attendance-homework/teacher/past-classes`,
+        { headers: { Authorization: `Bearer ${token}` }, params }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Failed to fetch past classes"
+      );
+    }
+  }
+);
+
+// getTeacherUpcomingClasses
+export const getTeacherUpcomingClasses = createAsyncThunk(
+  "attendanceHomework/getUpcomingClasses",
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("Authentication token not found. Please login again.");
+      const response = await axios.get(
+        `${BASE_URL}/attendance-homework/teacher/upcoming-classes`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Failed to fetch upcoming classes"
+      );
+    }
+  }
+);
+
 const attendanceHomeworkSlice = createSlice({
   name: "attendanceHomework",
   initialState: {
     homeworkHistory: [],
     studentHomework: [],
+    pastClasses: [],
+    upcomingClasses: { today: [], upcoming: [] },
     selectedRecord: null,
     loading: false,
     error: null,
+    classesLoading: false,
+    classesError: null,
     submitLoading: false,
     submitError: null,
   },
@@ -170,6 +214,30 @@ const attendanceHomeworkSlice = createSlice({
       .addCase(getStudentHomeworkDashboard.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || action.error.message;
+      })
+      .addCase(getTeacherPastClasses.pending, (state) => {
+        state.classesLoading = true;
+        state.classesError = null;
+      })
+      .addCase(getTeacherPastClasses.fulfilled, (state, action) => {
+        state.classesLoading = false;
+        state.pastClasses = action.payload.data || [];
+      })
+      .addCase(getTeacherPastClasses.rejected, (state, action) => {
+        state.classesLoading = false;
+        state.classesError = action.payload || action.error.message;
+      })
+      .addCase(getTeacherUpcomingClasses.pending, (state) => {
+        state.classesLoading = true;
+        state.classesError = null;
+      })
+      .addCase(getTeacherUpcomingClasses.fulfilled, (state, action) => {
+        state.classesLoading = false;
+        state.upcomingClasses = action.payload.data || { today: [], upcoming: [] };
+      })
+      .addCase(getTeacherUpcomingClasses.rejected, (state, action) => {
+        state.classesLoading = false;
+        state.classesError = action.payload || action.error.message;
       });
   },
 });

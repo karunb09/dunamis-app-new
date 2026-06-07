@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { FaSearch, FaFilter, FaSortAmountDown } from 'react-icons/fa';
 import Instructor from './Instructor/Instructor';
 import Applications from './Instructor/Applications';
+import PageTabBar from '../../../components/PageTabBar';
 
 const TABS = ['Instructor', 'Applications'];
 const LOCAL_STORAGE_KEY = 'instructorManagementActiveTab';
@@ -36,49 +36,19 @@ const InstructorManagementPage = () => {
     };
 
     return (
-        <div className="p-6 bg-white min-h-screen">
-            {/* Tabs */}
-            <div className="flex gap-4 border-b border-gray-300 mb-4">
-                {TABS.map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => handleTabChange(tab)}
-                        className={`pb-2 text-sm font-medium ${activeTab === tab
-                            ? 'border-b-2 border-black text-black'
-                            : 'text-gray-500 hover:text-black'
-                            }`}
-                    >
-                        {tab}
-                    </button>
-                ))}
+        <div className="min-h-screen bg-slate-50/40 p-6">
+            <div className="mb-6">
+                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+                    User Management
+                </p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">Instructors</h1>
+                <p className="mt-0.5 text-sm text-slate-500">
+                    Manage active instructors and review new applications.
+                </p>
             </div>
-
-            {/* Search & Controls */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                {/* Search */}
-                {/* <div className="relative w-full md:w-1/3">
-                    <input
-                        type="text"
-                        placeholder="Search"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full border rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-black"
-                    />
-                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                </div> */}
-
-                {/* Sort and Filter */}
-                {/* <div className="flex gap-2">
-                    <button className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-sm hover:bg-gray-100">
-                        <FaSortAmountDown /> Sort
-                    </button>
-                    <button className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-sm hover:bg-gray-100">
-                        <FaFilter /> Filter
-                    </button>
-                </div> */}
+            <div className="mb-6">
+                <PageTabBar tabs={TABS} activeTab={activeTab} onChange={handleTabChange} />
             </div>
-
-            {/* Tab Content */}
             {renderTabContent()}
         </div>
     );

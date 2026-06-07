@@ -110,13 +110,15 @@ export default function HeroSection() {
         <div className="absolute inset-0 bg-[linear-gradient(110deg,rgba(9,16,32,0.78)_0%,rgba(12,20,33,0.58)_38%,rgba(14,22,34,0.3)_62%,rgba(10,14,24,0.58)_100%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(71,201,196,0.18),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(239,106,50,0.22),transparent_38%)]" />
 
-        {/* Floating music note particles — pure CSS, zero JS cost */}
-        <span className="float-note text-white/30 text-3xl left-[8%] top-[22%]" style={{ "--dur": "7s", "--delay": "0s" }} aria-hidden>♩</span>
-        <span className="float-note text-white/25 text-5xl right-[12%] top-[18%]" style={{ "--dur": "9s", "--delay": "1.2s" }} aria-hidden>♪</span>
-        <span className="float-note text-white/20 text-2xl left-[18%] bottom-[28%]" style={{ "--dur": "8s", "--delay": "2.4s" }} aria-hidden>♫</span>
-        <span className="float-note text-white/30 text-4xl right-[22%] bottom-[32%]" style={{ "--dur": "6.5s", "--delay": "0.8s" }} aria-hidden>♬</span>
-        <span className="float-note text-white/20 text-xl left-[62%] top-[38%]" style={{ "--dur": "10s", "--delay": "3s" }} aria-hidden>♩</span>
-        <span className="float-note text-white/25 text-3xl right-[38%] top-[72%]" style={{ "--dur": "7.5s", "--delay": "1.8s" }} aria-hidden>♪</span>
+        {/* Floating music note particles — xs/sm only; md+ gets MusicNoteShower */}
+        <div className="md:hidden">
+          <span className="float-note text-white/30 text-3xl left-[8%] top-[22%]" style={{ "--dur": "7s", "--delay": "0s" }} aria-hidden>♩</span>
+          <span className="float-note text-white/25 text-5xl right-[12%] top-[18%]" style={{ "--dur": "9s", "--delay": "1.2s" }} aria-hidden>♪</span>
+          <span className="float-note text-white/20 text-2xl left-[18%] bottom-[28%]" style={{ "--dur": "8s", "--delay": "2.4s" }} aria-hidden>♫</span>
+          <span className="float-note text-white/30 text-4xl right-[22%] bottom-[32%]" style={{ "--dur": "6.5s", "--delay": "0.8s" }} aria-hidden>♬</span>
+          <span className="float-note text-white/20 text-xl left-[62%] top-[38%]" style={{ "--dur": "10s", "--delay": "3s" }} aria-hidden>♩</span>
+          <span className="float-note text-white/25 text-3xl right-[38%] top-[72%]" style={{ "--dur": "7.5s", "--delay": "1.8s" }} aria-hidden>♪</span>
+        </div>
 
         <div className="relative z-10 flex min-h-screen max-w-5xl flex-col items-start justify-center px-6">
           <motion.h1

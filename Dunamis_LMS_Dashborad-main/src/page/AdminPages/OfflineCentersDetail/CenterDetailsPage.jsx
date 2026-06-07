@@ -92,12 +92,6 @@ const CenterDetailsPage = () => {
 
   return (
     <div className="p-4 sm:p-6 max-w-7xl mx-auto bg-white rounded-2xl shadow-md min-h-screen text-sm">
-      <button
-        onClick={() => navigate(-1)}
-        className="text-gray-600 hover:text-gray-900 mb-6 font-medium flex items-center gap-1"
-      >
-        ← Back to Offline Centres
-      </button>
       <div className="mb-6 flex justify-end">
         <button
           onClick={() => navigate(`/admin/centers/edit-branch/${center._id}`)}

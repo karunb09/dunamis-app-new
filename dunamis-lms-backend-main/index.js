@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const app = express();
 
 const database = require("./config/database");
@@ -92,6 +93,22 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 
 const PORT = process.env.PORT || 3000;
 
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later." },
+});
+
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many webhook requests." },
+});
+
 database.connect();
 
 require("./cronJobs/overdueReminder");
@@ -99,9 +116,12 @@ require("./cronJobs/installmentReminder");
 require("./cronJobs/generateWeeklySlots.job");
 require("./cronJobs/runAssessmentCycle")
 require("./cronJobs/assignment.cron")
+require("./cronJobs/attendanceDigest.cron");
+require("./cronJobs/missedAttendanceReminder.cron");
 
 app.post(
   "/api/v1/enrollment/cashfree-webhook",
+  webhookLimiter,
   express.raw({ type: "application/json" }),
   require("./controller/enrollmentController").handleCashfreeWebhook
 );
@@ -135,7 +155,7 @@ app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/zone", zoneRoutes);
 app.use("/api/v1/course", courseRoutes);
 app.use("/api/v1/teachers", teacherRoutes);
-app.use("/api/v1/enrollment", enrollmentRoutes);
+app.use("/api/v1/enrollment", paymentLimiter, enrollmentRoutes);
 app.use("/api/v1/slots", slotRoutes);
 app.use("/api/v1/demoBookings", demoBookingRoutes);
 app.use("/api/v1/enquiry", enquiryRoutes);

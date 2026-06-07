@@ -1,0 +1,37 @@
+name: Deploy to VPC
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: SSH deploy to Hostinger VPC
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPC_HOST }}
+          username: root
+          key: ${{ secrets.VPC_SSH_KEY }}
+          script: |
+            set -e
+            cd /root/dunamis-app-new
+            git pull origin main
+
+            echo "--- Building dashboard ---"
+            cd Dunamis_LMS_Dashborad-main
+            npm install --prefer-offline
+            npm run build
+
+            echo "--- Building website ---"
+            cd ../Dunamis_LMS_Website-main
+            npm install --prefer-offline
+            npm run build
+
+            echo "--- Restarting PM2 ---"
+            cd ..
+            pm2 restart all
+            echo "Deploy complete."

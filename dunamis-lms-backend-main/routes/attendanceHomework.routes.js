@@ -2,7 +2,13 @@ const express = require("express");
 const router = express.Router();
 
 const { isAuth, accessToRole } = require("../middleware/auth");
-const { submitAttendanceHomework, getTeacherHomeworkHistory, getStudentHomeworkDashboard, submitStudentHomework, giveHomeworkFeedback } = require("../controller/attendanceHomework.controller");
+const {
+  submitAttendanceHomework,
+  getTeacherHomeworkHistory,
+  getStudentHomeworkDashboard,
+  getTeacherPastClasses,
+  getTeacherUpcomingClasses,
+} = require("../controller/attendanceHomework.controller");
 
 // Create attendance & assign homework (teacher)
 router.post("/", isAuth, accessToRole(["teacher"]), submitAttendanceHomework);
@@ -11,12 +17,12 @@ router.post("/", isAuth, accessToRole(["teacher"]), submitAttendanceHomework);
 router.get("/teacher/history", isAuth, accessToRole(["teacher"]),getTeacherHomeworkHistory);
 
 // Get student homework dashboard (student)
-router.get("/student/homework", isAuth, accessToRole(["student"]),getStudentHomeworkDashboard);
+router.get("/student/homework", isAuth, accessToRole(["student"]), getStudentHomeworkDashboard);
 
-// Student submits homework
-// router.put("/homework/submit/:id", isAuth, accessToRole(["student"]),submitStudentHomework);
+// Get past enrolled slots with attendance coverage status (teacher)
+router.get("/teacher/past-classes", isAuth, accessToRole(["teacher"]), getTeacherPastClasses);
 
-// Teacher gives feedback on submitted homework
-// router.put("/homework/feedback/:id", isAuth, accessToRole(["teacher"]),giveHomeworkFeedback);
+// Get today's and upcoming enrolled slots (teacher)
+router.get("/teacher/upcoming-classes", isAuth, accessToRole(["teacher"]), getTeacherUpcomingClasses);
 
 module.exports = router;

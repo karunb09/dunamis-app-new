@@ -12,6 +12,7 @@ export default function PaymentModal({
     onFailure,
 }) {
     const [loadingSdk, setLoadingSdk] = useState(false);
+    const [sdkError, setSdkError] = useState(false);
     const checkoutStarted = useRef(false);
     const canPay = useMemo(
         () => open && !!order?.paymentSessionId && !!order?.amount && !!order?.currency,
@@ -21,6 +22,7 @@ export default function PaymentModal({
     useEffect(() => {
         if (!open) {
             checkoutStarted.current = false;
+            setSdkError(false);
             return;
         }
 
@@ -37,7 +39,7 @@ export default function PaymentModal({
             script.src = CASHFREE_SDK_URL;
             script.async = true;
             script.onload = () => setLoadingSdk(false);
-            script.onerror = () => setLoadingSdk(false);
+            script.onerror = () => { setLoadingSdk(false); setSdkError(true); };
             document.body.appendChild(script);
         }
     }, [open]);
@@ -123,8 +125,8 @@ export default function PaymentModal({
 
                         <button
                             onClick={openCheckout}
-                            disabled={!canPay || loadingSdk}
-                            className={`mt-2 w-full rounded-full px-6 py-3 font-semibold text-white shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${!canPay || loadingSdk
+                            disabled={!canPay || loadingSdk || sdkError}
+                            className={`mt-2 w-full rounded-full px-6 py-3 font-semibold text-white shadow-lg focus:outline-none focus:ring-2 focus:ring-orange-500 ${!canPay || loadingSdk || sdkError
                                 ? 'cursor-not-allowed bg-orange-500/60'
                                 : 'bg-gradient-to-r from-orange-500 to-orange-700 hover:from-orange-600 hover:to-orange-700'
                                 }`}
@@ -132,7 +134,13 @@ export default function PaymentModal({
                             {loadingSdk ? 'Loading...' : 'Pay with Cashfree'}
                         </button>
 
-                        <p className="text-center text-xs text-gray-500">You will complete payment on Cashfree.</p>
+                        {sdkError && (
+                            <p className="text-center text-sm text-red-600">
+                                Payment SDK failed to load. Please check your connection and refresh.
+                            </p>
+                        )}
+
+                        {!sdkError && <p className="text-center text-xs text-gray-500">You will complete payment on Cashfree.</p>}
                     </div>
                 </div>
             </div>

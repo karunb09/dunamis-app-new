@@ -1,5 +1,6 @@
 import dynamic from "next/dynamic";
 import HeroSection from "@/compoents/HomeComponents/HeroSection";
+import MusicNoteShower from "@/compoents/MusicNoteShower";
 import { SectionSkeleton, CardGridSkeleton } from "@/compoents/Skeletons";
 
 const Offerings = dynamic(
@@ -78,6 +79,8 @@ function LightToDark() {
 export default function Home() {
   return (
     <>
+      <MusicNoteShower />
+
       {/* ── Hero (dark image bg) ─── */}
       <HeroSection />
 

@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getAllUsers, updateUser } from "../../../../redux/User/UserSlice";
-import DataTable from "../../../../components/Table";
 import toast from "react-hot-toast";
-import { FaArchive, FaBan, FaFilter, FaFlag, FaSearch, FaSortAmountDown, FaUserSlash } from "react-icons/fa";
+import { FaArchive, FaBan, FaClipboard, FaFilter, FaFlag, FaSearch, FaSortAmountDown, FaUserSlash } from "react-icons/fa";
 import { X } from "react-feather";
 import { getStoredToken } from "../../../../utils/authSession";
 import Swal from "sweetalert2";
 import ActionProgressBar from "../../../../components/ActionProgressBar";
-import IconActionButton from "../../../../components/IconActionButton";
-import { FaCheckCircle } from "react-icons/fa";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+import DataCards from "../../../../components/DataCards";
+import PersonCard from "../../../../components/cards/PersonCard";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -31,6 +30,7 @@ const RegisteredStudents = () => {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filters, setFilters] = useState({ status: "", followUp: "", dateFrom: "", dateTo: "" });
     const [processingAction, setProcessingAction] = useState(null);
+    const sortRef = useRef(null);
 
     const getErrorMessage = (error, fallback) => {
         if (typeof error === "string") return error;
@@ -44,6 +44,14 @@ const RegisteredStudents = () => {
             toast.error("No token found. Please login.");
         }
     }, [dispatch, listStatus, token]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const getImageUrl = (imagePath) => resolveImageUrl(imagePath, "/profile-photo.png");
 
@@ -66,20 +74,12 @@ const RegisteredStudents = () => {
             }))
         : [];
 
-    if (filters.status) {
-        students = students.filter((s) => s.status === filters.status);
-    }
-    if (filters.followUp) {
-        students = students.filter(
-            (s) => s.followUp1 === filters.followUp || s.followUp2 === filters.followUp || s.followUp3 === filters.followUp
-        );
-    }
-    if (filters.dateFrom) {
-        students = students.filter((s) => new Date(s.registrationDate) >= new Date(filters.dateFrom));
-    }
-    if (filters.dateTo) {
-        students = students.filter((s) => new Date(s.registrationDate) <= new Date(filters.dateTo));
-    }
+    if (filters.status) students = students.filter((s) => s.status === filters.status);
+    if (filters.followUp) students = students.filter(
+        (s) => s.followUp1 === filters.followUp || s.followUp2 === filters.followUp || s.followUp3 === filters.followUp
+    );
+    if (filters.dateFrom) students = students.filter((s) => new Date(s.registrationDate) >= new Date(filters.dateFrom));
+    if (filters.dateTo) students = students.filter((s) => new Date(s.registrationDate) <= new Date(filters.dateTo));
 
     const filteredStudents = students.filter((student) =>
         Object.values(student).some((value) =>
@@ -89,20 +89,10 @@ const RegisteredStudents = () => {
 
     if (sortOption) {
         switch (sortOption) {
-            case "name-asc":
-                filteredStudents.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-            case "name-desc":
-                filteredStudents.sort((a, b) => b.name.localeCompare(a.name));
-                break;
-            case "date-asc":
-                filteredStudents.sort((a, b) => new Date(a.registrationDate) - new Date(b.registrationDate));
-                break;
-            case "date-desc":
-                filteredStudents.sort((a, b) => new Date(b.registrationDate) - new Date(a.registrationDate));
-                break;
-            default:
-                break;
+            case "name-asc": filteredStudents.sort((a, b) => a.name.localeCompare(b.name)); break;
+            case "name-desc": filteredStudents.sort((a, b) => b.name.localeCompare(a.name)); break;
+            case "date-asc": filteredStudents.sort((a, b) => new Date(a.registrationDate) - new Date(b.registrationDate)); break;
+            case "date-desc": filteredStudents.sort((a, b) => new Date(b.registrationDate) - new Date(a.registrationDate)); break;
         }
     }
 
@@ -119,7 +109,6 @@ Follow-up 2: ${s.followUp2}
 Follow-up 3: ${s.followUp3}`
             )
             .join("\n\n---\n\n");
-
         navigator.clipboard.writeText(details)
             .then(() => toast.success("Student details copied to clipboard!"))
             .catch(() => toast.error("Failed to copy details!"));
@@ -151,7 +140,6 @@ Follow-up 3: ${s.followUp3}`
                 });
                 return;
             }
-
             await new Promise((resolve) => setTimeout(resolve, 900));
             toast.dismiss(toastId);
             await Swal.fire({
@@ -173,198 +161,148 @@ Follow-up 3: ${s.followUp3}`
         }
     };
 
-    const columns = [
-        { key: "studentId", header: "Student ID" },
-        {
-            key: "name",
-            header: "User",
-            render: (_, row) => (
-                <div className="flex items-center gap-2 min-w-0">
-                    <img
-                        src={row.avatar}
-                        alt={row.name}
-                        className="w-8 h-8 rounded-full object-cover object-top flex-shrink-0"
-                        onError={(e) => {
-                            e.target.src = "/profile-photo.png";
-                        }}
-                    />
-                    <span className="truncate" title={row.name}>
-                        {row.name}
-                    </span>
-                </div>
-            ),
-        },
-        {
-            key: "email",
-            header: "Email",
-            render: (value) => (
-                <span className="block truncate" title={value}>
-                    {value}
-                </span>
-            ),
-        },
-        { key: "mobileNumber", header: "Mobile Number" },
-        { key: "registrationDate", header: "Registration Date" },
-        {
-            key: "status",
-            header: "Status",
-            render: (_, row) => (
-                <div className="flex justify-center">
-                    <IconActionButton
-                        label={row.accountStatus === "active" ? "Student is active" : "Student is disabled"}
-                        icon={<FaCheckCircle />}
-                        tone={row.accountStatus === "active" ? "emerald" : "rose"}
-                        disabled
-                    />
-                </div>
-            ),
-        },
-        {
-            key: "action",
-            header: "Actions",
-            render: (_, row) => (
-                <div className="flex flex-wrap justify-end gap-1.5">
-                    {[
-                        { label: "Block", tone: "amber", icon: <FaBan /> },
-                        { label: "Report", tone: "sky", icon: <FaFlag /> },
-                        { label: "Disable", tone: "rose", icon: <FaUserSlash /> },
-                        { label: "Archive", tone: "slate", icon: <FaArchive /> },
-                    ].map((action) => (
-                        <IconActionButton
-                            key={action.label}
-                            label={action.label}
-                            icon={action.icon}
-                            tone={action.tone}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleStudentAction(row, action.label);
-                            }}
-                            disabled={Boolean(processingAction)}
-                            isLoading={processingAction?.key === `${row.id}-${action.label.toLowerCase()}`}
-                        />
-                    ))}
-                </div>
-            ),
-        },
-    ];
-
-    const onFilterChange = (key, value) => {
-        setFilters((prev) => ({ ...prev, [key]: value }));
-    };
-
     const clearFilters = () => setFilters({ status: "", followUp: "", dateFrom: "", dateTo: "" });
-
-    const onSortChange = (value) => setSortOption(value);
+    const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
     return (
-        <div className="p-4">
-            <h2 className="text-lg font-semibold mb-4">Registered Students</h2>
-            {loading && <p>Loading users...</p>}
-            {error && <p className="text-red-500">Error: {error}</p>}
+        <div>
+            {loading && <p className="mb-4 text-sm text-slate-500">Loading users…</p>}
+            {error && <p className="mb-4 text-sm text-rose-500">Error: {error}</p>}
             <ActionProgressBar active={Boolean(processingAction)} label={processingAction?.label} />
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <div className="relative w-full md:w-1/3">
+            {/* Toolbar */}
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:w-72">
+                    <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
-                        placeholder="Search"
+                        placeholder="Search students…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full border rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-black"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
-                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
-
-                <div className="flex gap-2 mt-2 md:mt-0">
-                    <div className="relative">
+                <div className="flex items-center gap-2">
+                    <div className="relative" ref={sortRef}>
                         <button
-                            className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                            type="button"
                             onClick={() => setSortOpen(!sortOpen)}
+                            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                                sortOption
+                                    ? "border-orange-300 bg-orange-50 text-orange-700"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                         >
-                            <FaSortAmountDown /> Sort
+                            <FaSortAmountDown size={13} /> Sort
                         </button>
                         {sortOpen && (
-                            <ul className="absolute z-40 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg text-sm font-medium">
+                            <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
                                 {SORT_OPTIONS.map(({ value, label }) => (
-                                    <li
+                                    <button
                                         key={value}
-                                        className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${sortOption === value ? "bg-gray-200 font-semibold" : ""}`}
-                                        onClick={() => { onSortChange(value); setSortOpen(false); }}
+                                        type="button"
+                                        onClick={() => { setSortOption(value); setSortOpen(false); }}
+                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                                            sortOption === value ? "bg-orange-50 font-semibold text-orange-700" : "text-slate-700"
+                                        }`}
                                     >
                                         {label}
-                                    </li>
+                                    </button>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
-
                     <button
-                        className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                        type="button"
                         onClick={() => setFilterOpen(true)}
+                        className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                            activeFilterCount
+                                ? "border-orange-300 bg-orange-50 text-orange-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
-                        <FaFilter /> Filter
+                        <FaFilter size={13} />
+                        Filter
+                        {activeFilterCount > 0 && (
+                            <span className="rounded-full bg-[#FF6B35] px-2 py-0.5 text-xs font-semibold text-white">
+                                {activeFilterCount}
+                            </span>
+                        )}
                     </button>
                 </div>
             </div>
 
+            {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-                    <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
                         <button
+                            type="button"
                             onClick={() => setFilterOpen(false)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X />
+                            <X size={18} />
                         </button>
-                        <h2 className="text-xl font-semibold mb-4">Filter Options</h2>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
+                        <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Students</h2>
 
-                        <label className="block mb-2 font-medium">Status</label>
-                        <select
-                            value={filters.status || ""}
-                            onChange={(e) => onFilterChange("status", e.target.value)}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All</option>
-                            <option value="Active">Active</option>
-                            <option value="Inactive">Inactive</option>
-                        </select>
+                        <div className="mt-5 space-y-4">
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Status</label>
+                                <select
+                                    value={filters.status || ""}
+                                    onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Follow-up</label>
+                                <select
+                                    value={filters.followUp || ""}
+                                    onChange={(e) => setFilters((f) => ({ ...f, followUp: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    <option value="Complete">Complete</option>
+                                    <option value="Pending">Pending</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Registration From</label>
+                                <input
+                                    type="date"
+                                    value={filters.dateFrom || ""}
+                                    onChange={(e) => setFilters((f) => ({ ...f, dateFrom: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Registration To</label>
+                                <input
+                                    type="date"
+                                    value={filters.dateTo || ""}
+                                    onChange={(e) => setFilters((f) => ({ ...f, dateTo: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                />
+                            </div>
+                        </div>
 
-                        <label className="block mb-2 font-medium">Follow-up</label>
-                        <select
-                            value={filters.followUp || ""}
-                            onChange={(e) => onFilterChange("followUp", e.target.value)}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All</option>
-                            <option value="Complete">Complete</option>
-                            <option value="Pending">Pending</option>
-                        </select>
-
-                        <label className="block mb-2 font-medium">Registration From</label>
-                        <input
-                            type="date"
-                            value={filters.dateFrom || ""}
-                            onChange={(e) => onFilterChange("dateFrom", e.target.value)}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        />
-                        <label className="block mb-2 font-medium">Registration To</label>
-                        <input
-                            type="date"
-                            value={filters.dateTo || ""}
-                            onChange={(e) => onFilterChange("dateTo", e.target.value)}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        />
-
-                        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between mt-6">
+                        <div className="mt-6 flex gap-3">
                             <button
+                                type="button"
                                 onClick={clearFilters}
-                                className="px-4 py-2 rounded-2xl border border-gray-500 hover:bg-gray-100"
+                                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
-                                Clear Filters
+                                Clear
                             </button>
                             <button
+                                type="button"
                                 onClick={() => setFilterOpen(false)}
-                                className="px-4 py-2 rounded-2xl bg-black text-white hover:bg-gray-800"
+                                className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                             >
                                 Apply
                             </button>
@@ -373,12 +311,59 @@ Follow-up 3: ${s.followUp3}`
                 </div>
             )}
 
-            <DataTable
+            <DataCards
                 data={filteredStudents}
-                columns={columns}
-                itemsPerPage={10}
-                emptyMessage="No registered students found"
+                itemsPerPage={12}
+                emptyMessage="No registered students found."
                 onCopyDetails={handleCopyDetails}
+                renderCard={(row, { selected, onSelect }) => (
+                    <PersonCard
+                        avatarSrc={row.avatar || undefined}
+                        name={row.name}
+                        subtitle={row.email}
+                        statusBadge={
+                            row.accountStatus === "active"
+                                ? { label: "Active", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: true, dotClass: "bg-emerald-500" }
+                                : { label: "Inactive", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", dot: true, dotClass: "bg-rose-500" }
+                        }
+                        meta={[
+                            { label: "Student ID", value: row.studentId },
+                            { label: "Mobile", value: row.mobileNumber || "N/A" },
+                            { label: "Registered", value: row.registrationDate },
+                            { label: "Follow-up", value: row.followUp1 },
+                        ]}
+                        onView={() => handleCopyDetails([row])}
+                        primaryLabel="Copy Details"
+                        menuItems={[
+                            {
+                                label: "Block",
+                                icon: <FaBan size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => handleStudentAction(row, "Block"),
+                            },
+                            {
+                                label: row.accountStatus === "active" ? "Disable" : "Enable",
+                                icon: <FaUserSlash size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => handleStudentAction(row, "Disable"),
+                            },
+                            {
+                                label: "Archive",
+                                icon: <FaArchive size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => handleStudentAction(row, "Archive"),
+                            },
+                            {
+                                label: "Report",
+                                icon: <FaFlag size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => handleStudentAction(row, "Report"),
+                            },
+                        ]}
+                        selected={selected}
+                        onSelect={onSelect}
+                    />
+                )}
             />
         </div>
     );

@@ -61,7 +61,13 @@ const CoursesTab = ({ student }) => {
                         className="flex bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
                     >
                         <img
-                            src={course.image ? `${IMAGE}${course.image}` : "/placeholder.png"}
+                            src={
+                                course.image
+                                    ? course.image.startsWith("http")
+                                        ? course.image
+                                        : `${IMAGE}${course.image}`
+                                    : "/placeholder.png"
+                            }
                             alt={course.name}
                             className="h-full w-44 object-cover"
                         />

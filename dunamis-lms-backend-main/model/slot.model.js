@@ -77,6 +77,10 @@ const slotSchema = new mongoose.Schema(
         default: [],
       },
     ],
+    attendanceNotifiedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

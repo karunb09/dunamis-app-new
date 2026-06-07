@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { HiArrowLeft, HiCheckCircle, HiClock, HiUser } from 'react-icons/hi';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -30,6 +30,7 @@ export default function PaymentConfirmation() {
   const { user, token } = useSelector((s) => s.auth || {});
   const { order: cashfreeOrder, loading: orderLoading, error: orderError } = useSelector((s) => s.enrollment || {});
 
+  const submittingRef = useRef(false);
   const [hasToken, setHasToken] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -164,6 +165,8 @@ export default function PaymentConfirmation() {
     router.push(courseId ? `/courses/${courseId}` : '/courses');
 
   const submitPayment = async (account = user) => {
+    if (submittingRef.current) return;
+
     if (String(account?.accountType || '').toLowerCase() !== 'student') {
       toast.error('Only student accounts can enroll in courses.');
       return;
@@ -172,41 +175,46 @@ export default function PaymentConfirmation() {
     if (priceBlock?.error) return;
 
     if (!courseId) {
-      alert('Course ID is missing. Please restart enrollment.');
+      toast.error('Course ID is missing. Please restart enrollment.');
       return;
     }
     if (!selectedSessionType) {
-      alert('Session type is missing. Please restart enrollment.');
+      toast.error('Session type is missing. Please restart enrollment.');
       return;
     }
     if (!instructorId) {
-      alert('Please select an instructor first.');
+      toast.error('Please select an instructor first.');
       router.push(`/courses/${courseId}`);
       return;
     }
     if (!slot?.slotId) {
-      alert('Please select a time slot first.');
+      toast.error('Please select a time slot first.');
       router.push(`/courses/${courseId}`);
       return;
     }
 
-    const orderData = {
-      courseId: courseId,
-      sessionType: selectedSessionType,
-      planType,
-      planMonths,
-      teacherId: instructorId,
-      slotId: slot.slotId,
-      deliveryMode,
-      branchId,
-    };
+    submittingRef.current = true;
+    try {
+      const orderData = {
+        courseId: courseId,
+        sessionType: selectedSessionType,
+        planType,
+        planMonths,
+        teacherId: instructorId,
+        slotId: slot.slotId,
+        deliveryMode,
+        branchId,
+      };
 
-    const result = await dispatch(createEnrollmentOrder(orderData));
+      const result = await dispatch(createEnrollmentOrder(orderData));
 
-    if (createEnrollmentOrder.fulfilled.match(result)) {
-      setPayOpen(true);
-    } else {
-      alert(result.payload || 'Failed to create order. Please try again.');
+      if (createEnrollmentOrder.fulfilled.match(result)) {
+        setPayOpen(true);
+      } else {
+        toast.error(result.payload || 'Failed to create order. Please try again.');
+      }
+    } finally {
+      submittingRef.current = false;
     }
   };
 
@@ -255,7 +263,7 @@ export default function PaymentConfirmation() {
 
     if (verifyEnrollmentPayment.fulfilled.match(result)) {
       if (result.payload?.transactionStatus === 'paid_pending_fulfillment') {
-        alert(result.payload?.message || 'Payment verified. Support will review your slot assignment.');
+        toast(result.payload?.message || 'Payment verified. Support will review your slot assignment.', { icon: 'ℹ️' });
         setPayOpen(false);
         if (result.payload?.courseAccessGranted) {
           clearEnrollSelection();
@@ -270,13 +278,13 @@ export default function PaymentConfirmation() {
       clearEnrollmentResume();
       router.push('/student/my-courses');
     } else {
-      alert('Payment verification failed. Please contact support.');
+      toast.error('Payment verification failed. Please contact support.');
       setPayOpen(false);
     }
   };
 
   const handlePaymentFailure = () => {
-    alert('Payment failed. Please try again.');
+    toast.error('Payment failed. Please try again.');
     setPayOpen(false);
   };
 

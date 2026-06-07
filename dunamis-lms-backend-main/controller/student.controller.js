@@ -496,3 +496,56 @@ exports.getStudentsByType = async (req, res) => {
     });
   }
 };
+
+exports.searchStudents = async (req, res) => {
+  try {
+    const q = String(req.query.q || "").trim();
+    if (!q) {
+      return res.status(400).json({ success: false, message: "Query parameter 'q' is required" });
+    }
+
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+
+    const matchingUsers = await User.find({
+      accountType: "student",
+      $or: [
+        { "name.firstName": regex },
+        { "name.lastName": regex },
+        { email: regex },
+        { mobileNo: regex },
+      ],
+    })
+      .select("_id name email mobileNo")
+      .limit(20)
+      .lean();
+
+    if (matchingUsers.length === 0) {
+      return res.status(200).json({ success: true, students: [] });
+    }
+
+    const userIds = matchingUsers.map((u) => u._id);
+    const students = await Student.find({ userId: { $in: userIds } })
+      .select("_id userId")
+      .lean();
+
+    const studentByUserId = new Map(students.map((s) => [s.userId.toString(), s._id]));
+
+    const results = matchingUsers.map((u) => ({
+      _id: studentByUserId.get(u._id.toString()) || null,
+      userId: u._id,
+      name: `${u.name?.firstName || ""} ${u.name?.lastName || ""}`.trim(),
+      email: u.email,
+      phone: u.mobileNo || null,
+    }));
+
+    return res.status(200).json({ success: true, students: results });
+  } catch (error) {
+    console.error("Error searching students:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to search students",
+      error: error.message,
+    });
+  }
+};

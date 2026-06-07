@@ -240,7 +240,7 @@ export default function Mentors() {
                                     initial="enter"
                                     animate="center"
                                     exit="exit"
-                                    className="flex gap-6 justify-center items-start"
+                                    className="flex gap-6 justify-center items-stretch"
                                 >
                                     {getCurrentMentors().map((mentor, idx) => {
                                         const globalIndex = (currentSlide * cardsPerView + idx) % transformedMentors.length;

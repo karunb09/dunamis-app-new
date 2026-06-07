@@ -8,6 +8,7 @@ const {
   updateStudent,
   deleteStudent,
   getStudentsByType,
+  searchStudents,
 } = require("../controller/student.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
 
@@ -36,6 +37,8 @@ router.post("/create", createStudent);
 router.get("/get-all", isAuth, accessToRole(["admin", "superadmin"]), getAllStudents);
 // get by type
 router.get("/get-by-type", isAuth, accessToRole(["admin", "superadmin"]), getStudentsByType);
+// search by name / email / phone (admin only)
+router.get("/search", isAuth, accessToRole(["admin", "superadmin"]), searchStudents);
 // get by id
 router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), canAccessStudentRecord, getStudentById);
 // update

@@ -30,7 +30,7 @@ const getDefaultRoute = (accountType) => {
   }
 };
 
-export const RequireAuth = ({ allowedRoles = [], children }) => {
+export const RequireAuth = ({ allowedRoles = [], requiredPermission, children }) => {
   const location = useLocation();
   const authState = useSelector((state) => state.auth);
   if (authState.hydrating) {
@@ -47,6 +47,14 @@ export const RequireAuth = ({ allowedRoles = [], children }) => {
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(accountType)) {
     return <Navigate to={getDefaultRoute(accountType)} replace />;
+  }
+
+  if (requiredPermission && accountType !== "superadmin") {
+    const permissions = user?.permissions || [];
+    const hasFullAccess = permissions.length === 0 || permissions.includes("allAccess");
+    if (!hasFullAccess && !permissions.includes(requiredPermission)) {
+      return <Navigate to="/admin" replace />;
+    }
   }
 
   return children;

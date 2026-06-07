@@ -3,7 +3,9 @@ const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const Content = require("../model/content.model");
+const Slot = require("../model/slot.model");
 const mongoose = require("mongoose");
+const { createDashboardNotice, getAdminUsers } = require("../utils/notificationService");
 
 exports.submitAttendanceHomework = async (req, res) => {
   try {
@@ -129,6 +131,24 @@ exports.submitAttendanceHomework = async (req, res) => {
     }
 
     await AttendanceHomework.insertMany(attendanceEntries);
+
+    // Fire-and-forget: notify admins via dashboard (does not affect HTTP response)
+    setImmediate(async () => {
+      try {
+        const adminUsers = await getAdminUsers();
+        if (adminUsers.length) {
+          await createDashboardNotice({
+            title: "Attendance Submitted",
+            message: `${teacher.name || "An instructor"} recorded attendance for ${course.name} — ${attendanceEntries.length} student(s).`,
+            userIds: adminUsers.map((u) => u._id),
+            creatorId: userId,
+            contentType: "Transactional",
+          });
+        }
+      } catch (err) {
+        console.error("Admin attendance notice failed:", err.message);
+      }
+    });
 
     return res.status(201).json({
       success: true,
@@ -290,6 +310,143 @@ exports.getTeacherHomeworkHistory = async (req, res) => {
       data: formattedHistory,
     });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getTeacherPastClasses = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+    const courseFilter = req.query.courseId
+      ? { courseId: new mongoose.Types.ObjectId(req.query.courseId) }
+      : {};
+
+    const teacher = await Teacher.findOne({ userId }).select("_id");
+    if (!teacher)
+      return res.status(404).json({ success: false, message: "Teacher not found." });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const total = await Slot.countDocuments({
+      createdBy: teacher._id,
+      slotType: "enrolled",
+      date: { $lt: todayStart },
+      ...courseFilter,
+    });
+
+    const slots = await Slot.find({
+      createdBy: teacher._id,
+      slotType: "enrolled",
+      date: { $lt: todayStart },
+      ...courseFilter,
+    })
+      .populate("courseId", "name")
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
+
+    // Batch fetch attendance counts to avoid N+1
+    const slotIds = slots.map((s) => s._id);
+    const submittedCounts = await AttendanceHomework.aggregate([
+      { $match: { slotId: { $in: slotIds } } },
+      { $group: { _id: "$slotId", count: { $sum: 1 } } },
+    ]);
+    const countMap = Object.fromEntries(
+      submittedCounts.map((r) => [r._id.toString(), r.count])
+    );
+
+    const data = slots.map((slot) => {
+      const studentCount = slot.students?.length || 0;
+      const submittedCount = countMap[slot._id.toString()] || 0;
+      let coverageStatus = "Missing";
+      if (submittedCount >= studentCount && studentCount > 0) coverageStatus = "Full";
+      else if (submittedCount > 0) coverageStatus = "Partial";
+
+      return {
+        slotId: slot._id,
+        courseId: slot.courseId?._id || slot.courseId,
+        courseName: slot.courseId?.name || "N/A",
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        sessionType: slot.sessionType,
+        studentCount,
+        submittedCount,
+        coverageStatus,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: data.length,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+      data,
+    });
+  } catch (error) {
+    console.error("Error fetching teacher past classes:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getTeacherUpcomingClasses = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const teacher = await Teacher.findOne({ userId }).select("_id");
+    if (!teacher)
+      return res.status(404).json({ success: false, message: "Teacher not found." });
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const slots = await Slot.find({
+      createdBy: teacher._id,
+      slotType: "enrolled",
+      date: { $gte: todayStart },
+    })
+      .populate("courseId", "name")
+      .populate({
+        path: "students",
+        select: "userId",
+        populate: { path: "userId", select: "name image" },
+      })
+      .sort({ date: 1 })
+      .lean();
+
+    const mapSlot = (slot) => ({
+      slotId: slot._id,
+      courseId: slot.courseId?._id || slot.courseId,
+      courseName: slot.courseId?.name || "N/A",
+      date: slot.date,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      sessionType: slot.sessionType,
+      studentCount: slot.students?.length || 0,
+      students: (slot.students || []).map((s) => ({
+        _id: s._id,
+        name: s.userId?.name || "Student",
+        image: s.userId?.image || null,
+      })),
+    });
+
+    const today = slots.filter((s) => s.date <= todayEnd).map(mapSlot);
+    const upcoming = slots.filter((s) => s.date > todayEnd).map(mapSlot);
+
+    return res.status(200).json({
+      success: true,
+      data: { today, upcoming },
+    });
+  } catch (error) {
+    console.error("Error fetching teacher upcoming classes:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

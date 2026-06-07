@@ -1,15 +1,16 @@
 import React, { useEffect, useState, useRef } from "react";
 import { FaSearch, FaFilter, FaSortAmountDown } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
-import DataTable from "../../components/Table";
 import {
     assignEnquiry,
     getAllEnquiries,
     respondEnquiry,
 } from "../../redux/Enquiry/EnquirySlice";
 import { fetchAdmins } from "../../redux/Admin/AdminSlice";
-import { X } from "phosphor-react";
+import { X } from "react-feather";
 import { getStoredUser } from "../../utils/authSession";
+import DataCards from "../../components/DataCards";
+import PersonCard from "../../components/cards/PersonCard";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -23,6 +24,13 @@ const FILTER_OPTIONS = [
     { value: "in-progress", label: "In Progress" },
     { value: "resolved", label: "Resolved" },
 ];
+
+const statusBadgeClasses = {
+    new: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+    "in-progress": "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    resolved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+    archived: "bg-slate-100 text-slate-600",
+};
 
 const EnquiriesPage = () => {
     const dispatch = useDispatch();
@@ -42,12 +50,10 @@ const EnquiriesPage = () => {
 
     const sortRef = useRef(null);
 
-    // Get current user from localStorage
     const currentUser = getStoredUser() || {};
-    const currentAdminRoleId = currentUser.roleId; // Get the roleId to match with assignedTo
-
-    // Check if user is superadmin by checking the role field or accountType
-    const isSuperAdmin = currentUser.role === 'superadmin' ||
+    const currentAdminRoleId = currentUser.roleId;
+    const isSuperAdmin =
+        currentUser.role === 'superadmin' ||
         currentUser.accountType === 'superadmin' ||
         currentUser.adminDetails?.role === 'superadmin';
 
@@ -58,9 +64,7 @@ const EnquiriesPage = () => {
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (sortRef.current && !sortRef.current.contains(e.target)) {
-                setSortOpen(false);
-            }
+            if (sortRef.current && !sortRef.current.contains(e.target)) setSortOpen(false);
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -82,221 +86,141 @@ const EnquiriesPage = () => {
 
     const saveChanges = () => {
         if (selectedEnquiry) {
-            if (assignTo)
-                dispatch(assignEnquiry({ id: selectedEnquiry._id, adminId: assignTo }));
-            if (response.trim())
-                dispatch(respondEnquiry({ id: selectedEnquiry._id, message: response }));
+            if (assignTo) dispatch(assignEnquiry({ id: selectedEnquiry._id, adminId: assignTo }));
+            if (response.trim()) dispatch(respondEnquiry({ id: selectedEnquiry._id, message: response }));
         }
         closeModal();
     };
 
-    // Role-based filtering: Show all enquiries for superadmin, only assigned for others
     let roleFilteredData = isSuperAdmin
         ? enquiries
-        : enquiries.filter(enquiry => {
-            // Match by admin's roleId (which is the _id in admin collection)
-            return enquiry.assignedTo?._id === currentAdminRoleId;
-        });
+        : enquiries.filter((enquiry) => enquiry.assignedTo?._id === currentAdminRoleId);
 
-    // Apply search filter
     let filteredData = roleFilteredData.filter((item) =>
         item.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Apply status filter
     if (statusFilter) {
         filteredData = filteredData.filter(
             (item) => item.status?.toLowerCase() === statusFilter.toLowerCase()
         );
     }
 
-    // Sorting
     if (sortOption) {
         switch (sortOption) {
-            case "name-asc":
-                filteredData.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-                break;
-            case "name-desc":
-                filteredData.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
-                break;
-            case "date-asc":
-                filteredData.sort(
-                    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
-                );
-                break;
-            case "date-desc":
-                filteredData.sort(
-                    (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-                );
-                break;
-            default:
-                break;
+            case "name-asc": filteredData.sort((a, b) => (a.name || "").localeCompare(b.name || "")); break;
+            case "name-desc": filteredData.sort((a, b) => (b.name || "").localeCompare(a.name || "")); break;
+            case "date-asc": filteredData.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); break;
+            case "date-desc": filteredData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); break;
         }
     }
 
-    const columns = [
-        {
-            key: "name",
-            header: "User",
-            render: (_, row) => (
-                <div className="flex items-center gap-2">
-                    {row.avatar && (
-                        <img
-                            src={row.avatar}
-                            alt={row.name}
-                            className="w-8 h-8 rounded-full"
-                        />
-                    )}
-                    <span>{row.name}</span>
-                </div>
-            ),
-        },
-        { key: "email", header: "Email" },
-        { key: "subject", header: "Subject" },
-        {
-            key: "message",
-            header: "Message",
-            render: (value) => (
-                <span>{value}</span>
-            ),
-        },
-        {
-            key: "createdAt",
-            header: "Time & Date",
-            render: (value) => new Date(value).toLocaleString(),
-        },
-        {
-            key: "status",
-            header: "Status",
-            render: (value) => {
-                const color =
-                    value === "resolved"
-                        ? "text-green-600"
-                        : value === "archived"
-                            ? "text-gray-500"
-                            : "text-blue-600";
-                return <span className={`text-sm font-medium ${color}`}>● {value}</span>;
-            },
-        },
-        {
-            key: "assignedTo",
-            header: "Assigned To",
-            render: (value) => {
-                const nameObj = value?.userId?.name;
-                const fullName = nameObj
-                    ? `${nameObj.firstName} ${nameObj.lastName}`
-                    : "—";
-                return <span>{fullName}</span>;
-            },
-        },
-        {
-            key: "response",
-            header: "Response",
-            render: (value) => value?.message || "—",
-        },
-        {
-            key: "actions",
-            header: "Actions",
-            render: (_, row) => (
-                <button
-                    onClick={() => openModal(row)}
-                    className="px-2 py-1 text-sm bg-black text-white rounded-2xl hover:bg-gray-900"
-                >
-                    Assign & Respond
-                </button>
-            ),
-        },
-    ];
-
     return (
-        <div className="p-6 bg-white min-h-screen">
-            {/* Search + Actions */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div className="relative w-full md:w-1/3">
+        <div className="min-h-screen bg-slate-50/40 p-6">
+            {/* Page header */}
+            <div className="mb-6">
+                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Support</p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">Enquiries</h1>
+                <p className="mt-0.5 text-sm text-slate-500">Manage and respond to incoming enquiries.</p>
+            </div>
+
+            {/* Toolbar */}
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:w-72">
+                    <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
-                        placeholder="Search"
+                        placeholder="Search by name…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-black"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
-                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                    {/* Sort Dropdown */}
                     <div className="relative" ref={sortRef}>
                         <button
-                            className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                            type="button"
                             onClick={() => setSortOpen(!sortOpen)}
+                            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                                sortOption
+                                    ? "border-orange-300 bg-orange-50 text-orange-700"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                         >
-                            <FaSortAmountDown /> Sort
+                            <FaSortAmountDown size={13} /> Sort
                         </button>
                         {sortOpen && (
-                            <ul className="absolute right-0 z-40 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg text-sm font-medium">
+                            <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                                 {SORT_OPTIONS.map(({ value, label }) => (
-                                    <li
+                                    <button
                                         key={value}
-                                        className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${sortOption === value ? "bg-gray-200 font-semibold" : ""
-                                            }`}
-                                        onClick={() => {
-                                            setSortOption(value);
-                                            setSortOpen(false);
-                                        }}
+                                        type="button"
+                                        onClick={() => { setSortOption(value); setSortOpen(false); }}
+                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                                            sortOption === value ? "bg-orange-50 font-semibold text-orange-700" : "text-slate-700"
+                                        }`}
                                     >
                                         {label}
-                                    </li>
+                                    </button>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
-
-                    {/* Filter */}
                     <button
-                        className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                        type="button"
                         onClick={() => setFilterOpen(true)}
+                        className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                            statusFilter
+                                ? "border-orange-300 bg-orange-50 text-orange-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
-                        <FaFilter /> Filter
+                        <FaFilter size={13} /> Filter
                     </button>
                 </div>
             </div>
 
-            {/* Filter Modal */}
+            {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-                    <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
                         <button
+                            type="button"
                             onClick={() => setFilterOpen(false)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X />
+                            <X size={18} />
                         </button>
-                        <h2 className="text-xl font-semibold mb-4">Filter Enquiries</h2>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
+                        <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Enquiries</h2>
 
-                        <label className="block mb-2 font-medium">Status</label>
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All Status</option>
-                            {FILTER_OPTIONS.map((opt) => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="mt-5">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Status</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                            >
+                                <option value="">All Status</option>
+                                {FILTER_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                        <div className="flex justify-between mt-6">
+                        <div className="mt-6 flex gap-3">
                             <button
-                                className="px-4 py-2 rounded-2xl border hover:bg-gray-200"
+                                type="button"
                                 onClick={() => setStatusFilter("")}
+                                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
                             </button>
                             <button
-                                className="px-4 py-2 rounded-2xl bg-black text-white hover:bg-gray-800"
+                                type="button"
                                 onClick={() => setFilterOpen(false)}
+                                className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                             >
                                 Apply
                             </button>
@@ -305,63 +229,108 @@ const EnquiriesPage = () => {
                 </div>
             )}
 
-            {/* DataTable */}
             {loading ? (
-                <div>Loading...</div>
+                <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-16 text-center">
+                    <p className="text-sm text-slate-500">Loading enquiries…</p>
+                </div>
             ) : error ? (
-                <div>Error: {error}</div>
-            ) : filteredData.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-gray-300 p-10 text-center text-gray-500">
-                    No enquiries found.
+                <div className="rounded-[30px] border border-rose-200 bg-rose-50 px-6 py-8 text-center">
+                    <p className="text-sm text-rose-600">Error: {error}</p>
                 </div>
             ) : (
-                <DataTable data={filteredData} columns={columns} selectable={false} />
+                <DataCards
+                    data={filteredData}
+                    selectable={false}
+                    itemsPerPage={12}
+                    emptyMessage="No enquiries found."
+                    renderCard={(row) => {
+                        const assignedName = row.assignedTo?.userId?.name
+                            ? `${row.assignedTo.userId.name.firstName} ${row.assignedTo.userId.name.lastName}`
+                            : "Unassigned";
+
+                        return (
+                            <PersonCard
+                                avatarSrc={row.avatar || undefined}
+                                name={row.name || "Unknown"}
+                                subtitle={row.email}
+                                statusBadge={
+                                    row.status
+                                        ? {
+                                            label: row.status.charAt(0).toUpperCase() + row.status.slice(1).replace("-", " "),
+                                            className: statusBadgeClasses[row.status] || "bg-slate-100 text-slate-600",
+                                            dot: true,
+                                            dotClass: "bg-current",
+                                          }
+                                        : undefined
+                                }
+                                meta={[
+                                    { label: "Subject", value: row.subject || "N/A" },
+                                    { label: "Date", value: new Date(row.createdAt).toLocaleDateString() },
+                                    { label: "Assigned To", value: assignedName },
+                                    { label: "Response", value: row.response?.message || "—" },
+                                ]}
+                                onView={() => openModal(row)}
+                                primaryLabel="Respond"
+                            >
+                                {/* Message preview */}
+                                {row.message && (
+                                    <div className="pb-1">
+                                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Message</p>
+                                        <p className="line-clamp-2 text-xs text-slate-600">{row.message}</p>
+                                    </div>
+                                )}
+                            </PersonCard>
+                        );
+                    }}
+                />
             )}
 
             {/* Assign & Respond Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 px-3 py-4 sm:items-center sm:px-4">
-                    <div className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl bg-white p-4 sm:p-6">
-                        <h3 className="text-xl font-semibold mb-4">Assign & Respond</h3>
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-4 sm:items-center sm:px-4">
+                    <div className="my-auto w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Enquiry</p>
+                        <h3 className="mt-1 text-lg font-bold text-slate-900">Assign & Respond</h3>
 
-                        <div className="mb-4">
-                            <label className="block mb-1 font-medium">Assign To:</label>
+                        <div className="mt-5 mb-4">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Assign To</label>
                             <select
                                 value={assignTo}
                                 onChange={(e) => setAssignTo(e.target.value)}
-                                className="w-full border rounded-2xl px-3 py-2 focus:outline-none"
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                             >
                                 <option value="">Select admin</option>
                                 {admins?.map((admin) => (
                                     <option key={admin._id} value={admin._id}>
-                                        {admin.userId?.name?.firstName}{" "}
-                                        {admin.userId?.name?.lastName}
+                                        {admin.userId?.name?.firstName} {admin.userId?.name?.lastName}
                                     </option>
                                 ))}
                             </select>
                         </div>
 
                         <div className="mb-4">
-                            <label className="block mb-1 font-medium">Response:</label>
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">Response</label>
                             <textarea
                                 value={response}
                                 onChange={(e) => setResponse(e.target.value)}
                                 rows={4}
                                 placeholder="Enter your response here"
-                                className="w-full border rounded-2xl px-3 py-2 focus:outline-none"
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                             />
                         </div>
 
-                        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end sm:gap-4">
+                        <div className="flex gap-3">
                             <button
+                                type="button"
                                 onClick={closeModal}
-                                className="px-4 py-2 rounded-2xl bg-gray-300 hover:bg-gray-400"
+                                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Cancel
                             </button>
                             <button
+                                type="button"
                                 onClick={saveChanges}
-                                className="px-4 py-2 rounded-2xl bg-black text-white hover:bg-gray-900"
+                                className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                             >
                                 Save
                             </button>

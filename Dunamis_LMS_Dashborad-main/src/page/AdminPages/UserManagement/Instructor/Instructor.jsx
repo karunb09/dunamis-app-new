@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FaCheckCircle, FaClock, FaFilter, FaSearch, FaSortAmountDown, FaTrash, FaUserCheck, FaUserSlash } from 'react-icons/fa';
+import { Clipboard } from 'react-feather';
 import { toast } from 'react-hot-toast';
-import DataTable from '../../../../components/Table';
 import { useNavigate } from 'react-router-dom';
 import { fetchTeachers, updateTeacher, deleteTeacher } from '../../../../redux/Intructor/teacherSlice';
 import { updateUser } from '../../../../redux/User/UserSlice';
@@ -11,6 +11,9 @@ import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageU
 import Swal from 'sweetalert2';
 import ActionProgressBar from '../../../../components/ActionProgressBar';
 import IconActionButton from '../../../../components/IconActionButton';
+import DataCards from '../../../../components/DataCards';
+import PersonCard from '../../../../components/cards/PersonCard';
+import SlideOver from '../../../../components/SlideOver';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -21,12 +24,12 @@ const SORT_OPTIONS = [
 
 const mapTeacherToInstructor = (teacher, index) => {
     const fullName = `${teacher.user?.name?.firstName || ''} ${teacher.user?.name?.lastName || ''}`.trim();
-
     return {
         id: teacher.id,
         userId: teacher.user?._id,
         instructorId: `#INST-${index + 1000}`,
         name: fullName,
+        email: teacher.user?.email || '',
         avatar: teacher.teacherApplication?.profilePicture || '',
         userImage: teacher.user?.image || '',
         accountStatus: (teacher.user?.accountStatus || 'inactive').toLowerCase(),
@@ -47,13 +50,9 @@ const Instructor = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filters, setFilters] = useState({
-        accountStatus: '',
-        salaryStatus: '',
-        mode: '',
-    });
+    const [filters, setFilters] = useState({ accountStatus: '', salaryStatus: '', mode: '' });
     const [processingAction, setProcessingAction] = useState(null);
-
+    const [slideOver, setSlideOver] = useState({ open: false, instructor: null });
     const dropdownRef = useRef(null);
 
     const getErrorMessage = (error, fallback) => {
@@ -67,9 +66,7 @@ const Instructor = () => {
 
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setSortOpen(false);
-            }
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setSortOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -95,347 +92,240 @@ const Instructor = () => {
             return true;
         });
 
-    // Apply sorting
     if (sortOption) {
         switch (sortOption) {
-            case 'name-asc':
-                filteredInstructors.sort((a, b) => a.name.localeCompare(b.name));
-                break;
-            case 'name-desc':
-                filteredInstructors.sort((a, b) => b.name.localeCompare(a.name));
-                break;
-            case 'joiningDate-asc':
-                filteredInstructors.sort((a, b) => new Date(a.joiningDate) - new Date(b.joiningDate));
-                break;
-            case 'joiningDate-desc':
-                filteredInstructors.sort((a, b) => new Date(b.joiningDate) - new Date(a.joiningDate));
-                break;
+            case 'name-asc': filteredInstructors.sort((a, b) => a.name.localeCompare(b.name)); break;
+            case 'name-desc': filteredInstructors.sort((a, b) => b.name.localeCompare(a.name)); break;
+            case 'joiningDate-asc': filteredInstructors.sort((a, b) => new Date(a.joiningDate) - new Date(b.joiningDate)); break;
+            case 'joiningDate-desc': filteredInstructors.sort((a, b) => new Date(b.joiningDate) - new Date(a.joiningDate)); break;
         }
     }
-
-    const handleRowClick = (instructor) => {
-        navigate(
-            `/admin/instructor-management/instructors/${instructor.id}`,
-            { state: { instructor } }
-        );
-    };
 
     const handleCopyDetails = (instructors) => {
         const array = Array.isArray(instructors) ? instructors : [instructors];
         if (!array.length) return toast.error("No instructor data to copy!");
-
         const details = array
-            .map(
-                (i) => `Name: ${i.name}
-ID: ${i.instructorId}
-Account Status: ${i.accountStatus}
-Course Category: ${i.courseCategory}
-Students: ${i.studentCount}
-Mode: ${i.mode}`
-            )
+            .map((i) => `Name: ${i.name}\nID: ${i.instructorId}\nAccount Status: ${i.accountStatus}\nCourse Category: ${i.courseCategory}\nStudents: ${i.studentCount}\nMode: ${i.mode}`)
             .join("\n\n---\n\n");
-
-        navigator.clipboard
-            .writeText(details)
+        navigator.clipboard.writeText(details)
             .then(() => toast.success("Instructor details copied!"))
             .catch(() => toast.error("Failed to copy"));
     };
+
     const runInstructorAction = async ({ actionKey, progressLabel, loadingMessage, action, successTitle, successText, errorFallback }) => {
         setProcessingAction({ key: actionKey, label: progressLabel });
         const toastId = toast.loading(loadingMessage);
-
         try {
             const result = await action();
             toast.dismiss(toastId);
-            await Swal.fire({
-                icon: 'success',
-                title: successTitle,
-                text: successText,
-                confirmButtonColor: '#0f172a',
-            });
+            await Swal.fire({ icon: 'success', title: successTitle, text: successText, confirmButtonColor: '#0f172a' });
             return result;
         } catch (error) {
             toast.dismiss(toastId);
-            await Swal.fire({
-                icon: 'error',
-                title: 'Action failed',
-                text: getErrorMessage(error, errorFallback),
-                confirmButtonColor: '#dc2626',
-            });
+            await Swal.fire({ icon: 'error', title: 'Action failed', text: getErrorMessage(error, errorFallback), confirmButtonColor: '#dc2626' });
             throw error;
         } finally {
             setProcessingAction(null);
         }
     };
 
-    const columns = [
-        { key: 'instructorId', header: 'Instructor ID' },
-        {
-            key: 'name',
-            header: 'Instructor',
-            render: (value, row) => (
-                <div className="flex min-w-0 items-center gap-2">
-                    <img
-                        src={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR)}
-                        alt={row.name}
-                        className="w-8 h-8 rounded-full object-cover object-top"
-                    />
-                    <span className="truncate" title={row.name}>{row.name}</span>
-                </div>
-            ),
-        },
-        {
-            key: 'accountStatus',
-            header: 'Account Status',
-            render: (value) => (
-                <div className="flex justify-center">
-                    <IconActionButton
-                        label={value === 'active' ? 'Instructor is active' : 'Instructor is disabled'}
-                        icon={<FaCheckCircle />}
-                        tone={value === 'active' ? 'emerald' : 'rose'}
-                        disabled
-                    />
-                </div>
-            ),
-        },
-        {
-            key: 'courseCategory',
-            header: 'Course Category',
-            render: (value) => (
-                <span
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs"
-                    style={{
-                        backgroundColor: 'rgba(229, 231, 235, 0.2)'
-                    }}
-                >
-                    {/* <span className="text-lg">{row.courseCategoryIcon}</span> */}
-                    {value}
-                </span>
-            ),
-        },
-        { key: 'studentCount', header: 'Students' },
-        {
-            key: 'mode',
-            header: 'Mode',
-            render: (value) => (
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${value === 'Online' ? 'text-green-500' : 'text-gray-500'}`}>{value}</span>
-            ),
-        },
-        {
-            key: 'joiningDate',
-            header: 'Joining Date',
-            render: (value) => value ? new Date(value).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '—',
-        },
-        {
-            key: 'salaryStatus',
-            header: 'Salary Status',
-            render: (value, row) => (
-                <div className="flex justify-center">
-                <IconActionButton
-                    label={value === 'paid' ? 'Mark salary as due' : 'Mark salary as paid'}
-                    icon={value === 'paid' ? <FaCheckCircle /> : <FaClock />}
-                    tone={value === 'paid' ? 'emerald' : 'amber'}
-                    disabled={Boolean(processingAction)}
-                    isLoading={processingAction?.key === `salary-${row.id}`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        const newStatus = value === 'paid' ? 'due' : 'paid';
-                        runInstructorAction({
-                            actionKey: `salary-${row.id}`,
-                            progressLabel: `Updating salary status for ${row.name}...`,
-                            loadingMessage: `Saving salary status for ${row.name}`,
-                            action: async () => {
-                                await dispatch(updateTeacher({
-                                    id: row.id,
-                                    updatedData: { salaryStatus: newStatus },
-                                })).unwrap();
-                                await dispatch(fetchTeachers());
-                            },
-                            successTitle: 'Salary status updated',
-                            successText: `${row.name}'s salary status is now ${newStatus}.`,
-                            errorFallback: `Failed to update ${row.name}'s salary status.`,
-                        }).catch(() => {});
-                    }}
-                />
-                </div>
-            ),
-        },
-        {
-            key: 'actions',
-            header: 'Actions',
-            render: (_, row) => (
-                <div className="flex flex-wrap gap-2">
-                    <IconActionButton
-                        label={row.accountStatus === 'active' ? 'Disable instructor' : 'Enable instructor'}
-                        icon={row.accountStatus === 'active' ? <FaUserSlash /> : <FaUserCheck />}
-                        tone={row.accountStatus === 'active' ? 'amber' : 'emerald'}
-                        disabled={Boolean(processingAction)}
-                        isLoading={processingAction?.key === `status-${row.id}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const nextStatus = row.accountStatus === 'active' ? 'inactive' : 'active';
-                            const actionLabel = nextStatus === 'inactive' ? 'disable' : 'enable';
-                            if (!window.confirm(`Do you want to ${actionLabel} ${row.name}?`)) return;
-                            runInstructorAction({
-                                actionKey: `status-${row.id}`,
-                                progressLabel: `Updating account status for ${row.name}...`,
-                                loadingMessage: `Applying status change for ${row.name}`,
-                                action: async () => {
-                                    await dispatch(updateUser({
-                                        id: row.userId,
-                                        userData: { accountStatus: nextStatus },
-                                        token: localStorage.getItem('token'),
-                                    })).unwrap();
-                                    await dispatch(fetchTeachers());
-                                },
-                                successTitle: 'Instructor status updated',
-                                successText: `${row.name} is now ${nextStatus === 'active' ? 'enabled' : 'disabled'}.`,
-                                errorFallback: `Failed to update ${row.name}'s status.`,
-                            }).catch(() => {});
-                        }}
-                    />
-                    <IconActionButton
-                        label="Delete instructor"
-                        icon={<FaTrash />}
-                        tone="rose"
-                        disabled={Boolean(processingAction)}
-                        isLoading={processingAction?.key === `delete-${row.id}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const confirmed = window.confirm(
-                                `Delete ${row.name}? This only works if the instructor has no live bookings, payments, or occupied slots.`
-                            );
-                            if (!confirmed) return;
-                            runInstructorAction({
-                                actionKey: `delete-${row.id}`,
-                                progressLabel: `Deleting ${row.name}...`,
-                                loadingMessage: `Deleting ${row.name}`,
-                                action: async () => {
-                                    await dispatch(deleteTeacher(row.id)).unwrap();
-                                    await dispatch(fetchTeachers());
-                                },
-                                successTitle: 'Instructor deleted',
-                                successText: `${row.name} has been removed successfully.`,
-                                errorFallback: `Failed to delete ${row.name}.`,
-                            }).catch(() => {});
-                        }}
-                    />
-                </div>
-            ),
-        },
-    ];
+    const closeSlideOver = () => setSlideOver((prev) => ({ ...prev, open: false }));
 
-    if (loading) return <p className="text-center py-10">Loading instructors...</p>;
-    if (error) return <p className="text-center py-10 text-red-600">Error: {error}</p>;
+    const renderInstructorSlide = () => {
+        const r = slideOver.instructor;
+        if (!r) return null;
+
+        const avatarSrc = r.avatar || r.userImage;
+
+        return (
+            <>
+                <div className="bg-gradient-to-b from-orange-50 to-white px-6 pb-6 pt-14">
+                    <div className="flex items-start gap-4">
+                        {avatarSrc ? (
+                            <img
+                                src={resolveImageUrl(avatarSrc, DEFAULT_AVATAR)}
+                                alt={r.name}
+                                className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-4 ring-white shadow-md"
+                                onError={(e) => { e.currentTarget.style.display = "none"; }}
+                            />
+                        ) : (
+                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-xl font-bold text-[#FF6B35] ring-4 ring-white shadow-md">
+                                {(r.name[0] || "?").toUpperCase()}
+                            </div>
+                        )}
+                        <div className="min-w-0 flex-1 pt-1">
+                            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Instructor Profile</p>
+                            <h2 className="mt-0.5 truncate text-xl font-bold text-slate-900">{r.name}</h2>
+                            {r.courseCategory !== '—' && (
+                                <p className="truncate text-sm text-slate-500">{r.courseCategory}</p>
+                            )}
+                        </div>
+                        <span className={`mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            r.accountStatus === 'active'
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-rose-50 text-rose-700'
+                        }`}>
+                            {r.accountStatus === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 divide-x divide-slate-100 border-y border-slate-100">
+                    {[
+                        { label: 'Students', value: r.studentCount || 0 },
+                        { label: 'Mode', value: r.mode !== '—' ? r.mode.charAt(0).toUpperCase() + r.mode.slice(1) : '—' },
+                    ].map((stat) => (
+                        <div key={stat.label} className="py-4 text-center">
+                            <p className="text-xl font-bold text-slate-900">{stat.value}</p>
+                            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{stat.label}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="px-6 py-5">
+                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Details</p>
+                    <div className="space-y-2.5">
+                        {[
+                            { label: 'ID', value: r.instructorId },
+                            r.email ? { label: 'Email', value: r.email } : null,
+                            {
+                                label: 'Joined',
+                                value: r.joiningDate
+                                    ? new Date(r.joiningDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
+                                    : '—',
+                            },
+                            {
+                                label: 'Salary',
+                                value: r.salaryStatus === 'paid' ? 'Paid ✓' : 'Due',
+                            },
+                        ].filter(Boolean).map(({ label, value }) => (
+                            <div key={label} className="flex items-baseline gap-3 text-sm">
+                                <span className="w-12 shrink-0 text-slate-400">{label}</span>
+                                <span className="break-all font-medium text-slate-900">{value}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </>
+        );
+    };
+
+    if (loading) return <p className="py-10 text-center text-slate-500">Loading instructors…</p>;
+    if (error) return <p className="py-10 text-center text-rose-600">Error: {error}</p>;
 
     return (
         <div>
             <ActionProgressBar active={Boolean(processingAction)} label={processingAction?.label} />
-            {/* Search + Sort + Filter */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                <div className="relative w-full md:w-1/3">
+
+            {/* Toolbar */}
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:w-72">
+                    <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
-                        placeholder="Search"
+                        placeholder="Search instructors…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full border rounded-2xl py-2 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-black"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
-                    <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
                 </div>
-
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        className="px-4 py-2 rounded-2xl bg-black text-white text-sm hover:bg-gray-800"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                         onClick={() => navigate('/admin/instructor-management/add-instructor')}
                     >
                         Add Instructor
                     </button>
-                    <div className="relative">
+                    <div className="relative" ref={dropdownRef}>
                         <button
-                            className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-sm hover:bg-gray-100"
+                            type="button"
                             onClick={() => setSortOpen(!sortOpen)}
+                            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                                sortOption
+                                    ? "border-orange-300 bg-orange-50 text-orange-700"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                         >
-                            <FaSortAmountDown /> Sort
+                            <FaSortAmountDown size={13} /> Sort
                         </button>
                         {sortOpen && (
-                            <ul className="absolute z-40 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg text-sm font-medium">
+                            <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                                 {SORT_OPTIONS.map(({ value, label }) => (
-                                    <li
+                                    <button
                                         key={value}
-                                        className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${sortOption === value ? 'bg-gray-200 font-semibold' : ''}`}
+                                        type="button"
                                         onClick={() => { setSortOption(value); setSortOpen(false); }}
+                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                                            sortOption === value ? "bg-orange-50 font-semibold text-orange-700" : "text-slate-700"
+                                        }`}
                                     >
                                         {label}
-                                    </li>
+                                    </button>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
-
                     <button
-                        className="flex items-center gap-2 px-4 py-2 rounded-2xl border border-gray-300 bg-white text-sm hover:bg-gray-100"
+                        type="button"
                         onClick={() => setFilterOpen(true)}
+                        className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                            Object.values(filters).some(Boolean)
+                                ? "border-orange-300 bg-orange-50 text-orange-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
-                        <FaFilter /> Filter
+                        <FaFilter size={13} /> Filter
                     </button>
                 </div>
             </div>
 
+            {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-                    <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
                         <button
+                            type="button"
                             onClick={() => setFilterOpen(false)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
+                            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X />
+                            <X size={18} />
                         </button>
-                        <h2 className="text-xl font-semibold mb-4">Filter Instructors</h2>
-                        <label className="block mb-2 font-medium">Account Status</label>
-                        <select
-                            value={filters.accountStatus}
-                            onChange={(e) => setFilters({ ...filters, accountStatus: e.target.value })}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
+                        <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Instructors</h2>
 
-                        <label className="block mb-2 font-medium">Salary Status</label>
-                        <select
-                            value={filters.salaryStatus}
-                            onChange={(e) => setFilters({ ...filters, salaryStatus: e.target.value })}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All</option>
-                            <option value="due">Due</option>
-                            <option value="paid">Paid</option>
-                        </select>
+                        <div className="mt-5 space-y-4">
+                            {[
+                                { label: "Account Status", key: "accountStatus", options: [{ v: "active", l: "Active" }, { v: "inactive", l: "Inactive" }] },
+                                { label: "Salary Status", key: "salaryStatus", options: [{ v: "due", l: "Due" }, { v: "paid", l: "Paid" }] },
+                                { label: "Mode", key: "mode", options: [{ v: "online", l: "Online" }, { v: "offline", l: "Offline" }] },
+                            ].map(({ label, key, options }) => (
+                                <div key={key}>
+                                    <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>
+                                    <select
+                                        value={filters[key]}
+                                        onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))}
+                                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                    >
+                                        <option value="">All</option>
+                                        {options.map(({ v, l }) => <option key={v} value={v}>{l}</option>)}
+                                    </select>
+                                </div>
+                            ))}
+                        </div>
 
-                        <label className="block mb-2 font-medium">Mode</label>
-                        <select
-                            value={filters.mode}
-                            onChange={(e) => setFilters({ ...filters, mode: e.target.value })}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All</option>
-                            <option value="online">Online</option>
-                            <option value="offline">Offline</option>
-                        </select>
-
-                        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between mt-6">
+                        <div className="mt-6 flex gap-3">
                             <button
-                                className="px-4 py-2 rounded-2xl border border-gray-300 hover:bg-gray-200"
+                                type="button"
                                 onClick={() => setFilters({ accountStatus: '', salaryStatus: '', mode: '' })}
+                                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
                             </button>
                             <button
-                                className="px-4 py-2 rounded-2xl bg-black text-white hover:bg-gray-800"
+                                type="button"
                                 onClick={() => setFilterOpen(false)}
+                                className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                             >
                                 Apply
                             </button>
@@ -444,14 +334,147 @@ Mode: ${i.mode}`
                 </div>
             )}
 
-            <DataTable
+            <DataCards
                 data={filteredInstructors}
-                columns={columns}
-                itemsPerPage={10}
+                itemsPerPage={12}
                 emptyMessage="No instructors found."
                 onCopyDetails={handleCopyDetails}
-                onRowClick={handleRowClick}
+                renderCard={(row, { selected, onSelect }) => (
+                    <PersonCard
+                        avatarSrc={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR) || undefined}
+                        name={row.name}
+                        subtitle={row.courseCategory !== '—' ? row.courseCategory : undefined}
+                        statusBadge={
+                            row.accountStatus === 'active'
+                                ? { label: "Active", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: true, dotClass: "bg-emerald-500" }
+                                : { label: "Inactive", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", dot: true, dotClass: "bg-rose-500" }
+                        }
+                        meta={[
+                            { label: "Instructor ID", value: row.instructorId },
+                            { label: "Students", value: row.studentCount },
+                            { label: "Mode", value: row.mode !== '—' ? row.mode : "N/A" },
+                            {
+                                label: "Joined",
+                                value: row.joiningDate
+                                    ? new Date(row.joiningDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
+                                    : '—'
+                            },
+                        ]}
+                        onView={() => setSlideOver({ open: true, instructor: row })}
+                        primaryLabel="View Instructor"
+                        menuItems={[
+                            {
+                                label: "Copy Details",
+                                icon: <Clipboard size={13} />,
+                                onClick: () => handleCopyDetails([row]),
+                            },
+                            {
+                                label: row.accountStatus === 'active' ? 'Disable' : 'Enable',
+                                icon: row.accountStatus === 'active' ? <FaUserSlash size={13} /> : <FaUserCheck size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => {
+                                    const nextStatus = row.accountStatus === 'active' ? 'inactive' : 'active';
+                                    const actionLabel = nextStatus === 'inactive' ? 'disable' : 'enable';
+                                    if (!window.confirm(`Do you want to ${actionLabel} ${row.name}?`)) return;
+                                    runInstructorAction({
+                                        actionKey: `status-${row.id}`,
+                                        progressLabel: `Updating account status for ${row.name}...`,
+                                        loadingMessage: `Applying status change for ${row.name}`,
+                                        action: async () => {
+                                            await dispatch(updateUser({ id: row.userId, userData: { accountStatus: nextStatus }, token: localStorage.getItem('token') })).unwrap();
+                                            await dispatch(fetchTeachers());
+                                        },
+                                        successTitle: 'Instructor status updated',
+                                        successText: `${row.name} is now ${nextStatus === 'active' ? 'enabled' : 'disabled'}.`,
+                                        errorFallback: `Failed to update ${row.name}'s status.`,
+                                    }).catch(() => {});
+                                },
+                            },
+                            {
+                                label: 'Delete',
+                                icon: <FaTrash size={13} />,
+                                danger: true,
+                                disabled: Boolean(processingAction),
+                                onClick: () => {
+                                    if (!window.confirm(`Delete ${row.name}? This only works if the instructor has no live bookings, payments, or occupied slots.`)) return;
+                                    runInstructorAction({
+                                        actionKey: `delete-${row.id}`,
+                                        progressLabel: `Deleting ${row.name}...`,
+                                        loadingMessage: `Deleting ${row.name}`,
+                                        action: async () => {
+                                            await dispatch(deleteTeacher(row.id)).unwrap();
+                                            await dispatch(fetchTeachers());
+                                        },
+                                        successTitle: 'Instructor deleted',
+                                        successText: `${row.name} has been removed successfully.`,
+                                        errorFallback: `Failed to delete ${row.name}.`,
+                                    }).catch(() => {});
+                                },
+                            },
+                        ]}
+                        selected={selected}
+                        onSelect={onSelect}
+                    >
+                        {/* Salary status toggle */}
+                        <div className="pb-1">
+                            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Salary Status</p>
+                            <IconActionButton
+                                label={row.salaryStatus === 'paid' ? 'Mark salary as due' : 'Mark salary as paid'}
+                                icon={row.salaryStatus === 'paid' ? <FaCheckCircle /> : <FaClock />}
+                                tone={row.salaryStatus === 'paid' ? 'emerald' : 'amber'}
+                                disabled={Boolean(processingAction)}
+                                isLoading={processingAction?.key === `salary-${row.id}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const newStatus = row.salaryStatus === 'paid' ? 'due' : 'paid';
+                                    runInstructorAction({
+                                        actionKey: `salary-${row.id}`,
+                                        progressLabel: `Updating salary status for ${row.name}...`,
+                                        loadingMessage: `Saving salary status for ${row.name}`,
+                                        action: async () => {
+                                            await dispatch(updateTeacher({ id: row.id, updatedData: { salaryStatus: newStatus } })).unwrap();
+                                            await dispatch(fetchTeachers());
+                                        },
+                                        successTitle: 'Salary status updated',
+                                        successText: `${row.name}'s salary status is now ${newStatus}.`,
+                                        errorFallback: `Failed to update ${row.name}'s salary status.`,
+                                    }).catch(() => {});
+                                }}
+                            />
+                        </div>
+                    </PersonCard>
+                )}
             />
+
+            <SlideOver
+                open={slideOver.open}
+                onClose={closeSlideOver}
+                footer={
+                    <div className="flex gap-3">
+                        <button
+                            type="button"
+                            onClick={closeSlideOver}
+                            className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+                        >
+                            Close
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const id = slideOver.instructor?.id;
+                                if (!id) return;
+                                closeSlideOver();
+                                navigate(`/admin/instructor-management/instructors/${id}`, { state: { instructor: slideOver.instructor } });
+                            }}
+                            className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                        >
+                            View Full Profile →
+                        </button>
+                    </div>
+                }
+            >
+                {renderInstructorSlide()}
+            </SlideOver>
         </div>
     );
 };

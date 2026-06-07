@@ -1,40 +1,47 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const quickLinks = [
+const ALL_QUICK_LINKS = [
   {
     title: "Courses",
     description: "Manage live course records, pricing, content, and media.",
     to: "/admin/course-management",
+    permission: "courseManagement",
   },
   {
     title: "Students",
     description: "Review registered, demo, and enrolled student records.",
     to: "/admin/student-management",
+    permission: "studentManagement",
   },
   {
     title: "Instructors",
     description: "Manage instructors and teacher applications.",
     to: "/admin/instructor-management",
+    permission: "instructorManagement",
   },
   {
     title: "Offline Centres",
     description: "Maintain cities, zones, branches, and centre details.",
     to: "/admin/centers",
+    permission: "offlineCenters",
   },
   {
     title: "Website Content",
     description: "Edit FAQs, testimonials, and success stories.",
     to: "/admin/site-content",
+    permission: "contentManagement",
   },
   {
     title: "Enquiries",
     description: "Respond to website contact form submissions.",
     to: "/admin/enquiries",
+    permission: "enquiries",
   },
 ];
 
@@ -46,6 +53,15 @@ const formatCurrency = (value) =>
   }).format(Number(value) || 0);
 
 export default function AdminHomePage() {
+  const { user } = useSelector((state) => state.auth);
+  const permissions = user?.permissions || [];
+  const hasFullAccess = permissions.length === 0 || permissions.includes("allAccess");
+
+  const quickLinks = useMemo(() => {
+    if (hasFullAccess) return ALL_QUICK_LINKS;
+    return ALL_QUICK_LINKS.filter((link) => permissions.includes(link.permission));
+  }, [hasFullAccess, permissions]);
+
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
