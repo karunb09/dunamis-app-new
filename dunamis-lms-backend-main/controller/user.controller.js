@@ -86,14 +86,14 @@ exports.login = async (req, res) => {
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: "100h",
+        expiresIn: "30m",
       });
 
       user.token = token;
       user.password = undefined;
 
       const options = {
-        expires: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+        expires: new Date(Date.now() + 30 * 60 * 1000),
         ...authCookieOptions,
       };
 
