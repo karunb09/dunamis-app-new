@@ -33,7 +33,11 @@ async function sameOriginOk(req) {
   // navigations, none — reject those on unsafe methods.
   if (!origin) return false;
   try {
-    return new URL(origin).origin === new URL(req.url).origin;
+    // Compare host (hostname + port) rather than full origin. Behind a
+    // TLS-terminating proxy without X-Forwarded-Proto, req.url carries http://
+    // while the browser sends https:// in Origin — comparing host avoids
+    // the false-negative while still blocking cross-site requests.
+    return new URL(origin).host === new URL(req.url).host;
   } catch {
     return false;
   }
