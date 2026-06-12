@@ -1,27 +1,16 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-
-// Async Thunks for Notice API
 
 export const createNotice = createAsyncThunk(
   "notice/createNotice",
   async (formData, thunkAPI) => {
     try {
-      const token = localStorage.getItem("token"); // or get from state
-
-      const config = {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Authorization: `Bearer ${token}`, // send token here
-        },
-      };
-
-      const response = await axios.post(
+      const response = await axiosAuth.post(
         `${BASE_URL}/adminNotice/`,
         formData,
-        config
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
       return response.data;
     } catch (error) {
@@ -32,79 +21,71 @@ export const createNotice = createAsyncThunk(
   }
 );
 
-// Get All Notices
 export const getAllNotices = createAsyncThunk(
   "notice/getAllNotices",
   async (_, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/adminNotice/`);
+      const response = await axiosAuth.get(`${BASE_URL}/adminNotice/`);
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data);
     }
   }
 );
 
-// Get Notice by ID
 export const getNoticeById = createAsyncThunk(
   "notice/getNoticeById",
   async (noticeId, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/adminNotice/${noticeId}`);
+      const response = await axiosAuth.get(`${BASE_URL}/adminNotice/${noticeId}`);
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data);
     }
   }
 );
 
-// Update Notice
 export const updateNotice = createAsyncThunk(
   "notice/updateNotice",
   async ({ noticeId, noticeData }, thunkAPI) => {
     try {
-      const response = await axios.put(
+      const response = await axiosAuth.put(
         `${BASE_URL}/adminNotice/${noticeId}`,
         noticeData
       );
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data);
     }
   }
 );
 
-// Delete Notice
 export const deleteNotice = createAsyncThunk(
   "notice/deleteNotice",
   async (noticeId, thunkAPI) => {
     try {
-      const response = await axios.delete(
-        `${BASE_URL}/adminNotice/${noticeId}`
-      );
+      await axiosAuth.delete(`${BASE_URL}/adminNotice/${noticeId}`);
       return { id: noticeId };
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data);
     }
   }
 );
 
-// Send Notice
 export const sendNotice = createAsyncThunk(
   "notice/sendNotice",
   async (noticeId, thunkAPI) => {
     try {
-      const response = await axios.patch(
+      const response = await axiosAuth.patch(
         `${BASE_URL}/adminNotice/send/${noticeId}`
       );
       return response.data;
     } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
+      return thunkAPI.rejectWithValue(error.response?.data);
     }
   }
 );
 
-// Slice
 const noticeSlice = createSlice({
   name: "notice",
   initialState: {
@@ -116,7 +97,6 @@ const noticeSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      // Create
       .addCase(createNotice.pending, (state) => {
         state.loading = true;
       })
@@ -129,20 +109,18 @@ const noticeSlice = createSlice({
         state.error = action.payload;
       })
 
-      // Get All
       .addCase(getAllNotices.pending, (state) => {
         state.loading = true;
       })
       .addCase(getAllNotices.fulfilled, (state, action) => {
         state.loading = false;
-        state.notices = action.payload.notices || action.payload; // Handle both { notices: [] } and []
+        state.notices = action.payload.notices || action.payload;
       })
       .addCase(getAllNotices.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
 
-      // Get By ID
       .addCase(getNoticeById.pending, (state) => {
         state.loading = true;
       })
@@ -155,7 +133,6 @@ const noticeSlice = createSlice({
         state.error = action.payload;
       })
 
-      // Update
       .addCase(updateNotice.pending, (state) => {
         state.loading = true;
       })
@@ -171,7 +148,6 @@ const noticeSlice = createSlice({
         state.error = action.payload;
       })
 
-      // Delete
       .addCase(deleteNotice.pending, (state) => {
         state.loading = true;
       })
@@ -184,13 +160,11 @@ const noticeSlice = createSlice({
         state.error = action.payload;
       })
 
-      // Send
       .addCase(sendNotice.pending, (state) => {
         state.loading = true;
       })
       .addCase(sendNotice.fulfilled, (state, action) => {
         state.loading = false;
-        // Optionally update status to 'sent' or similar
         const sentNotice = action.payload;
         state.notices = state.notices.map((n) =>
           n.id === sentNotice.id ? sentNotice : n

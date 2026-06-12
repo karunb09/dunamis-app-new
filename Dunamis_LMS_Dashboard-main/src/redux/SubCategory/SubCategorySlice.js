@@ -1,12 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 // Get all SubCategory
 export const fetchSubCategories = createAsyncThunk(
   "subCategory/fetchSubCategories",
   async () => {
-    const response = await axios.get(`${BASE_URL}/subCategory/get-all-subCat`);
+    const response = await axiosAuth.get(`${BASE_URL}/subCategory/get-all-subCat`);
     return response.data.data;
   }
 );
@@ -14,7 +14,7 @@ export const fetchSubCategories = createAsyncThunk(
 export const createSubCategory = createAsyncThunk(
   "subCategory/createSubCategory",
   async (newSubCategory) => {
-    const response = await axios.post(
+    const response = await axiosAuth.post(
       `${BASE_URL}/subCategory/create`,
       newSubCategory
     );
@@ -25,7 +25,7 @@ export const createSubCategory = createAsyncThunk(
 export const updateSubCategory = createAsyncThunk(
   "subCategory/updateSubCategory",
   async ({ id, updatedData }) => {
-    const response = await axios.put(
+    const response = await axiosAuth.put(
       `${BASE_URL}/subCategory/${id}`,
       updatedData
     );

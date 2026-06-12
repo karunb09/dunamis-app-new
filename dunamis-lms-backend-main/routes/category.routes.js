@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { isAuth, accessToRole } = require("../middleware/auth");
 const {
   createCategory,
   getAllCategories,
@@ -8,15 +9,10 @@ const {
   createCategoryWithSubCategories
 } = require("../controller/category.controller");
 
-// Create Category
-router.post("/create", createCategory);
-// Get Category
 router.get("/get-all-category", getAllCategories);
-// Update CAtegory
-router.put("/:id", updateCategory);
-// Delete Category
-router.delete("/:id", deleteCategory); 
-// Create full Category
-router.post("/create-full", createCategoryWithSubCategories);
+router.post("/create", isAuth, accessToRole(["admin", "superadmin"]), createCategory);
+router.put("/:id", isAuth, accessToRole(["admin", "superadmin"]), updateCategory);
+router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), deleteCategory);
+router.post("/create-full", isAuth, accessToRole(["admin", "superadmin"]), createCategoryWithSubCategories);
 
 module.exports = router;

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-
+const { isAuth, accessToRole } = require("../middleware/auth");
 const {
   createBranch,
   getAllBranches,
@@ -10,16 +10,11 @@ const {
   updateBranch,
   getBranchById,
 } = require("../controller/branch.controller");
-// Create Branch
-router.post("/create", createBranch);
-// Get all branch
+
 router.get("/get-all-branch", getAllBranches);
-// Get branch managers
 router.get("/managers", getBranchManagers);
-// Get branch by id
 router.get("/:id", getBranchById);
-// Update Branch
-router.put("/:id", updateBranch);
-// Delete branch
-router.delete("/:id", deleteBranch); 
+router.post("/create", isAuth, accessToRole(["admin", "superadmin"]), createBranch);
+router.put("/:id", isAuth, accessToRole(["admin", "superadmin"]), updateBranch);
+router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), deleteBranch);
 module.exports = router;

@@ -844,6 +844,10 @@ exports.setWeeklyAvailability = async (req, res) => {
           // Demo and enrolled slots may overlap — teacher is at the branch for class,
           // demo is a short adjoining session. Only block same-type overlaps.
           if (existing.slotType && existing.slotType !== slot.slotType) continue;
+          // For offline courses at the same branch, different courses may share the same
+          // time window (different instruments / rooms in the same centre).
+          const bothOffline = !!slot.branchId && !!existing.branchId;
+          if (bothOffline && slot.courseId && existing.courseId && String(slot.courseId) !== String(existing.courseId)) continue;
           if (start < existing.end && end > existing.start) {
             return res.status(400).json({
               message: `Overlap detected on ${day} between ${slot.startTime}-${slot.endTime}`,
@@ -851,7 +855,7 @@ exports.setWeeklyAvailability = async (req, res) => {
           }
         }
 
-        allSlotsByDay[day].push({ start, end, slotType: slot.slotType });
+        allSlotsByDay[day].push({ start, end, slotType: slot.slotType, courseId: slot.courseId, branchId: slot.branchId });
       }
     }
 

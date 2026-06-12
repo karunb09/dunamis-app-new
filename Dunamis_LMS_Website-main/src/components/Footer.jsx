@@ -24,7 +24,7 @@ import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const featuredLinks = [
   { icon: BookOpen, label: "Courses", href: "/courses" },
-  { icon: School, label: "Offline Centres", href: "#" },
+  { icon: School, label: "Offline Centres", href: "/centres" },
   { icon: ShoppingCart, label: "Store", href: "", external: true },
 ];
 

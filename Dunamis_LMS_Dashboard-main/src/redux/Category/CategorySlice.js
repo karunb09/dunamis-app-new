@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -7,7 +7,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 export const fetchCategories = createAsyncThunk(
   "category/fetchCategories",
   async () => {
-    const response = await axios.get(`${BASE_URL}/category/get-all-category`);
+    const response = await axiosAuth.get(`${BASE_URL}/category/get-all-category`);
     const categories = response.data.categories;
 
     const subCategories = categories.flatMap((category) =>
@@ -24,7 +24,7 @@ export const fetchCategories = createAsyncThunk(
 export const createCategory = createAsyncThunk(
   "category/createCategory",
   async (newCategory) => {
-    const response = await axios.post(
+    const response = await axiosAuth.post(
       `${BASE_URL}/category/create-category`,
       newCategory
     );
@@ -36,7 +36,7 @@ export const createCategoryWithSubCategories = createAsyncThunk(
   "category/createCategoryWithSubCategories",
   async (categoryData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(
+      const response = await axiosAuth.post(
         `${BASE_URL}/category/create-full`,
         categoryData
       );
@@ -51,7 +51,7 @@ export const updateCategory = createAsyncThunk(
   "category/updateCategory",
   async ({ id, updatedData }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(
+      const response = await axiosAuth.put(
         `${BASE_URL}/category/${id}`,
         updatedData
       );
@@ -66,7 +66,7 @@ export const deleteCategory = createAsyncThunk(
   "category/deleteCategory",
   async (id, { rejectWithValue }) => {
     try {
-      await axios.delete(`${BASE_URL}/category/${id}`);
+      await axiosAuth.delete(`${BASE_URL}/category/${id}`);
       return id; // Return deleted category id
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

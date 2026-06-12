@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -8,7 +8,7 @@ export const fetchAdmins = createAsyncThunk(
   "admin/fetchAdmins",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${BASE_URL}/admin/get-all-admin`);
+      const { data } = await axiosAuth.get(`${BASE_URL}/admin/get-all-admin`);
       if (!data.success) return rejectWithValue(data.message);
       return data.admins;
     } catch (error) {
@@ -22,7 +22,7 @@ export const fetchAdminById = createAsyncThunk(
   "admin/fetchAdminById",
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${BASE_URL}/admin/${id}`);
+      const { data } = await axiosAuth.get(`${BASE_URL}/admin/${id}`);
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -36,7 +36,7 @@ export const createAdmin = createAsyncThunk(
   "admin/createAdmin",
   async (adminData, { rejectWithValue }) => {
     try {
-      const { data } = await axios.post(`${BASE_URL}/admin/create`, adminData);
+      const { data } = await axiosAuth.post(`${BASE_URL}/admin/create`, adminData);
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -50,7 +50,7 @@ export const updateAdmin = createAsyncThunk(
   "admin/updateAdmin",
   async ({ id, adminData }, { rejectWithValue }) => {
     try {
-      const { data } = await axios.put(`${BASE_URL}/admin/${id}`, adminData);
+      const { data } = await axiosAuth.put(`${BASE_URL}/admin/${id}`, adminData);
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -64,7 +64,7 @@ export const deleteAdmin = createAsyncThunk(
   "admin/deleteAdmin",
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await axios.delete(`${BASE_URL}/admin/${id}`);
+      const { data } = await axiosAuth.delete(`${BASE_URL}/admin/${id}`);
       if (!data.success) return rejectWithValue(data.message);
       return id;
     } catch (error) {

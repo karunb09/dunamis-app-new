@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -10,7 +10,7 @@ export const createZone = createAsyncThunk(
   "zone/createZone",
   async (zoneData, thunkAPI) => {
     try {
-      const response = await axios.post(`${BASE_URL}/zone/create`, zoneData);
+      const response = await axiosAuth.post(`${BASE_URL}/zone/create`, zoneData);
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -23,7 +23,7 @@ export const getAllZones = createAsyncThunk(
   "zone/getAllZones",
   async (_, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/zone/get-all`);
+      const response = await axiosAuth.get(`${BASE_URL}/zone/get-all`);
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -36,7 +36,7 @@ export const getZoneById = createAsyncThunk(
   "zone/getZoneById",
   async (zoneId, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/zone/${zoneId}`);
+      const response = await axiosAuth.get(`${BASE_URL}/zone/${zoneId}`);
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -49,7 +49,7 @@ export const updateZone = createAsyncThunk(
   "zone/updateZone",
   async ({ zoneId, zoneData }, thunkAPI) => {
     try {
-      const response = await axios.put(
+      const response = await axiosAuth.put(
         `${BASE_URL}/zone/updatezone/${zoneId}`,
         zoneData
       );
@@ -65,7 +65,7 @@ export const deleteZone = createAsyncThunk(
   "zone/deleteZone",
   async (zoneId, thunkAPI) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/zone/delete/${zoneId}`);
+      const response = await axiosAuth.delete(`${BASE_URL}/zone/delete/${zoneId}`);
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);

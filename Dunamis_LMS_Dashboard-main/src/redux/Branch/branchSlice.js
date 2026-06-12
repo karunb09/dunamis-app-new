@@ -1,6 +1,12 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const authHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Get all branches
 export const fetchAllBranches = createAsyncThunk(
@@ -27,7 +33,8 @@ export const createBranch = createAsyncThunk(
       // branchData should be a FormData instance
       const res = await fetch(`${BASE_URL}/branch/create`, {
         method: "POST",
-        body: branchData, // pass FormData directly
+        headers: authHeaders(),
+        body: branchData,
       });
       const data = await res.json();
       if (!data.success) {
@@ -81,6 +88,7 @@ export const updateBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "PUT",
+        headers: authHeaders(),
         body: branchData,
       });
       const data = await res.json();
@@ -101,6 +109,7 @@ export const deleteBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "DELETE",
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (!data.success) {

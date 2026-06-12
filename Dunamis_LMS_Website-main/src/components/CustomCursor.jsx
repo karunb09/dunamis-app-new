@@ -75,7 +75,7 @@ export default function CustomCursor() {
           textShadow: "0 0 6px rgba(255,107,53,0.5), 0 1px 4px rgba(0,0,0,0.6)",
         }}
       >
-        ♫
+        ♪
       </div>
     </div>
   );
