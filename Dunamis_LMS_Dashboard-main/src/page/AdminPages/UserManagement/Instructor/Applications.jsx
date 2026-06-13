@@ -42,6 +42,7 @@ const statusSelectClasses = {
 const modeClasses = {
     online: "bg-emerald-50 text-emerald-700",
     offline: "bg-slate-100 text-slate-700",
+    hybrid: "bg-purple-50 text-purple-700",
 };
 
 const getFullName = (name) =>
@@ -361,6 +362,7 @@ const Applications = () => {
                                             <option value="">All</option>
                                             <option value="online">Online</option>
                                             <option value="offline">Offline</option>
+                                            <option value="hybrid">Hybrid</option>
                                         </select>
                                     </div>
                                 </div>

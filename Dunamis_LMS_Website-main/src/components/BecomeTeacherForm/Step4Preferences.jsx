@@ -68,6 +68,7 @@ export default function Step4Preferences({ formData, setFormData, errors = {} })
           <option value="">Select teaching mode</option>
           <option value="online">Online</option>
           <option value="offline">Offline</option>
+          <option value="hybrid">Hybrid (Online + Offline)</option>
         </SelectInput>
       </div>
 

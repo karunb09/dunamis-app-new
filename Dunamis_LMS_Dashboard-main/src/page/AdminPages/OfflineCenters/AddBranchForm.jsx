@@ -366,7 +366,7 @@ const AddBranch = () => {
                 instructor?.teacherApplication?.mode ||
                 instructor?.teacherDetail?.mode ||
                 "";
-            return !mode || String(mode).toLowerCase() === "offline";
+            return !mode || String(mode).toLowerCase() === "offline" || String(mode).toLowerCase() === "hybrid";
         })
         .map((instructor) => ({
             value: instructor.id || instructor._id,

@@ -112,11 +112,12 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                     >
                         <option value="online">Online</option>
                         <option value="offline">Offline</option>
+                        <option value="hybrid">Hybrid (Online + Offline)</option>
                     </select>
                 </div>
 
-                {/* Branch - only if Offline */}
-                {form.mode === 'offline' && (
+                {/* Branch - only if Offline or Hybrid */}
+                {(form.mode === 'offline' || form.mode === 'hybrid') && (
                     <div className="mb-4">
                         <label className="block text-sm font-medium mb-1">Branch</label>
                         <input

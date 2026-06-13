@@ -192,6 +192,7 @@ const AddInstructorForm = () => {
               >
                 <option value="online">Online</option>
                 <option value="offline">Offline</option>
+                <option value="hybrid">Hybrid (Online + Offline)</option>
               </select>
             </div>
           </div>

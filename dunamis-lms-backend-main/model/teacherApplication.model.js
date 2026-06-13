@@ -109,7 +109,7 @@ const teacherApplicationSchema = new mongoose.Schema(
     },
     mode: {
       type: String,
-      enum: ["online", "offline"],
+      enum: ["online", "offline", "hybrid"],
       required: true,
     },
     status: {
