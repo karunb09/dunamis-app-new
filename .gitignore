@@ -46,3 +46,10 @@ coverage/
 # Specific folders
 original-docs/
 dunamis-lms-backend-main/uploads/
+nginx-conf
+
+# md files
+*.md
+
+# opencode config
+opencode.json
