@@ -147,7 +147,12 @@ export default function LoginPageClient() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">Password</label>
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-sm font-semibold text-slate-700">Password</label>
+                <Link href="/forgot-password" className="text-sm font-medium text-orange-600 hover:text-orange-700">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
                   <HiLockClosed className="h-5 w-5" />
