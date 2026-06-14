@@ -9,7 +9,7 @@ import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const featuredLinks = [
   { icon: LuBookOpen, label: "Courses", href: "/courses" },
-  { icon: LuSchool, label: "Offline Centres", href: "#" },
+  { icon: LuSchool, label: "Offline Centres", href: "/centres" },
   { icon: LuShoppingCart, label: "Store", href: "", external: true },
 ];
 

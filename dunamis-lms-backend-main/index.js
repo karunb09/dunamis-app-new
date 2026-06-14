@@ -100,6 +100,24 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 
 const PORT = process.env.PORT || 3000;
 
+const isProd = process.env.NODE_ENV === "production";
+
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 200 : 10000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later." },
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: isProd ? 20 : 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many attempts, please try again later." },
+});
+
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -165,6 +183,10 @@ app.use(
 );
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+app.use("/api/", generalLimiter);
+app.use("/api/v1/user/login", authLimiter);
+app.use("/api/v1/student/send-otp", authLimiter);
 
 app.use("/api/v1/student", studentRoutes);
 app.use("/api/v1/user", userRoutes);

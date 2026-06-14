@@ -1,20 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-import { getStoredToken } from "../../utils/authSession";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
-
-// Admin-only mutations on the backend; send the bearer token.
-const authHeader = () => {
-  const token = getStoredToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
 
 // Fetch all categories
 export const fetchCategories = createAsyncThunk(
   "category/fetchCategories",
   async () => {
-    const response = await axios.get(`${BASE_URL}/category/get-all-category`);
+    const response = await axiosAuth.get(`${BASE_URL}/category/get-all-category`);
     const categories = response.data.categories;
 
     const subCategories = categories.flatMap((category) =>
@@ -31,10 +24,9 @@ export const fetchCategories = createAsyncThunk(
 export const createCategory = createAsyncThunk(
   "category/createCategory",
   async (newCategory) => {
-    const response = await axios.post(
+    const response = await axiosAuth.post(
       `${BASE_URL}/category/create-category`,
-      newCategory,
-      { headers: authHeader() }
+      newCategory
     );
     return response.data.category;
   }
@@ -44,10 +36,9 @@ export const createCategoryWithSubCategories = createAsyncThunk(
   "category/createCategoryWithSubCategories",
   async (categoryData, { rejectWithValue }) => {
     try {
-      const response = await axios.post(
+      const response = await axiosAuth.post(
         `${BASE_URL}/category/create-full`,
-        categoryData,
-        { headers: authHeader() }
+        categoryData
       );
       return response.data.category;
     } catch (error) {
@@ -60,10 +51,9 @@ export const updateCategory = createAsyncThunk(
   "category/updateCategory",
   async ({ id, updatedData }, { rejectWithValue }) => {
     try {
-      const response = await axios.put(
+      const response = await axiosAuth.put(
         `${BASE_URL}/category/${id}`,
-        updatedData,
-        { headers: authHeader() }
+        updatedData
       );
       return response.data.category; 
     } catch (error) {
@@ -76,7 +66,7 @@ export const deleteCategory = createAsyncThunk(
   "category/deleteCategory",
   async (id, { rejectWithValue }) => {
     try {
-      await axios.delete(`${BASE_URL}/category/${id}`, { headers: authHeader() });
+      await axiosAuth.delete(`${BASE_URL}/category/${id}`);
       return id; // Return deleted category id
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

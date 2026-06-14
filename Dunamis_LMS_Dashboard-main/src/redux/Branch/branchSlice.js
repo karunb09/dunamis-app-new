@@ -3,8 +3,7 @@ import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-// Branch mutations are admin-only on the backend; send the bearer token.
-const authHeader = () => {
+const authHeaders = () => {
   const token = getStoredToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
@@ -34,8 +33,8 @@ export const createBranch = createAsyncThunk(
       // branchData should be a FormData instance
       const res = await fetch(`${BASE_URL}/branch/create`, {
         method: "POST",
-        body: branchData, // pass FormData directly
-        headers: authHeader(),
+        headers: authHeaders(),
+        body: branchData,
       });
       const data = await res.json();
       if (!data.success) {
@@ -89,8 +88,8 @@ export const updateBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "PUT",
+        headers: authHeaders(),
         body: branchData,
-        headers: authHeader(),
       });
       const data = await res.json();
       if (!data.success) {
@@ -110,7 +109,7 @@ export const deleteBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "DELETE",
-        headers: authHeader(),
+        headers: authHeaders(),
       });
       const data = await res.json();
       if (!data.success) {

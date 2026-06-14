@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
+  FiChevronDown,
   FiClock,
   FiEdit2,
+  FiMinus,
   FiPlus,
   FiRotateCcw,
   FiSave,
@@ -120,7 +122,7 @@ const emptySlot = (courseId = "", sectionId = "group") => {
 
   return {
     localId: createLocalId(),
-    days: DAY_PAIR_OPTIONS[0].days,
+    days: [],
     startTime,
     endTime,
     sessionType,
@@ -346,8 +348,11 @@ const Availability = ({
   );
   const [activeSectionId, setActiveSectionId] = useState(null);
   const [editingSlotId, setEditingSlotId] = useState(null);
+  const [selectedTimes, setSelectedTimes] = useState(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [dayPairDropdownOpen, setDayPairDropdownOpen] = useState(false);
+  const dayPairDropdownRef = useRef(null);
 
   useEffect(() => {
     const nextSlots = normalizeAvailabilitySlots(
@@ -363,6 +368,16 @@ const Availability = ({
     if (draftSlot.courseId || !courseOptions.length) return;
     setDraftSlot((prev) => ({ ...prev, courseId: courseOptions[0].id }));
   }, [courseOptions, draftSlot.courseId]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dayPairDropdownRef.current && !dayPairDropdownRef.current.contains(e.target)) {
+        setDayPairDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const activeSlots = useMemo(
     () => slots.filter((slot) => slot.isActive !== false),
@@ -422,9 +437,11 @@ const Availability = ({
 
     setActiveSectionId(nextSectionId);
     setEditingSlotId(slot?.localId || null);
+    setSelectedTimes(new Set());
+    setDayPairDropdownOpen(false);
     setDraftSlot({
       ...nextSlot,
-      days: getDayPairForDays(nextSlot.days)?.days || DAY_PAIR_OPTIONS[0].days,
+      days: slot ? (nextSlot.days || []) : [],
       branchId: nextSlot.branchId || "",
       startTime,
       endTime: addMinutesToTime(startTime, duration),
@@ -440,6 +457,10 @@ const Availability = ({
   };
 
   const handleSectionChange = (sectionId) => {
+    if (activeSectionId === sectionId) {
+      setActiveSectionId(null);
+      return;
+    }
     resetDraftForSection(sectionId);
   };
 
@@ -470,11 +491,18 @@ const Availability = ({
     });
   };
 
-  const updateDayPair = (pairId) => {
-    const pair =
-      DAY_PAIR_OPTIONS.find((option) => option.id === pairId) ||
-      DAY_PAIR_OPTIONS[0];
-    updateDraft({ days: pair.days });
+  const toggleDayPair = (pairId) => {
+    const selectedPairIds = DAY_PAIR_OPTIONS
+      .filter((o) => o.days.every((d) => draftSlot.days.includes(d)))
+      .map((o) => o.id);
+    const newSelectedPairIds = selectedPairIds.includes(pairId)
+      ? selectedPairIds.filter((id) => id !== pairId)
+      : [...selectedPairIds, pairId];
+    const newDays = [...new Set(
+      newSelectedPairIds.flatMap((id) => DAY_PAIR_OPTIONS.find((o) => o.id === id)?.days || [])
+    )];
+    updateDraft({ days: newDays });
+    if (!editingSlotId) setSelectedTimes(new Set());
   };
 
   const getTimeOptionDisabledReason = (option, days = draftSlot.days) => {
@@ -493,10 +521,11 @@ const Availability = ({
     const overlappingSlot = slots.find((slot) => {
       if (slot.localId === editingSlotId) return false;
       if (slot.isActive === false) return false;
-      // For offline courses, demo and enrolled slots at the same branch may overlap
-      // (demo student visits the ongoing class). For online, all slots must be fully separate.
       const bothOffline = isOfflineCourse && !!slot.branchId;
+      // Demo and enrolled slots at the same offline branch may overlap (short demo adjoins a class)
       if (slot.slotType !== (activeSectionId === "demo" ? "demo" : "enrolled") && bothOffline) return false;
+      // At an offline branch, different courses can share the same time window (different rooms)
+      if (bothOffline && draftSlot.courseId && slot.courseId && slot.courseId !== draftSlot.courseId) return false;
 
       const sharesDay = slot.days.some((day) => days.includes(day));
       if (!sharesDay) return false;
@@ -517,8 +546,8 @@ const Availability = ({
   };
 
   const validateDraftSlot = () => {
-    if (!getDayPairForDays(draftSlot.days)) {
-      toast.error("Select a valid weekday pair or weekend slot");
+    if (draftSlot.days.length === 0) {
+      toast.error("Select at least one day pair");
       return false;
     }
 
@@ -559,6 +588,7 @@ const Availability = ({
       if (slot.isActive === false) return false;
       const bothOffline = isOfflineCourse && !!slot.branchId;
       if (slot.slotType !== (activeSectionId === "demo" ? "demo" : "enrolled") && bothOffline) return false;
+      if (bothOffline && draftSlot.courseId && slot.courseId && slot.courseId !== draftSlot.courseId) return false;
 
       const sharesDay = slot.days.some((day) => draftSlot.days.includes(day));
       if (!sharesDay) return false;
@@ -580,40 +610,75 @@ const Availability = ({
   };
 
   const submitSlotDraft = () => {
-    if (!validateDraftSlot()) return;
+    // ── Edit mode: single-slot update ────────────────────────────
+    if (editingSlotId) {
+      if (!validateDraftSlot()) return;
+      const normalized = {
+        ...draftSlot,
+        days: sortDays(draftSlot.days),
+        localId: editingSlotId,
+        slotType: activeSectionId === "demo" ? "demo" : "enrolled",
+        sessionType: activeSectionId === "individual" ? "premium" : "standard",
+        maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
+        branchId: draftSlot.branchId || "",
+        isActive: draftSlot.isActive !== false,
+      };
+      setSlots((prev) => prev.map((s) => (s.localId === editingSlotId ? normalized : s)));
+      setHasUnsavedChanges(true);
+      toast.success("Slot updated locally. Save to publish the changes.");
+      resetDraftForSection(activeSectionId);
+      return;
+    }
 
-    const normalized = {
-      ...draftSlot,
-      days: sortDays(draftSlot.days),
-      localId: editingSlotId || draftSlot.localId || createLocalId(),
-      slotType: activeSectionId === "demo" ? "demo" : "enrolled",
-      sessionType:
-        activeSectionId === "individual" ? "premium" : "standard",
-      maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
-      branchId: draftSlot.branchId || "",
-      isActive: draftSlot.isActive !== false,
-    };
+    // ── Add mode: multi-select ────────────────────────────────────
+    if (selectedTimes.size === 0) {
+      toast.error("Select at least one time slot to add");
+      return;
+    }
+    if (courseOptions.length > 0 && !draftSlot.courseId) {
+      toast.error("Select a course for this slot");
+      return;
+    }
+    if (isOfflineCourse && !draftSlot.branchId) {
+      toast.error("Select a branch for this offline course slot");
+      return;
+    }
+    if (draftSlot.days.length === 0) {
+      toast.error("Select at least one day pair");
+      return;
+    }
 
-    setSlots((prev) => {
-      if (!editingSlotId) {
-        return [...prev, normalized];
-      }
+    const timeOpts = TIME_OPTIONS_BY_SECTION[activeSectionId] || TIME_OPTIONS_BY_SECTION.group;
+    const sortedDays = sortDays(draftSlot.days);
+    const newSlots = [];
 
-      return prev.map((slot) =>
-        slot.localId === editingSlotId ? normalized : slot
-      );
-    });
+    for (const timeId of selectedTimes) {
+      const option = timeOpts.find((o) => o.id === timeId);
+      if (!option) continue;
+      newSlots.push({
+        ...draftSlot,
+        startTime: option.startTime,
+        endTime: option.endTime,
+        days: sortedDays,
+        localId: createLocalId(),
+        slotType: activeSectionId === "demo" ? "demo" : "enrolled",
+        sessionType: activeSectionId === "individual" ? "premium" : "standard",
+        maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
+        branchId: draftSlot.branchId || "",
+        isActive: true,
+      });
+    }
 
+    if (!newSlots.length) return;
+    setSlots((prev) => [...prev, ...newSlots]);
     setHasUnsavedChanges(true);
-    toast.success(
-      editingSlotId
-        ? "Slot updated locally. Save to publish the changes."
-        : "Slot added locally. Save to publish it."
-    );
-    resetDraftForSection(activeSectionId);
+    // Preserve course / branch / day pair — only clear the time selection
+    setSelectedTimes(new Set());
+    toast.success(`${newSlots.length} slot(s) added locally. Save to publish.`);
   };
 
   const openEditSlot = (slot) => {
+    setSelectedTimes(new Set());
     resetDraftForSection(getSectionIdForSlot(slot), slot);
   };
 
@@ -708,10 +773,13 @@ const Availability = ({
     const isIndividualSection = activeSectionId === "individual";
     const timeOptions =
       TIME_OPTIONS_BY_SECTION[activeSectionId] || TIME_OPTIONS_BY_SECTION.group;
-    const selectedPairId = getDayPairIdForDays(draftSlot.days);
-    const selectedPair =
-      DAY_PAIR_OPTIONS.find((option) => option.id === selectedPairId) ||
-      DAY_PAIR_OPTIONS[0];
+    const selectedPairIds = DAY_PAIR_OPTIONS
+      .filter((o) => o.days.every((d) => draftSlot.days.includes(d)))
+      .map((o) => o.id);
+    const selectedPairLabels = selectedPairIds
+      .map((id) => DAY_PAIR_OPTIONS.find((o) => o.id === id)?.label)
+      .filter(Boolean)
+      .join(", ");
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -738,22 +806,47 @@ const Availability = ({
             </select>
           </label>
 
-          <label className="block">
+          <div className="relative block" ref={dayPairDropdownRef}>
             <span className="mb-2 block text-sm font-medium text-slate-900">
-              Select Day Pair
+              Select Day Pair <span className="text-rose-500">*</span>
             </span>
-            <select
-              value={selectedPairId}
-              onChange={(event) => updateDayPair(event.target.value)}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
+            <button
+              type="button"
+              onClick={() => setDayPairDropdownOpen((prev) => !prev)}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-300"
             >
-              {DAY_PAIR_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label} ({option.helper})
-                </option>
-              ))}
-            </select>
-          </label>
+              <span className={selectedPairLabels ? "text-slate-700" : "text-slate-400"}>
+                {selectedPairLabels || "Select day pairs"}
+              </span>
+              <FiChevronDown
+                className={`shrink-0 transition-transform ${dayPairDropdownOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+            {dayPairDropdownOpen && (
+              <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                {DAY_PAIR_OPTIONS.map((pair) => {
+                  const isChecked = pair.days.every((d) => draftSlot.days.includes(d));
+                  return (
+                    <label
+                      key={pair.id}
+                      className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => toggleDayPair(pair.id)}
+                        className="h-4 w-4 cursor-pointer rounded accent-slate-900"
+                      />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-800">{pair.label}</span>
+                        <span className="ml-2 text-xs text-slate-400">{pair.helper}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <span className="block text-sm font-medium text-slate-900">
@@ -829,7 +922,7 @@ const Availability = ({
                   ? "Select a branch above to see available time slots."
                   : isOfflineCourse && selectedBranch
                     ? `Slots outside ${selectedBranch.name} open hours are disabled. Demo sessions may overlap with enrolled sessions at the same branch.`
-                    : `Disabled slots overlap with an existing slot for ${selectedPair.label}.`}
+                    : `Disabled slots overlap with an existing slot on the selected days.`}
               </p>
             </div>
             {!isOfflineCourse || selectedBranch ? (
@@ -848,16 +941,17 @@ const Availability = ({
               Choose a branch to unlock time slots
             </div>
           ) : (
+          <>
           <div className="grid max-h-72 gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {timeOptions.map((option) => {
               const disabledReason = getTimeOptionDisabledReason(
                 option,
-                selectedPair.days
+                draftSlot.days
               );
-              const isSelected =
-                draftSlot.startTime === option.startTime &&
-                draftSlot.endTime === option.endTime;
               const isDisabled = Boolean(disabledReason);
+              const isSelected = editingSlotId
+                ? draftSlot.startTime === option.startTime && draftSlot.endTime === option.endTime
+                : selectedTimes.has(option.id);
 
               return (
                 <button
@@ -865,12 +959,18 @@ const Availability = ({
                   type="button"
                   disabled={isDisabled}
                   title={disabledReason || undefined}
-                  onClick={() =>
-                    updateDraft({
-                      startTime: option.startTime,
-                      endTime: option.endTime,
-                    })
-                  }
+                  onClick={() => {
+                    if (editingSlotId) {
+                      updateDraft({ startTime: option.startTime, endTime: option.endTime });
+                    } else {
+                      setSelectedTimes((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(option.id)) next.delete(option.id);
+                        else next.add(option.id);
+                        return next;
+                      });
+                    }
+                  }}
                   className={`rounded-xl border px-3 py-2 text-left text-xs font-semibold transition ${
                     isSelected
                       ? "border-slate-900 bg-slate-900 text-white"
@@ -885,6 +985,12 @@ const Availability = ({
               );
             })}
           </div>
+          {!editingSlotId && selectedTimes.size > 0 && (
+            <p className="mt-2 text-xs font-medium text-slate-600">
+              {selectedTimes.size} time slot{selectedTimes.size !== 1 ? "s" : ""} selected
+            </p>
+          )}
+          </>
           )}
         </div>
 
@@ -904,6 +1010,16 @@ const Availability = ({
                   : isIndividualSection
                     ? "40 min premium 1:1"
                     : "60 min standard group"}
+              </span>
+            </p>
+            <p className="mt-1">
+              {editingSlotId ? "Editing:" : "Selected:"}{" "}
+              <span className="font-medium text-slate-700">
+                {editingSlotId
+                  ? `${convertTo12Hour(draftSlot.startTime)} – ${convertTo12Hour(draftSlot.endTime)}`
+                  : selectedTimes.size > 0
+                    ? `${selectedTimes.size} time slot${selectedTimes.size !== 1 ? "s" : ""}`
+                    : "None"}
               </span>
             </p>
           </div>
@@ -930,7 +1046,11 @@ const Availability = ({
               }`}
             >
               {editingSlotId ? <FiEdit2 /> : <FiPlus />}
-              {editingSlotId ? "Update slot" : "Add slot"}
+              {editingSlotId
+                ? "Update slot"
+                : selectedTimes.size > 1
+                  ? `Add ${selectedTimes.size} slots`
+                  : "Add slot"}
             </button>
           </div>
         </div>
@@ -963,11 +1083,11 @@ const Availability = ({
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {summaryCards.map((item) => (
               <div
                 key={item.label}
-                className="min-w-[140px] rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3"
+                className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3"
               >
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
                   {item.label}
@@ -1015,28 +1135,31 @@ const Availability = ({
 
             return (
               <section key={section.id}>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div>
+                <div>
+                  <div className="flex items-center gap-3">
                     <p className={`text-[30px] font-semibold tracking-tight ${section.tone}`}>
                       {section.title}
                     </p>
-                    <p className="mt-2 max-w-3xl text-sm text-slate-500">
-                      {section.description}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleSectionChange(section.id)}
+                      className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                        isActiveSection
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      {isActiveSection ? <FiMinus /> : <FiPlus />}
+                      {isActiveSection
+                        ? editingSlotId
+                          ? "Editing slot"
+                          : "Close"
+                        : "Add slot"}
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSectionChange(section.id)}
-                    className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                      isActiveSection
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    <FiPlus />
-                    {editingSlotId && isActiveSection ? "Editing slot" : "Add slot"}
-                  </button>
+                  <p className="mt-2 max-w-3xl text-sm text-slate-500">
+                    {section.description}
+                  </p>
                 </div>
 
                 <div className="mt-5">{isActiveSection ? renderSectionEditor() : null}</div>

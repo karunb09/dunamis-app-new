@@ -25,6 +25,7 @@ const InstructorForm = ({ instructors: propInstructors, setInstructors, selected
         ? instructorOptions?.filter(
             (inst) =>
                 inst?.teacherApplication?.mode?.toLowerCase() === selectedMode?.toLowerCase()
+                || inst?.teacherApplication?.mode?.toLowerCase() === "hybrid"
         )
         : instructorOptions;
 

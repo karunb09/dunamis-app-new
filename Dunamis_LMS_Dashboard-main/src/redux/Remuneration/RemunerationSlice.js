@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
+import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 // Abhi iska use nhi kar rhe hai, backend se poulated data use kiya hai.
@@ -8,7 +8,7 @@ export const createRemuneration = createAsyncThunk(
   "remuneration/createRemuneration",
   async (remunerationData, thunkAPI) => {
     try {
-      const response = await axios.post(
+      const response = await axiosAuth.post(
         `${BASE_URL}/remuneration`,
         remunerationData
       );
@@ -24,7 +24,7 @@ export const getRemunerationById = createAsyncThunk(
   "remuneration/getRemunerationById",
   async (id, thunkAPI) => {
     try {
-      const response = await axios.get(
+      const response = await axiosAuth.get(
         `${BASE_URL}/remuneration/payslip/${id}`
       );
       return response.data;
@@ -39,7 +39,7 @@ export const getRemunerationByTeacher = createAsyncThunk(
   "remuneration/getRemunerationByTeacher",
   async (teacherId, thunkAPI) => {
     try {
-      const response = await axios.get(`${BASE_URL}/remuneration/${teacherId}`);
+      const response = await axiosAuth.get(`${BASE_URL}/remuneration/${teacherId}`);
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -52,7 +52,7 @@ export const updateRemuneration = createAsyncThunk(
   "remuneration/updateRemuneration",
   async ({ id, remunerationData }, thunkAPI) => {
     try {
-      const response = await axios.put(
+      const response = await axiosAuth.put(
         `${BASE_URL}/remuneration/${id}`,
         remunerationData
       );
@@ -68,7 +68,7 @@ export const deleteRemuneration = createAsyncThunk(
   "remuneration/deleteRemuneration",
   async (id, thunkAPI) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/remuneration/${id}`);
+      const response = await axiosAuth.delete(`${BASE_URL}/remuneration/${id}`);
       return { id };
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);

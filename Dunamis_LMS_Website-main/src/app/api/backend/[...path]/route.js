@@ -33,7 +33,12 @@ async function sameOriginOk(req) {
   // navigations, none — reject those on unsafe methods.
   if (!origin) return false;
   try {
-    return new URL(origin).origin === new URL(req.url).origin;
+    // Use the Host header (set explicitly by Nginx) rather than req.url, which
+    // carries http:// behind a TLS-terminating proxy without X-Forwarded-Proto.
+    // Host-only comparison is sufficient for CSRF — attacker domains differ here.
+    const host = hdrs.get("x-forwarded-host") || hdrs.get("host");
+    if (!host) return false;
+    return new URL(origin).host === host;
   } catch {
     return false;
   }

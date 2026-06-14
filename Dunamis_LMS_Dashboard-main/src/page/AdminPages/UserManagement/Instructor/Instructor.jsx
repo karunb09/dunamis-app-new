@@ -298,7 +298,7 @@ const Instructor = () => {
                             {[
                                 { label: "Account Status", key: "accountStatus", options: [{ v: "active", l: "Active" }, { v: "inactive", l: "Inactive" }] },
                                 { label: "Salary Status", key: "salaryStatus", options: [{ v: "due", l: "Due" }, { v: "paid", l: "Paid" }] },
-                                { label: "Mode", key: "mode", options: [{ v: "online", l: "Online" }, { v: "offline", l: "Offline" }] },
+                                { label: "Mode", key: "mode", options: [{ v: "online", l: "Online" }, { v: "offline", l: "Offline" }, { v: "hybrid", l: "Hybrid" }] },
                             ].map(({ label, key, options }) => (
                                 <div key={key}>
                                     <label className="mb-1.5 block text-sm font-medium text-slate-700">{label}</label>

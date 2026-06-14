@@ -172,7 +172,7 @@ const formatPublicTeacherSummary = (teacher) => {
         courseName: firstCourse?.name || "N/A",
         slot: formatAvailabilitySlot(firstAvailability),
         sessionType:
-          teacherDetail?.mode === "online" ? "Online" : teacherDetail?.mode || "N/A",
+          teacherDetail?.mode === "online" ? "Online" : teacherDetail?.mode === "offline" ? "Offline" : teacherDetail?.mode === "hybrid" ? "Hybrid" : teacherDetail?.mode || "N/A",
       },
     ],
     createdAt: teacher.createdAt,
@@ -598,7 +598,7 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
                   slot: "Mon-Thu 4:00 PM - 5:00 PM",
                   dateOfJoining: teacherDetail.createdAt,
                   sessionType:
-                    teacherDetail.mode === "online" ? "Online" : "Offline",
+                    teacherDetail.mode === "online" ? "Online" : teacherDetail.mode === "hybrid" ? "Hybrid" : "Offline",
                   attendance:
                     teacherDetail.status === "selected" ? "Present" : "Absent",
                   homework: "Lorem ipsum dolor sit amet",
@@ -864,7 +864,7 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
               slot: "Mon-Thu 4:00 PM - 5:00 PM",
               dateOfJoining: teacher.teacherDetail.createdAt,
               sessionType:
-                teacher.teacherDetail.mode === "online" ? "Online" : "Offline",
+                teacher.teacherDetail.mode === "online" ? "Online" : teacher.teacherDetail.mode === "hybrid" ? "Hybrid" : "Offline",
               attendance:
                 teacher.teacherDetail.status === "selected"
                   ? "Present"

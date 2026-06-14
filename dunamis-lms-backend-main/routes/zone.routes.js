@@ -1,15 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const {getZone, CreateZone, updateZone, deleteZone} = require('../controller/zone.controller')
-
-
 const { isAuth, accessToRole } = require("../middleware/auth");
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
-router.get('/get-all',getZone);
-router.post('/create', ...adminOnly, CreateZone);
-router.put('/updatezone/:id', ...adminOnly, updateZone);
-router.delete('/delete/:id', ...adminOnly, deleteZone);
- 
+const { getZone, CreateZone, updateZone, deleteZone } = require('../controller/zone.controller');
 
+router.get('/get-all', getZone);
+router.post('/create', isAuth, accessToRole(["admin", "superadmin"]), CreateZone);
+router.put('/updatezone/:id', isAuth, accessToRole(["admin", "superadmin"]), updateZone);
+router.delete('/delete/:id', isAuth, accessToRole(["admin", "superadmin"]), deleteZone);
 
 module.exports = router;
