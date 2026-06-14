@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
-import { BookOpen, ChevronDown, Home, LogIn, MapPin, Menu, MoreHorizontal, UserCircle, X } from "lucide-react";
+import { LuBookOpen, LuChevronDown, LuHouse, LuLogIn, LuMapPin, LuMenu, LuEllipsis, LuCircleUser, LuX } from "react-icons/lu";
 import { logout, logoutSession } from "@/store/authSlice";
 import { isStudentAccount } from "@/lib/roleRouting";
 
@@ -293,7 +293,7 @@ const Navigation = () => {
                   aria-label="Open more pages"
                 >
                   More
-                  <ChevronDown
+                  <LuChevronDown
                     className={[
                       "h-4 w-4 transition-transform",
                       isMoreDropdownOpen ? "rotate-180" : "",
@@ -337,7 +337,7 @@ const Navigation = () => {
               className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:border-stone-300 hover:bg-stone-50"
               aria-label="Open navigation menu"
             >
-              <Menu className="h-5 w-5" />
+              <LuMenu className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -347,9 +347,9 @@ const Navigation = () => {
       <nav className="fixed bottom-0 left-0 right-0 z-40 hidden border-t border-stone-200 bg-white/95 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:flex lg:hidden">
         <div className="mx-auto flex w-full max-w-7xl items-stretch justify-around">
           {[
-            { href: "/", icon: <Home className="h-5 w-5" />, label: "Home" },
-            { href: "/courses", icon: <BookOpen className="h-5 w-5" />, label: "Courses" },
-            { href: "/centers", icon: <MapPin className="h-5 w-5" />, label: "Centres" },
+            { href: "/", icon: <LuHouse className="h-5 w-5" />, label: "Home" },
+            { href: "/courses", icon: <LuBookOpen className="h-5 w-5" />, label: "Courses" },
+            { href: "/centers", icon: <LuMapPin className="h-5 w-5" />, label: "Centres" },
           ].map(({ href, icon, label }) => {
             const active = isActivePath(pathname, href);
             return (
@@ -372,7 +372,7 @@ const Navigation = () => {
             onClick={closeMenus}
             className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
           >
-            {isStudentSession ? <UserCircle className="h-5 w-5" /> : <LogIn className="h-5 w-5" />}
+            {isStudentSession ? <LuCircleUser className="h-5 w-5" /> : <LuLogIn className="h-5 w-5" />}
             {isStudentSession ? "Portal" : "Login"}
           </Link>
 
@@ -382,7 +382,7 @@ const Navigation = () => {
             className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
             aria-label="More pages"
           >
-            <MoreHorizontal className="h-5 w-5" />
+            <LuEllipsis className="h-5 w-5" />
             More
           </button>
         </div>
@@ -430,7 +430,7 @@ const Navigation = () => {
             className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-stone-200 bg-white text-slate-700 transition hover:bg-stone-50"
             aria-label="Close navigation menu"
           >
-            <X className="h-5 w-5" />
+            <LuX className="h-5 w-5" />
           </button>
         </div>
 

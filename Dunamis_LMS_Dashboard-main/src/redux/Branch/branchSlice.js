@@ -1,6 +1,13 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Branch mutations are admin-only on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Get all branches
 export const fetchAllBranches = createAsyncThunk(
@@ -28,6 +35,7 @@ export const createBranch = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/branch/create`, {
         method: "POST",
         body: branchData, // pass FormData directly
+        headers: authHeader(),
       });
       const data = await res.json();
       if (!data.success) {
@@ -82,6 +90,7 @@ export const updateBranch = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "PUT",
         body: branchData,
+        headers: authHeader(),
       });
       const data = await res.json();
       if (!data.success) {
@@ -101,6 +110,7 @@ export const deleteBranch = createAsyncThunk(
     try {
       const res = await fetch(`${BASE_URL}/branch/${id}`, {
         method: "DELETE",
+        headers: authHeader(),
       });
       const data = await res.json();
       if (!data.success) {

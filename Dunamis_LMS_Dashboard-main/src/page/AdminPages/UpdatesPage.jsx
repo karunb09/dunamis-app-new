@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import DataTable from "../../components/Table";
 import moment from "moment";
 import { getAllNotices } from "../../redux/AdminNotice/AdminNoticeSlice";
-import { X } from "phosphor-react";
+import { PiX } from "react-icons/pi";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const SORT_OPTIONS = [
@@ -271,7 +271,7 @@ const UpdatesPage = () => {
                             onClick={() => setFilterOpen(false)}
                             className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
                         >
-                            <X />
+                            <PiX />
                         </button>
                         <h2 className="text-xl font-semibold mb-4">Filter Updates</h2>
 

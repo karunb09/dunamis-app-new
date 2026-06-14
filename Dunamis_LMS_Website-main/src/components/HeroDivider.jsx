@@ -1,17 +1,17 @@
 "use client";
 import { motion } from "framer-motion";
-import { Music, Mic, Music2, Palette, Activity, Heart, Dumbbell, Sparkles, Users } from "lucide-react";
+import { LuMusic, LuMic, LuMusic2, LuPalette, LuActivity, LuHeart, LuDumbbell, LuSparkles, LuUsers } from "react-icons/lu";
 
 const BUBBLES = [
-  { Icon: Music,     color: "#FF6B35", offsetY: 0,   delay: 0 },
-  { Icon: Activity,  color: "#22c55e", offsetY: -10, delay: 0.4 },
-  { Icon: Mic,       color: "#47c9c4", offsetY: 6,   delay: 0.8 },
-  { Icon: Palette,   color: "#ec4899", offsetY: -6,  delay: 0.2 },
-  { Icon: Heart,     color: "#ef4444", offsetY: -14, delay: 1.0 },
-  { Icon: Music2,    color: "#a855f7", offsetY: 2,   delay: 0.6 },
-  { Icon: Dumbbell,  color: "#f59e0b", offsetY: -8,  delay: 1.2 },
-  { Icon: Sparkles,  color: "#3b82f6", offsetY: 4,   delay: 0.3 },
-  { Icon: Users,     color: "#8b5cf6", offsetY: -2,  delay: 0.9 },
+  { Icon: LuMusic,     color: "#FF6B35", offsetY: 0,   delay: 0 },
+  { Icon: LuActivity,  color: "#22c55e", offsetY: -10, delay: 0.4 },
+  { Icon: LuMic,       color: "#47c9c4", offsetY: 6,   delay: 0.8 },
+  { Icon: LuPalette,   color: "#ec4899", offsetY: -6,  delay: 0.2 },
+  { Icon: LuHeart,     color: "#ef4444", offsetY: -14, delay: 1.0 },
+  { Icon: LuMusic2,    color: "#a855f7", offsetY: 2,   delay: 0.6 },
+  { Icon: LuDumbbell,  color: "#f59e0b", offsetY: -8,  delay: 1.2 },
+  { Icon: LuSparkles,  color: "#3b82f6", offsetY: 4,   delay: 0.3 },
+  { Icon: LuUsers,     color: "#8b5cf6", offsetY: -2,  delay: 0.9 },
 ];
 
 export default function HeroDivider() {

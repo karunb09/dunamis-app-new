@@ -8,7 +8,7 @@ import {
   FaChevronDown,
   FaTrash,
 } from "react-icons/fa";
-import { BookOpen } from "react-feather";
+import { FiBookOpen } from "react-icons/fi";
 import {
   deleteContent,
   fetchContentById,
@@ -164,7 +164,7 @@ const ContentDetails = () => {
             <span className="text-gray-500 text-sm flex items-center gap-1">
               {content.modules?.length || 0} module{content.modules?.length !== 1 ? "s" : ""}
             </span>
-            <BookOpen className="text-gray-500" />
+            <FiBookOpen className="text-gray-500" />
           </div>
         </div>
 

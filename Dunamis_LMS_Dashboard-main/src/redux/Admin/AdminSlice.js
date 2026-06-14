@@ -1,14 +1,23 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin endpoints are admin/superadmin-only on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Fetch all admins
 export const fetchAdmins = createAsyncThunk(
   "admin/fetchAdmins",
   async (_, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${BASE_URL}/admin/get-all-admin`);
+      const { data } = await axios.get(`${BASE_URL}/admin/get-all-admin`, {
+        headers: authHeader(),
+      });
       if (!data.success) return rejectWithValue(data.message);
       return data.admins;
     } catch (error) {
@@ -22,7 +31,9 @@ export const fetchAdminById = createAsyncThunk(
   "admin/fetchAdminById",
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await axios.get(`${BASE_URL}/admin/${id}`);
+      const { data } = await axios.get(`${BASE_URL}/admin/${id}`, {
+        headers: authHeader(),
+      });
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -36,7 +47,9 @@ export const createAdmin = createAsyncThunk(
   "admin/createAdmin",
   async (adminData, { rejectWithValue }) => {
     try {
-      const { data } = await axios.post(`${BASE_URL}/admin/create`, adminData);
+      const { data } = await axios.post(`${BASE_URL}/admin/create`, adminData, {
+        headers: authHeader(),
+      });
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -50,7 +63,9 @@ export const updateAdmin = createAsyncThunk(
   "admin/updateAdmin",
   async ({ id, adminData }, { rejectWithValue }) => {
     try {
-      const { data } = await axios.put(`${BASE_URL}/admin/${id}`, adminData);
+      const { data } = await axios.put(`${BASE_URL}/admin/${id}`, adminData, {
+        headers: authHeader(),
+      });
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
@@ -64,7 +79,9 @@ export const deleteAdmin = createAsyncThunk(
   "admin/deleteAdmin",
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await axios.delete(`${BASE_URL}/admin/${id}`);
+      const { data } = await axios.delete(`${BASE_URL}/admin/${id}`, {
+        headers: authHeader(),
+      });
       if (!data.success) return rejectWithValue(data.message);
       return id;
     } catch (error) {

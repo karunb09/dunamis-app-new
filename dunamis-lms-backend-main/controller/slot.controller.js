@@ -1,4 +1,5 @@
 const Slot = require("../model/slot.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Course = require("../model/course.model");
 const Branch = require("../model/branch.model");
 const Teacher = require("../model/teacher.model");
@@ -94,8 +95,7 @@ const parseTimeToMinutes = (timeStr) => {
   return NaN;
 };
 
-exports.createSlot = async (req, res) => {
-  try {
+exports.createSlot = asyncHandler(async (req, res) => {
     const {
       courseId,
       branchId,
@@ -315,20 +315,10 @@ exports.createSlot = async (req, res) => {
       message: "Slot created successfully",
       slot,
     });
-  } catch (err) {
-    console.error("Error creating slot:", err);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create slot. Please try again.",
-      hint: IT_SUPPORT_HINT,
-      error: err.message,
-    });
-  }
-};
+});
 
 // Get all slots
-exports.getAllSlots = async (req, res) => {
-  try {
+exports.getAllSlots = asyncHandler(async (req, res) => {
     const slots = await Slot.find()
       .populate("courseId branchId")
       .populate({
@@ -349,10 +339,7 @@ exports.getAllSlots = async (req, res) => {
         sessionType: slot.sessionType,
       }))
     );
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+});
 
 // Get available slots by branch and date
 // exports.getAvailableSlots = async (req, res) => {
@@ -425,8 +412,7 @@ exports.getAllSlots = async (req, res) => {
 //   }
 // };
 
-exports.getAvailableSlots = async (req, res) => {
-  try {
+exports.getAvailableSlots = asyncHandler(async (req, res) => {
     const {
       courseId,
       teacherId,
@@ -568,15 +554,10 @@ exports.getAvailableSlots = async (req, res) => {
       message: "Available slots fetched successfully",
       slots: decoratedSlots,
     });
-  } catch (err) {
-    console.error("Error fetching available slots:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+});
 
 // Update a slot
-exports.updateSlot = async (req, res) => {
-  try {
+exports.updateSlot = asyncHandler(async (req, res) => {
     const slot = await Slot.findById(req.params.id);
     if (!slot) {
       return res.status(404).json({ message: "Demo slot not found" });
@@ -619,20 +600,13 @@ exports.updateSlot = async (req, res) => {
     await slot.save();
 
     res.status(200).json({ message: "Slot updated successfully", slot });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+});
 
 // Delete a slot
-exports.deleteSlot = async (req, res) => {
-  try {
+exports.deleteSlot = asyncHandler(async (req, res) => {
     await Slot.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Slot deleted" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+});
 
 const timeToMinutes = (timeStr) => {
   const match = String(timeStr || "").match(/^(\d{1,2}):(\d{2})$/);
@@ -677,8 +651,7 @@ const isReplaceAvailabilityRequest = (body = {}) => {
   return false;
 };
 
-exports.setWeeklyAvailability = async (req, res) => {
-  try {
+exports.setWeeklyAvailability = asyncHandler(async (req, res) => {
     const teacher = await Teacher.findOne({ userId: req.user.userId });
     if (!teacher)
       return res
@@ -885,7 +858,4 @@ exports.setWeeklyAvailability = async (req, res) => {
         removedSlots: syncResult.deleted,
         availability: teacher.weeklyAvailability,
       });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-};
+});

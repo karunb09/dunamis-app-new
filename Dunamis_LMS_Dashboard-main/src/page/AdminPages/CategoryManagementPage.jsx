@@ -5,7 +5,7 @@ import { deleteCategory, fetchCategories, updateCategory } from "../../redux/Cat
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { X } from "react-feather";
+import { FiX } from "react-icons/fi";
 
 const SORT_OPTIONS = [
   { value: "name-asc", label: "Name A-Z" },
@@ -250,7 +250,7 @@ const CategoryManagement = () => {
                   onClick={() => setFilterOpen(false)}
                   className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
                 >
-                  <X />
+                  <FiX />
                 </button>
                 <h2 className="text-xl [font-weight:300] mb-4">Filter Categories</h2>
 

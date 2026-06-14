@@ -14,8 +14,8 @@ router.get("/student", isAuth, accessToRole(["student"]), getStudentAssessments)
 // Submit (complete) an assessment
 router.put("/submit/:assessmentId", isAuth, accessToRole(["teacher"]), submitAssessment);
 
-// Create Assignement For testing
-router.post("/manualCycle", manualAssessmentCycle);
+// Manual trigger of the assessment cycle — admin/superadmin only.
+router.post("/manualCycle", isAuth, accessToRole(["admin", "superadmin"]), manualAssessmentCycle);
 
 router.get("/", getAllAssessments);
 

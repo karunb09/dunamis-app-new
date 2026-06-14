@@ -1,6 +1,6 @@
 
 import { motion } from "framer-motion";
-import { ClipboardCheckIcon, MapPin } from "lucide-react";
+import { LuClipboardCheck, LuMapPin } from "react-icons/lu";
 import { IoMdStar } from "react-icons/io";
 
 export default function CourseCard({
@@ -89,7 +89,7 @@ export default function CourseCard({
 
         {branchName && (
           <p className="mt-2 flex min-h-[20px] items-center gap-1 text-sm text-gray-600">
-            <MapPin className="h-4 w-4 shrink-0 text-[#FF6B35]" />
+            <LuMapPin className="h-4 w-4 shrink-0 text-[#FF6B35]" />
             <span className="line-clamp-1 font-medium">{branchName}</span>
           </p>
         )}
@@ -98,7 +98,7 @@ export default function CourseCard({
         </p>
         <div className="mt-3 flex min-h-[32px] items-center justify-between gap-3">
           <p className="flex items-center gap-2 text-sm text-gray-600 bg-gray-100 px-3 py-1 rounded-full w-fit">
-            <ClipboardCheckIcon className="w-4 h-4 text-green-600" />
+            <LuClipboardCheck className="w-4 h-4 text-green-600" />
             {type}
           </p>
 

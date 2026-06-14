@@ -1,13 +1,12 @@
 import React from "react";
-import { Link } from "react-router-dom";
 import {
-  ChartBarIcon,
-  ClockIcon,
-  UserGroupIcon,
-  ArrowRightIcon,
-  ArrowPathIcon,
-  ArrowDownTrayIcon,
-} from "@heroicons/react/24/outline";
+  HiOutlineChartBar,
+  HiOutlineClock,
+  HiOutlineUserGroup,
+  HiOutlineArrowRight,
+  HiOutlineArrowPath,
+  HiOutlineArrowDownTray,
+} from "react-icons/hi2";
 
 const Report = () => {
   return (
@@ -21,7 +20,7 @@ const Report = () => {
         {/* Classes Completed */}
         <div className="flex items-center justify-between bg-gray-50 border rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <ChartBarIcon className="h-6 w-6 text-gray-500" />
+            <HiOutlineChartBar className="h-6 w-6 text-gray-500" />
             <div>
               <p className="text-gray-500 text-sm">Classes Completed</p>
               <p className="text-lg font-semibold text-gray-800">12 of 20</p>
@@ -33,7 +32,7 @@ const Report = () => {
         {/* Total Teaching Hours */}
         <div className="flex items-center justify-between bg-gray-50 border rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <ClockIcon className="h-6 w-6 text-yellow-500" />
+            <HiOutlineClock className="h-6 w-6 text-yellow-500" />
             <div>
               <p className="text-gray-500 text-sm">Total Teaching Hours</p>
               <p className="text-lg font-semibold text-gray-800">July</p>
@@ -45,7 +44,7 @@ const Report = () => {
         {/* Students Taught */}
         <div className="flex items-center justify-between bg-gray-50 border rounded-xl p-4">
           <div className="flex items-center gap-3">
-            <UserGroupIcon className="h-6 w-6 text-red-500" />
+            <HiOutlineUserGroup className="h-6 w-6 text-red-500" />
             <div>
               <p className="text-gray-500 text-sm">Students Taught</p>
               <p className="text-lg font-semibold text-gray-800">July</p>
@@ -66,10 +65,10 @@ const Report = () => {
   {/* Right side buttons */}
   <div className="flex flex-row items-center gap-2">
     <button className="flex items-center gap-1 px-2 py-1 text-[10px] md:text-sm border rounded-lg hover:bg-gray-100">
-      <ArrowPathIcon className="h-3 w-3 md:h-4 md:w-4" /> Refresh
+      <HiOutlineArrowPath className="h-3 w-3 md:h-4 md:w-4" /> Refresh
     </button>
     <button className="flex items-center gap-1 px-2 py-1 text-[10px] md:text-sm border rounded-lg hover:bg-gray-100">
-      <ArrowDownTrayIcon className="h-3 w-3 md:h-4 md:w-4" /> Download
+      <HiOutlineArrowDownTray className="h-3 w-3 md:h-4 md:w-4" /> Download
     </button>
   </div>
 </div>

@@ -1,12 +1,11 @@
 const Admin = require("../model/admin.model");
+const asyncHandler = require("../utils/asyncHandler");
 const User = require("../model/user.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
-exports.createAdmin = async (req, res) => {
-  try {
+exports.createAdmin = asyncHandler(async (req, res) => {
     const {
       name: { firstName, lastName } = {},
       mobileNo,
@@ -83,29 +82,16 @@ exports.createAdmin = async (req, res) => {
       user,
       admin: AdminDoc,
     });
-  } catch (error) {
-    console.error("error while creating admin", error);
-    return sendValidationError(res, error, "Failed to create admin");
-  }
-};
-exports.getAllAdmins = async (req, res) => {
-  try {
+});
+exports.getAllAdmins = asyncHandler(async (req, res) => {
     const admins = await Admin.find().populate("userId", "-password");
 
     res.status(200).json({
       success: true,
       admins,
     });
-  } catch (error) {
-    console.error("Error getting all admins:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to get admins",
-    });
-  }
-};
-exports.getAdminById = async (req, res) => {
-  try {
+});
+exports.getAdminById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const admin = await Admin.findById(id).populate("userId", "-password");
@@ -120,16 +106,8 @@ exports.getAdminById = async (req, res) => {
       success: true,
       admin,
     });
-  } catch (error) {
-    console.error("Error getting admin by ID:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to get admin",
-    });
-  }
-};
-exports.updateAdmin = async (req, res) => {
-  try {
+});
+exports.updateAdmin = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, email, mobileNo, role, accessLevel, permission, department } =
       req.body;
@@ -173,13 +151,8 @@ exports.updateAdmin = async (req, res) => {
       admin: populatedAdmin,
       user,
     });
-  } catch (error) {
-    console.error("Error updating admin:", error);
-    sendValidationError(res, error, "Failed to update admin");
-  }
-};
-exports.deleteAdmin = async (req, res) => {
-  try {
+});
+exports.deleteAdmin = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const admin = await Admin.findById(id);
@@ -199,11 +172,4 @@ exports.deleteAdmin = async (req, res) => {
       success: true,
       message: "Admin and associated user deleted successfully",
     });
-  } catch (error) {
-    console.error("Error deleting admin:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to delete admin",
-    });
-  }
-};
+});

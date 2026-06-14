@@ -10,16 +10,21 @@ const {
   updateBranch,
   getBranchById,
 } = require("../controller/branch.controller");
-// Create Branch
-router.post("/create", createBranch);
-// Get all branch
-router.get("/get-all-branch", getAllBranches);
+const { publicCache } = require("../middleware/cacheControl");
+const { isAuth, accessToRole } = require("../middleware/auth");
+
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+
+// Create Branch (admin only)
+router.post("/create", ...adminOnly, createBranch);
+// Get all branch (public, cacheable)
+router.get("/get-all-branch", publicCache(), getAllBranches);
 // Get branch managers
 router.get("/managers", getBranchManagers);
-// Get branch by id
-router.get("/:id", getBranchById);
-// Update Branch
-router.put("/:id", updateBranch);
-// Delete branch
-router.delete("/:id", deleteBranch); 
+// Get branch by id (public, cacheable)
+router.get("/:id", publicCache(), getBranchById);
+// Update Branch (admin only)
+router.put("/:id", ...adminOnly, updateBranch);
+// Delete branch (admin only)
+router.delete("/:id", ...adminOnly, deleteBranch);
 module.exports = router;

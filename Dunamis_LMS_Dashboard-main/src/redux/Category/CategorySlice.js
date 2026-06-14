@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Fetch all categories
 export const fetchCategories = createAsyncThunk(
@@ -26,7 +33,8 @@ export const createCategory = createAsyncThunk(
   async (newCategory) => {
     const response = await axios.post(
       `${BASE_URL}/category/create-category`,
-      newCategory
+      newCategory,
+      { headers: authHeader() }
     );
     return response.data.category;
   }
@@ -38,7 +46,8 @@ export const createCategoryWithSubCategories = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/category/create-full`,
-        categoryData
+        categoryData,
+        { headers: authHeader() }
       );
       return response.data.category;
     } catch (error) {
@@ -53,7 +62,8 @@ export const updateCategory = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/category/${id}`,
-        updatedData
+        updatedData,
+        { headers: authHeader() }
       );
       return response.data.category; 
     } catch (error) {
@@ -66,7 +76,7 @@ export const deleteCategory = createAsyncThunk(
   "category/deleteCategory",
   async (id, { rejectWithValue }) => {
     try {
-      await axios.delete(`${BASE_URL}/category/${id}`);
+      await axios.delete(`${BASE_URL}/category/${id}`, { headers: authHeader() });
       return id; // Return deleted category id
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message);

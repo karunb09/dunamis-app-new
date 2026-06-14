@@ -3,48 +3,33 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  BookOpen,
-  ShoppingCart,
-  PhoneCall,
-  BriefcaseBusiness,
-  School,
-  Users,
-  Info,
-  Star,
-  HelpCircle,
-  Headphones,
-  FileText,
-  RotateCcw,
-  ShieldCheck,
-  Heart,
-} from "lucide-react";
+import { LuBookOpen, LuShoppingCart, LuPhoneCall, LuBriefcaseBusiness, LuSchool, LuUsers, LuInfo, LuStar, LuCircleHelp, LuHeadphones, LuFileText, LuRotateCcw, LuShieldCheck, LuHeart } from "react-icons/lu";
 import { FaFacebookF, FaInstagram, FaPhoneAlt, FaWhatsapp, FaYoutube } from "react-icons/fa";
 import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const featuredLinks = [
-  { icon: BookOpen, label: "Courses", href: "/courses" },
-  { icon: School, label: "Offline Centres", href: "#" },
-  { icon: ShoppingCart, label: "Store", href: "", external: true },
+  { icon: LuBookOpen, label: "Courses", href: "/courses" },
+  { icon: LuSchool, label: "Offline Centres", href: "#" },
+  { icon: LuShoppingCart, label: "Store", href: "", external: true },
 ];
 
 const learnLinks = [
-  { icon: Info, label: "About Us", href: "/about-us" },
-  { icon: Star, label: "Reviews", href: "/testimonials" },
-  { icon: HelpCircle, label: "FAQs", href: "/faqs" },
-  { icon: Users, label: "Success Stories", href: "/success-stories" },
-  { icon: BriefcaseBusiness, label: "Become Instructor", href: "/become-teacher" },
-  { icon: PhoneCall, label: "Contact", href: "/contact-us" },
+  { icon: LuInfo, label: "About Us", href: "/about-us" },
+  { icon: LuStar, label: "Reviews", href: "/testimonials" },
+  { icon: LuCircleHelp, label: "FAQs", href: "/faqs" },
+  { icon: LuUsers, label: "Success Stories", href: "/success-stories" },
+  { icon: LuBriefcaseBusiness, label: "Become Instructor", href: "/become-teacher" },
+  { icon: LuPhoneCall, label: "Contact", href: "/contact-us" },
 ];
 
 const supportLinks = [
-  { icon: PhoneCall, label: "Contact", href: "/contact-us" },
-  { icon: Headphones, label: "Support", href: "/support" },
-  { icon: FileText, label: "Legal", href: "#" },
-  { icon: RotateCcw, label: "Cancellation", href: "/refund-policy" },
-  { icon: FileText, label: "Privacy Policy", href: "/privacy-policy" },
-  { icon: ShieldCheck, label: "Terms & Conditions", href: "/terms-and-conditions" },
-  { icon: BriefcaseBusiness, label: "Staff Portal", href: DASHBOARD_URL, external: true },
+  { icon: LuPhoneCall, label: "Contact", href: "/contact-us" },
+  { icon: LuHeadphones, label: "Support", href: "/support" },
+  { icon: LuFileText, label: "Legal", href: "#" },
+  { icon: LuRotateCcw, label: "Cancellation", href: "/refund-policy" },
+  { icon: LuFileText, label: "Privacy Policy", href: "/privacy-policy" },
+  { icon: LuShieldCheck, label: "Terms & Conditions", href: "/terms-and-conditions" },
+  { icon: LuBriefcaseBusiness, label: "Staff Portal", href: DASHBOARD_URL, external: true },
 ];
 
 const socials = [
@@ -180,7 +165,7 @@ const Footer = () => {
               Dunamis Music Private Limited. All rights reserved.
             </a>
             <span className="flex items-center gap-1">
-              · Made with <Heart className="w-3 h-3 text-red-500 fill-current" />
+              · Made with <LuHeart className="w-3 h-3 text-red-500 fill-current" />
             </span>
           </div>
         </div>

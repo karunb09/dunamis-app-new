@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Fetch all content
 export const fetchAllContent = createAsyncThunk(
@@ -36,7 +43,8 @@ export const createContent = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/content/create`,
-        contentData
+        contentData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -52,7 +60,8 @@ export const updateContent = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/content/${id}`,
-        contentData
+        contentData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -66,7 +75,7 @@ export const deleteContent = createAsyncThunk(
   "content/deleteContent",
   async (id, { rejectWithValue }) => {
     try {
-      await axios.delete(`${BASE_URL}/content/${id}`);
+      await axios.delete(`${BASE_URL}/content/${id}`, { headers: authHeader() });
       return id; // Return the id to update the state after deletion
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
@@ -81,7 +90,8 @@ export const addModuleToContent = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/content/${id}/add-module`,
-        moduleData
+        moduleData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -97,7 +107,8 @@ export const addLessonToModule = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/content/${id}/${moduleId}/add-lesson`,
-        lessonData
+        lessonData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -113,7 +124,8 @@ export const addTopicToLesson = createAsyncThunk(
     try {
       const response = await axios.post(
         `${BASE_URL}/content/${id}/${moduleId}/${lessonId}/add-topic`,
-        topicData
+        topicData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {

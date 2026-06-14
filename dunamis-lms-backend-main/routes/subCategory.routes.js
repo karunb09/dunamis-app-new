@@ -9,7 +9,9 @@ const {
 const router = express.Router();
 
 // Create SubCategory
-router.post("/create", createSubCategory);
+const { isAuth, accessToRole } = require("../middleware/auth");
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+router.post("/create", ...adminOnly, createSubCategory);
 
 // Get All SubCategories
 router.get("/get-all-subCat", getAllSubCategories);
@@ -18,9 +20,9 @@ router.get("/get-all-subCat", getAllSubCategories);
 router.get("/:id", getSubCategoryById);
 
 // Update SubCategory by ID
-router.put("/:id", updateSubCategory);
+router.put("/:id", ...adminOnly, updateSubCategory);
 
 // Delete SubCategory by ID
-router.delete("/:id", deleteSubCategory);
+router.delete("/:id", ...adminOnly, deleteSubCategory);
 
 module.exports = router;

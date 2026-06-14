@@ -1,4 +1,5 @@
 const Teacher = require("../model/teacher.model");
+const asyncHandler = require("../utils/asyncHandler");
 const User = require("../model/user.model");
 const TeacherDetail = require("../model/teacherApplication.model");
 const Feedback = require("../model/feedback.model");
@@ -193,8 +194,7 @@ const formatPublicTeacherDetails = (teacher) => ({
   updatedAt: teacher.updatedAt,
 });
 
-exports.createTeacher = async (req, res) => {
-  try {
+exports.createTeacher = asyncHandler(async (req, res) => {
     const {
       firstName,
       lastName,
@@ -369,34 +369,9 @@ exports.createTeacher = async (req, res) => {
         email: user.email,
       },
     });
-  } catch (error) {
-    console.error("Error creating teacher:", error);
+});
 
-    if (error.name === "ValidationError") {
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: Object.values(error.errors).map((item) => item.message),
-      });
-    }
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "An instructor with this email already exists",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
-
-exports.getPublicTeachers = async (req, res) => {
-  try {
+exports.getPublicTeachers = asyncHandler(async (req, res) => {
     const {
       page = 1,
       limit = 50,
@@ -461,17 +436,9 @@ exports.getPublicTeachers = async (req, res) => {
         hasPrevPage: pageNumber > 1,
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.getAllTeachers = async (req, res) => {
-  try {
+exports.getAllTeachers = asyncHandler(async (req, res) => {
     const {
       page = 1,
       limit = 10,
@@ -656,17 +623,9 @@ exports.getAllTeachers = async (req, res) => {
         hasPrevPage: options.page > 1,
       },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.getPublicTeacherById = async (req, res) => {
-  try {
+exports.getPublicTeacherById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const teacher = await Teacher.findById(id)
@@ -703,24 +662,9 @@ exports.getPublicTeacherById = async (req, res) => {
       success: true,
       data: formatPublicTeacherDetails(teacher),
     });
-  } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid teacher ID format",
-      });
-    }
+});
 
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
-
-exports.getTeacherById = async (req, res) => {
-  try {
+exports.getTeacherById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const teacherAccess = await Teacher.findById(id).select("userId");
@@ -938,23 +882,9 @@ exports.getTeacherById = async (req, res) => {
       success: true,
       data: formattedTeacher,
     });
-  } catch (error) {
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid teacher ID format",
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.updateTeacher = async (req, res) => {
-  try {
+exports.updateTeacher = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { salaryStatus } = req.body;
     const user = parseObjectField(req.body.user);
@@ -1028,26 +958,9 @@ exports.updateTeacher = async (req, res) => {
       message: "Teacher updated successfully",
       data: formatPublicTeacherDetails(updatedTeacher),
     });
-  } catch (error) {
-    console.error("Error updating teacher:", error);
+});
 
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid teacher ID format",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
-
-exports.deleteTeacher = async (req, res) => {
-  try {
+exports.deleteTeacher = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const teacher = await Teacher.findById(id).populate("userId teacherDetail");
@@ -1119,26 +1032,9 @@ exports.deleteTeacher = async (req, res) => {
         removedFromBranches: branchAssignmentCount,
       },
     });
-  } catch (error) {
-    console.error("Error deleting teacher:", error);
+});
 
-    if (error.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid teacher ID format",
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      message: "Failed to delete instructor",
-      error: error.message,
-    });
-  }
-};
-
-exports.addBankDetails = async (req, res) => {
-  try {
+exports.addBankDetails = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const {
       accountHolderName,
@@ -1186,12 +1082,4 @@ exports.addBankDetails = async (req, res) => {
       message: "Bank details saved successfully.",
       teacher,
     });
-  } catch (error) {
-    console.error("Error adding bank details:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+});

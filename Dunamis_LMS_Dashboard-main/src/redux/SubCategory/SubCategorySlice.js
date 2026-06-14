@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 // Get all SubCategory
 export const fetchSubCategories = createAsyncThunk(
   "subCategory/fetchSubCategories",
@@ -16,7 +23,8 @@ export const createSubCategory = createAsyncThunk(
   async (newSubCategory) => {
     const response = await axios.post(
       `${BASE_URL}/subCategory/create`,
-      newSubCategory
+      newSubCategory,
+      { headers: authHeader() }
     );
     return response.data.subCategory;
   }
@@ -27,7 +35,8 @@ export const updateSubCategory = createAsyncThunk(
   async ({ id, updatedData }) => {
     const response = await axios.put(
       `${BASE_URL}/subCategory/${id}`,
-      updatedData
+      updatedData,
+      { headers: authHeader() }
     );
     return response.data.data;
   }

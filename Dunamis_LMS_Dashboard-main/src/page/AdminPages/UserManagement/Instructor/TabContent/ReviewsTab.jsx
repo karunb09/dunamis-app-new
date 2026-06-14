@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Star } from "phosphor-react";
+import { PiStar } from "react-icons/pi";
 import { getFeedbackByTeacher } from "../../../../../redux/Feedback/FeedbackSlice";
 
 export default function ReviewsTab({ instructor }) {
@@ -35,7 +35,7 @@ export default function ReviewsTab({ instructor }) {
                             className="bg-white rounded-xl shadow-sm p-5 border hover:shadow-md transition"
                         >
                             <div className="flex items-center gap-2 mb-3">
-                                <Star className="text-yellow-500" />
+                                <PiStar className="text-yellow-500" />
                                 <span className="font-semibold">{review.instructorRating}/5</span>
                             </div>
 

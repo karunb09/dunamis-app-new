@@ -1,18 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { FaFilter, FaSearch, FaSortAmountDown } from "react-icons/fa";
-import { Clipboard } from "react-feather";
+import { FiClipboard } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { X } from "react-feather";
-import { useDispatch, useSelector } from "react-redux";
-import { getStudentsByType } from "../../../../redux/Student/StudentSlice";
+import { FiX } from "react-icons/fi";
+import { useStudentsByType } from "../../../../hooks/useStudents";
 import DataCards from "../../../../components/DataCards";
 import PersonCard from "../../../../components/cards/PersonCard";
 import SlideOver from "../../../../components/SlideOver";
 
 const EnrolledStudents = () => {
     const navigate = useNavigate();
-    const dispatch = useDispatch();
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
@@ -22,7 +20,7 @@ const EnrolledStudents = () => {
     const sortRef = useRef();
     const [slideOver, setSlideOver] = useState({ open: false, student: null });
 
-    const { studentsByType } = useSelector((state) => state.student);
+    const { data: studentsByType } = useStudentsByType();
 
     const SORT_OPTIONS = [
         { value: "name", label: "Name" },
@@ -32,10 +30,6 @@ const EnrolledStudents = () => {
     ];
 
     const allCategories = ["Music", "Dance", "Language"];
-
-    useEffect(() => {
-        dispatch(getStudentsByType());
-    }, [dispatch]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -320,7 +314,7 @@ ${courses || "No courses enrolled"}`;
                             onClick={() => setFilterOpen(false)}
                             className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X size={18} />
+                            <FiX size={18} />
                         </button>
                         <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
                         <h2 className="mt-1 text-lg font-bold text-slate-900">Filter students</h2>
@@ -407,7 +401,7 @@ ${courses || "No courses enrolled"}`;
                             menuItems={[
                                 {
                                     label: "Copy Details",
-                                    icon: <Clipboard size={14} />,
+                                    icon: <FiClipboard size={14} />,
                                     onClick: () => handleCopyDetails([row]),
                                 },
                             ]}

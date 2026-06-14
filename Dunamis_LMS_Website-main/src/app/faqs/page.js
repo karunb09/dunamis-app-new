@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HelpCircle } from "lucide-react";
+import { LuCircleHelp } from "react-icons/lu";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 
 const FAQPage = () => {
@@ -70,7 +70,7 @@ const FAQPage = () => {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
           >
-            <HelpCircle className="w-4 h-4" /> Get Answers
+            <LuCircleHelp className="w-4 h-4" /> Get Answers
           </motion.span>
 
           <motion.h1

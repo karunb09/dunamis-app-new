@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { MoreVertical } from "react-feather";
+import { FiMoreVertical } from "react-icons/fi";
 import { FaArrowRight } from "react-icons/fa";
 
 const getInitials = (name = "") =>
@@ -133,7 +133,7 @@ const PersonCard = ({
                                 }}
                                 className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
                             >
-                                <MoreVertical size={16} />
+                                <FiMoreVertical size={16} />
                             </button>
                             {menuOpen && (
                                 <div className="absolute bottom-full mb-1 right-0 z-40 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">

@@ -1,5 +1,6 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
 const app = express();
 
 app.set("trust proxy", 1);
@@ -11,8 +12,12 @@ const dotenv = require("dotenv");
 const fileUpload = require("express-fileupload");
 const path = require("path");
 const colors = require('colors')
+const { validateEnv } = require("./config/env");
+const { errorHandler, notFound } = require("./middleware/errorHandler");
 
 dotenv.config();
+// Fail fast on missing/weak secrets before anything else boots.
+validateEnv();
 
 const normalizeOrigin = (value) => value?.replace(/\/+$/, "");
 
@@ -121,6 +126,16 @@ require("./cronJobs/assignment.cron")
 require("./cronJobs/attendanceDigest.cron");
 require("./cronJobs/missedAttendanceReminder.cron");
 
+// Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
+// CSP belongs on the frontends) and CORP is set to cross-origin so the
+// frontends on other domains can still load images served from /uploads.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
 app.post(
   "/api/v1/enrollment/cashfree-webhook",
   webhookLimiter,
@@ -128,16 +143,22 @@ app.post(
   require("./controller/enrollmentController").handleCashfreeWebhook
 );
 
-app.use(express.json());
+// Cap JSON body size to blunt oversized-payload abuse (file uploads use the
+// separate express-fileupload pipeline below, not JSON).
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(cors(corsOptions));
 
+// Upload size cap. 300MB is very high for an LMS — kept as the default to avoid
+// breaking existing large uploads, but now tunable via MAX_UPLOAD_MB. Lower this
+// (e.g. 50) once you confirm the largest legitimate file size.
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB) || 300;
 app.use(
   fileUpload({
     useTempFiles: true,
     tempFileDir: "/tmp/",
     createParentPath: true,
-    limits: { fileSize: 300 * 1024 * 1024 }, // 300MB
+    limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
     abortOnLimit: true,
     responseOnLimit: "File size limit exceeded",
   })
@@ -176,6 +197,10 @@ app.get("/", (req, res) => {
     message: "your server is up and running...",
   });
 });
+
+// 404 for unmatched routes, then the central error handler (must be LAST).
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(PORT,()=>{
     console.log(`App is running at ${PORT}`.bgBlue);

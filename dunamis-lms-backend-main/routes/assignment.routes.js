@@ -9,6 +9,7 @@ router.put("/submit", isAuth, accessToRole(["student"]), submitAssignment);
 router.put("/review", isAuth, accessToRole(["teacher"]), reviewSubmission);
 router.get("/status", isAuth, accessToRole(["teacher"]), getAssignmentsByStatus);
 router.get("/student", isAuth, accessToRole(["student"]), getStudentAssignments);
-router.post("/manualAssignmentCycle", manualAssignmentCycle);
+// Manual trigger of the assignment cycle — admin/superadmin only.
+router.post("/manualAssignmentCycle", isAuth, accessToRole(["admin", "superadmin"]), manualAssignmentCycle);
 
 module.exports = router;

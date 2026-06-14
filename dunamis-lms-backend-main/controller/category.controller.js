@@ -1,10 +1,9 @@
 const Category = require("../model/category.model");
+const asyncHandler = require("../utils/asyncHandler");
 const SubCategory = require("../model/subCategory.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create Category
-exports.createCategory = async (req, res) => {
-  try {
+exports.createCategory = asyncHandler(async (req, res) => {
     const { name, icon, color, subcategories, status } = req.body;
     const existingSubCategory = await SubCategory.findById(subcategories);
     if (!existingSubCategory) {
@@ -23,29 +22,17 @@ exports.createCategory = async (req, res) => {
     res
       .status(201)
       .json({ message: "Category created successfully", category });
-  } catch (error) {
-    sendValidationError(res, error, "Server error");
-  }
-};
+});
 // Get Category
-exports.getAllCategories = async (req, res) => {
-  try {
+exports.getAllCategories = asyncHandler(async (req, res) => {
     const categories = await Category.find()
       .populate("subcategories")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, categories });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch categories",
-      error: error.message,
-    });
-  }
-};
+});
 // Update Category
-exports.updateCategory = async (req, res) => {
-  try {
+exports.updateCategory = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { subcategoryId, subcategories, ...updates } = req.body;
 
@@ -77,13 +64,9 @@ exports.updateCategory = async (req, res) => {
         : "Category updated",
       category: updatedCategory,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Update failed");
-  }
-};
+});
 // Delete Category
-exports.deleteCategory = async (req, res) => {
-  try {
+exports.deleteCategory = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const deletedCategory = await Category.findByIdAndDelete(id);
@@ -97,18 +80,10 @@ exports.deleteCategory = async (req, res) => {
     res
       .status(200)
       .json({ success: true, message: "Category deleted successfully" });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Deletion failed",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Create Category along with SubCategories
-exports.createCategoryWithSubCategories = async (req, res) => {
-  try {
+exports.createCategoryWithSubCategories = asyncHandler(async (req, res) => {
     const { name, icon, color, subcategories, status } = req.body;
 
     if (!name || !status) {
@@ -174,15 +149,4 @@ exports.createCategoryWithSubCategories = async (req, res) => {
       message: "Category and subcategories created successfully",
       category,
     });
-  } catch (error) {
-    console.error("Error creating category with subcategories:", {
-      message: error.message,
-      stack: error.stack,
-    });
-    sendValidationError(
-      res,
-      error,
-      "Server error occurred while creating category"
-    );
-  }
-};
+});

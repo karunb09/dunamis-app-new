@@ -3,7 +3,7 @@ import { FaSearch, FaFilter, FaSortAmountDown, FaPlus, FaMapMarkerAlt, FaTrash, 
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllBranches, deleteBranch } from "../../redux/Branch/branchSlice";
-import { X } from "phosphor-react";
+import { PiX } from "react-icons/pi";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
 import { Menu } from "@headlessui/react";
@@ -282,7 +282,7 @@ const OfflineCentersPage = () => {
                             onClick={() => setFilterOpen(false)}
                             className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
                         >
-                            <X size={24} />
+                            <PiX size={24} />
                         </button>
                         <h2 className="text-xl font-semibold mb-4">Filter Branches</h2>
 

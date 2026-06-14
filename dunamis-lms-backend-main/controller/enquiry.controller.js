@@ -1,8 +1,8 @@
 const Enquiry = require("../model/enquiry.model");
+const asyncHandler = require("../utils/asyncHandler");
 
 // 1. Create Enquiry (from website contact form)
-exports.createEnquiry = async (req, res) => {
-  try {
+exports.createEnquiry = asyncHandler(async (req, res) => {
     const name = req.body?.name?.trim();
     const email = req.body?.email?.trim().toLowerCase();
     const subject = req.body?.subject?.trim();
@@ -53,14 +53,10 @@ exports.createEnquiry = async (req, res) => {
       message: "Enquiry created successfully",
       enquiry,
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // 2. Get All Enquiries
-exports.getAllEnquiries = async (req, res) => {
-  try {
+exports.getAllEnquiries = asyncHandler(async (req, res) => {
     const enquiries = await Enquiry.find()
       .populate({
         path: "assignedTo",
@@ -72,14 +68,10 @@ exports.getAllEnquiries = async (req, res) => {
       })
       .sort({ createdAt: -1 });
     res.json({ success: true, enquiries });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // 3. Get Single Enquiry by ID
-exports.getEnquiryById = async (req, res) => {
-  try {
+exports.getEnquiryById = asyncHandler(async (req, res) => {
     const enquiry = await Enquiry.findById(req.params.id).populate({
       path: "assignedTo",
       select: "role userId",
@@ -92,14 +84,10 @@ exports.getEnquiryById = async (req, res) => {
         .json({ success: false, message: "Enquiry not found" });
 
     res.json({ success: true, enquiry });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // 4. Assign Enquiry (Super Admin assigns to Admin)
-exports.assignEnquiry = async (req, res) => {
-  try {
+exports.assignEnquiry = asyncHandler(async (req, res) => {
     const { adminId } = req.body;
 
     const enquiry = await Enquiry.findByIdAndUpdate(
@@ -118,14 +106,10 @@ exports.assignEnquiry = async (req, res) => {
         .json({ success: false, message: "Enquiry not found" });
 
     res.json({ success: true, enquiry });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // 5. Respond to Enquiry (Admin adds response + update status)
-exports.respondEnquiry = async (req, res) => {
-  try {
+exports.respondEnquiry = asyncHandler(async (req, res) => {
     const message = req.body?.message?.trim();
 
     if (!message) {
@@ -158,7 +142,4 @@ exports.respondEnquiry = async (req, res) => {
       message: "Enquiry responded successfully",
       enquiry,
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

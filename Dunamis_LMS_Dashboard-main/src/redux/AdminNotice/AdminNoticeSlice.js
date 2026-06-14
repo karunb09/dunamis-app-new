@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Async Thunks for Notice API
 
@@ -65,7 +72,8 @@ export const updateNotice = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/adminNotice/${noticeId}`,
-        noticeData
+        noticeData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -80,7 +88,8 @@ export const deleteNotice = createAsyncThunk(
   async (noticeId, thunkAPI) => {
     try {
       const response = await axios.delete(
-        `${BASE_URL}/adminNotice/${noticeId}`
+        `${BASE_URL}/adminNotice/${noticeId}`,
+        { headers: authHeader() }
       );
       return { id: noticeId };
     } catch (error) {
@@ -95,7 +104,9 @@ export const sendNotice = createAsyncThunk(
   async (noticeId, thunkAPI) => {
     try {
       const response = await axios.patch(
-        `${BASE_URL}/adminNotice/send/${noticeId}`
+        `${BASE_URL}/adminNotice/send/${noticeId}`,
+        null,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {

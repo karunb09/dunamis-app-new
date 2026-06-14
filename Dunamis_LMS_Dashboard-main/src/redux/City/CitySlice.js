@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Async Thunks for making API requests
 
@@ -10,7 +17,7 @@ export const createCity = createAsyncThunk(
   "city/createCity",
   async (cityData, thunkAPI) => {
     try {
-      const response = await axios.post(`${BASE_URL}/city/create`, cityData);
+      const response = await axios.post(`${BASE_URL}/city/create`, cityData, { headers: authHeader() });
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -62,7 +69,7 @@ export const updateCity = createAsyncThunk(
   "city/updateCity",
   async ({ cityId, cityData }, thunkAPI) => {
     try {
-      const response = await axios.put(`${BASE_URL}/city/${cityId}`, cityData);
+      const response = await axios.put(`${BASE_URL}/city/${cityId}`, cityData, { headers: authHeader() });
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -75,7 +82,7 @@ export const deleteCity = createAsyncThunk(
   "city/deleteCity",
   async (cityId, thunkAPI) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/city/${cityId}`);
+      const response = await axios.delete(`${BASE_URL}/city/${cityId}`, { headers: authHeader() });
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);

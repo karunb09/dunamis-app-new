@@ -1,10 +1,10 @@
 const fs = require("fs");
+const asyncHandler = require("../utils/asyncHandler");
 const path = require("path");
 
 const AdminNotice = require("../model/adminNotice.model");
 const SiteContent = require("../model/siteContent.model");
 const User = require("../model/user.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const allowedTypes = new Set(["faq", "testimonial", "successStory"]);
 const allowedStatuses = new Set(["draft", "published"]);
@@ -135,8 +135,7 @@ const buildFilter = (query = {}, publicOnly = false) => {
   return filter;
 };
 
-exports.getPublicContent = async (req, res) => {
-  try {
+exports.getPublicContent = asyncHandler(async (req, res) => {
     const filter = buildFilter(req.query, true);
 
     if (filter.type && !allowedTypes.has(filter.type)) {
@@ -151,15 +150,9 @@ exports.getPublicContent = async (req, res) => {
       .lean();
 
     res.status(200).json({ success: true, data: items });
-  } catch (error) {
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getAllContent = async (req, res) => {
-  try {
+exports.getAllContent = asyncHandler(async (req, res) => {
     const filter = buildFilter(req.query, false);
 
     if (filter.type && !allowedTypes.has(filter.type)) {
@@ -174,15 +167,9 @@ exports.getAllContent = async (req, res) => {
       .sort({ type: 1, sortOrder: 1, createdAt: -1 });
 
     res.status(200).json({ success: true, data: items });
-  } catch (error) {
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.createContent = async (req, res) => {
-  try {
+exports.createContent = asyncHandler(async (req, res) => {
     const payload = sanitizePayload(req.body);
     const uploadedImage = await saveImageUpload(req.files);
     if (uploadedImage) {
@@ -202,17 +189,9 @@ exports.createContent = async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: item });
-  } catch (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ success: false, message: error.message });
-    }
+});
 
-    sendValidationError(res, error, "Failed to create site content");
-  }
-};
-
-exports.updateContent = async (req, res) => {
-  try {
+exports.updateContent = asyncHandler(async (req, res) => {
     const payload = sanitizePayload(req.body);
     const uploadedImage = await saveImageUpload(req.files);
     if (uploadedImage) {
@@ -236,17 +215,9 @@ exports.updateContent = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: item });
-  } catch (error) {
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({ success: false, message: error.message });
-    }
+});
 
-    sendValidationError(res, error, "Failed to update site content");
-  }
-};
-
-exports.createStudentFeedbackReview = async (req, res) => {
-  try {
+exports.createStudentFeedbackReview = asyncHandler(async (req, res) => {
     const userId = req.user?.userId;
     const [user, ratingCourse, ratingInstructor] = await Promise.all([
       User.findById(userId).select("name email image").lean(),
@@ -300,15 +271,9 @@ exports.createStudentFeedbackReview = async (req, res) => {
     });
 
     res.status(201).json({ success: true, data: review });
-  } catch (error) {
-    res
-      .status(error.statusCode || 500)
-      .json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.deleteContent = async (req, res) => {
-  try {
+exports.deleteContent = asyncHandler(async (req, res) => {
     const item = await SiteContent.findByIdAndDelete(req.params.id);
 
     if (!item) {
@@ -316,7 +281,4 @@ exports.deleteContent = async (req, res) => {
     }
 
     res.status(200).json({ success: true, data: item });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

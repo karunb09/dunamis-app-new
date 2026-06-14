@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { FaCheckCircle, FaEdit, FaPlus, FaSearch, FaFilter, FaSortAmountDown, FaTrash, FaUserSlash } from 'react-icons/fa';
-import { Clipboard } from 'react-feather';
+import { FiClipboard } from "react-icons/fi";
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useDispatch, useSelector } from 'react-redux';
 import { deleteAdmin, fetchAdmins } from '../../../redux/Admin/AdminSlice';
 import Swal from 'sweetalert2';
 import { updateUser } from '../../../redux/User/UserSlice';
-import { X } from 'react-feather';
+import { FiX } from "react-icons/fi";
 import ActionProgressBar from '../../../components/ActionProgressBar';
 import { resolveImageUrl } from '../../../utils/resolveImageUrl';
 import DataCards from '../../../components/DataCards';
@@ -247,7 +247,7 @@ const AdminManageMentPage = () => {
                             onClick={() => setFilterOpen(false)}
                             className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X size={18} />
+                            <FiX size={18} />
                         </button>
                         <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
                         <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Admins</h2>

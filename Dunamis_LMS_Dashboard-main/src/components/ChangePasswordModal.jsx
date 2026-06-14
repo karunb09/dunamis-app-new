@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { changePassword, resetUserState } from "../redux/User/UserSlice";
 import toast from "react-hot-toast";
-import { X, LockKey } from "phosphor-react";
+import { PiXBold, PiLockKeyDuotone } from "react-icons/pi";
 
 const ChangePasswordModal = ({ isOpen, onClose }) => {
     const dispatch = useDispatch();
@@ -106,7 +106,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                 <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                     <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center">
-                            <LockKey className="text-gray-700 text-base" weight="duotone" />
+                            <PiLockKeyDuotone className="text-gray-700 text-base" />
                         </div>
                         <h2 className="text-base font-medium text-gray-900">Change Password</h2>
                     </div>
@@ -114,7 +114,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
                         onClick={handleClose}
                         className="text-gray-400 hover:text-gray-600 transition"
                     >
-                        <X size={20} weight="bold" />
+                        <PiXBold size={20} />
                     </button>
                 </div>
 

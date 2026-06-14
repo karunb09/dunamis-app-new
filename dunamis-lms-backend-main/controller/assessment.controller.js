@@ -1,9 +1,9 @@
 const Assessment = require("../model/assessment.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model")
 
-exports.submitAssessment = async (req, res) => {
-  try {
+exports.submitAssessment = asyncHandler(async (req, res) => {
     const { assessmentId } = req.params;
     const { homework, practice, speed, performance, trainerFeedback } =
       req.body;
@@ -74,18 +74,9 @@ exports.submitAssessment = async (req, res) => {
       message: "Assessment submitted successfully.",
       data: assessment,
     });
-  } catch (error) {
-    console.error("Error submitting assessment:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error while submitting assessment.",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.getTeacherAssessments = async (req, res) => {
-  try {
+exports.getTeacherAssessments = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
     const teacher = await Teacher.findOne({ userId }).select("_id name");
@@ -142,18 +133,9 @@ exports.getTeacherAssessments = async (req, res) => {
       message: "Teacher assessments fetched successfully.",
       data: grouped,
     });
-  } catch (error) {
-    console.error("Error fetching teacher assessments:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error fetching assessments.",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.getStudentAssessments = async (req, res) => {
-  try {
+exports.getStudentAssessments = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
     const student = await Student.findOne({ userId }).select("_id name");
@@ -204,23 +186,12 @@ exports.getStudentAssessments = async (req, res) => {
       count: formattedAssessments.length,
       data: formattedAssessments,
     });
-  } catch (error) {
-    console.error("Error fetching assessments:", error);
-    res.status(500).json({
-      success: false,
-      message: "Server error.",
-    });
-  }
-};
+});
 
-exports.getAllAssessments = async (req, res) => {
-  try {
+exports.getAllAssessments = asyncHandler(async (req, res) => {
     const data = await Assessment.find()
       .populate("studentId", "userId")
       .populate("courseId", "name")
       .populate("teacherId", "userId");
     res.status(200).json({ success: true, count: data.length, data });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

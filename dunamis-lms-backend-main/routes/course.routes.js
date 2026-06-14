@@ -10,9 +10,10 @@ const {
   deleteCourse,
 } = require("../controller/course.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
-// Public routes (no auth needed)
-router.get("/get", getAllCourses);
-router.get("/get/:id", getCourseById);
+const { publicCache } = require("../middleware/cacheControl");
+// Public routes (no auth needed) — cacheable, non-personalized reads
+router.get("/get", publicCache(), getAllCourses);
+router.get("/get/:id", publicCache(), getCourseById);
 
 // Admin routes
 router.get(

@@ -9,6 +9,10 @@ const AdminNotice = require("../model/adminNotice.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 const Teacher = require("../model/teacher.model");
 const TeacherDetail = require("../model/teacherApplication.model");
+const {
+  ACCESS_TOKEN_TTL_SECONDS,
+  ACCESS_TOKEN_TTL_MS,
+} = require("../config/auth");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -86,14 +90,14 @@ exports.login = async (req, res) => {
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: "30m",
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       });
 
       user.token = token;
       user.password = undefined;
 
       const options = {
-        expires: new Date(Date.now() + 30 * 60 * 1000),
+        expires: new Date(Date.now() + ACCESS_TOKEN_TTL_MS),
         ...authCookieOptions,
       };
 

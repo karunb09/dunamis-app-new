@@ -8,9 +8,11 @@ const {
   respondEnquiry,
 } = require("../controller/enquiry.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
+const validate = require("../middleware/validate");
+const { createEnquirySchema } = require("../validators/enquiry.validator");
 
 // Public - Website Contact Form
-router.post("/create", createEnquiry);
+router.post("/create", validate(createEnquirySchema), createEnquiry);
 
 // Admin/Super Admin
 router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllEnquiries);

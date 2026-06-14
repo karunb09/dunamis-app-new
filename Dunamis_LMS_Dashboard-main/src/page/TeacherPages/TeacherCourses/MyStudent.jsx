@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchTeacherById } from "../../../redux/Intructor/teacherSlice";
 import toast from "react-hot-toast";
 import StudentDetail from "./StudentDetail";
-import { Music } from "react-feather";
+import { FiMusic } from "react-icons/fi";
 import { HiMiniUserGroup, HiOutlineBars3 } from "react-icons/hi2";
 import { SlCalender } from "react-icons/sl";
 import { MdOutlineCheckBox, MdCheckBoxOutlineBlank, MdAccessTime, MdFilterList, MdOutlineGridView } from "react-icons/md";

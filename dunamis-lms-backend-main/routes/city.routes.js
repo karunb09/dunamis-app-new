@@ -11,7 +11,9 @@ const {
 } = require("../controller/city.controller");
 
 // Create City
-router.post("/create", createCity);
+const { isAuth, accessToRole } = require("../middleware/auth");
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+router.post("/create", ...adminOnly, createCity);
 
 // Get all cities
 router.get("/get-all-cities", getAllCities);
@@ -23,9 +25,9 @@ router.get("/managers", getCityManagers);
 router.get("/:id", getCityById);
 
 // Update city
-router.put("/:id", updateCity);
+router.put("/:id", ...adminOnly, updateCity);
 
 // Delete city
-router.delete("/:id", deleteCity);
+router.delete("/:id", ...adminOnly, deleteCity);
 
 module.exports = router;

@@ -1,7 +1,14 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { getStoredToken } from "../../utils/authSession";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+// Admin-only mutations on the backend; send the bearer token.
+const authHeader = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 // Async Thunks for making API requests
 
@@ -10,7 +17,7 @@ export const createZone = createAsyncThunk(
   "zone/createZone",
   async (zoneData, thunkAPI) => {
     try {
-      const response = await axios.post(`${BASE_URL}/zone/create`, zoneData);
+      const response = await axios.post(`${BASE_URL}/zone/create`, zoneData, { headers: authHeader() });
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);
@@ -51,7 +58,8 @@ export const updateZone = createAsyncThunk(
     try {
       const response = await axios.put(
         `${BASE_URL}/zone/updatezone/${zoneId}`,
-        zoneData
+        zoneData,
+        { headers: authHeader() }
       );
       return response.data;
     } catch (error) {
@@ -65,7 +73,7 @@ export const deleteZone = createAsyncThunk(
   "zone/deleteZone",
   async (zoneId, thunkAPI) => {
     try {
-      const response = await axios.delete(`${BASE_URL}/zone/delete/${zoneId}`);
+      const response = await axios.delete(`${BASE_URL}/zone/delete/${zoneId}`, { headers: authHeader() });
       return response.data;
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response.data);

@@ -1,8 +1,7 @@
 import { useParams, useLocation } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useMemo, useState } from "react";
 import { FiBook, FiCheckCircle, FiAward } from "react-icons/fi";
-import { getStudentById } from "../../../../redux/Student/StudentSlice";
+import { useStudentById } from "../../../../hooks/useStudents";
 
 import CoursesTab from "./EnrolledStudentsDetailTabs/CourseTab";
 import AssessmentsTab from "./EnrolledStudentsDetailTabs/AssesmentTab";
@@ -14,7 +13,6 @@ import PaymentsTab from "./EnrolledStudentsDetailTabs/PaymentsTab";
 const StudentProfile = () => {
   const { id } = useParams();
   const location = useLocation();
-  const dispatch = useDispatch();
 
   const [activeTab, setActiveTab] = useState("Courses");
   const tabs = useMemo(
@@ -22,15 +20,9 @@ const StudentProfile = () => {
     []
   );
 
-  const { loading, error, currentStudent } = useSelector((state) => state.student);
+  const { data: currentStudent, isLoading: loading, error } = useStudentById(id);
   const studentFromState = location.state?.student;
   const student = currentStudent || studentFromState;
-
-  useEffect(() => {
-    if (id) {
-      dispatch(getStudentById(id));
-    }
-  }, [dispatch, id]);
 
   if (loading) {
     return <p className="p-6 text-gray-500">Loading student details...</p>;

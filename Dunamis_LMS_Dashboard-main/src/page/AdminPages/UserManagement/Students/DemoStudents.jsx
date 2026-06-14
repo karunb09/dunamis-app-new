@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FaSearch, FaFilter, FaSortAmountDown } from "react-icons/fa";
-import { X } from "react-feather";
+import { FiX } from "react-icons/fi";
 import { getAllBookings, updateBookingStatus } from "../../../../redux/DemoBooking/DemoBookingSlice";
 import DataCards from "../../../../components/DataCards";
 import PersonCard from "../../../../components/cards/PersonCard";
@@ -224,7 +224,7 @@ Slot: ${getBookingSlotLabel(s)}`.trim();
                             onClick={() => setFilterOpen(false)}
                             className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <X size={18} />
+                            <FiX size={18} />
                         </button>
                         <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
                         <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Demo Requests</h2>
