@@ -5,8 +5,7 @@ import CoursePricingForm from "./CourseForms/CoursePricingForm";
 import CourseContentForm from "./CourseForms/CourseContentForm";
 import CourseMediaForm from "./CourseForms/CourseMediaForm";
 import { useNavigate, useParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { createCourse, updateCourse, getCourseDetails } from "../../redux/Course/CourseSlice";
+import { useCourseDetailsQuery, useCreateCourse, useUpdateCourse } from "../../hooks/useCourses";
 import toast from "react-hot-toast";
 
 const AddCoursePage = () => {
@@ -15,10 +14,12 @@ const AddCoursePage = () => {
 
     const { courseId } = useParams();
     const navigate = useNavigate();
-    const dispatch = useDispatch();
 
-    const passedCourseData = useSelector((state) => state.course.course.info);
-    const status = useSelector((state) => state.course.status);
+    const createCourseMutation = useCreateCourse();
+    const updateCourseMutation = useUpdateCourse();
+    // Edit mode loads the course detail from the query cache (replaces the slice).
+    const { data: passedCourseData = {} } = useCourseDetailsQuery(courseId);
+    const isSubmitting = createCourseMutation.isPending || updateCourseMutation.isPending;
 
     const formatDateForInput = (isoDate) => {
         if (!isoDate) return "";
@@ -67,13 +68,10 @@ const AddCoursePage = () => {
     });
 
     useEffect(() => {
-        if (courseId) {
-            dispatch(getCourseDetails(courseId));
-        }
         return () => {
             localStorage.removeItem("selectedCourseId");
         };
-    }, [courseId, dispatch]);
+    }, []);
 
     useEffect(() => {
         if (passedCourseData && Object.keys(passedCourseData).length > 0) {
@@ -326,28 +324,21 @@ const AddCoursePage = () => {
             formData.append("removeImage", "true");
         }
 
-        let resultAction;
-
-        if (courseId) {
-            formData.append("_id", courseId);
-            resultAction = await dispatch(updateCourse({ courseId, updates: formData }));
-        } else {
-            resultAction = await dispatch(createCourse(formData));
-        }
-
-        if (
-            (courseId && updateCourse.fulfilled.match(resultAction)) ||
-            (!courseId && createCourse.fulfilled.match(resultAction))
-        ) {
+        try {
+            if (courseId) {
+                formData.append("_id", courseId);
+                await updateCourseMutation.mutateAsync({ courseId, updates: formData });
+            } else {
+                await createCourseMutation.mutateAsync(formData);
+            }
             localStorage.setItem(
                 "activeTab",
                 isPublished ? "Active Courses" : "Draft Courses"
             );
             toast.success(isPublished ? "Course saved successfully" : "Course draft saved successfully");
             navigate("/admin/course-management");
-        } else {
-            const errorMsg = resultAction?.payload?.message || "Course save failed.";
-            toast.error(errorMsg);
+        } catch (err) {
+            toast.error(err?.message || "Course save failed.");
         }
     };
 
@@ -450,11 +441,11 @@ const AddCoursePage = () => {
                     ) : (
                         <button
                             onClick={handleSubmit}
-                            disabled={status === "loading"}
-                            className={`px-4 py-2 rounded-2xl text-white ${status === "loading" ? "bg-gray-300 cursor-not-allowed" : "bg-black hover:bg-gray-900"
+                            disabled={isSubmitting}
+                            className={`px-4 py-2 rounded-2xl text-white ${isSubmitting ? "bg-gray-300 cursor-not-allowed" : "bg-black hover:bg-gray-900"
                                 }`}
                         >
-                            {status === "loading" ? "Submitting..." : "Submit Course"}
+                            {isSubmitting ? "Submitting..." : "Submit Course"}
                         </button>
                     )}
                 </div>

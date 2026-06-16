@@ -1,4 +1,5 @@
 const User = require("../model/user.model");
+const asyncHandler = require("../utils/asyncHandler");
 const OTP = require("../model/otp.model");
 const otpTemplate = require("../mail/emailVerification");
 const mailSender = require("../utils/mailSender");
@@ -8,11 +9,9 @@ const welcomeEmailTemplate = require("../mail/welcomeEmail");
 const Student = require("../model/student.model");
 const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Send OTP
-exports.sendOTP = async (req, res) => {
-  try {
+exports.sendOTP = asyncHandler(async (req, res) => {
     //fetch email from request body
     const { email } = req.body;
     console.log(email);
@@ -68,17 +67,9 @@ exports.sendOTP = async (req, res) => {
       message: `OTP sent successfully`,
       otp,
     });
-  } catch (error) {
-    console.log("error in otp generation:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});
 // Create Student
-exports.createStudent = async (req, res) => {
-  try {
+exports.createStudent = asyncHandler(async (req, res) => {
     const {
       name: { firstName, lastName } = {},
       mobileNo,
@@ -190,14 +181,9 @@ exports.createStudent = async (req, res) => {
       user,
       student: studentDoc,
     });
-  } catch (error) {
-    console.error("error while creating Student", error);
-    return sendValidationError(res, error, "Failed to create student");
-  }
-};
+});
 // Get all Stud.
-exports.getAllStudents = async (req, res) => {
-  try {
+exports.getAllStudents = asyncHandler(async (req, res) => {
     const students = await Student.find()
       .populate("userId", "-password")
       // .populate("assignment")
@@ -210,17 +196,9 @@ exports.getAllStudents = async (req, res) => {
       message: "All students fetched successfully",
       students,
     });
-  } catch (error) {
-    console.error("Error fetching students:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});
 // Get by id
-exports.getStudentById = async (req, res) => {
-  try {
+exports.getStudentById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findById(id)
@@ -304,17 +282,9 @@ exports.getStudentById = async (req, res) => {
       message: "Student fetched successfully",
       student: studentData,
     });
-  } catch (error) {
-    console.error("Error fetching student:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});
 // Update Stud.
-exports.updateStudent = async (req, res) => {
-  try {
+exports.updateStudent = asyncHandler(async (req, res) => {
     const { id } = req.params;
     // const { assignment, course, demoCourse, mode, branch } = req.body;
     const {
@@ -397,17 +367,9 @@ exports.updateStudent = async (req, res) => {
       message: "Student updated successfully",
       student: updatedStudent,
     });
-  } catch (error) {
-    console.error("Error updating student:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});
 // DeleteStud.
-exports.deleteStudent = async (req, res) => {
-  try {
+exports.deleteStudent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findById(id);
@@ -428,17 +390,9 @@ exports.deleteStudent = async (req, res) => {
       success: true,
       message: "Student and linked user deleted successfully",
     });
-  } catch (error) {
-    console.error("Error deleting student:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});
 // Get by type
-exports.getStudentsByType = async (req, res) => {
-  try {
+exports.getStudentsByType = asyncHandler(async (req, res) => {
     const allStudents = await Student.find()
       .populate({
         path: "userId",
@@ -487,18 +441,9 @@ exports.getStudentsByType = async (req, res) => {
       enrolled,
       demo,
     });
-  } catch (error) {
-    console.error("Error fetching students:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch students",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.searchStudents = async (req, res) => {
-  try {
+exports.searchStudents = asyncHandler(async (req, res) => {
     const q = String(req.query.q || "").trim();
     if (!q) {
       return res.status(400).json({ success: false, message: "Query parameter 'q' is required" });
@@ -540,12 +485,4 @@ exports.searchStudents = async (req, res) => {
     }));
 
     return res.status(200).json({ success: true, students: results });
-  } catch (error) {
-    console.error("Error searching students:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to search students",
-      error: error.message,
-    });
-  }
-};
+});

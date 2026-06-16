@@ -11,6 +11,12 @@ const {
   searchStudents,
 } = require("../controller/student.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
+const validate = require("../middleware/validate");
+const { idParam } = require("../validators/common");
+const {
+  sendOtpSchema,
+  createStudentSchema,
+} = require("../validators/student.validator");
 
 const canAccessStudentRecord = (req, res, next) => {
   const accountType = req.user?.accountType;
@@ -30,9 +36,9 @@ const canAccessStudentRecord = (req, res, next) => {
 };
 
 // send otp
-router.post("/send-otp", sendOTP);
+router.post("/send-otp", validate(sendOtpSchema), sendOTP);
 // create stud.
-router.post("/create", createStudent);
+router.post("/create", validate(createStudentSchema), createStudent);
 // get all stud.
 router.get("/get-all", isAuth, accessToRole(["admin", "superadmin"]), getAllStudents);
 // get by type
@@ -40,10 +46,10 @@ router.get("/get-by-type", isAuth, accessToRole(["admin", "superadmin"]), getStu
 // search by name / email / phone (admin only)
 router.get("/search", isAuth, accessToRole(["admin", "superadmin"]), searchStudents);
 // get by id
-router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), canAccessStudentRecord, getStudentById);
+router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, getStudentById);
 // update
-router.put("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), canAccessStudentRecord, updateStudent);
+router.put("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, updateStudent);
 // delete
-router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), deleteStudent);
+router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), deleteStudent);
 
 module.exports = router;

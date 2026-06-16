@@ -2,30 +2,30 @@
 
 import MultiStepForm from "@/components/BecomeTeacherForm/BecomeTeacherForm";
 import { motion, AnimatePresence } from "framer-motion";
-import { CheckCircle, Heart, Clock, Users, Award, GraduationCap } from "lucide-react";
+import { LuCircleCheck, LuHeart, LuClock, LuUsers, LuAward, LuGraduationCap } from "react-icons/lu";
 import { useEffect, useState } from "react";
 
 const WHY_TEACH = [
   {
-    icon: Heart,
+    icon: LuHeart,
     label: "Make a Difference",
     body: "Impact lives by sharing your passion and helping students discover their creative potential.",
     color: "#FF6B35",
   },
   {
-    icon: Clock,
+    icon: LuClock,
     label: "Flexible Schedule",
     body: "Choose your own hours and teach according to your availability with both online and offline options.",
     color: "#47c9c4",
   },
   {
-    icon: Users,
+    icon: LuUsers,
     label: "Supportive Community",
     body: "Join a network of passionate educators and be part of a collaborative teaching environment.",
     color: "#a855f7",
   },
   {
-    icon: Award,
+    icon: LuAward,
     label: "Professional Growth",
     body: "Access continuous training, workshops, and opportunities for career advancement.",
     color: "#22c55e",
@@ -80,7 +80,7 @@ export default function BecomeTeacher() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
           >
-            <GraduationCap className="w-4 h-4" /> Join Our Team
+            <LuGraduationCap className="w-4 h-4" /> Join Our Team
           </motion.span>
 
           <motion.h1
@@ -183,7 +183,7 @@ export default function BecomeTeacher() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.07 }}
               >
-                <CheckCircle className="w-5 h-5 text-orange-500 mt-0.5 shrink-0" />
+                <LuCircleCheck className="w-5 h-5 text-orange-500 mt-0.5 shrink-0" />
                 <p className="text-sm text-gray-700 leading-relaxed">{req}</p>
               </motion.div>
             ))}

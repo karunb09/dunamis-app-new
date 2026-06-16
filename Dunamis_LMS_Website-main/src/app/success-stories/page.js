@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Sparkles, Play } from "lucide-react";
+import { LuSparkles, LuPlay } from "react-icons/lu";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
@@ -63,7 +63,7 @@ export default function SuccessStories() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
           >
-            <Sparkles className="w-4 h-4" /> Celebrating Journeys
+            <LuSparkles className="w-4 h-4" /> Celebrating Journeys
           </motion.span>
 
           <motion.h1
@@ -105,7 +105,7 @@ export default function SuccessStories() {
 
         {!loading && !error && stories.length === 0 && (
           <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-            <Sparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <LuSparkles className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-900">Stories are being updated</h3>
             <p className="mt-2 text-gray-500">Published stories will appear here once added.</p>
           </div>
@@ -146,7 +146,7 @@ export default function SuccessStories() {
                         aria-label="Watch on YouTube"
                       >
                         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600/90 backdrop-blur-sm border-2 border-white/30 shadow-lg transition-transform group-hover:scale-110">
-                          <Play className="w-6 h-6 text-white fill-white ml-1" />
+                          <LuPlay className="w-6 h-6 text-white fill-white ml-1" />
                         </div>
                       </a>
                     )}
@@ -166,7 +166,7 @@ export default function SuccessStories() {
                         rel="noreferrer"
                         className="mb-3 inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:underline"
                       >
-                        <Play className="w-3.5 h-3.5 fill-red-600" /> Watch on YouTube
+                        <LuPlay className="w-3.5 h-3.5 fill-red-600" /> Watch on YouTube
                       </a>
                     )}
                     <p className="flex-1 text-sm text-gray-600 leading-relaxed line-clamp-4">

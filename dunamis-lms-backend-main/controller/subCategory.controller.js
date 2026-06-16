@@ -1,9 +1,8 @@
 const SubCategory = require("../model/subCategory.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
+const asyncHandler = require("../utils/asyncHandler");
 
 // Create SubCategory
-exports.createSubCategory = async (req, res) => {
-  try {
+exports.createSubCategory = asyncHandler(async (req, res) => {
     const { name, description } = req.body;
 
     const existingSubCategory = await SubCategory.findOne({ name });
@@ -22,28 +21,16 @@ exports.createSubCategory = async (req, res) => {
       message: "SubCategory created successfully",
       subCategory: newSubCategory,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Error creating subcategory");
-  }
-};
+});
 
 // Get All SubCategory
-exports.getAllSubCategories = async (req, res) => {
-  try {
+exports.getAllSubCategories = asyncHandler(async (req, res) => {
     const subCategories = await SubCategory.find();
     res.status(200).json({ success: true, subCategories });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching subcategories",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get SubCategory By ID
-exports.getSubCategoryById = async (req, res) => {
-  try {
+exports.getSubCategoryById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const subCategory = await SubCategory.findById(id);
 
@@ -54,18 +41,10 @@ exports.getSubCategoryById = async (req, res) => {
     }
 
     res.status(200).json({ success: true, subCategory });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching subcategory",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Update SubCategory
-exports.updateSubCategory = async (req, res) => {
-  try {
+exports.updateSubCategory = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
@@ -86,14 +65,10 @@ exports.updateSubCategory = async (req, res) => {
       message: "SubCategory updated successfully",
       subCategory,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Error updating subcategory");
-  }
-};
+});
 
 // Delete SubCategory
-exports.deleteSubCategory = async (req, res) => {
-  try {
+exports.deleteSubCategory = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const subCategory = await SubCategory.findByIdAndDelete(id);
@@ -107,11 +82,4 @@ exports.deleteSubCategory = async (req, res) => {
     res
       .status(200)
       .json({ success: true, message: "SubCategory deleted successfully" });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting subcategory",
-      error: error.message,
-    });
-  }
-};
+});

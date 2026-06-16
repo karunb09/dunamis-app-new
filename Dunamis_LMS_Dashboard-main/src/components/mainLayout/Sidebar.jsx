@@ -88,6 +88,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           permission: "courseManagement",
         },
         {
+          to: "/admin/course-requests",
+          icon: <FiClipboard />,
+          text: "Course Requests",
+          permission: "courseManagement",
+        },
+        {
           to: "/admin/content-management",
           icon: <FiFileText />,
           text: "Content Management",

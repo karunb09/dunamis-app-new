@@ -176,6 +176,29 @@ const courseSchema = new mongoose.Schema(
       default: false,
     },
     price: [priceSchema],
+    teacherMedia: [
+      {
+        teacher: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "teacher",
+          required: true,
+        },
+        demoVideos: [
+          {
+            filePath: { type: String },
+            uploadedAt: { type: Date, default: Date.now },
+            isActive: { type: Boolean, default: false },
+          },
+        ],
+        certificates: [
+          {
+            filePath: { type: String },
+            uploadedAt: { type: Date, default: Date.now },
+            isActive: { type: Boolean, default: true },
+          },
+        ],
+      },
+    ],
   },
   { timestamps: true }
 );

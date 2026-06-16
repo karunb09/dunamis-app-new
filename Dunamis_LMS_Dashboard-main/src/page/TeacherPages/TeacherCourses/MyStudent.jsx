@@ -3,15 +3,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchTeacherById } from "../../../redux/Intructor/teacherSlice";
 import toast from "react-hot-toast";
 import StudentDetail from "./StudentDetail";
-import { Music } from "react-feather";
-import { HiMiniUserGroup, HiOutlineBars3 } from "react-icons/hi2";
-import { SlCalender } from "react-icons/sl";
-import { MdOutlineCheckBox, MdCheckBoxOutlineBlank, MdAccessTime, MdFilterList, MdOutlineGridView } from "react-icons/md";
-import { LuArrowDownUp } from "react-icons/lu";
-import { IoSearch } from "react-icons/io5";
-import { RxCross2 } from "react-icons/rx";
-import { FaArrowDown } from "react-icons/fa6";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
+import { FiGrid, FiList, FiSearch, FiX } from "react-icons/fi";
+import { HiMiniUserGroup } from "react-icons/hi2";
+import { MdAccessTime } from "react-icons/md";
 
 const MyStudent = () => {
   const dispatch = useDispatch();
@@ -25,15 +20,10 @@ const MyStudent = () => {
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     const teacherId = user?.roleId;
-
     if (teacherId) {
       dispatch(fetchTeacherById(teacherId))
         .unwrap()
-        .catch((err) => {
-          const errorMessage =
-            typeof err === "string" ? err : err?.message || "Failed to load student data";
-          toast.error(errorMessage);
-        });
+        .catch((err) => toast.error(typeof err === "string" ? err : err?.message || "Failed to load students"));
     } else {
       toast.error("Teacher ID not found");
     }
@@ -43,68 +33,41 @@ const MyStudent = () => {
   const apiStudents = teacherData?.students || [];
   const courses = teacherData?.courses || [];
 
-  const getCourseIcon = (category) => {
-    return <DynamicCourseIcon category={category} />;
-  };
-
-  const students = apiStudents.map((student, index) => {
-    const studentName = `${student.name?.firstName || ""} ${student.name?.lastName || ""}`.trim() || `Student ${index + 1}`;
-
-    const enrolledCourse = student.courses?.[0];
-    const courseDetails = courses.find(c => c._id === enrolledCourse?.id || c._id === enrolledCourse?._id);
-    const courseName = courseDetails?.name || enrolledCourse?.name || "No Course Assigned";
-    const courseCategory = courseDetails?.category;
-
-    const classType = courseDetails?.mode === "individual" ? "Individual Class" :
-      courseDetails?.mode === "group" ? "Group Class" :
-        enrolledCourse?.type || "Group Class";
-
-    const progress = student.progress || 0;
-    const completion = student.completion || 0;
-
-    const currentModule = student.currentModule || 0;
+  const students = apiStudents.map((s, i) => {
+    const name = `${s.name?.firstName || ""} ${s.name?.lastName || ""}`.trim() || `Student ${i + 1}`;
+    const enrolled = s.courses?.[0];
+    const courseDetails = courses.find((c) => c._id === enrolled?.id || c._id === enrolled?._id);
+    const courseName = courseDetails?.name || enrolled?.name || "No Course Assigned";
+    const category = courseDetails?.category;
     const totalModules = courseDetails?.content?.[0]?.modules?.length || 0;
-    const moduleText = totalModules > 0 ? `Module ${currentModule} of ${totalModules}` : "No modules";
-
-    const schedule = student.schedule || enrolledCourse?.schedule || "Schedule not set";
+    const currentModule = s.currentModule || 0;
 
     return {
-      id: student.id || student._id || `student-${index}`,
-      name: studentName,
+      id: s.id || s._id || `s-${i}`,
+      name,
       subject: courseName,
-      category: courseCategory,
-      icon: getCourseIcon(courseCategory),
-      type: classType,
-      progress: progress,
-      completion: completion,
-      module: moduleText,
-      time: schedule,
-      avatar: student.studentDetails?.profilePicture
-        ? `${import.meta.env.VITE_IMAGE}${student.studentDetails.profilePicture}`
-        : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(studentName)}`,
-      examPreparation: student.examPreparation || false,
-      weeksUntilExam: student.weeksUntilExam || null,
+      category,
+      type: courseDetails?.mode === "individual" ? "Individual" : "Group",
+      progress: s.progress || 0,
+      completion: s.completion || 0,
+      module: totalModules > 0 ? `Module ${currentModule} of ${totalModules}` : "No modules",
+      time: s.schedule || enrolled?.schedule || "Schedule not set",
+      avatar: s.studentDetails?.profilePicture
+        ? `${import.meta.env.VITE_IMAGE}${s.studentDetails.profilePicture}`
+        : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
+      examPreparation: s.examPreparation || false,
+      weeksUntilExam: s.weeksUntilExam || null,
     };
   });
 
-  const examStudents = students.filter(s => s.examPreparation && s.weeksUntilExam);
+  const examStudents = students.filter((s) => s.examPreparation && s.weeksUntilExam);
+  const uniqueCategories = [...new Set(students.map((s) => s.category?.name).filter(Boolean))];
 
-  const uniqueCategories = [...new Set(students.map(s => s.category?.name).filter(Boolean))];
-
-  const filteredStudents = students.filter((student) => {
-    const matchesSearch =
-      student.name.toLowerCase().includes(search.toLowerCase()) ||
-      student.subject.toLowerCase().includes(search.toLowerCase());
-
-    const matchesFilters = activeFilters.length === 0 ||
-      activeFilters.some(filter => student.category?.name === filter);
-
-    return matchesSearch && matchesFilters;
+  const filteredStudents = students.filter((s) => {
+    const matchSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.subject.toLowerCase().includes(search.toLowerCase());
+    const matchFilter = activeFilters.length === 0 || activeFilters.includes(s.category?.name);
+    return matchSearch && matchFilter;
   });
-
-  const removeFilter = (filter) => {
-    setActiveFilters(prev => prev.filter(f => f !== filter));
-  };
 
   const handleStudentClick = (student) => {
     localStorage.setItem("selectedStudentId", student.id);
@@ -113,10 +76,10 @@ const MyStudent = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-2 min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[300px] items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading students...</p>
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-slate-900" />
+          <p className="mt-4 text-sm text-slate-500">Loading students…</p>
         </div>
       </div>
     );
@@ -124,16 +87,12 @@ const MyStudent = () => {
 
   if (error) {
     return (
-      <div className="container mx-auto p-2 min-h-screen flex items-center justify-center">
+      <div className="flex min-h-[300px] items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">Error: {error}</p>
+          <p className="text-sm text-rose-600">{error}</p>
           <button
-            onClick={() => {
-              const user = JSON.parse(localStorage.getItem("user"));
-              const teacherId = user?.roleId;
-              if (teacherId) dispatch(fetchTeacherById(teacherId));
-            }}
-            className="bg-gray-900 text-white px-4 py-2 rounded-full hover:bg-gray-800 transition"
+            onClick={() => { const u = JSON.parse(localStorage.getItem("user")); if (u?.roleId) dispatch(fetchTeacherById(u.roleId)); }}
+            className="mt-4 rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
           >
             Retry
           </button>
@@ -143,234 +102,207 @@ const MyStudent = () => {
   }
 
   return (
-    <div className="p-1">
+    <div className="min-h-screen bg-white p-2">
       {selectedStudent ? (
         <StudentDetail onBack={() => setSelectedStudent(null)} />
       ) : (
         <>
-          <div className="flex justify-between items-center mb-4">
-            <div className="relative w-1/3 min-w-[200px]">
-              <IoSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg" />
+          {/* Toolbar */}
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-xs">
+              <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search students..."
+                placeholder="Search students…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-200"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
               />
             </div>
-            <div className="flex gap-3 text-xl text-gray-700">
-              <span className="cursor-pointer hover:text-gray-900">
-                <HiOutlineBars3 />
-              </span>
-              <span className="cursor-pointer hover:text-gray-900">
-                <LuArrowDownUp />
-              </span>
+
+            <div className="flex items-center gap-2">
+              {/* Category filters */}
+              {uniqueCategories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveFilters((p) => p.includes(cat) ? p.filter((f) => f !== cat) : [...p, cat])}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    activeFilters.includes(cat)
+                      ? "border-orange-300 bg-orange-50 text-orange-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+
+              {/* View toggle */}
+              <div className="ml-2 flex rounded-2xl border border-slate-200 bg-white p-1">
+                <button
+                  onClick={() => setView("grid")}
+                  className={`rounded-xl p-1.5 transition ${view === "grid" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800"}`}
+                  title="Grid view"
+                >
+                  <FiGrid className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setView("list")}
+                  className={`rounded-xl p-1.5 transition ${view === "list" ? "bg-slate-900 text-white" : "text-slate-500 hover:text-slate-800"}`}
+                  title="List view"
+                >
+                  <FiList className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* Active filter chips */}
           {activeFilters.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {activeFilters.map((filter, idx) => (
-                <span key={idx} className="flex items-center mr-2 gap-1 px-2 py-1 text-[10px] sm:text-xs text-gray-700 border rounded-full bg-gray-50">
-                  <MdFilterList className="w-3 h-3" />
-                  <span className="hidden sm:inline">{filter}</span>
-                  <button
-                    onClick={() => removeFilter(filter)}
-                    className="ml-1 text-gray-500 hover:text-gray-700 text-xs"
-                  >
-                    <RxCross2 />
+            <div className="mb-4 flex flex-wrap gap-2">
+              {activeFilters.map((f) => (
+                <span key={f} className="flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700">
+                  {f}
+                  <button onClick={() => setActiveFilters((p) => p.filter((x) => x !== f))}>
+                    <FiX className="h-3 w-3" />
                   </button>
                 </span>
               ))}
             </div>
           )}
 
-          <div className="flex items-center justify-between mb-4 relative -top-10">
-            <div></div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setView("list")}
-                className={`px-3 py-1.5 border rounded-full flex items-center gap-1 text-[10px] sm:text-xs ${view === "list" ? "bg-gray-200 font-medium" : "hover:bg-gray-100"
-                  }`}
-              >
-                <HiOutlineBars3 className="w-4 h-4" />
-                <span className="hidden sm:inline">List View</span>
-              </button>
-              <button
-                onClick={() => setView("grid")}
-                className={`px-3 py-1.5 border rounded-full flex items-center gap-1 text-[10px] sm:text-xs ${view === "grid" ? "bg-gray-200 font-medium" : "hover:bg-gray-100"
-                  }`}
-              >
-                <MdOutlineGridView className="w-4 h-4" />
-                <span className="hidden sm:inline">Grid View</span>
-              </button>
-            </div>
-          </div>
-
           {students.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No students assigned yet</p>
-              <p className="text-gray-400 text-sm mt-2">Students will appear here once they enroll</p>
+            <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 py-16 text-center">
+              <p className="text-sm font-medium text-slate-700">No students assigned yet</p>
+              <p className="mt-1 text-sm text-slate-400">Students appear here once they enrol.</p>
             </div>
           ) : filteredStudents.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">No students found</p>
-              <p className="text-gray-400 text-sm mt-2">Try adjusting your search or filters</p>
+            <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 py-16 text-center">
+              <p className="text-sm font-medium text-slate-700">No students found</p>
+              <p className="mt-1 text-sm text-slate-400">Try adjusting your search or filters.</p>
+            </div>
+          ) : view === "grid" ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredStudents.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => handleStudentClick(s)}
+                  className="rounded-[24px] border border-slate-200 bg-white p-4 text-left transition hover:shadow-sm"
+                >
+                  <div className="mb-3 flex items-center gap-3">
+                    <img
+                      src={s.avatar}
+                      alt={s.name}
+                      className="h-11 w-11 rounded-full border border-slate-200 object-cover object-top"
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-900">{s.name}</p>
+                      <p className="truncate text-xs text-slate-500">{s.subject}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-3 flex flex-wrap gap-1.5">
+                    {s.category && (
+                      <span className="flex items-center gap-1 rounded-full border border-slate-200 bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-700">
+                        <DynamicCourseIcon category={s.category} />
+                        {s.category.name}
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                      <HiMiniUserGroup className="h-3 w-3" /> {s.type}
+                    </span>
+                  </div>
+
+                  {s.progress > 0 && (
+                    <div className="mb-2">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                        <div className="h-full rounded-full bg-[#FF6B35]" style={{ width: `${s.progress}%` }} />
+                      </div>
+                      <p className="mt-1 text-right text-[10px] text-slate-400">{s.progress}% progress</p>
+                    </div>
+                  )}
+
+                  <p className="truncate text-xs text-slate-500">{s.module}</p>
+                  <p className="mt-1 flex items-center gap-1 truncate text-xs text-slate-400">
+                    <MdAccessTime className="h-3.5 w-3.5 shrink-0" /> {s.time}
+                  </p>
+                </button>
+              ))}
             </div>
           ) : (
-            <>
-              {view === "grid" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative -top-8">
-                  {filteredStudents.map((student) => (
-                    <div
-                      key={student.id}
-                      onClick={() => handleStudentClick(student)}
-                      className="p-4 bg-white shadow-sm rounded-xl border hover:shadow-md transition cursor-pointer"
+            <div className="overflow-hidden rounded-[24px] border border-slate-200">
+              <table className="w-full text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Student</th>
+                    <th className="px-4 py-3 text-left">Course</th>
+                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Progress</th>
+                    <th className="px-4 py-3 text-left">Module</th>
+                    <th className="px-4 py-3 text-left">Schedule</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredStudents.map((s) => (
+                    <tr
+                      key={s.id}
+                      onClick={() => handleStudentClick(s)}
+                      className="cursor-pointer transition hover:bg-slate-50"
                     >
-                      <div className="flex items-center gap-2 mb-4">
-                        <img
-                          src={student.avatar}
-                          alt={student.name}
-                          className="w-12 h-12 rounded-full object-cover object-top"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h2 className="font-medium truncate">{student.name}</h2>
-                          <p className="text-xs text-gray-500 truncate">{student.subject}</p>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <img src={s.avatar} alt={s.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover object-top" />
+                          <span className="font-medium text-slate-800">{s.name}</span>
                         </div>
-                      </div>
-
-                      {student.category && (
-                        <button className="flex items-center gap-1 border rounded-full px-2 py-0.5 bg-cyan-50 mb-2 text-xs">
-                          <span className="text-black">{student.icon}</span>
-                          {student.category.name}
-                        </button>
-                      )}
-
-                      <div className="flex items-center gap-1 mb-2">
-                        <HiMiniUserGroup size={12} className="w-4 h-4" />
-                        <p className="text-xs text-gray-500">{student.type}</p>
-                      </div>
-
-                      {student.completion > 0 && (
-                        <div className="flex items-center justify-end gap-1">
-                          <MdOutlineCheckBox className="w-4 h-4" />
-                          <span className="text-xs text-gray-500">{student.completion}%</span>
+                      </td>
+                      <td className="max-w-[160px] truncate px-4 py-3 text-slate-600">{s.subject}</td>
+                      <td className="px-4 py-3">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{s.type}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-[#FF6B35]" style={{ width: `${s.progress}%` }} />
+                          </div>
+                          <span className="text-xs text-slate-500">{s.progress}%</span>
                         </div>
-                      )}
-
-                      {student.progress > 0 && (
-                        <div className="w-full bg-gray-200 rounded-full h-1 mt-2 mb-3">
-                          <div
-                            className="bg-black h-1 rounded-full"
-                            style={{ width: `${student.progress}%` }}
-                          />
-                        </div>
-                      )}
-
-                      <p className="flex items-center text-sm text-gray-600 gap-2">
-                        <MdCheckBoxOutlineBlank className="w-4 h-4" />
-                        {student.module}
-                      </p>
-
-                      <p className="flex items-center text-sm text-gray-400 gap-2">
-                        <SlCalender className="w-4 h-4" />
-                        {student.time}
-                      </p>
-                    </div>
+                      </td>
+                      <td className="max-w-[140px] truncate px-4 py-3 text-slate-600">{s.module}</td>
+                      <td className="max-w-[140px] truncate px-4 py-3 text-slate-500">{s.time}</td>
+                    </tr>
                   ))}
-                </div>
-              ) : (
-                <div className="overflow-x-auto bg-white shadow rounded-lg relative -top-8">
-                  <table className="w-full border-collapse text-[10px] sm:text-sm">
-                    <thead className="border-b text-gray-500">
-                      <tr>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Name</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Subject</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Category</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Type</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Progress</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Completion</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Module</th>
-                        <th className="px-2 py-1 sm:px-4 sm:py-2 text-left">Schedule</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStudents.map((student) => (
-                        <tr
-                          key={student.id}
-                          onClick={() => handleStudentClick(student)}
-                          className="border-t hover:bg-gray-50 cursor-pointer"
-                        >
-                          <td className="px-2 py-1 sm:px-4 sm:py-2">
-                            <div className="flex items-center gap-1 sm:gap-2">
-                              <img
-                                src={student.avatar}
-                                alt={student.name}
-                                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover object-top"
-                              />
-                              <span className="truncate">{student.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2 truncate">{student.subject}</td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2">
-                            {student.category?.name || "N/A"}
-                          </td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2">{student.type}</td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2">
-                            {student.progress > 0 ? `${student.progress}%` : "0%"}
-                          </td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2">
-                            {student.completion > 0 ? `${student.completion}%` : "0%"}
-                          </td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2 truncate">{student.module}</td>
-                          <td className="px-2 py-1 sm:px-4 sm:py-2 truncate">{student.time}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-              {examStudents.length > 0 && (
-                <div className="mt-10 p-4 bg-white shadow-sm rounded-xl border relative -top-10">
-                  <h2 className="font-semibold mb-6">Students Preparing for Exams</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {examStudents.map((exam) => (
-                      <div
-                        key={exam.id}
-                        className="flex flex-col justify-between p-4 bg-gray-50 rounded-xl shadow hover:shadow-md transition duration-200 cursor-pointer"
-                        onClick={() => handleStudentClick(exam)}
-                      >
-                        <div>
-                          <div className="flex items-center gap-3 mb-2">
-                            <img
-                              src={exam.avatar}
-                              alt={exam.name}
-                              className="w-12 h-12 rounded-full object-cover object-top"
-                            />
-                            <h3 className="font-medium">{exam.name}</h3>
-                          </div>
-                          {exam.category && (
-                            <button className="flex items-center gap-1 border rounded-full px-2 py-0.5 bg-cyan-50 mb-2 text-xs">
-                              <span className="text-black">{exam.icon}</span>
-                              {exam.category.name}
-                            </button>
-                          )}
-                          <div className="flex items-center justify-between text-sm text-gray-500 mt-1">
-                            <span className="truncate">{exam.subject}</span>
-                            <span className="flex items-center text-gray-400 text-xs gap-1 flex-shrink-0 ml-2">
-                              <MdAccessTime className="w-4 h-4" />
-                              {exam.weeksUntilExam} {exam.weeksUntilExam === 1 ? 'week' : 'weeks'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
+          {/* Exam prep section */}
+          {examStudents.length > 0 && (
+            <section className="mt-8">
+              <h2 className="mb-4 text-sm font-semibold text-slate-800">Preparing for Exams</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {examStudents.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => handleStudentClick(s)}
+                    className="rounded-[24px] border border-amber-100 bg-amber-50 p-4 text-left transition hover:shadow-sm"
+                  >
+                    <div className="mb-2 flex items-center gap-3">
+                      <img src={s.avatar} alt={s.name} className="h-10 w-10 rounded-full border border-slate-200 object-cover object-top" />
+                      <p className="font-semibold text-slate-900">{s.name}</p>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="truncate text-slate-600">{s.subject}</span>
+                      <span className="ml-2 flex shrink-0 items-center gap-1 text-xs font-medium text-amber-700">
+                        <MdAccessTime className="h-3.5 w-3.5" />
+                        {s.weeksUntilExam} {s.weeksUntilExam === 1 ? "week" : "weeks"}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
         </>
       )}

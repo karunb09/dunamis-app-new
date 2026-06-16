@@ -1,4 +1,5 @@
 const Remuneration = require("../model/remuneration.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Teacher = require("../model/teacher.model");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
@@ -6,8 +7,7 @@ const DemoBooking = require("../model/demoBooking.model");
 const { calculateHours } = require("../utils/remuneration");
 const { toWords } = require("number-to-words");
 
-exports.getRemunerationByTeacher = async (req, res) => {
-  try {
+exports.getRemunerationByTeacher = asyncHandler(async (req, res) => {
     const { teacherId } = req.params;
 
     if (!teacherId) {
@@ -34,18 +34,9 @@ exports.getRemunerationByTeacher = async (req, res) => {
       count: records.length,
       data: records,
     });
-  } catch (err) {
-    console.error("Error fetching remuneration:", err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: err.message,
-    });
-  }
-};
+});
 
-exports.getRemunerationById = async (req, res) => {
-  try {
+exports.getRemunerationById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     if (!id) {
@@ -71,18 +62,9 @@ exports.getRemunerationById = async (req, res) => {
       success: true,
       data: record,
     });
-  } catch (err) {
-    console.error("Error fetching remuneration by ID:", err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error.",
-      error: err.message,
-    });
-  }
-};
+});
 
-exports.autoGenerateRemuneration = async (req, res) => {
-  try {
+exports.autoGenerateRemuneration = asyncHandler(async (req, res) => {
     const { teacherId, month } = req.body;
     if (!teacherId || !month)
       return res.status(400).json({ message: "Teacher ID and month required" });
@@ -215,8 +197,4 @@ exports.autoGenerateRemuneration = async (req, res) => {
       message: "Remuneration generated successfully.",
       remuneration,
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
+});

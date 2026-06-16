@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Star, Quote, MessageCircle } from "lucide-react";
+import { LuStar, LuQuote, LuMessageCircle } from "react-icons/lu";
 import Link from "next/link";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
@@ -73,7 +73,7 @@ export default function Testimonials() {
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
           >
-            <MessageCircle className="w-4 h-4" /> Hear From Our Students
+            <LuMessageCircle className="w-4 h-4" /> Hear From Our Students
           </motion.span>
 
           <motion.h1
@@ -134,7 +134,7 @@ export default function Testimonials() {
 
         {!loading && !error && testimonials.length === 0 && (
           <div className="mx-auto max-w-2xl rounded-2xl border border-dashed border-gray-300 p-10 text-center">
-            <Quote className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+            <LuQuote className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-gray-900">Reviews are being updated</h3>
             <p className="mt-2 text-gray-500">Published reviews will appear here once added.</p>
           </div>
@@ -157,7 +157,7 @@ export default function Testimonials() {
                   {/* Stars */}
                   <div className="flex gap-0.5 mb-4">
                     {Array.from({ length: 5 }).map((_, idx) => (
-                      <Star
+                      <LuStar
                         key={idx}
                         className={`w-4 h-4 ${idx < rating ? "fill-orange-400 text-orange-400" : "text-gray-200"}`}
                       />
@@ -165,7 +165,7 @@ export default function Testimonials() {
                   </div>
 
                   {/* Quote mark */}
-                  <Quote className="w-7 h-7 text-orange-400/60 mb-3" />
+                  <LuQuote className="w-7 h-7 text-orange-400/60 mb-3" />
 
                   {/* Review body */}
                   <p className="flex-1 text-sm text-gray-600 leading-relaxed mb-6">

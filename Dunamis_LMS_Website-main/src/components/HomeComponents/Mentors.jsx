@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
 import { GoArrowUpRight } from "react-icons/go";
 import { IoMdStar } from "react-icons/io";
 import { fetchMentors } from "@/store/mentorSlice";
@@ -418,7 +418,7 @@ export default function Mentors() {
                                     whileTap={{ scale: 0.95 }}
                                     aria-label="Previous slide"
                                 >
-                                    <ChevronLeft className="w-5 h-5 text-white/70" />
+                                    <LuChevronLeft className="w-5 h-5 text-white/70" />
                                 </motion.button>
                                 <motion.button
                                     onClick={nextSlide}
@@ -428,7 +428,7 @@ export default function Mentors() {
                                     whileTap={{ scale: 0.95 }}
                                     aria-label="Next slide"
                                 >
-                                    <ChevronRight className="w-5 h-5 text-white/70" />
+                                    <LuChevronRight className="w-5 h-5 text-white/70" />
                                 </motion.button>
                             </>
                         )}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { PlayIcon } from "@heroicons/react/20/solid";
-import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/20/solid";
+import { HiPlay, HiChevronDown, HiChevronRight } from "react-icons/hi2";
+
 import { VscFileSubmodule } from "react-icons/vsc";
 import { GoFileDirectory } from "react-icons/go";
 import { MdOutlineTopic } from "react-icons/md";
@@ -28,7 +28,7 @@ const Curriculum = ({ modules = [] }) => {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Curriculum</h3>
         <button className="bg-gray-100 text-gray-600 px-4 py-1 rounded-full text-sm flex items-center hover:bg-gray-200 transition">
-          <PlayIcon className="w-4 h-4 mr-2 text-gray-400" />
+          <HiPlay className="w-4 h-4 mr-2 text-gray-400" />
           Watch Videos
         </button>
       </div>
@@ -49,9 +49,9 @@ const Curriculum = ({ modules = [] }) => {
               >
                 <span className="mr-2 text-gray-600">
                   {expandedModules.includes(mIndex) ? (
-                    <ChevronDownIcon className="w-6 h-6" />
+                    <HiChevronDown className="w-6 h-6" />
                   ) : (
-                    <ChevronRightIcon className="w-6 h-6" />
+                    <HiChevronRight className="w-6 h-6" />
                   )}
                 </span>
                 <span className="bg-yellow-100 text-gray-900 px-2 py-1 rounded mr-2">
@@ -74,9 +74,9 @@ const Curriculum = ({ modules = [] }) => {
                         >
                           <span className="mr-2 text-gray-600">
                             {expandedLessons.includes(`${mIndex}-${lIndex}`) ? (
-                              <ChevronDownIcon className="w-5 h-5" />
+                              <HiChevronDown className="w-5 h-5" />
                             ) : (
-                              <ChevronRightIcon className="w-5 h-5" />
+                              <HiChevronRight className="w-5 h-5" />
                             )}
                           </span>
                           <span className="bg-cyan-100 text-gray-900 px-2 py-1 rounded mr-2 text-sm">

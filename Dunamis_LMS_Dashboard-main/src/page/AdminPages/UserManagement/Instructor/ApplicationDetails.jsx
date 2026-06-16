@@ -7,8 +7,8 @@ import {
     updateApplicationStatus,
 } from "../../../../redux/Intructor/teacherApplication";
 import { toast } from "react-hot-toast";
-import { X } from "react-feather";
-import { FileDoc, FilePdf, FileVideo } from "phosphor-react";
+import { FiX } from "react-icons/fi";
+import { PiFileDoc, PiFilePdf, PiFileVideo } from "react-icons/pi";
 import { FaTrash } from "react-icons/fa";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
 import BackButton from "../../../../components/BackButton";
@@ -306,7 +306,7 @@ const ApplicationDetails = () => {
                                         }
                                         className="inline-flex items-center gap-2 rounded text-blue-600 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                     >
-                                        <FileDoc className="text-black text-2xl" />
+                                        <PiFileDoc className="text-black text-2xl" />
                                         <span>View Profile Picture</span>
                                     </button>
                                     <a
@@ -327,7 +327,7 @@ const ApplicationDetails = () => {
                         <div>
                             <label className="text-sm text-gray-600 block mb-1">Relevant Certificate</label>
                             <DocumentLink
-                                icon={<FileDoc className="text-black text-2xl" />}
+                                icon={<PiFileDoc className="text-black text-2xl" />}
                                 label="View Certificate"
                                 src={certificateUrl}
                                 onPreview={() =>
@@ -344,7 +344,7 @@ const ApplicationDetails = () => {
                         <div>
                             <label className="text-sm text-gray-600 block mb-1">CV</label>
                             <DocumentLink
-                                icon={<FilePdf className="text-black text-2xl" />}
+                                icon={<PiFilePdf className="text-black text-2xl" />}
                                 label="View CV"
                                 src={cvUrl}
                                 onPreview={() =>
@@ -361,7 +361,7 @@ const ApplicationDetails = () => {
                         <div>
                             <label className="text-sm text-gray-600 block mb-1">Profile Video</label>
                             <DocumentLink
-                                icon={<FileVideo className="text-black text-2xl" />}
+                                icon={<PiFileVideo className="text-black text-2xl" />}
                                 label="View Video"
                                 src={profileVideoUrl}
                                 onPreview={() =>
@@ -429,7 +429,7 @@ const ModalWrapper = ({ onClose, children, title }) => {
                     className="absolute top-3 right-3 text-gray-600 hover:text-gray-900 text-3xl font-bold"
                     aria-label="Close modal"
                 >
-                    <X />
+                    <FiX />
                 </button>
                 <h3
                     id="modal-title"

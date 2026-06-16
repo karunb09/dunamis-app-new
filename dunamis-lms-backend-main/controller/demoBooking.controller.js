@@ -1,4 +1,5 @@
 const DemoBooking = require("../model/demoBooking.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Category = require("../model/category.model");
@@ -208,8 +209,7 @@ const buildBookingDetails = async (bookingDoc, slot, student) => {
 };
 
 // Book a demo slot for either an authenticated student or a guest lead.
-exports.bookDemoSlot = async (req, res) => {
-  try {
+exports.bookDemoSlot = asyncHandler(async (req, res) => {
     const {
       slotId,
       courseId,
@@ -431,14 +431,10 @@ exports.bookDemoSlot = async (req, res) => {
       message: "Demo slot booked successfully",
       booking: bookingDetails,
     });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
+});
 
 // Get all bookings
-exports.getAllBookings = async (req, res) => {
-  try {
+exports.getAllBookings = asyncHandler(async (req, res) => {
     const {
       teacherId,
       demoStatus,
@@ -516,14 +512,10 @@ exports.getAllBookings = async (req, res) => {
       .sort({ createdAt: -1 });
 
     return res.status(200).json(bookings);
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
-  }
-};
+});
 
 // Update booking
-exports.updateBooking = async (req, res) => {
-  try {
+exports.updateBooking = asyncHandler(async (req, res) => {
     const { demoStatus, enrollmentStatus, followUp, response } = req.body;
 
     const booking = await DemoBooking.findById(req.params.id)
@@ -572,7 +564,4 @@ exports.updateBooking = async (req, res) => {
       message: "Booking updated successfully",
       booking: updatedBooking,
     });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
-  }
-};
+});

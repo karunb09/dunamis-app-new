@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { FaSearch, FaSortAmountDown, FaFilter } from "react-icons/fa";
-import { X } from "react-feather";
+import { FiX } from "react-icons/fi";
 import DataTable from "../../../../../components/Table";
 
 const SORT_OPTIONS = [
@@ -236,7 +236,7 @@ const PaymentsTab = ({ student }) => {
                             onClick={() => setFilterOpen(false)}
                             className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
                         >
-                            <X />
+                            <FiX />
                         </button>
                         <h2 className="text-xl font-semibold mb-4">Filter Payments</h2>
 

@@ -5,9 +5,8 @@ import { FiMoreHorizontal } from 'react-icons/fi';
 import { MdMusicNote, MdLanguage } from 'react-icons/md';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { useDispatch } from 'react-redux';
 import Swal from 'sweetalert2';
-import { getCourses, deleteCourse, updateCourse } from '../redux/Course/CourseSlice';
+import { useUpdateCourse, useDeleteCourse } from '../hooks/useCourses';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../utils/resolveImageUrl';
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/640x360?text=Course";
@@ -18,7 +17,8 @@ const categoryIcons = {
 };
 
 const CourseCard = ({ course }) => {
-    const dispatch = useDispatch();
+    const updateCourseMutation = useUpdateCourse();
+    const deleteCourseMutation = useDeleteCourse();
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
     const menuRef = useRef();
@@ -63,12 +63,11 @@ const CourseCard = ({ course }) => {
 
             case 'Publish':
                 try {
-                    await dispatch(updateCourse({
+                    await updateCourseMutation.mutateAsync({
                         courseId: _id,
                         updates: { isPublished: true },
-                    })).unwrap();
+                    });
                     toast.success('Course published.');
-                    dispatch(getCourses());
                 } catch (err) {
                     toast.error(`Failed to publish course: ${err.message || err}`);
                 }
@@ -76,12 +75,11 @@ const CourseCard = ({ course }) => {
 
             case 'Move to drafts':
                 try {
-                    await dispatch(updateCourse({
+                    await updateCourseMutation.mutateAsync({
                         courseId: _id,
                         updates: { isPublished: false },
-                    })).unwrap();
+                    });
                     toast.success('Course moved to drafts.');
-                    dispatch(getCourses());
                 } catch (err) {
                     toast.error(`Failed to move to drafts: ${err.message || err}`);
                 }
@@ -101,7 +99,7 @@ const CourseCard = ({ course }) => {
 
                 if (result.isConfirmed) {
                     try {
-                        await dispatch(deleteCourse(_id)).unwrap();
+                        await deleteCourseMutation.mutateAsync(_id);
                         toast.success('Course has been deleted.');
                     } catch (err) {
                         toast.error(`Failed to delete course: ${err.message || err}`);

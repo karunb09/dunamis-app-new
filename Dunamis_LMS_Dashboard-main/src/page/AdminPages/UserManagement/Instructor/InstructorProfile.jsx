@@ -12,6 +12,7 @@ import {
   FiStar,
   FiWifi,
   FiMoreHorizontal,
+  FiFileText,
 } from "react-icons/fi";
 import { FaMusic, FaLanguage, FaPersonBooth } from "react-icons/fa";
 import toast from "react-hot-toast";
@@ -26,6 +27,9 @@ import OrientationsTab from "./TabContent/Orientationstab";
 import RemunerationTab from "./TabContent/RemunerationTab";
 import { fetchTeacherById, updateTeacher } from "../../../../redux/Intructor/teacherSlice";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../../../utils/resolveImageUrl";
+import { getStoredToken } from "../../../../utils/authSession";
+
+const VITE_BASE_URL = import.meta.env.VITE_BASE_URL;
 
 const InstructorProfile = () => {
   const { instructorId } = useParams();
@@ -45,6 +49,9 @@ const InstructorProfile = () => {
   const [activeTab, setActiveTab] = useState("Courses");
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [instructorDocs, setInstructorDocs] = useState(null);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [courseDocs, setCourseDocs] = useState(null);
 
   useEffect(() => {
     if (instructorId) {
@@ -92,7 +99,26 @@ const InstructorProfile = () => {
     Language: { icon: <FaLanguage className="text-2xl" />, bg: "bg-green-100 text-green-700" },
   };
 
-  const tabs = ["Courses", "Schedule", "Students", "Reviews", "Orientations", "Remuneration", "Financial History"];
+  const tabs = ["Courses", "Schedule", "Students", "Reviews", "Orientations", "Remuneration", "Financial History", "Documents"];
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === "Documents" && !instructorDocs && !docsLoading) {
+      setDocsLoading(true);
+      const teacherId = selectedTeacher.id || selectedTeacher._id;
+      const headers = { Authorization: `Bearer ${getStoredToken()}` };
+      Promise.all([
+        fetch(`${VITE_BASE_URL}/teachers/${teacherId}/documents`, { headers, credentials: "include" }).then((r) => r.json()),
+        fetch(`${VITE_BASE_URL}/teachers/${teacherId}/course-media`, { headers, credentials: "include" }).then((r) => r.json()),
+      ])
+        .then(([docsData, courseData]) => {
+          if (docsData.success) setInstructorDocs(docsData.data);
+          if (courseData.success) setCourseDocs(courseData.data);
+        })
+        .catch(() => {})
+        .finally(() => setDocsLoading(false));
+    }
+  };
 
   const columns = [
     { key: "timeDate", header: "Time & Date" },
@@ -292,7 +318,7 @@ const InstructorProfile = () => {
           {tabs.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => handleTabChange(tab)}
               className={`pb-2 text-sm whitespace-nowrap ${activeTab === tab ? "border-b-2 border-black font-semibold" : "text-gray-500 hover:text-black"
                 }`}
             >
@@ -310,7 +336,152 @@ const InstructorProfile = () => {
         {activeTab === "Financial History" && (
           <DataTable columns={columns} data={filteredFinancialData} selectable={false} />
         )}
+        {activeTab === "Documents" && (
+          <DocumentsTab docs={instructorDocs} courseDocs={courseDocs} loading={docsLoading} />
+        )}
       </div>
+    </div>
+  );
+};
+
+const DOC_SECTIONS = [
+  { key: "certificates", label: "Certificates" },
+  { key: "profileVideos", label: "Profile Videos" },
+  { key: "profilePictures", label: "Profile Pictures" },
+];
+
+const DocumentsTab = ({ docs, courseDocs, loading }) => {
+  if (loading) return <p className="py-8 text-center text-sm text-slate-400">Loading documents…</p>;
+  if (!docs) return <p className="py-8 text-center text-sm text-slate-400">No documents found.</p>;
+
+  const { originalApplicationDocs } = docs;
+
+  return (
+    <div className="space-y-8 py-2">
+      {/* Original application documents */}
+      {originalApplicationDocs && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Original Application Documents</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              { label: "Certificate / CV", path: originalApplicationDocs.relevantCertificate },
+              { label: "Profile Video", path: originalApplicationDocs.profileVideo },
+              { label: "Profile Picture", path: originalApplicationDocs.profilePicture },
+            ].map(({ label, path }) => (
+              <div key={label} className="rounded-[16px] border border-slate-100 bg-slate-50 p-3">
+                <p className="text-xs font-semibold text-slate-600">{label}</p>
+                {path ? (
+                  <a
+                    href={resolveImageUrl(path)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-1.5 flex items-center gap-1.5 truncate text-xs text-orange-600 hover:underline"
+                  >
+                    <FiFileText size={11} />
+                    {path.split("/").pop()}
+                  </a>
+                ) : (
+                  <p className="mt-1.5 text-xs text-slate-400">Not provided</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Version history per document type */}
+      {DOC_SECTIONS.map(({ key, label }) => {
+        const history = docs[key] || [];
+        if (history.length === 0) return null;
+        return (
+          <div key={key}>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">{label} History</p>
+            <div className="overflow-hidden rounded-[16px] border border-slate-100">
+              {[...history].reverse().map((entry, i) => (
+                <div key={i} className={`flex items-center gap-3 px-4 py-3 text-sm ${i !== 0 ? "border-t border-slate-100" : ""}`}>
+                  {entry.isActive && (
+                    <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      Active
+                    </span>
+                  )}
+                  <a
+                    href={resolveImageUrl(entry.filePath)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 items-center gap-1.5 truncate text-slate-700 hover:text-orange-600 hover:underline"
+                  >
+                    <FiFileText size={12} className="shrink-0" />
+                    {entry.filePath.split("/").pop()}
+                  </a>
+                  <span className="ml-auto shrink-0 text-xs text-slate-400">
+                    {new Date(entry.uploadedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Per-course media */}
+      {courseDocs && courseDocs.length > 0 && (
+        <div>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Course Media</p>
+          <div className="space-y-4">
+            {courseDocs.map((course) => {
+              const activeVid = course.demoVideos?.find((v) => v.isActive);
+              return (
+                <div key={course.courseId} className="rounded-[16px] border border-slate-100 p-4">
+                  <p className="mb-3 text-sm font-semibold text-slate-800">{course.courseName}</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* Demo videos */}
+                    <div>
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Demo Videos</p>
+                      {course.demoVideos?.length > 0 ? (
+                        <ul className="space-y-1.5">
+                          {[...course.demoVideos].reverse().map((v, i) => (
+                            <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
+                              {v.isActive && (
+                                <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-200">Active</span>
+                              )}
+                              <a href={resolveImageUrl(v.filePath)} target="_blank" rel="noreferrer" className="min-w-0 truncate text-orange-600 hover:underline flex items-center gap-1">
+                                <FiFileText size={11} className="shrink-0" />
+                                {v.filePath?.split("/").pop()}
+                              </a>
+                              <span className="ml-auto shrink-0 text-slate-400">{new Date(v.uploadedAt).toLocaleDateString()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-400">No demo video uploaded</p>
+                      )}
+                    </div>
+                    {/* Certificates */}
+                    <div>
+                      <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Certificates</p>
+                      {course.certificates?.length > 0 ? (
+                        <ul className="space-y-1.5">
+                          {course.certificates.map((c, i) => (
+                            <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
+                              <a href={resolveImageUrl(c.filePath)} target="_blank" rel="noreferrer" className="min-w-0 truncate text-orange-600 hover:underline flex items-center gap-1">
+                                <FiFileText size={11} className="shrink-0" />
+                                {c.filePath?.split("/").pop()}
+                              </a>
+                              <span className="ml-auto shrink-0 text-slate-400">{new Date(c.uploadedAt).toLocaleDateString()}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-xs text-slate-400">No certificates uploaded</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

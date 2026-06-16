@@ -35,6 +35,7 @@ const {
   normalizePhone,
   createMerchantOrderId,
 } = require("../services/paymentService");
+const asyncHandler = require("../utils/asyncHandler");
 require("dotenv").config();
 
 const isStudentRequest = (req) => req.user?.accountType === "student";
@@ -383,8 +384,7 @@ exports.handleCashfreeWebhook = async (req, res) => {
   }
 };
 
-exports.getEnrolledCourses = async (req, res) => {
-  try {
+exports.getEnrolledCourses = asyncHandler(async (req, res) => {
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
     const userId = new mongoose.Types.ObjectId(req.user.userId);
@@ -418,18 +418,9 @@ exports.getEnrolledCourses = async (req, res) => {
       message: "Enrolled courses fetched successfully",
       courses,
     });
-  } catch (error) {
-    console.error("Error fetching enrolled courses:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch enrolled courses",
-      error: error.message,
-    });
-  }
-};
+});
 
-exports.getPaymentAccessStatus = async (req, res) => {
-  try {
+exports.getPaymentAccessStatus = asyncHandler(async (req, res) => {
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
     const userId = new mongoose.Types.ObjectId(req.user.userId);
@@ -446,15 +437,7 @@ exports.getPaymentAccessStatus = async (req, res) => {
       success: true,
       ...buildPaymentAccessStatus(student),
     });
-  } catch (error) {
-    console.error("Error fetching payment access status:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch payment access status",
-      error: error.message,
-    });
-  }
-};
+});
 
 exports.createNextInstallmentOrder = async (req, res) => {
   try {

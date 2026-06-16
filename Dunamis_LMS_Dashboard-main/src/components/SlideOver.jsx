@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { X } from "react-feather";
+import { FiX } from "react-icons/fi";
 
 const SlideOver = ({ open, onClose, children, footer }) => {
   useEffect(() => {
@@ -36,7 +36,7 @@ const SlideOver = ({ open, onClose, children, footer }) => {
           className="absolute right-4 top-4 z-10 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
           aria-label="Close"
         >
-          <X size={18} />
+          <FiX size={18} />
         </button>
         <div className="flex-1 overflow-y-auto">{children}</div>
         {footer && (

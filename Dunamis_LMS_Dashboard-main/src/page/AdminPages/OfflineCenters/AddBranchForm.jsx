@@ -11,7 +11,7 @@ import {
 import { getAllUsers } from "../../../redux/User/UserSlice";
 import { fetchTeachers } from "../../../redux/Intructor/teacherSlice";
 import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
-import { Upload } from "phosphor-react";
+import { PiUpload } from "react-icons/pi";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
@@ -666,7 +666,7 @@ const AddBranch = () => {
                             className="w-32 h-32 object-cover rounded-xl mb-2"
                         />
                     ) : (
-                        <Upload className="text-gray-600 text-4xl" />
+                        <PiUpload className="text-gray-600 text-4xl" />
                     )}
                     <input
                         type="file"

@@ -113,6 +113,27 @@ const teacherSchema = new mongoose.Schema(
         ],
       },
     ],
+    certificates: [
+      {
+        filePath: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: false },
+      },
+    ],
+    profileVideos: [
+      {
+        filePath: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: false },
+      },
+    ],
+    profilePictures: [
+      {
+        filePath: { type: String, required: true },
+        uploadedAt: { type: Date, default: Date.now },
+        isActive: { type: Boolean, default: false },
+      },
+    ],
   },
   { timestamps: true }
 );

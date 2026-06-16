@@ -1,4 +1,5 @@
 const TeacherApplication = require('../model/teacherApplication.model'); 
+const asyncHandler = require("../utils/asyncHandler");
 const { localFileUpload } = require('../utils/locallyUploader');
 const User = require("../model/user.model");
 const Teacher = require("../model/teacher.model");
@@ -24,8 +25,7 @@ const isValidCurrentOrFutureDate = (value) => {
     dateValue >= getTodayDateString();
 };
 
-exports.createTeacherApplication = async (req, res) => {
-  try {
+exports.createTeacherApplication = asyncHandler(async (req, res) => {
     // Extract form data
     const {
       firstName,
@@ -252,37 +252,10 @@ exports.createTeacherApplication = async (req, res) => {
         submittedAt: savedApplication.createdAt,
       },
     });
-  } catch (error) {
-    console.error("Error creating teacher application:", error);
-
-    // Handle specific MongoDB errors
-    if (error.name === "ValidationError") {
-      const validationErrors = Object.values(error.errors).map((err) => err.message);
-      return res.status(400).json({
-        success: false,
-        message: "Validation error",
-        errors: validationErrors,
-      });
-    }
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: "An application with this email already exists",
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: "Internal server error. Please try again later.",
-      error: error,
-    });
-  }
-};
+});
 
 // Get all teacher applications (for admin)
-exports.getAllTeacherApplications = async (req, res) => {
-    try {
+exports.getAllTeacherApplications = asyncHandler(async (req, res) => {
         const { status, page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
         
         const filter = {};
@@ -316,19 +289,10 @@ exports.getAllTeacherApplications = async (req, res) => {
                 hasPrevPage: options.page > 1
             }
         });
-
-    } catch (error) {
-        console.error('Error fetching teacher applications:', error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        });
-    }
-};
+});
 
 // Get teacher application by ID
-exports.getTeacherApplicationById = async (req, res) => {
-    try {
+exports.getTeacherApplicationById = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const application = await TeacherApplication.findById(id).select('-__v');
@@ -344,27 +308,10 @@ exports.getTeacherApplicationById = async (req, res) => {
             success: true,
             data: application
         });
-
-    } catch (error) {
-        console.error('Error fetching teacher application:', error);
-        
-        if (error.name === 'CastError') {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid application ID format"
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        });
-    }
-};
+});
 
 // Update application status
-exports.updateApplicationStatus = async (req, res) => {
-    try {
+exports.updateApplicationStatus = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { status } = req.body;
 
@@ -477,6 +424,31 @@ exports.updateApplicationStatus = async (req, res) => {
                   sendPasswordTemplate(user, "teacher", generatedPassword)
                 );
             }
+
+            // Seed versioned document arrays from the application if not yet populated
+            const needsSeeding =
+              teacherDoc.certificates.length === 0 &&
+              teacherDoc.profileVideos.length === 0 &&
+              teacherDoc.profilePictures.length === 0;
+
+            if (needsSeeding) {
+              const seedPush = {};
+              if (application.relevantCertificate) {
+                seedPush.certificates = { filePath: application.relevantCertificate, uploadedAt: new Date(), isActive: true };
+              }
+              if (application.profileVideo) {
+                seedPush.profileVideos = { filePath: application.profileVideo, uploadedAt: new Date(), isActive: true };
+              }
+              if (application.profilePicture) {
+                seedPush.profilePictures = { filePath: application.profilePicture, uploadedAt: new Date(), isActive: true };
+              }
+              const pushOp = Object.fromEntries(
+                Object.entries(seedPush).map(([k, v]) => [k, v])
+              );
+              if (Object.keys(pushOp).length > 0) {
+                await Teacher.findByIdAndUpdate(teacherDoc._id, { $push: pushOp });
+              }
+            }
         }
 
         application.status = status;
@@ -500,27 +472,10 @@ exports.updateApplicationStatus = async (req, res) => {
                   }
                 : null,
         });
-
-    } catch (error) {
-        console.error('Error updating application status:', error);
-        
-        if (error.name === 'CastError') {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid application ID format"
-            });
-        }
-
-        res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        });
-    }
-};
+});
 
 // Delete teacher application
-exports.deleteTeacherApplication = async (req, res) => {
-    try {
+exports.deleteTeacherApplication = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         const application = await TeacherApplication.findById(id);
@@ -546,20 +501,53 @@ exports.deleteTeacherApplication = async (req, res) => {
             success: true,
             message: "Teacher application deleted successfully"
         });
+});
 
-    } catch (error) {
-        console.error('Error deleting teacher application:', error);
-        
-        if (error.name === 'CastError') {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid application ID format"
-            });
-        }
+const OTP = require("../model/otp.model");
 
-        res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        });
-    }
-};
+exports.sendInstructorEmailOTP = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ success: false, message: "Enter a valid email address" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const existing = await TeacherApplication.findOne({ email: normalizedEmail });
+  if (existing) {
+    return res.status(409).json({ success: false, message: "An application with this email already exists. Contact support if you need help." });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const existingOtp = await OTP.findOne({ email: normalizedEmail });
+  if (existingOtp) {
+    existingOtp.otp = otp;
+    existingOtp.createdAt = Date.now();
+    await existingOtp.save();
+  } else {
+    await OTP.create({ email: normalizedEmail, otp });
+  }
+
+  const body = `<p>Your Dunamis instructor application verification code is:</p>
+<h2 style="letter-spacing:4px;font-size:32px;">${otp}</h2>
+<p>This code expires in 5 minutes. Do not share it with anyone.</p>`;
+
+  await mailSender(normalizedEmail, "Dunamis — Verify Your Email", body);
+  res.json({ success: true, message: "Verification code sent to your email" });
+});
+
+exports.verifyInstructorEmailOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ success: false, message: "email and otp are required" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpDoc = await OTP.findOne({ email: normalizedEmail });
+  if (!otpDoc) {
+    return res.status(400).json({ success: false, message: "Code expired or not found. Please request a new one." });
+  }
+  if (otpDoc.otp !== otp.toString().trim()) {
+    return res.status(400).json({ success: false, message: "Invalid code. Please try again." });
+  }
+  await otpDoc.deleteOne();
+  res.json({ success: true, verified: true });
+});

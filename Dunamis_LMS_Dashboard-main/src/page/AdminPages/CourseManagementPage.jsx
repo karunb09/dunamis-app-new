@@ -1,15 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useState } from 'react';
 import CourseCard from '../../components/CourseCard';
 import { FaTh, FaList, FaSortAmountDown, FaFilter, FaPlus, FaSearch, FaEdit, FaTrash, FaCloudUploadAlt, FaRegClock } from 'react-icons/fa';
 import Pagination from '../../components/Pagination';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { deleteCourse, getCourses, updateCourse } from '../../redux/Course/CourseSlice';
+import { useCoursesQuery, useUpdateCourse, useDeleteCourse } from '../../hooks/useCourses';
 import Swal from 'sweetalert2';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../utils/resolveImageUrl';
 import IconActionButton from '../../components/IconActionButton';
-import { X } from 'phosphor-react';
+import { PiX } from 'react-icons/pi';
 
 const TABS = ['Active Courses', 'Draft Courses'];
 const SORT_OPTIONS = [
@@ -20,11 +19,14 @@ const SORT_OPTIONS = [
 ];
 
 const CourseManagement = () => {
-    const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    const { courseList, status, error } = useSelector((state) => state.course);
-    const errorMessage = typeof error === 'string' ? error : error?.message || 'Something went wrong';
+    // Server data via TanStack Query — caching, dedup, loading/error are handled
+    // by the cache, not a hand-rolled slice.
+    const { data: courseList = [], isLoading, isError, error } = useCoursesQuery();
+    const updateCourseMutation = useUpdateCourse();
+    const deleteCourseMutation = useDeleteCourse();
+    const errorMessage = typeof error?.message === 'string' ? error.message : 'Something went wrong';
 
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -61,11 +63,7 @@ const CourseManagement = () => {
     const CARDS_PER_PAGE = 6;
     const ROWS_PER_PAGE = 12;
 
-    useEffect(() => {
-        dispatch(getCourses());
-    }, [dispatch]);
-
-    useEffect(() => {
+    React.useEffect(() => {
         localStorage.setItem('courseView', JSON.stringify(isGridView));
     }, [isGridView]);
 
@@ -161,10 +159,10 @@ const CourseManagement = () => {
                 break;
             case 'Publish':
                 try {
-                    await dispatch(updateCourse({
+                    await updateCourseMutation.mutateAsync({
                         courseId: course._id,
                         updates: { isPublished: true },
-                    })).unwrap();
+                    });
                     toast.success('Course Published.');
                 } catch (err) {
                     toast.error(`Failed to Publish: ${err.message || err}`);
@@ -172,10 +170,10 @@ const CourseManagement = () => {
                 break;
             case 'Move to drafts':
                 try {
-                    await dispatch(updateCourse({
+                    await updateCourseMutation.mutateAsync({
                         courseId: course._id,
                         updates: { isPublished: false },
-                    })).unwrap();
+                    });
                     toast.success('Course moved to drafts.');
                 } catch (err) {
                     toast.error(`Failed to move to drafts: ${err.message || err}`);
@@ -195,7 +193,7 @@ const CourseManagement = () => {
 
                 if (result.isConfirmed) {
                     try {
-                        await dispatch(deleteCourse(course._id)).unwrap();
+                        await deleteCourseMutation.mutateAsync(course._id);
                         toast.success('Course has been deleted.');
                     } catch (err) {
                         toast.error(`Failed to delete course: ${err.message || err}`);
@@ -348,7 +346,7 @@ const CourseManagement = () => {
                                     aria-label="Close sort menu"
                                     className="text-gray-500 hover:text-gray-800"
                                 >
-                                    <X size={18} />
+                                    <PiX size={18} />
                                 </button>
                             </div>
                             <ul className="text-sm font-medium">
@@ -386,7 +384,7 @@ const CourseManagement = () => {
                                     aria-label="Close filter modal"
                                     className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
                                 >
-                                    <X />
+                                    <PiX />
                                 </button>
 
                                 <h2 className="text-xl font-semibold mb-4">Filter Courses</h2>
@@ -489,9 +487,9 @@ const CourseManagement = () => {
             </div>
 
             {/* Content */}
-            {status === 'loading' ? (
+            {isLoading ? (
                 <div className="text-center py-4 text-gray-500">Loading...</div>
-            ) : error ? (
+            ) : isError ? (
                 <div className="text-center py-4 text-red-500">Error: {errorMessage}</div>
             ) : isGridView ? (
                 <>

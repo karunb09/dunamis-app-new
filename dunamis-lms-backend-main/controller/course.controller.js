@@ -1,4 +1,5 @@
 const Course = require("../model/course.model");
+const asyncHandler = require("../utils/asyncHandler");
 const { localFileUpload } = require("../utils/locallyUploader");
 const Teacher = require("../model/teacher.model");
 const updateTeacherStats = require("../utils/updateTeacherStats");
@@ -6,7 +7,6 @@ const Student = require("../model/student.model");
 const Branch = require("../model/branch.model");
 const fs = require("fs/promises");
 const path = require("path");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const deleteLocalUpload = async (filePath) => {
   if (!filePath || !filePath.startsWith("/uploads/")) {
@@ -227,8 +227,7 @@ const withPublicCourseTotals = async (courses = []) => {
 };
 
 // CREATE COURSE
-exports.createCourse = async (req, res) => {
-  try {
+exports.createCourse = asyncHandler(async (req, res) => {
     const {
       name,
       code,
@@ -354,15 +353,10 @@ exports.createCourse = async (req, res) => {
       message: "Course created successfully",
       data: course,
     });
-  } catch (error) {
-    console.error(error);
-    sendValidationError(res, error, "Failed to create course");
-  }
-};
+});
 
 // GET ALL COURSES
-exports.getAllCourses = async (req, res) => {
-  try {
+exports.getAllCourses = asyncHandler(async (req, res) => {
     const courses = await Course.find()
       .populate("category subCategory")
       .populate(courseBranchPopulate)
@@ -384,15 +378,10 @@ exports.getAllCourses = async (req, res) => {
       count: publicCourses.length,
       data: publicCourses,
     });
-  } catch (error) {
-    console.error(error);
-    sendValidationError(res, error, "Failed to update course");
-  }
-};
+});
 
 // GET COURSE BY ID
-exports.getCourseById = async (req, res) => {
-  try {
+exports.getCourseById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const course = await Course.findById(id)
       .populate("category subCategory content")
@@ -420,13 +409,9 @@ exports.getCourseById = async (req, res) => {
     };
 
     res.status(200).json({ success: true, data: publicCourse });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getAllCoursesAdmin = async (req, res) => {
-  try {
+exports.getAllCoursesAdmin = asyncHandler(async (req, res) => {
     let courses = await Course.find()
       .populate("category subCategory content")
       .populate(courseBranchPopulate)
@@ -492,14 +477,9 @@ exports.getAllCoursesAdmin = async (req, res) => {
       count: courses.length,
       data: courses,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getCourseByIdAdmin = async (req, res) => {
-  try {
+exports.getCourseByIdAdmin = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const course = await Course.findById(id)
       .populate("category subCategory content")
@@ -556,14 +536,10 @@ exports.getCourseByIdAdmin = async (req, res) => {
     };
 
     res.status(200).json({ success: true, data: courseWithStudents });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // UPDATE COURSE
-exports.updateCourse = async (req, res) => {
-  try {
+exports.updateCourse = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const removeImage = req.body.removeImage === "true";
 
@@ -729,15 +705,10 @@ exports.updateCourse = async (req, res) => {
         branchCount: updatedCourse?.branches?.length || 0,
       },
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // DELETE COURSE
-exports.deleteCourse = async (req, res) => {
-  try {
+exports.deleteCourse = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const course = await Course.findByIdAndDelete(id);
 
@@ -763,7 +734,60 @@ exports.deleteCourse = async (req, res) => {
     res
       .status(200)
       .json({ success: true, message: "Course deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+});
+
+
+const VIDEO_MIMES = ["video/mp4", "video/mpeg", "video/avi", "video/quicktime"];
+const CERT_MIMES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+
+exports.upsertInstructorCourseMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const teacherId = req.user.roleId;
+
+  const course = await Course.findById(id);
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  const isAssigned = course.teacher.some((t) => t.toString() === teacherId.toString());
+  if (!isAssigned && !["admin", "superadmin"].includes(req.user.accountType)) {
+    return res.status(403).json({ success: false, message: "Not authorized for this course" });
   }
-};
+
+  let entryIdx = course.teacherMedia.findIndex((m) => m.teacher.toString() === teacherId.toString());
+  if (entryIdx === -1) {
+    course.teacherMedia.push({ teacher: teacherId, demoVideos: [], certificates: [] });
+    entryIdx = course.teacherMedia.length - 1;
+  }
+
+  const entry = course.teacherMedia[entryIdx];
+
+  if (req.files?.demoVideo) {
+    const [uploaded] = await localFileUpload(req.files.demoVideo, VIDEO_MIMES);
+    entry.demoVideos.forEach((v) => { v.isActive = false; });
+    entry.demoVideos.push({ filePath: uploaded.path, uploadedAt: new Date(), isActive: true });
+  }
+
+  if (req.files?.certificates) {
+    const certFiles = Array.isArray(req.files.certificates) ? req.files.certificates : [req.files.certificates];
+    const uploaded = await localFileUpload(certFiles, CERT_MIMES);
+    uploaded.forEach((u) => entry.certificates.push({ filePath: u.path, uploadedAt: new Date(), isActive: true }));
+  }
+
+  await course.save();
+  res.json({ success: true, data: entry });
+});
+
+exports.getInstructorCourseMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const course = await Course.findById(id)
+    .select("teacherMedia")
+    .populate({
+      path: "teacherMedia.teacher",
+      select: "userId teacherDetail",
+      populate: [
+        { path: "userId", select: "name image" },
+        { path: "teacherDetail", select: "name profilePicture" },
+      ],
+    });
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+  res.json({ success: true, data: course.teacherMedia });
+});

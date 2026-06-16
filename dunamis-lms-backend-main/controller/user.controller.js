@@ -9,6 +9,11 @@ const AdminNotice = require("../model/adminNotice.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 const Teacher = require("../model/teacher.model");
 const TeacherDetail = require("../model/teacherApplication.model");
+const {
+  ACCESS_TOKEN_TTL_SECONDS,
+  ACCESS_TOKEN_TTL_MS,
+} = require("../config/auth");
+const asyncHandler = require("../utils/asyncHandler");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -50,8 +55,7 @@ const canManageUser = (requestUser, targetUserId) => {
 };
 
 //Login
-exports.login = async (req, res) => {
-  try {
+exports.login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -86,14 +90,14 @@ exports.login = async (req, res) => {
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: "30m",
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       });
 
       user.token = token;
       user.password = undefined;
 
       const options = {
-        expires: new Date(Date.now() + 30 * 60 * 1000),
+        expires: new Date(Date.now() + ACCESS_TOKEN_TTL_MS),
         ...authCookieOptions,
       };
 
@@ -112,17 +116,9 @@ exports.login = async (req, res) => {
         message: "Email or password is incorrect",
       });
     }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Login failure, please try again",
-    });
-  }
-};
+});
 
-exports.getCurrentUser = async (req, res) => {
-  try {
+exports.getCurrentUser = asyncHandler(async (req, res) => {
     const user = await populateSessionUser(
       User.findById(req.user.userId).select("-password")
     );
@@ -146,15 +142,7 @@ exports.getCurrentUser = async (req, res) => {
       token: req.token,
       user: buildSessionUser(user),
     });
-  } catch (error) {
-    console.error("Error fetching current user:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to fetch current user",
-      error: error.message,
-    });
-  }
-};
+});
 
 exports.logout = async (req, res) => {
   return res
@@ -167,9 +155,7 @@ exports.logout = async (req, res) => {
 };
 
 //change password
-exports.changePassword = async(req,res)=>{
-
-  try {
+exports.changePassword = asyncHandler(async (req, res) => {
       //get data from req body
       const userDetails = await User.findById(req.user.userId);
    
@@ -235,20 +221,10 @@ exports.changePassword = async(req,res)=>{
         success:true,
         message:"password changed successfully",
       })
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-        success:false,
-        messaage:"error in changin password",
-        error: error.message
-    })
-    
-  }
-}
+});
 
 // Forgot Password - Send OTP
-exports.forgotPassword = async (req, res) => {
-    try {
+exports.forgotPassword = asyncHandler(async (req, res) => {
         const { email } = req.body;
 
         // Validation
@@ -312,19 +288,10 @@ exports.forgotPassword = async (req, res) => {
                 error: error.message,
             });
         }
-    } catch (error) {
-        console.error("Error in forgot password:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to process forgot password request",
-            error: error.message,
-        });
-    }
-};
+});
 
 // Verify OTP
-exports.verifyOTP = async (req, res) => {
-    try {
+exports.verifyOTP = asyncHandler(async (req, res) => {
         const { email, otp } = req.body;
 
         // Validation
@@ -379,19 +346,10 @@ exports.verifyOTP = async (req, res) => {
             success: true,
             message: "OTP verified successfully",
         });
-    } catch (error) {
-        console.error("Error verifying OTP:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to verify OTP",
-            error: error.message,
-        });
-    }
-};
+});
 
 // Reset Password (After OTP Verification)
-exports.resetPassword = async (req, res) => {
-    try {
+exports.resetPassword = asyncHandler(async (req, res) => {
         const { email, otp, newPassword } = req.body;
 
         // Validation
@@ -478,19 +436,10 @@ exports.resetPassword = async (req, res) => {
             success: true,
             message: "Password reset successfully. You can now login with your new password.",
         });
-    } catch (error) {
-        console.error("Error resetting password:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Failed to reset password",
-            error: error.message,
-        });
-    }
-};
+});
 
 // Get All Users
-exports.getAllUsers = async (req, res) => {
-    try {
+exports.getAllUsers = asyncHandler(async (req, res) => {
         const users = await User.find()
             .select("-password -__v")
             .populate("roleId")
@@ -508,19 +457,10 @@ exports.getAllUsers = async (req, res) => {
             message: "Users retrieved successfully",
             users,
         });
-    } catch (error) {
-        console.error("Error fetching users:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to fetch users",
-            error: error.message,
-        });
-    }
-};
+});
 
 // Get by id
-exports.getUserById = async (req, res) => {
-    try {
+exports.getUserById = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         if (!canManageUser(req.user, id)) {
@@ -548,18 +488,10 @@ exports.getUserById = async (req, res) => {
             user,
             permissions: user.permissions // Add permissions explicitly
         });
-    } catch (error) {
-        console.error("Error fetching User:", error);
-        res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
-};
+});
 
 // Update User - WITH IMAGE UPLOAD SUPPORT
-exports.updateUser = async (req, res) => {
-    try {
+exports.updateUser = asyncHandler(async (req, res) => {
         const { id } = req.params;
 
         if (!canManageUser(req.user, id)) {
@@ -676,15 +608,7 @@ exports.updateUser = async (req, res) => {
                 bio: user.bio,
             },
         });
-    } catch (error) {
-        console.error("Error updating User:", error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to Update User",
-            error: error.message,
-        });
-    }
-};
+});
 
 const buildDashboardNoticeFilter = (requestUser, includeDeleted = false) => {
   const userId = requestUser.userId;
@@ -713,8 +637,7 @@ const buildDashboardNoticeFilter = (requestUser, includeDeleted = false) => {
   };
 };
 
-exports.getUserDashboardNotices = async (req, res) => {
-  try {
+exports.getUserDashboardNotices = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
     const notices = await AdminNotice.find({
       ...buildDashboardNoticeFilter(req.user),
@@ -732,14 +655,9 @@ exports.getUserDashboardNotices = async (req, res) => {
         return noticeObject;
       }),
     });
-  } catch (error) {
-    console.error("Error fetching dashboard notices:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.markAllDashboardNoticesRead = async (req, res) => {
-  try {
+exports.markAllDashboardNoticesRead = asyncHandler(async (req, res) => {
     const result = await AdminNotice.updateMany(
       buildDashboardNoticeFilter(req.user),
       { $addToSet: { readBy: req.user.userId } }
@@ -749,14 +667,9 @@ exports.markAllDashboardNoticesRead = async (req, res) => {
       success: true,
       modifiedCount: result.modifiedCount || 0,
     });
-  } catch (error) {
-    console.error("Error marking dashboard notices read:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.clearDashboardNotices = async (req, res) => {
-  try {
+exports.clearDashboardNotices = asyncHandler(async (req, res) => {
     const result = await AdminNotice.updateMany(
       buildDashboardNoticeFilter(req.user),
       { $addToSet: { deletedBy: req.user.userId } }
@@ -766,14 +679,9 @@ exports.clearDashboardNotices = async (req, res) => {
       success: true,
       modifiedCount: result.modifiedCount || 0,
     });
-  } catch (error) {
-    console.error("Error clearing dashboard notices:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.markDashboardNoticeRead = async (req, res) => {
-  try {
+exports.markDashboardNoticeRead = asyncHandler(async (req, res) => {
     const notice = await AdminNotice.findByIdAndUpdate(
       req.params.noticeId,
       { $addToSet: { readBy: req.user.userId } },
@@ -785,14 +693,9 @@ exports.markDashboardNoticeRead = async (req, res) => {
     }
 
     res.status(200).json({ success: true, notice });
-  } catch (error) {
-    console.error("Error marking dashboard notice read:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.deleteDashboardNotice = async (req, res) => {
-  try {
+exports.deleteDashboardNotice = asyncHandler(async (req, res) => {
     const notice = await AdminNotice.findByIdAndUpdate(
       req.params.noticeId,
       { $addToSet: { deletedBy: req.user.userId } },
@@ -804,8 +707,4 @@ exports.deleteDashboardNotice = async (req, res) => {
     }
 
     res.status(200).json({ success: true, noticeId: req.params.noticeId });
-  } catch (error) {
-    console.error("Error deleting dashboard notice:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

@@ -1,9 +1,9 @@
 const Assignment = require("../model/assignment.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 
-exports.createAssignment = async (req, res) => {
-  try {
+exports.createAssignment = asyncHandler(async (req, res) => {
     const { assignmentId, title, description, dueDate } = req.body;
 
     if (!assignmentId || !title || !dueDate || !description) {
@@ -50,13 +50,9 @@ exports.createAssignment = async (req, res) => {
         message: "Assignment assigned successfully.",
         assignment,
       });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.submitAssignment = async (req, res) => {
-  try {
+exports.submitAssignment = asyncHandler(async (req, res) => {
     const { assignmentId, submissionUrl } = req.body;
     const studentId = req.user.roleId;
 
@@ -100,14 +96,9 @@ exports.submitAssignment = async (req, res) => {
       message: "Video URL submitted successful",
       url: submissionUrl,
     });
-  } catch (error) {
-    console.error("submitAssignment error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.reviewSubmission = async (req, res) => {
-  try {
+exports.reviewSubmission = asyncHandler(async (req, res) => {
     const { assignmentId, feedback, rating } = req.body;
 
     const assignment = await Assignment.findById(assignmentId)
@@ -167,13 +158,9 @@ exports.reviewSubmission = async (req, res) => {
       message: "Assignment reviewed successfully",
       data: response,
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getAssignmentsByStatus = async (req, res) => {
-  try {
+exports.getAssignmentsByStatus = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
     const { status } = req.query;
 
@@ -256,14 +243,9 @@ exports.getAssignmentsByStatus = async (req, res) => {
       success: true,
       data: grouped[status.toLowerCase()] || [],
     });
-  } catch (error) {
-    console.error("getAssignmentsByStatus error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getStudentAssignments = async (req, res) => {
-  try {
+exports.getStudentAssignments = asyncHandler(async (req, res) => {
     const studentId = req.user.roleId;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -335,8 +317,4 @@ exports.getStudentAssignments = async (req, res) => {
       count: studentAssignments.length,
       data: studentAssignments,
     });
-  } catch (error) {
-    console.error("getStudentAssignments error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

@@ -1,9 +1,9 @@
 const User = require("../model/user.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
 const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 const getBranchFallbackImage = (branchName = "Branch") =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
@@ -26,8 +26,7 @@ const parseOptionalArray = (value) => {
 };
 
 // Create Branch
-exports.createBranch = async (req, res) => {
-  try {
+exports.createBranch = asyncHandler(async (req, res) => {
     let {
       branchName,
       location,
@@ -156,15 +155,10 @@ exports.createBranch = async (req, res) => {
       message: "Branch created successfully",
       branch: newBranch,
     });
-  } catch (error) {
-    console.error(error);
-    sendValidationError(res, error, "Server Error");
-  }
-};
+});
 
 // Get all Branches
-exports.getAllBranches = async (req, res) => {
-  try {
+exports.getAllBranches = asyncHandler(async (req, res) => {
     const branches = await Branch.find()
       .populate("branchManager", "name email")
       .populate("city", "cityName location")
@@ -188,24 +182,17 @@ exports.getAllBranches = async (req, res) => {
           },
         ],
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     res.status(200).json({
       success: true,
       branches,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching branches",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get branch by id
-exports.getBranchById = async (req, res) => {
-  try {
+exports.getBranchById = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const branch = await Branch.findById(id)
@@ -232,7 +219,8 @@ exports.getBranchById = async (req, res) => {
         ],
       })
       .populate("centreFacilities")
-      .select("-__v");
+      .select("-__v")
+      .lean();
 
     if (!branch) {
       return res.status(404).json({
@@ -245,18 +233,10 @@ exports.getBranchById = async (req, res) => {
       success: true,
       branch,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching branch by ID",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get Branch Managers
-exports.getBranchManagers = async (req, res) => {
-  try {
+exports.getBranchManagers = asyncHandler(async (req, res) => {
     const managers = await User.find({ accountType: "admin" }).select(
       "_id name email"
     );
@@ -265,18 +245,10 @@ exports.getBranchManagers = async (req, res) => {
       success: true,
       managers,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch branch managers",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Update Branch
-exports.updateBranch = async (req, res) => {
-  try {
+exports.updateBranch = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const existingBranch = await Branch.findById(id);
 
@@ -422,14 +394,10 @@ exports.updateBranch = async (req, res) => {
       message: "Branch updated successfully",
       branch: updatedBranch,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to update branch");
-  }
-};
+});
 
 // Delete Branch
-exports.deleteBranch = async (req, res) => {
-  try {
+exports.deleteBranch = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const deletedBranch = await Branch.findByIdAndDelete(id);
@@ -445,11 +413,4 @@ exports.deleteBranch = async (req, res) => {
       success: true,
       message: "Branch deleted successfully",
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting branch",
-      error: error.message,
-    });
-  }
-};
+});

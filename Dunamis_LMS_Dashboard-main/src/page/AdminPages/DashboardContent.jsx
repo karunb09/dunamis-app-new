@@ -1,4 +1,4 @@
-import { Music, Activity, BookOpen } from "react-feather";
+import { FiMusic, FiActivity, FiBookOpen } from "react-icons/fi";
 
 export default function DashboardContent() {
   return (
@@ -36,9 +36,9 @@ export default function DashboardContent() {
 
       {/* Student Distribution */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-        <SmallCard icon={<Music size={20} />} title="Music Students" value="647" subtitle="53.9% of total" />
-        <SmallCard icon={<Activity size={20} />} title="Dance Students" value="276" subtitle="23% of total" />
-        <SmallCard icon={<BookOpen size={20} />} title="Language Students" value="212" subtitle="17% from last month" />
+        <SmallCard icon={<FiMusic size={20} />} title="Music Students" value="647" subtitle="53.9% of total" />
+        <SmallCard icon={<FiActivity size={20} />} title="Dance Students" value="276" subtitle="23% of total" />
+        <SmallCard icon={<FiBookOpen size={20} />} title="Language Students" value="212" subtitle="17% from last month" />
       </div>
 
       {/* Tasks & Recent Activity */}

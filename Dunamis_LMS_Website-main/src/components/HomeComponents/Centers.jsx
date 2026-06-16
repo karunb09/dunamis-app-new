@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { MapPin } from "lucide-react";
+import { LuMapPin } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
@@ -142,7 +142,7 @@ export default function Centers() {
 
                 {/* Location */}
                 <p className="mb-3 flex min-h-[40px] items-start gap-1 text-xs text-gray-600 sm:text-sm">
-                  <MapPin className="w-4 h-4 text-[#FF6B35] flex-shrink-0 mt-0.5" />
+                  <LuMapPin className="w-4 h-4 text-[#FF6B35] flex-shrink-0 mt-0.5" />
                   <span title={center.location} className="line-clamp-2">
                     {center.location || "Location not available"}
                   </span>

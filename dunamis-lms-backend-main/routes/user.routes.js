@@ -19,14 +19,21 @@ const{
 
 } = require("../controller/user.controller")
 const { isAuth, accessToRole } = require("../middleware/auth");
+const validate = require("../middleware/validate");
+const {
+  loginSchema,
+  forgotPasswordSchema,
+  verifyOtpSchema,
+  resetPasswordSchema,
+} = require("../validators/auth.validator");
 
 // router.post("/signUp",signUp);
-router.post("/login",login);
+router.post("/login", validate(loginSchema), login);
 router.post("/logout", isAuth, logout);
 router.get("/me", isAuth, getCurrentUser);
-router.post("/forgot-password", forgotPassword);
-router.post("/verify-otp", verifyOTP);
-router.post("/reset-password", resetPassword);
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post("/verify-otp", validate(verifyOtpSchema), verifyOTP);
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 router.post("/change-password",isAuth, changePassword);
 router.get("/get-all", isAuth, accessToRole(["admin", "superadmin"]), getAllUsers);
 router.get("/notices", isAuth, getUserDashboardNotices);

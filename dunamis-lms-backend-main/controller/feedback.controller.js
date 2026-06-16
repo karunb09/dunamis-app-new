@@ -1,12 +1,12 @@
 const Feedback = require("../model/feedback.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const updateTeacherStats = require("../utils/updateTeacherStats");
 
 // Create Feedback
-exports.createFeedback = async (req, res) => {
-  try {
+exports.createFeedback = asyncHandler(async (req, res) => {
     const {
       courseId,
       teacherId,
@@ -51,25 +51,10 @@ exports.createFeedback = async (req, res) => {
       message: "Feedback submitted successfully",
       feedback,
     });
-  } catch (error) {
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: "You have already submitted feedback for this course.",
-      });
-    }
-    console.error("Error creating feedback:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get Feedback for a Course
-exports.getFeedbackByCourse = async (req, res) => {
-  try {
+exports.getFeedbackByCourse = asyncHandler(async (req, res) => {
     const { courseId } = req.params;
 
     const feedbacks = await Feedback.find({ courseId })
@@ -82,18 +67,10 @@ exports.getFeedbackByCourse = async (req, res) => {
       count: feedbacks.length,
       feedbacks,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching feedback",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get Feedback for a Teacher
-exports.getFeedbackByTeacher = async (req, res) => {
-  try {
+exports.getFeedbackByTeacher = asyncHandler(async (req, res) => {
     const { teacherId } = req.params;
 
     const feedbacks = await Feedback.find({ teacherId: teacherId })
@@ -112,18 +89,10 @@ exports.getFeedbackByTeacher = async (req, res) => {
       count: feedbacks.length,
       feedbacks,
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching feedback",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Delete Feedback
-exports.deleteFeedback = async (req, res) => {
-  try {
+exports.deleteFeedback = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const feedback = await Feedback.findByIdAndDelete(id);
 
@@ -137,11 +106,4 @@ exports.deleteFeedback = async (req, res) => {
       success: true,
       message: "Feedback deleted successfully",
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting feedback",
-      error: error.message,
-    });
-  }
-};
+});

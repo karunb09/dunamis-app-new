@@ -7,6 +7,8 @@ const {
   updateBooking,
 } = require("../controller/demoBooking.controller");
 const { accessToRole, isAuth } = require("../middleware/auth");
+const validate = require("../middleware/validate");
+const { bookDemoSchema } = require("../validators/demoBooking.validator");
 
 const optionalAuth = (req, res, next) => {
   try {
@@ -31,7 +33,7 @@ const optionalAuth = (req, res, next) => {
   }
 };
 
-router.post("/", optionalAuth, bookDemoSlot);
+router.post("/", optionalAuth, validate(bookDemoSchema), bookDemoSlot);
 router.get("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), getAllBookings);
 router.put("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), updateBooking);
 

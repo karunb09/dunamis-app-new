@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { Star } from "lucide-react";
+import { LuStar } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FilterQuestionsModal from "@/components/PopupModals/FilterQuestionsModal";
@@ -24,7 +24,7 @@ function TestimonialCard({ item, index }) {
       {/* Stars */}
       <div className="flex gap-0.5">
         {[...Array(stars)].map((_, i) => (
-          <Star key={i} className="h-3.5 w-3.5 fill-[#ef6a32] text-[#ef6a32]" />
+          <LuStar key={i} className="h-3.5 w-3.5 fill-[#ef6a32] text-[#ef6a32]" />
         ))}
       </div>
 

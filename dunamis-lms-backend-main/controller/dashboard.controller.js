@@ -1,4 +1,5 @@
 const Student = require("../model/student.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Enquiry = require("../model/enquiry.model");
@@ -6,8 +7,7 @@ const TeacherApplication = require("../model/teacherApplication.model");
 const DemoBooking = require("../model/demoBooking.model");
 const Branch = require("../model/branch.model");
 
-exports.getAdminSummary = async (req, res) => {
-  try {
+exports.getAdminSummary = asyncHandler(async (req, res) => {
     const [
       totalStudents,
       activeCourses,
@@ -57,7 +57,4 @@ exports.getAdminSummary = async (req, res) => {
         revenue: revenueResult?.[0]?.total || 0,
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});

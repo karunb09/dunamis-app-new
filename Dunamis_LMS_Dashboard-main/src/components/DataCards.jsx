@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Pagination from "./Pagination";
-import { Clipboard, Trash } from "react-feather";
+import { FiClipboard, FiTrash } from "react-icons/fi";
 
 const DataCards = ({
     data = [],
@@ -95,7 +95,7 @@ const DataCards = ({
                                 disabled={selectedRows.length === 0 || bulkCopyLoading}
                                 className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                                <Clipboard size={14} />
+                                <FiClipboard size={14} />
                                 {bulkCopyLoading ? "Copying…" : bulkCopyLabel}
                             </button>
                         )}
@@ -106,7 +106,7 @@ const DataCards = ({
                                 disabled={selectedRows.length === 0 || bulkDeleteLoading}
                                 className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
                             >
-                                <Trash size={14} />
+                                <FiTrash size={14} />
                                 {bulkDeleteLoading ? "Deleting…" : bulkDeleteLabel}
                             </button>
                         )}

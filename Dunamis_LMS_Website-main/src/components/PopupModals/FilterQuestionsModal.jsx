@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X } from "lucide-react";
+import { LuX } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCategories } from "@/store/categorySlice";
@@ -104,7 +104,7 @@ const FilterQuestionsModal = ({ isOpen, onClose }) => {
               className="absolute right-4 top-4 cursor-pointer text-gray-400 transition hover:text-gray-700"
               aria-label="Close"
             >
-              <X size={24} />
+              <LuX size={24} />
             </button>
 
             <div className="mt-4">

@@ -1,10 +1,9 @@
 const Content = require("../model/content.model");
+const asyncHandler = require("../utils/asyncHandler");
 const SubCategory = require("../model/subCategory.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
 
 // Create Content
-exports.createContent = async (req, res) => {
-  try {
+exports.createContent = asyncHandler(async (req, res) => {
     const {
       courseName,
       courseCode,
@@ -39,14 +38,10 @@ exports.createContent = async (req, res) => {
       message: "Content created successfully",
       content: newContent,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Error creating content");
-  }
-};
+});
 
 // Get All Content
-exports.getAllContent = async (req, res) => {
-  try {
+exports.getAllContent = asyncHandler(async (req, res) => {
     // const contents = await Content.find().sort({ createdAt: -1 });
 
     // bhai jo thik lage vo use kr lena aap apne end se
@@ -56,18 +51,10 @@ exports.getAllContent = async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, contents });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching contents",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Get Content by ID
-exports.getContentById = async (req, res) => {
-  try {
+exports.getContentById = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const content = await Content.findById(id)
       .populate("category")
@@ -81,18 +68,10 @@ exports.getContentById = async (req, res) => {
     }
 
     res.status(200).json({ success: true, content });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error fetching content",
-      error: error.message,
-    });
-  }
-};
+});
 
 // Update Content
-exports.updateContent = async (req, res) => {
-  try {
+exports.updateContent = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
@@ -162,14 +141,10 @@ exports.updateContent = async (req, res) => {
       message: "Content updated successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to update content");
-  }
-};
+});
 
 // Update Module
-exports.updateModule = async (req, res) => {
-  try {
+exports.updateModule = asyncHandler(async (req, res) => {
     const { id, moduleId } = req.params;
     const { title, duration } = req.body;
 
@@ -197,14 +172,10 @@ exports.updateModule = async (req, res) => {
       message: "Module updated successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to update module");
-  }
-};
+});
 
 // Update Lesson
-exports.updateLesson = async (req, res) => {
-  try {
+exports.updateLesson = asyncHandler(async (req, res) => {
     const { id, moduleId, lessonId } = req.params;
     const { title, topics } = req.body;
 
@@ -241,14 +212,10 @@ exports.updateLesson = async (req, res) => {
       message: "Lesson updated successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to update lesson");
-  }
-};
+});
 
 // Update Topic
-exports.updateTopic = async (req, res) => {
-  try {
+exports.updateTopic = asyncHandler(async (req, res) => {
     const { id, moduleId, lessonId, topicId } = req.params;
     const { title, description } = req.body;
 
@@ -290,14 +257,10 @@ exports.updateTopic = async (req, res) => {
       message: "Topic updated successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to update topic");
-  }
-};
+});
 
 // Delete Content
-exports.deleteContent = async (req, res) => {
-  try {
+exports.deleteContent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
     const deletedContent = await Content.findByIdAndDelete(id);
@@ -311,20 +274,12 @@ exports.deleteContent = async (req, res) => {
     res
       .status(200)
       .json({ success: true, message: "Content deleted successfully" });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Error deleting content",
-      error: error.message,
-    });
-  }
-};
+});
 
 // ====Additional methods==== //
 
 // Add Module to Content
-exports.addModuleToContent = async (req, res) => {
-  try {
+exports.addModuleToContent = asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { title, duration, lessons } = req.body;
 
@@ -344,14 +299,10 @@ exports.addModuleToContent = async (req, res) => {
       message: "Module added successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to add module");
-  }
-};
+});
 
 // Add Lesson to Module
-exports.addLessonToModule = async (req, res) => {
-  try {
+exports.addLessonToModule = asyncHandler(async (req, res) => {
     const { id, moduleId } = req.params;
     const { title, topics } = req.body;
 
@@ -378,14 +329,10 @@ exports.addLessonToModule = async (req, res) => {
       message: "Lesson added successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to add lesson");
-  }
-};
+});
 
 // Add Topic to Lesson
-exports.addTopicToLesson = async (req, res) => {
-  try {
+exports.addTopicToLesson = asyncHandler(async (req, res) => {
     const { id, moduleId, lessonId } = req.params;
     const { title, description } = req.body;
 
@@ -419,7 +366,4 @@ exports.addTopicToLesson = async (req, res) => {
       message: "Topic added successfully",
       content,
     });
-  } catch (error) {
-    sendValidationError(res, error, "Failed to add topic");
-  }
-};
+});

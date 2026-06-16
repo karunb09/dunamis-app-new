@@ -5,7 +5,7 @@ import { FaFilter, FaSortAmountDown, FaPlus, FaSearch, FaCopy, FaBook, FaTrash, 
 import toast from "react-hot-toast";
 import { deleteContent, fetchAllContent } from "../../redux/Content/ContentSlice";
 import Swal from "sweetalert2";
-import { X } from "react-feather";
+import { FiX } from "react-icons/fi";
 
 const SORT_OPTIONS = [
   { value: "title-asc", label: "Name A-Z" },
@@ -250,7 +250,7 @@ const ContentManagementPage = () => {
                   onClick={() => setFilterOpen(false)}
                   className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 text-xl font-bold"
                 >
-                  <X />
+                  <FiX />
                 </button>
                 <h2 className="text-xl font-semibold mb-4">Filter Content</h2>
 

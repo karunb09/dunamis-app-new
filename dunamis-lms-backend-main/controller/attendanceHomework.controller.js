@@ -1,4 +1,5 @@
 const AttendanceHomework = require("../model/attendanceHomework.model");
+const asyncHandler = require("../utils/asyncHandler");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
@@ -7,8 +8,7 @@ const Slot = require("../model/slot.model");
 const mongoose = require("mongoose");
 const { createDashboardNotice, getAdminUsers } = require("../utils/notificationService");
 
-exports.submitAttendanceHomework = async (req, res) => {
-  try {
+exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
     const {
       slotId,
       sessionType,
@@ -175,11 +175,7 @@ exports.submitAttendanceHomework = async (req, res) => {
               },
       },
     });
-  } catch (error) {
-    console.error("Error submitting attendance/homework:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
 // exports.submitStudentHomework = async (req, res) => {
 //   try {
@@ -244,8 +240,7 @@ exports.submitAttendanceHomework = async (req, res) => {
 //   }
 // };
 
-exports.getTeacherHomeworkHistory = async (req, res) => {
-  try {
+exports.getTeacherHomeworkHistory = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
     const teacher = await Teacher.findOne({ userId }).select(
@@ -309,13 +304,9 @@ exports.getTeacherHomeworkHistory = async (req, res) => {
       count: formattedHistory.length,
       data: formattedHistory,
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getTeacherPastClasses = async (req, res) => {
-  try {
+exports.getTeacherPastClasses = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
@@ -389,14 +380,9 @@ exports.getTeacherPastClasses = async (req, res) => {
       totalPages: Math.ceil(total / limit),
       data,
     });
-  } catch (error) {
-    console.error("Error fetching teacher past classes:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getTeacherUpcomingClasses = async (req, res) => {
-  try {
+exports.getTeacherUpcomingClasses = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
     const teacher = await Teacher.findOne({ userId }).select("_id");
@@ -445,14 +431,9 @@ exports.getTeacherUpcomingClasses = async (req, res) => {
       success: true,
       data: { today, upcoming },
     });
-  } catch (error) {
-    console.error("Error fetching teacher upcoming classes:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+});
 
-exports.getStudentHomeworkDashboard = async (req, res) => {
-  try {
+exports.getStudentHomeworkDashboard = asyncHandler(async (req, res) => {
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -531,11 +512,4 @@ exports.getStudentHomeworkDashboard = async (req, res) => {
       count: formatted.length,
       data: formatted,
     });
-  } catch (error) {
-    console.error("Error fetching student homework dashboard:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+});

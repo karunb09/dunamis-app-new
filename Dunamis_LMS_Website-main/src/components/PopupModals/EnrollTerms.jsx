@@ -27,6 +27,9 @@ import {
   normalizeMode,
 } from '@/helpers/courseSlots';
 import { getActiveTenurePlans, pickDefaultTenure, findTenure } from '@/helpers/tenurePlans';
+import StepNav from './EnrollTermsParts/StepNav';
+import StepDelivery from './EnrollTermsParts/StepDelivery';
+import StepInstructor from './EnrollTermsParts/StepInstructor';
 
 const DAY_PAIR_OPTIONS = [
   { id: 'mon-thu', label: 'Mon - Thu', days: ['monday', 'thursday'] },
@@ -636,255 +639,36 @@ export default function EnrollTerm({
           <p className="mt-1 text-sm text-gray-500">Course: {courseTitle}</p>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-5">
-          {STEPS.map((label, index) => {
-            const active = step === index;
-            const completed = step > index;
-
-            return (
-              <button
-                key={label}
-                type="button"
-                disabled={index > step}
-                onClick={() => setStep(index)}
-                className={`rounded-2xl border px-3 py-3 text-left text-xs transition ${
-                  active
-                    ? 'border-orange-500 bg-orange-50 text-orange-700'
-                    : completed
-                      ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
-                      : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
-                }`}
-              >
-                <p className="font-semibold">{label}</p>
-              </button>
-            );
-          })}
-        </div>
+        <StepNav steps={STEPS} step={step} setStep={setStep} />
 
         {step === 0 ? (
-          <div className="mt-7 space-y-6">
-            {enrollmentModeOptions.length > 1 ? (
-              <div>
-                <label className="mb-3 block text-sm font-medium text-gray-700">
-                  Select Delivery Mode
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {enrollmentModeOptions.map((mode) => {
-                    const active = selectedDeliveryMode === mode;
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDeliveryMode(mode);
-                          setSelectedInstructorId('');
-                          setSelectedSlotId('');
-                          if (mode !== 'offline') setSelectedBranchId('');
-                        }}
-                        className={`rounded-2xl border px-4 py-4 text-left transition ${
-                          active
-                            ? 'border-orange-500 bg-orange-50'
-                            : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        <p className="font-semibold capitalize text-gray-900">
-                          {mode}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {mode === 'offline'
-                            ? 'Attend at the selected branch.'
-                            : 'Attend the session online.'}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-sm text-orange-700">
-                Delivery mode:{' '}
-                <span className="font-semibold capitalize">
-                  {selectedDeliveryMode}
-                </span>
-              </div>
-            )}
-
-            {shouldPickBranch ? (
-              <div>
-                {branchCityOptions.length > 0 ? (
-                  <div className="mb-4">
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      Filter by city
-                    </label>
-                    <select
-                      value={selectedBranchCity}
-                      onChange={(event) => {
-                        setSelectedBranchCity(event.target.value);
-                        setSelectedBranchId('');
-                        setSelectedInstructorId('');
-                        setSelectedSlotId('');
-                      }}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
-                    >
-                      <option value="all">All cities</option>
-                      {branchCityOptions.map((city) => (
-                        <option key={city.id} value={city.id}>
-                          {city.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-
-                <label className="mb-2 flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <HiOutlineLocationMarker />
-                  Select Branch
-                </label>
-                <select
-                  value={selectedBranchId}
-                  onChange={(event) => {
-                    setSelectedBranchId(event.target.value);
-                    setSelectedInstructorId('');
-                    setSelectedSlotId('');
-                  }}
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
-                >
-                  <option value="">Choose a branch</option>
-                  {filteredBranchOptions.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.city ? `${branch.label} - ${branch.city}` : branch.label}
-                    </option>
-                  ))}
-                </select>
-                {filteredBranchOptions.length === 0 ? (
-                  <p className="mt-2 text-xs text-gray-500">
-                    No branches found for this city. Choose another city to continue.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <StepDelivery
+            enrollmentModeOptions={enrollmentModeOptions}
+            selectedDeliveryMode={selectedDeliveryMode}
+            setSelectedDeliveryMode={setSelectedDeliveryMode}
+            setSelectedInstructorId={setSelectedInstructorId}
+            setSelectedSlotId={setSelectedSlotId}
+            setSelectedBranchId={setSelectedBranchId}
+            shouldPickBranch={shouldPickBranch}
+            branchCityOptions={branchCityOptions}
+            selectedBranchCity={selectedBranchCity}
+            setSelectedBranchCity={setSelectedBranchCity}
+            filteredBranchOptions={filteredBranchOptions}
+            selectedBranchId={selectedBranchId}
+          />
         ) : null}
 
         {step === 1 ? (
-          <div className="mt-7 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                <HiUser />
-                Select Instructor
-              </label>
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
-                {visibleInstructors.length} available
-              </span>
-            </div>
-
-            {slotsStatus === 'loading' ? (
-              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                Loading instructors and class slots...
-              </div>
-            ) : visibleInstructors.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                {visibleInstructors.map((instructor) => {
-                  const isSelected = selectedInstructorId === instructor.id;
-                  const hasVideo = Boolean(instructor.profileVideo);
-
-                  return (
-                    <div
-                      key={instructor.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        setSelectedInstructorId(instructor.id);
-                        setSelectedSlotId('');
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter' && event.key !== ' ') return;
-                        event.preventDefault();
-                        setSelectedInstructorId(instructor.id);
-                        setSelectedSlotId('');
-                      }}
-                      className={`cursor-pointer rounded-3xl border p-4 transition ${
-                        isSelected
-                          ? 'border-orange-500 bg-orange-50'
-                          : 'border-gray-200 bg-white hover:border-orange-200 hover:bg-orange-50/30'
-                      }`}
-                    >
-                      <div className="flex gap-4">
-                        <img
-                          src={instructor.profilePicture || getInitialsImage(instructor.name)}
-                          alt={instructor.name}
-                          className="h-20 w-20 rounded-2xl object-cover object-top"
-                          onError={(event) => {
-                            event.currentTarget.src = getInitialsImage(instructor.name);
-                          }}
-                        />
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-lg font-semibold text-gray-900">
-                                {instructor.name}
-                              </p>
-                              <p className="text-sm text-gray-500">
-                                {instructor.averageRating
-                                  ? `${instructor.averageRating.toFixed(1)} rating`
-                                  : 'Course instructor'}
-                                {' • '}
-                                {instructor.studentCount || 0} students taught
-                              </p>
-                            </div>
-
-                            <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                isSelected
-                                  ? 'bg-orange-500 text-white'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {isSelected ? 'Selected' : 'Select'}
-                            </span>
-                          </div>
-
-                          <div className="mt-3 flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium capitalize text-gray-600 ring-1 ring-gray-200">
-                              {instructor.mode || selectedDeliveryMode}
-                            </span>
-                            <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
-                              {getVisibleSlotsForInstructor(instructor).length} slots
-                            </span>
-                            {hasVideo ? (
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setVideoPreview({
-                                    url: instructor.profileVideo,
-                                    title: `${instructor.name} demo video`,
-                                  });
-                                }}
-                                className="rounded-full bg-gray-900 px-3 py-1 text-xs font-medium text-white transition hover:bg-gray-700"
-                              >
-                                Watch demo video
-                              </button>
-                            ) : (
-                              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
-                                Demo video not uploaded yet
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                No instructors are currently available for this course and
-                delivery mode.
-              </div>
-            )}
-          </div>
+          <StepInstructor
+            visibleInstructors={visibleInstructors}
+            slotsStatus={slotsStatus}
+            selectedInstructorId={selectedInstructorId}
+            setSelectedInstructorId={setSelectedInstructorId}
+            setSelectedSlotId={setSelectedSlotId}
+            selectedDeliveryMode={selectedDeliveryMode}
+            setVideoPreview={setVideoPreview}
+            getVisibleSlotsForInstructor={getVisibleSlotsForInstructor}
+          />
         ) : null}
 
         {step === 2 ? (

@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FaBookOpen, FaClock, FaEdit, FaMapMarkerAlt, FaRupeeSign, FaUsers } from "react-icons/fa";
-import { CheckCircle } from "react-feather";
-import { getCourseDetails } from "../../redux/Course/CourseSlice";
+import { FiCheckCircle } from "react-icons/fi";
+import { useCourseDetailsQuery } from "../../hooks/useCourses";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/960x540?text=Course";
@@ -39,15 +38,13 @@ const getBranchCityName = (branch) => {
 
 // CourseDetailPage Component
 const CourseDetailPage = () => {
-    const dispatch = useDispatch();
     const { courseId } = useParams();
 
     // Local tab state
     const [activeTab, setActiveTab] = useState("Overview");
 
-    // Global state from Redux
-    const { course, status, error } = useSelector((state) => state.course);
-    const courseData = course?.info || {}; // Flattened course object
+    // Server data via TanStack Query (replaces the course slice's detail cache).
+    const { data: courseData = {}, isLoading, isError, error } = useCourseDetailsQuery(courseId);
     const contentItems = Array.isArray(courseData.content) ? courseData.content : [];
     const instructors = Array.isArray(courseData.teacher) ? courseData.teacher : [];
     const prices = Array.isArray(courseData.price) ? courseData.price : [];
@@ -60,21 +57,15 @@ const CourseDetailPage = () => {
 
     const selectedPrice = prices.find((plan) => plan.isSelected) || prices[0];
 
-    useEffect(() => {
-        if (courseId) {
-            dispatch(getCourseDetails(courseId));
-        }
-    }, [courseId, dispatch]);
-
     // Conditional UI
-    if (status === "loading") {
+    if (isLoading) {
         return (
             <div className="min-h-[60vh] rounded-3xl bg-[#f6f3ee] p-8 text-gray-500">
                 Loading course details...
             </div>
         );
     }
-    if (status === "failed") return <div className="p-6 text-red-600">Error: {error}</div>;
+    if (isError) return <div className="p-6 text-red-600">Error: {error?.message || "Failed to load course."}</div>;
     if (!courseData?._id) return <div className="p-6 text-gray-600">Course not found!</div>;
 
     return (
@@ -234,7 +225,7 @@ const CourseDetailPage = () => {
                             <div className="mb-6 grid gap-3 sm:grid-cols-2">
                                 {courseData.objectives.map((obj, idx) => (
                                     <div key={idx} className="flex gap-3 rounded-2xl bg-[#f8f4ee] p-4 text-gray-700">
-                                        <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                                        <FiCheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                                         <span>{obj}</span>
                                     </div>
                                 ))}
