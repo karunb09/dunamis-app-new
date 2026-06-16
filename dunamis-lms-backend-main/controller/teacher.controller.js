@@ -1083,3 +1083,110 @@ exports.addBankDetails = asyncHandler(async (req, res) => {
       teacher,
     });
 });
+
+const ALLOWED_DOC_TYPES = {
+  certificate: ["application/pdf", "image/jpeg", "image/png", "image/jpg"],
+  profileVideo: ["video/mp4", "video/mpeg", "video/avi", "video/quicktime"],
+  profilePicture: ["image/jpeg", "image/png", "image/jpg"],
+};
+
+const DOC_ARRAY_MAP = {
+  certificate: "certificates",
+  profileVideo: "profileVideos",
+  profilePicture: "profilePictures",
+};
+
+exports.updateInstructorDocument = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { type } = req.body;
+
+  if (!DOC_ARRAY_MAP[type]) {
+    return res.status(400).json({ success: false, message: "type must be certificate, profileVideo, or profilePicture" });
+  }
+
+  const teacher = await Teacher.findById(id);
+  if (!teacher) return res.status(404).json({ success: false, message: "Instructor not found" });
+
+  const isSelf = req.user.roleId?.toString() === id;
+  const isAdmin = ["admin", "superadmin"].includes(req.user.accountType);
+  if (!isSelf && !isAdmin) {
+    return res.status(403).json({ success: false, message: "Not authorized" });
+  }
+
+  if (!req.files?.file) {
+    return res.status(400).json({ success: false, message: "No file uploaded" });
+  }
+
+  const { localFileUpload: upload } = require("../utils/locallyUploader");
+  const [uploaded] = await upload(req.files.file, ALLOWED_DOC_TYPES[type]);
+
+  const arrayName = DOC_ARRAY_MAP[type];
+
+  await Teacher.updateOne({ _id: id }, { $set: { [`${arrayName}.$[].isActive`]: false } });
+  await Teacher.findByIdAndUpdate(id, {
+    $push: { [arrayName]: { filePath: uploaded.path, uploadedAt: new Date(), isActive: true } },
+  });
+
+  const updated = await Teacher.findById(id).select(arrayName);
+  res.json({ success: true, data: updated[arrayName] });
+});
+
+exports.getInstructorDocuments = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const isSelf = req.user.roleId?.toString() === id;
+  const isAdmin = ["admin", "superadmin"].includes(req.user.accountType);
+  if (!isSelf && !isAdmin) {
+    return res.status(403).json({ success: false, message: "Not authorized" });
+  }
+
+  const teacher = await Teacher.findById(id)
+    .select("certificates profileVideos profilePictures teacherDetail")
+    .populate("teacherDetail", "relevantCertificate profileVideo profilePicture");
+
+  if (!teacher) return res.status(404).json({ success: false, message: "Instructor not found" });
+
+  res.json({
+    success: true,
+    data: {
+      certificates: teacher.certificates,
+      profileVideos: teacher.profileVideos,
+      profilePictures: teacher.profilePictures,
+      originalApplicationDocs: {
+        certificate: teacher.teacherDetail?.relevantCertificate || null,
+        profileVideo: teacher.teacherDetail?.profileVideo || null,
+        profilePicture: teacher.teacherDetail?.profilePicture || null,
+      },
+    },
+  });
+});
+
+exports.getTeacherCourseMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const isSelf = req.user.roleId?.toString() === id;
+  const isAdmin = ["admin", "superadmin"].includes(req.user.accountType);
+  if (!isSelf && !isAdmin) {
+    return res.status(403).json({ success: false, message: "Not authorized" });
+  }
+
+  const teacher = await Teacher.findById(id).populate({
+    path: "course",
+    select: "name image teacherMedia",
+  });
+  if (!teacher) return res.status(404).json({ success: false, message: "Instructor not found" });
+
+  const data = (teacher.course || []).map((course) => {
+    const entry = (course.teacherMedia || []).find(
+      (m) => m.teacher?.toString() === id
+    );
+    return {
+      courseId: course._id,
+      courseName: course.name,
+      courseImage: course.image,
+      demoVideos: entry?.demoVideos || [],
+      certificates: entry?.certificates || [],
+    };
+  });
+
+  res.json({ success: true, data });
+});

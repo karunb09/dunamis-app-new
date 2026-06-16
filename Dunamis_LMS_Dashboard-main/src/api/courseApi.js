@@ -2,9 +2,10 @@ import axios from "./axios";
 import { getStoredToken, getStoredUser } from "../utils/authSession";
 
 // Pure data-access functions for the Course domain. These hold the same
-// admin-vs-public routing and auth-header logic the Redux thunks used, but with
-// zero store/caching concerns — caching, dedup, loading/error state are owned by
-// TanStack Query (see hooks/useCourses.js).
+// admin-vs-public routing the Redux thunks used, but with zero store/caching
+// concerns — caching, dedup, loading/error state are owned by TanStack Query
+// (see hooks/useCourses.js). The bearer token is attached by the axios request
+// interceptor; these only gate admin routes on token presence.
 
 const getErrorMessage = (data, fallback) => {
   if (typeof data === "string") return data;
@@ -23,9 +24,9 @@ const isAdminRole = () => {
   return ["admin", "superadmin"].includes(accountType);
 };
 
-const authHeaders = () => {
-  const token = getStoredToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+// Fail fast (no network round-trip) when an admin-only call has no token.
+const requireToken = () => {
+  if (!getStoredToken()) throw new Error("Authentication required");
 };
 
 // Normalises axios errors into a thrown Error with a useful message so React
@@ -39,12 +40,9 @@ const toError = (err, fallback) => {
 export async function fetchCourses() {
   try {
     const usePrivateRoute = isAdminRole();
+    if (usePrivateRoute) requireToken();
     const endpoint = usePrivateRoute ? "/course/manage" : "/course/get";
-    const headers = usePrivateRoute ? authHeaders() : {};
-    if (usePrivateRoute && !headers.Authorization) {
-      throw new Error("Authentication required");
-    }
-    const { data } = await axios.get(endpoint, { headers });
+    const { data } = await axios.get(endpoint);
     return Array.isArray(data) ? data : data.data || [];
   } catch (err) {
     throw toError(err, "Failed to load courses");
@@ -54,14 +52,11 @@ export async function fetchCourses() {
 export async function fetchCourseDetails(courseId) {
   try {
     const usePrivateRoute = isAdminRole();
+    if (usePrivateRoute) requireToken();
     const endpoint = usePrivateRoute
       ? `/course/manage/${courseId}`
       : `/course/get/${courseId}`;
-    const headers = usePrivateRoute ? authHeaders() : {};
-    if (usePrivateRoute && !headers.Authorization) {
-      throw new Error("Authentication required");
-    }
-    const { data } = await axios.get(endpoint, { headers });
+    const { data } = await axios.get(endpoint);
     return data.data;
   } catch (err) {
     throw toError(err, "Failed to load course");
@@ -70,10 +65,9 @@ export async function fetchCourseDetails(courseId) {
 
 export async function createCourse(formData) {
   try {
-    const headers = authHeaders();
-    if (!headers.Authorization) throw new Error("Authentication required");
+    requireToken();
     const { data } = await axios.post("/course/create", formData, {
-      headers: { ...headers, "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return data;
   } catch (err) {
@@ -83,10 +77,9 @@ export async function createCourse(formData) {
 
 export async function updateCourse({ courseId, updates }) {
   try {
-    const headers = authHeaders();
-    if (!headers.Authorization) throw new Error("Authentication required");
+    requireToken();
     const { data } = await axios.put(`/course/update/${courseId}`, updates, {
-      headers: { ...headers, "Content-Type": "multipart/form-data" },
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return data;
   } catch (err) {
@@ -96,9 +89,8 @@ export async function updateCourse({ courseId, updates }) {
 
 export async function deleteCourse(courseId) {
   try {
-    const headers = authHeaders();
-    if (!headers.Authorization) throw new Error("Authentication required");
-    await axios.delete(`/course/delete/${courseId}`, { headers });
+    requireToken();
+    await axios.delete(`/course/delete/${courseId}`);
     return courseId;
   } catch (err) {
     throw toError(err, "Failed to delete course");

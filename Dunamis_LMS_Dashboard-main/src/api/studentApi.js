@@ -1,13 +1,8 @@
 import axios from "./axios";
-import { getStoredToken } from "../utils/authSession";
 
 // Pure data-access for the Student domain (admin student-management screens).
 // Caching/loading/error are owned by TanStack Query (see hooks/useStudents.js).
-
-const authHeaders = () => {
-  const token = getStoredToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
+// The bearer token is attached by the axios request interceptor.
 
 const toError = (err, fallback) => {
   const data = err.response?.data;
@@ -22,7 +17,6 @@ export async function fetchStudentsByType(type) {
   try {
     const { data } = await axios.get("/student/get-by-type", {
       params: type ? { type } : {},
-      headers: authHeaders(),
     });
     return data;
   } catch (err) {
@@ -32,7 +26,7 @@ export async function fetchStudentsByType(type) {
 
 export async function fetchStudentById(id) {
   try {
-    const { data } = await axios.get(`/student/${id}`, { headers: authHeaders() });
+    const { data } = await axios.get(`/student/${id}`);
     return data?.student ?? null;
   } catch (err) {
     throw toError(err, "Failed to load student");

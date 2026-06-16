@@ -97,6 +97,7 @@ const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
 const siteContentRoutes = require("./routes/siteContent.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
+const courseRequestRoutes = require("./routes/courseRequest.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -187,6 +188,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/", generalLimiter);
 app.use("/api/v1/user/login", authLimiter);
 app.use("/api/v1/student/send-otp", authLimiter);
+app.use("/api/v1/teacherApplication/send-email-otp", authLimiter);
 
 app.use("/api/v1/student", studentRoutes);
 app.use("/api/v1/user", userRoutes);
@@ -212,6 +214,7 @@ app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);
 app.use("/api/v1/siteContent", siteContentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/v1/course-requests", courseRequestRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

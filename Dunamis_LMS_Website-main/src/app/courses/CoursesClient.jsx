@@ -242,7 +242,12 @@ function CoursesPageContent({ initialCourses = [] }) {
       });
   };
 
-  useEffect(() => { dispatch(fetchCourses()); }, [dispatch]);
+  // Server already provided ISR-fresh courses (revalidate=300); only fetch on
+  // the client as a fallback when SSR returned nothing — avoids the double-fetch.
+  useEffect(() => {
+    if (initialCourses.length) return;
+    dispatch(fetchCourses());
+  }, [dispatch, initialCourses.length]);
 
   const transformedCourses = useMemo(() => transformCourses(courses), [courses]);
 

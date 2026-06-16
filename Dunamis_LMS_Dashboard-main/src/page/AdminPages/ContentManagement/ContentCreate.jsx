@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FaPlus, FaTrash, FaEdit } from "react-icons/fa";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchCategories } from "../../../redux/Category/CategorySlice";
+import { useCategoriesQuery } from "../../../hooks/useCategories";
 import { createContent, fetchContentById, updateContent } from "../../../redux/Content/ContentSlice";
 import toast from "react-hot-toast";
 
@@ -18,7 +18,9 @@ const ContentForm = () => {
   const [subCategory, setSubCategory] = useState("");
   const [curriculum, setCurriculum] = useState([]);  
 
-  const { categories, subCategories, status } = useSelector((state) => state.category);
+  const { data: categoryData } = useCategoriesQuery();
+  const categories = categoryData?.categories || [];
+  const subCategories = categoryData?.subCategories || [];
   const { content, status: contentStatus, error: contentError } = useSelector((state) => state.content);
 
   const selectedCategoryId =
@@ -38,14 +40,8 @@ const ContentForm = () => {
       : subCategories.filter((subCat) => subCat.categoryId === selectedCategoryId);
 
   useEffect(() => {
-    if (status === "idle") {
-      dispatch(fetchCategories());
-    }
-  }, [status, dispatch]);
-
-  useEffect(() => {
     if (id) {
-      dispatch(fetchContentById(id));  
+      dispatch(fetchContentById(id));
     }
   }, [id, dispatch]);
 

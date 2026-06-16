@@ -424,6 +424,31 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                   sendPasswordTemplate(user, "teacher", generatedPassword)
                 );
             }
+
+            // Seed versioned document arrays from the application if not yet populated
+            const needsSeeding =
+              teacherDoc.certificates.length === 0 &&
+              teacherDoc.profileVideos.length === 0 &&
+              teacherDoc.profilePictures.length === 0;
+
+            if (needsSeeding) {
+              const seedPush = {};
+              if (application.relevantCertificate) {
+                seedPush.certificates = { filePath: application.relevantCertificate, uploadedAt: new Date(), isActive: true };
+              }
+              if (application.profileVideo) {
+                seedPush.profileVideos = { filePath: application.profileVideo, uploadedAt: new Date(), isActive: true };
+              }
+              if (application.profilePicture) {
+                seedPush.profilePictures = { filePath: application.profilePicture, uploadedAt: new Date(), isActive: true };
+              }
+              const pushOp = Object.fromEntries(
+                Object.entries(seedPush).map(([k, v]) => [k, v])
+              );
+              if (Object.keys(pushOp).length > 0) {
+                await Teacher.findByIdAndUpdate(teacherDoc._id, { $push: pushOp });
+              }
+            }
         }
 
         application.status = status;
@@ -476,4 +501,53 @@ exports.deleteTeacherApplication = asyncHandler(async (req, res) => {
             success: true,
             message: "Teacher application deleted successfully"
         });
+});
+
+const OTP = require("../model/otp.model");
+
+exports.sendInstructorEmailOTP = asyncHandler(async (req, res) => {
+  const { email } = req.body;
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    return res.status(400).json({ success: false, message: "Enter a valid email address" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const existing = await TeacherApplication.findOne({ email: normalizedEmail });
+  if (existing) {
+    return res.status(409).json({ success: false, message: "An application with this email already exists. Contact support if you need help." });
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const existingOtp = await OTP.findOne({ email: normalizedEmail });
+  if (existingOtp) {
+    existingOtp.otp = otp;
+    existingOtp.createdAt = Date.now();
+    await existingOtp.save();
+  } else {
+    await OTP.create({ email: normalizedEmail, otp });
+  }
+
+  const body = `<p>Your Dunamis instructor application verification code is:</p>
+<h2 style="letter-spacing:4px;font-size:32px;">${otp}</h2>
+<p>This code expires in 5 minutes. Do not share it with anyone.</p>`;
+
+  await mailSender(normalizedEmail, "Dunamis — Verify Your Email", body);
+  res.json({ success: true, message: "Verification code sent to your email" });
+});
+
+exports.verifyInstructorEmailOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ success: false, message: "email and otp are required" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  const otpDoc = await OTP.findOne({ email: normalizedEmail });
+  if (!otpDoc) {
+    return res.status(400).json({ success: false, message: "Code expired or not found. Please request a new one." });
+  }
+  if (otpDoc.otp !== otp.toString().trim()) {
+    return res.status(400).json({ success: false, message: "Invalid code. Please try again." });
+  }
+  await otpDoc.deleteOne();
+  res.json({ success: true, verified: true });
 });

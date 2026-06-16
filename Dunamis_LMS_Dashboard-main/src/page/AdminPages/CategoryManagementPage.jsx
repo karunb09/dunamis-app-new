@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useState } from "react";
 import { FaSortAmountDown, FaFilter, FaPlus, FaSearch, FaEllipsisV, FaTimes, FaLayerGroup, FaTags, FaRegClock } from "react-icons/fa";
-import { deleteCategory, fetchCategories, updateCategory } from "../../redux/Category/CategorySlice";
+import { useCategoriesQuery, useUpdateCategory, useDeleteCategory } from "../../hooks/useCategories";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -15,9 +14,11 @@ const SORT_OPTIONS = [
 ];
 
 const CategoryManagement = () => {
-  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { categories, status, error } = useSelector((state) => state.category);
+  const { data: categoryData, isLoading, isError, error } = useCategoriesQuery();
+  const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
+  const categories = categoryData?.categories || [];
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState(() => localStorage.getItem("categoryTab") || "Active");
@@ -43,12 +44,6 @@ const CategoryManagement = () => {
       ) || 0,
   };
 
-  useEffect(() => {
-    if (status === "idle") {
-      dispatch(fetchCategories());
-    }
-  }, [dispatch, status]);
-
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     localStorage.setItem("categoryTab", tab);
@@ -64,12 +59,11 @@ const CategoryManagement = () => {
 
   const handleStatusToggle = (category) => {
     const newStatus = category.status === "draft" ? "published" : "draft";
-    dispatch(updateCategory({ id: category._id, updatedData: { ...category, status: newStatus } }))
-      .unwrap()
+    updateCategoryMutation
+      .mutateAsync({ id: category._id, updatedData: { ...category, status: newStatus } })
       .then(() => {
         setActiveMenu(null);
         toast.success(`Category status updated to ${newStatus}`);
-        window.location.reload();
       })
       .catch((error) => toast.error("Failed to update category status:", error));
   };
@@ -85,8 +79,8 @@ const CategoryManagement = () => {
       confirmButtonText: "Yes, delete it!"
     }).then((result) => {
       if (result.isConfirmed) {
-        dispatch(deleteCategory(id))
-          .unwrap()
+        deleteCategoryMutation
+          .mutateAsync(id)
           .then(() => {
             Swal.fire({
               title: "Deleted!",
@@ -95,7 +89,6 @@ const CategoryManagement = () => {
             });
             toast.success("Category deleted successfully");
             setActiveMenu(null);
-            dispatch(fetchCategories());
           })
           .catch((error) => toast.error("Failed to delete category: " + error));
       }
@@ -152,8 +145,8 @@ const CategoryManagement = () => {
     }
   });
 
-  if (status === "loading") return <div>Loading categories...</div>;
-  if (status === "failed") return <div>Error: {error}</div>;
+  if (isLoading) return <div>Loading categories...</div>;
+  if (isError) return <div>Error: {error?.message}</div>;
 
   return (
     <div className="p-4 md:p-6 bg-[#f6f3ee] min-h-screen">

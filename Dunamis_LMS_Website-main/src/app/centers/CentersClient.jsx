@@ -194,9 +194,12 @@ export default function CentersClient({ initialCenters = [] }) {
   const [selectedCity, setSelectedCity] = useState("all");
   const [notifyCity, setNotifyCity] = useState("");
 
+  // Server already provided ISR-fresh centres; only fetch on the client as a
+  // fallback when SSR returned nothing — avoids the double-fetch.
   useEffect(() => {
+    if (initialCenters.length) return;
     dispatch(fetchOfflineCenters());
-  }, [dispatch]);
+  }, [dispatch, initialCenters.length]);
 
   const heroStats = useMemo(() => {
     const cityKeys = new Set();

@@ -1,5 +1,5 @@
 import { City, Country, State } from "country-state-city";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   SelectInput,
   TextInput,
@@ -7,12 +7,21 @@ import {
 } from "./FormFields";
 
 const DEFAULT_COUNTRY = "IN";
+const API_BASE = process.env.NEXT_PUBLIC_BASE_URL || "";
 
-export default function Step2Contact({ formData, setFormData, errors = {} }) {
+export default function Step2Contact({ formData, setFormData, errors = {}, emailVerified, onEmailVerified, onEmailChange }) {
   const [selectedCountry, setSelectedCountry] = useState(
     formData.country || DEFAULT_COUNTRY
   );
   const [selectedStateCode, setSelectedStateCode] = useState("");
+
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpValue, setOtpValue] = useState("");
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [otpError, setOtpError] = useState("");
+  const [countdown, setCountdown] = useState(0);
+  const countdownRef = useRef(null);
 
   const states = useMemo(
     () => State.getStatesOfCountry(selectedCountry),
@@ -35,36 +44,159 @@ export default function Step2Contact({ formData, setFormData, errors = {} }) {
     }
   }, [formData.currentState, states]);
 
+  useEffect(() => {
+    return () => clearInterval(countdownRef.current);
+  }, []);
+
+  const startCountdown = () => {
+    setCountdown(60);
+    clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) { clearInterval(countdownRef.current); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
+
+  const handleSendOtp = async () => {
+    if (!isValidEmail) return;
+    setSending(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/teacherApplication/send-email-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to send OTP");
+      setOtpSent(true);
+      setOtpValue("");
+      startCountdown();
+    } catch (err) {
+      setOtpError(err.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpValue.trim()) return;
+    setVerifying(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/teacherApplication/verify-email-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email.trim(), otp: otpValue.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Invalid code");
+      onEmailVerified();
+      clearInterval(countdownRef.current);
+      setCountdown(0);
+    } catch (err) {
+      setOtpError(err.message);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-      <TextInput
-        id="teacher-email"
-        label="Email Address"
-        type="email"
-        placeholder="Enter your email address"
-        value={formData.email}
-        onChange={(e) =>
-          setFormData({ ...formData, email: e.target.value })
-        }
-        error={errors.email}
-        required
-      />
+      {/* Email with OTP verification */}
+      <div className="md:col-span-2 md:grid md:grid-cols-2 md:gap-5">
+        <div>
+          <TextInput
+            id="teacher-email"
+            label="Email Address"
+            type="email"
+            placeholder="Enter your email address"
+            value={formData.email}
+            onChange={(e) => {
+              setFormData({ ...formData, email: e.target.value });
+              if (otpSent) { setOtpSent(false); setOtpValue(""); setOtpError(""); }
+              onEmailChange?.();
+            }}
+            error={errors.email}
+            required
+          />
 
-      <TextInput
-        id="teacher-mobile"
-        label="Mobile Number"
-        inputMode="numeric"
-        placeholder="Enter your mobile number"
-        value={formData.mobileNo}
-        onChange={(e) =>
-          setFormData({
-            ...formData,
-            mobileNo: e.target.value.replace(/\D/g, "").slice(0, 10),
-          })
-        }
-        error={errors.mobileNo}
-        required
-      />
+          {/* OTP block */}
+          {emailVerified ? (
+            <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+              <span className="text-base">✓</span> Email verified
+            </p>
+          ) : (
+            <div className="mt-2">
+              {!otpSent ? (
+                <button
+                  type="button"
+                  disabled={!isValidEmail || sending}
+                  onClick={handleSendOtp}
+                  className="rounded-xl bg-orange-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {sending ? "Sending…" : "Send Verification Code"}
+                </button>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      placeholder="6-digit code"
+                      value={otpValue}
+                      onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      className="w-36 rounded-xl border border-gray-300 px-3 py-1.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={otpValue.length !== 6 || verifying}
+                      onClick={handleVerifyOtp}
+                      className="rounded-xl bg-orange-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:opacity-50"
+                    >
+                      {verifying ? "Verifying…" : "Verify"}
+                    </button>
+                  </div>
+                  {countdown > 0 ? (
+                    <p className="text-xs text-gray-500">Resend in {countdown}s</p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={sending}
+                      className="w-fit text-xs text-orange-500 underline hover:text-orange-600 disabled:opacity-50"
+                    >
+                      {sending ? "Sending…" : "Resend code"}
+                    </button>
+                  )}
+                </div>
+              )}
+              {otpError && <p className="mt-1 text-xs text-red-500">{otpError}</p>}
+            </div>
+          )}
+        </div>
+
+        <TextInput
+          id="teacher-mobile"
+          label="Mobile Number"
+          inputMode="numeric"
+          placeholder="Enter your mobile number"
+          value={formData.mobileNo}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              mobileNo: e.target.value.replace(/\D/g, "").slice(0, 10),
+            })
+          }
+          error={errors.mobileNo}
+          required
+        />
+      </div>
 
       <SelectInput
         id="teacher-country"

@@ -66,6 +66,10 @@ const getInstructorImage = (teacher, courseImage, name) => {
 const buildInstructorCards = (courseRecord) =>
   (courseRecord?.teacher || []).map((teacher) => {
     const name = buildTeacherName(teacher);
+    const teacherId = String(teacher?._id || teacher?.id || "");
+    const courseMedia = (courseRecord?.teacherMedia || []).find(
+      (m) => String(m.teacher?._id || m.teacher) === teacherId
+    );
     return {
       id: teacher?._id || teacher?.id, name,
       branch: courseRecord?.category?.name || "Department",
@@ -78,6 +82,12 @@ const buildInstructorCards = (courseRecord) =>
       location: [teacher?.teacherDetail?.currentCity, teacher?.teacherDetail?.currentState].filter(Boolean).join(", "),
       yearsExperience: teacher?.teacherDetail?.yearOfExperience ? `${teacher.teacherDetail.yearOfExperience} yrs exp` : "",
       mode: teacher?.teacherDetail?.mode || courseRecord?.mode || "online",
+      courseDemoVideo: resolveImageUrl(
+        courseMedia?.demoVideos?.find((v) => v.isActive)?.filePath, ""
+      ),
+      courseCertificates: (courseMedia?.certificates || []).map((c) =>
+        resolveImageUrl(typeof c === "string" ? c : c.filePath, "")
+      ),
     };
   });
 
@@ -628,12 +638,37 @@ export default function CourseDetailClient({ initialCourse = null }) {
                     {activeInstructor.location && <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 flex items-center gap-1"><LuMapPin className="w-3 h-3" />{activeInstructor.location}</span>}
                     {activeInstructor.expertise && <span className="rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs font-medium text-blue-700">{activeInstructor.expertise}</span>}
                   </div>
-                  {activeInstructor.profileVideo ? (
-                    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
-                      <video key={activeInstructor.profileVideo} src={activeInstructor.profileVideo} controls playsInline preload="metadata" className="aspect-video w-full bg-black">Your browser cannot preview this video.</video>
+                  {(activeInstructor.courseDemoVideo || activeInstructor.profileVideo) ? (
+                    <div>
+                      {activeInstructor.courseDemoVideo && (
+                        <>
+                          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-orange-500">Course Demo</p>
+                          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
+                            <video key={activeInstructor.courseDemoVideo} src={activeInstructor.courseDemoVideo} controls playsInline preload="metadata" className="aspect-video w-full bg-black">Your browser cannot preview this video.</video>
+                          </div>
+                        </>
+                      )}
+                      {!activeInstructor.courseDemoVideo && activeInstructor.profileVideo && (
+                        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
+                          <video key={activeInstructor.profileVideo} src={activeInstructor.profileVideo} controls playsInline preload="metadata" className="aspect-video w-full bg-black">Your browser cannot preview this video.</video>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-400">No demo video uploaded yet.</div>
+                  )}
+                  {activeInstructor.courseCertificates?.length > 0 && (
+                    <div>
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-orange-500">Certificates</p>
+                      <div className="flex flex-wrap gap-2">
+                        {activeInstructor.courseCertificates.map((cert, ci) => (
+                          <a key={ci} href={cert} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 rounded-xl border border-orange-100 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 hover:bg-orange-100 transition">
+                            <LuAward className="w-3.5 h-3.5" /> Certificate {ci + 1}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <motion.button type="button" whileTap={{ scale: 0.97 }}

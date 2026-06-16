@@ -21,6 +21,7 @@ const getTodayDateString = () => {
 export default function MultiStepForm() {
     const [step, setStep] = useState(1);
     const [fieldErrors, setFieldErrors] = useState({});
+    const [emailVerified, setEmailVerified] = useState(false);
 
     const [formData, setFormData] = useState({
         firstName: "",
@@ -100,8 +101,10 @@ export default function MultiStepForm() {
 
         if (currentStep === 2) {
             if (!formData.email.trim()) errors.email = "Email address is required";
-            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+            else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
                 errors.email = "Enter a valid email address";
+            } else if (!emailVerified) {
+                errors.email = "Please verify your email address before continuing";
             }
             if (!/^\d{10}$/.test(formData.mobileNo.trim())) {
                 errors.mobileNo = "Mobile number must be 10 digits";
@@ -192,7 +195,14 @@ export default function MultiStepForm() {
 
     const steps = [
         <Step1Personal formData={formData} setFormData={setFormData} errors={fieldErrors} />,
-        <Step2Contact formData={formData} setFormData={setFormData} errors={fieldErrors} />,
+        <Step2Contact
+            formData={formData}
+            setFormData={setFormData}
+            errors={fieldErrors}
+            emailVerified={emailVerified}
+            onEmailVerified={() => setEmailVerified(true)}
+            onEmailChange={() => setEmailVerified(false)}
+        />,
         <Step3Professional
             formData={formData}
             setFormData={setFormData}

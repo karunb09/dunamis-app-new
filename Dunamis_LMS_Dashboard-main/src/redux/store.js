@@ -5,7 +5,6 @@ import teacherReducer from "./Intructor/teacherSlice";
 import branchReducer from "./Branch/branchSlice";
 import cityReducer from "./City/CitySlice";
 import zoneReducer from "./Zone/ZoneSlice";
-import categoryReducer from "./Category/CategorySlice";
 import subCategoryReducer from "./SubCategory/SubCategorySlice";
 import contentReducer from "./Content/ContentSlice";
 import adminReducer from "./Admin/AdminSlice";
@@ -20,6 +19,7 @@ import assignmentReducer from "./Assignment/AssignmentSlice";
 import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSlice";
 import assessmentReducer from "./Assesment/AssesmentSlice";
 import siteContentReducer from "./SiteContent/SiteContentSlice";
+import courseRequestReducer from "./courseRequests/courseRequestSlice";
 
 const AUTH_ERROR_MESSAGES = new Set([
   "Access denied. No token provided.",
@@ -48,7 +48,6 @@ export const store = configureStore({
     branch: branchReducer,
     city: cityReducer,
     zone: zoneReducer,
-    category: categoryReducer,
     subCategory: subCategoryReducer,
     teachers: teacherReducer,
     content: contentReducer,
@@ -63,6 +62,7 @@ export const store = configureStore({
     attendanceHomework: attendanceHomeworkReducer,
     assessment: assessmentReducer,
     siteContent: siteContentReducer,
+    courseRequests: courseRequestReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(sessionExpiredMiddleware),

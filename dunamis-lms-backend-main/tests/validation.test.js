@@ -12,6 +12,10 @@ const { createOrderSchema, verifyPaymentSchema } = require("../validators/enroll
 const { createSlotSchema } = require("../validators/slot.validator");
 const { createEnquirySchema } = require("../validators/enquiry.validator");
 const { bookDemoSchema } = require("../validators/demoBooking.validator");
+const { createStudentSchema } = require("../validators/student.validator");
+const { bankDetailsSchema } = require("../validators/teacher.validator");
+const { createAdminSchema } = require("../validators/admin.validator");
+const { idParam } = require("../validators/common");
 
 const OID = "a".repeat(24);
 
@@ -228,4 +232,90 @@ test("asyncHandler: does not call next on success", async () => {
   });
   assert.equal(nextCalls, 0);
   assert.equal(res.ok, true);
+});
+
+// ===================== fanned-out mutation validators =====================
+
+test("createStudent: coerces numeric mobile/otp, lowercases email, keeps unknown keys", () => {
+  const { req, res, nextCalled } = runValidate(createStudentSchema, {
+    name: { firstName: "A", lastName: "B" },
+    email: "  X@Y.COM ",
+    mobileNo: 9876543210,
+    password: "secret1",
+    confirmPassword: "secret1",
+    otp: 123456,
+    referral: "keep-me",
+  });
+  assert.equal(nextCalled, true);
+  assert.equal(res.statusCode, null);
+  assert.equal(req.body.email, "x@y.com");
+  assert.equal(req.body.mobileNo, "9876543210");
+  assert.equal(req.body.otp, "123456");
+  assert.equal(req.body.referral, "keep-me");
+});
+
+test("createStudent: password mismatch -> 400 with controller's exact message", () => {
+  const { res } = runValidate(createStudentSchema, {
+    name: { firstName: "A", lastName: "B" },
+    email: "a@b.com",
+    mobileNo: "9876543210",
+    password: "secret1",
+    confirmPassword: "nope",
+    otp: "1234",
+  });
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /do not match/i);
+});
+
+test("bankDetails: bad IFSC -> 400; valid -> uppercases IFSC", () => {
+  const bad = runValidate(bankDetailsSchema, {
+    accountHolderName: "A B",
+    accountNumber: "123456789",
+    ifscCode: "BAD",
+    bankName: "HDFC",
+  });
+  assert.equal(bad.res.statusCode, 400);
+  assert.match(bad.res.body.message, /IFSC/i);
+
+  const ok = runValidate(bankDetailsSchema, {
+    accountHolderName: "A B",
+    accountNumber: "123456789",
+    ifscCode: "hdfc0001234",
+    bankName: "HDFC",
+  });
+  assert.equal(ok.nextCalled, true);
+  assert.equal(ok.req.body.ifscCode, "HDFC0001234");
+});
+
+test("createAdmin: accepts array permission, rejects missing department", () => {
+  const ok = runValidate(createAdminSchema, {
+    name: { firstName: "A", lastName: "B" },
+    email: "a@b.com",
+    mobileNo: "9990001111",
+    role: "manager",
+    accessLevel: "full",
+    permission: ["x"],
+    department: "ops",
+  });
+  assert.equal(ok.nextCalled, true);
+
+  const bad = runValidate(createAdminSchema, {
+    name: { firstName: "A", lastName: "B" },
+    email: "a@b.com",
+    mobileNo: "9990001111",
+    role: "manager",
+    accessLevel: "full",
+    permission: ["x"],
+  });
+  assert.equal(bad.res.statusCode, 400);
+});
+
+test("idParam: malformed id -> 400 (params source)", () => {
+  const bad = runValidate(idParam, { id: "123" }, "params");
+  assert.equal(bad.res.statusCode, 400);
+  assert.match(bad.res.body.message, /valid id/i);
+
+  const ok = runValidate(idParam, { id: OID }, "params");
+  assert.equal(ok.nextCalled, true);
+  assert.deepEqual(ok.req.validated.params, { id: OID });
 });

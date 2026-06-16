@@ -33,6 +33,7 @@ const EnquiriesPage = lazy(() => import("./page/AdminPages/EnquiriesPage"));
 const SiteContentPage = lazy(() => import("./page/AdminPages/SiteContentPage"));
 const StudentProfile = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudentProfile"));
 const EnrolledStudents = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudents"));
+const CourseRequestsPage = lazy(() => import("./page/AdminPages/CourseRequests/CourseRequestsPage"));
 
 const Dashboard = lazy(() => import("./page/TeacherPages/TeacherCourses/Home"));
 const MyCourses = lazy(() => import("./page/TeacherPages/TeacherCourses/MyCourses"));
@@ -149,6 +150,7 @@ const App = () => {
               <Route path="/course/:courseId" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="courseManagement"><CourseDetails /></RequireAuth>} />
               <Route path="/admin/add-course" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="courseManagement"><CreateCourseForm /></RequireAuth>} />
               <Route path="/admin/edit-course/:courseId" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="courseManagement"><CreateCourseForm /></RequireAuth>} />
+              <Route path="/admin/course-requests" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="courseManagement"><CourseRequestsPage /></RequireAuth>} />
               <Route
                 path="/admin/category-management"
                 element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="categoryManagement"><CategoryManagementPage /></RequireAuth>}

@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import {
-  createCategoryWithSubCategories,
-  deleteCategory,
-  updateCategory,
-} from "../../../redux/Category/CategorySlice";
+  useCreateCategoryWithSubCategories,
+  useUpdateCategory,
+  useDeleteCategory,
+} from "../../../hooks/useCategories";
 import CategoryForm from "./CategoryForm";
 import { createSubCategory } from "../../../redux/SubCategory/SubCategorySlice";
 import toast from "react-hot-toast";
@@ -15,6 +15,9 @@ const AddCategory = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
+  const createCategoryMutation = useCreateCategoryWithSubCategories();
+  const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
 
   const editingCategory = location.state?.category || null;
 
@@ -82,13 +85,10 @@ const AddCategory = () => {
           subcategories: normalizedSubCategories.map((name) => ({ name, description: "" })),
         };
 
-        const resultAction = await dispatch(
-          createCategoryWithSubCategories(payload)
-        );
-        const createdCategory = resultAction.payload;
+        const createdCategory = await createCategoryMutation.mutateAsync(payload);
 
         if (!createdCategory?._id) {
-          toast.error(createdCategory?.message || resultAction.error?.message || "Failed to create category");
+          toast.error(createdCategory?.message || "Failed to create category");
           return;
         }
       } else {
@@ -106,18 +106,16 @@ const AddCategory = () => {
           createdSubcategoryIds.push(createdSubcat._id);
         }
 
-        await dispatch(
-          updateCategory({
-            id: editingCategory._id,
-            updatedData: {
-              name: categoryName,
-              icon: selectedIcon || "",
-              color: selectedColor,
-              status: targetStatus,
-              subcategories: [...existingSubcategoryIds, ...createdSubcategoryIds],
-            },
-          })
-        ).unwrap();
+        await updateCategoryMutation.mutateAsync({
+          id: editingCategory._id,
+          updatedData: {
+            name: categoryName,
+            icon: selectedIcon || "",
+            color: selectedColor,
+            status: targetStatus,
+            subcategories: [...existingSubcategoryIds, ...createdSubcategoryIds],
+          },
+        });
       }
 
       toast.success(
@@ -154,7 +152,7 @@ const AddCategory = () => {
     if (!editingCategory?._id) return;
 
     try {
-      await dispatch(deleteCategory(editingCategory._id)).unwrap();
+      await deleteCategoryMutation.mutateAsync(editingCategory._id);
       toast.success("Category deleted successfully!");
       navigate("/admin/category-management");
     } catch (err) {

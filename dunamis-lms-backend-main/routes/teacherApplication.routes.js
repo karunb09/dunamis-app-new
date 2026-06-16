@@ -12,7 +12,11 @@ const { isAuth, accessToRole } = require('../middleware/auth');
  * @access  Public
  * @body    Form data with files (cv, profileVideo, relevantCertificate)
  */
-router.post('/apply', 
+// Email OTP verification (public — no auth, rate-limited in index.js)
+router.post('/send-email-otp', teacherApplicationController.sendInstructorEmailOTP);
+router.post('/verify-email-otp', teacherApplicationController.verifyInstructorEmailOTP);
+
+router.post('/apply',
     teacherApplicationController.createTeacherApplication
 );
 

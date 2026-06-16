@@ -735,3 +735,59 @@ exports.deleteCourse = asyncHandler(async (req, res) => {
       .status(200)
       .json({ success: true, message: "Course deleted successfully" });
 });
+
+
+const VIDEO_MIMES = ["video/mp4", "video/mpeg", "video/avi", "video/quicktime"];
+const CERT_MIMES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
+
+exports.upsertInstructorCourseMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const teacherId = req.user.roleId;
+
+  const course = await Course.findById(id);
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+  const isAssigned = course.teacher.some((t) => t.toString() === teacherId.toString());
+  if (!isAssigned && !["admin", "superadmin"].includes(req.user.accountType)) {
+    return res.status(403).json({ success: false, message: "Not authorized for this course" });
+  }
+
+  let entryIdx = course.teacherMedia.findIndex((m) => m.teacher.toString() === teacherId.toString());
+  if (entryIdx === -1) {
+    course.teacherMedia.push({ teacher: teacherId, demoVideos: [], certificates: [] });
+    entryIdx = course.teacherMedia.length - 1;
+  }
+
+  const entry = course.teacherMedia[entryIdx];
+
+  if (req.files?.demoVideo) {
+    const [uploaded] = await localFileUpload(req.files.demoVideo, VIDEO_MIMES);
+    entry.demoVideos.forEach((v) => { v.isActive = false; });
+    entry.demoVideos.push({ filePath: uploaded.path, uploadedAt: new Date(), isActive: true });
+  }
+
+  if (req.files?.certificates) {
+    const certFiles = Array.isArray(req.files.certificates) ? req.files.certificates : [req.files.certificates];
+    const uploaded = await localFileUpload(certFiles, CERT_MIMES);
+    uploaded.forEach((u) => entry.certificates.push({ filePath: u.path, uploadedAt: new Date(), isActive: true }));
+  }
+
+  await course.save();
+  res.json({ success: true, data: entry });
+});
+
+exports.getInstructorCourseMedia = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const course = await Course.findById(id)
+    .select("teacherMedia")
+    .populate({
+      path: "teacherMedia.teacher",
+      select: "userId teacherDetail",
+      populate: [
+        { path: "userId", select: "name image" },
+        { path: "teacherDetail", select: "name profilePicture" },
+      ],
+    });
+  if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+  res.json({ success: true, data: course.teacherMedia });
+});
