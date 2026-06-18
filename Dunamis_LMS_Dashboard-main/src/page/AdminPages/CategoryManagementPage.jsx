@@ -337,7 +337,8 @@ const CategoryManagement = () => {
           {sortedCategories.map((category) => (
             <div
               key={category._id}
-              className="group relative overflow-hidden rounded-3xl border border-orange-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
+              onClick={() => handleEdit(category)}
+              className="group relative cursor-pointer overflow-hidden rounded-3xl border border-orange-100 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl"
             >
               <div
                 className="absolute inset-x-0 top-0 h-1.5"
@@ -357,10 +358,13 @@ const CategoryManagement = () => {
                 </div>
                 <FaEllipsisV
                   className="text-gray-400 cursor-pointer hover:text-black"
-                  onClick={() => handleMenuToggle(category._id)}
+                  onClick={(e) => { e.stopPropagation(); handleMenuToggle(category._id); }}
                 />
                 {activeMenu === category._id && (
-                  <div className="absolute right-0 top-8 bg-white shadow-lg border border-gray-200 rounded-lg w-40 z-50">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-8 bg-white shadow-lg border border-gray-200 rounded-lg w-40 z-50"
+                  >
                     <div className="flex justify-between items-center p-2">
                       <h3 className="text-sm text-gray-600">Options</h3>
                       <button

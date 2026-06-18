@@ -22,7 +22,8 @@ function CourseCard({ course, courseFallbackImage, onView, onDemo }) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       whileHover={{ y: -6, boxShadow: "0 20px 48px -12px rgba(0,0,0,0.14)" }}
-      className="group flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm transition-shadow duration-300"
+      onClick={onView}
+      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm transition-shadow duration-300"
     >
       {/* Image */}
       <div className="relative h-48 sm:h-52 overflow-hidden">
@@ -98,14 +99,14 @@ function CourseCard({ course, courseFallbackImage, onView, onDemo }) {
         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={onView}
+            onClick={(e) => { e.stopPropagation(); onView(); }}
             className="rounded-xl bg-[#FF6B35] py-2 px-3 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] active:bg-[#e04d1c]"
           >
             View Details
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={onDemo}
+            onClick={(e) => { e.stopPropagation(); onDemo(); }}
             className="rounded-xl border border-[#FF6B35] py-2 px-3 text-sm font-semibold text-[#FF6B35] transition hover:bg-orange-50"
           >
             Book Demo

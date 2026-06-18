@@ -1,5 +1,6 @@
 const asyncHandler = require("../utils/asyncHandler");
 const CourseRequest = require("../model/courseRequest.model");
+const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 const mailSender = require("../utils/mailSender");
@@ -65,7 +66,7 @@ exports.getMyRequests = asyncHandler(async (req, res) => {
 
 exports.getAllRequests = asyncHandler(async (req, res) => {
   const filter = {};
-  if (req.query.status && ["pending", "approved", "rejected"].includes(req.query.status)) {
+  if (req.query.status && ["pending", "approved", "rejected", "mixed"].includes(req.query.status)) {
     filter.status = req.query.status;
   }
 
@@ -125,6 +126,69 @@ ${noteSection}
       // non-fatal — status already saved
     }
   }
+
+  res.json({ success: true, data: request });
+});
+
+const ITEM_POPULATE = [
+  {
+    path: "instructor",
+    select: "userId teacherDetail",
+    populate: [
+      { path: "userId", select: "name email image" },
+      { path: "teacherDetail", select: "name profilePicture" },
+    ],
+  },
+  { path: "courses.category", select: "name" },
+  { path: "courses.subCategory", select: "name" },
+  { path: "courses.approvedCourseId", select: "name image" },
+];
+
+exports.updateCourseItemStatus = asyncHandler(async (req, res) => {
+  const { id, itemIndex } = req.params;
+  const { status, adminNotes, courseId } = req.body;
+  const idx = parseInt(itemIndex, 10);
+
+  if (!["approved", "rejected"].includes(status)) {
+    return res.status(400).json({ success: false, message: "status must be 'approved' or 'rejected'" });
+  }
+
+  const request = await CourseRequest.findById(id);
+  if (!request) return res.status(404).json({ success: false, message: "Course request not found" });
+  if (isNaN(idx) || idx < 0 || idx >= request.courses.length) {
+    return res.status(400).json({ success: false, message: "Invalid course item index" });
+  }
+  if (request.courses[idx].status !== "pending") {
+    return res.status(400).json({ success: false, message: "This item has already been reviewed" });
+  }
+
+  request.courses[idx].status = status;
+  if (adminNotes !== undefined) request.courses[idx].adminNotes = adminNotes;
+
+  if (status === "approved") {
+    if (!courseId) {
+      return res.status(400).json({ success: false, message: "courseId is required when approving" });
+    }
+    const course = await Course.findById(courseId);
+    if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+
+    await Course.findByIdAndUpdate(courseId, { $addToSet: { teacher: request.instructor } });
+    await Teacher.findByIdAndUpdate(request.instructor, { $addToSet: { course: courseId } });
+    request.courses[idx].approvedCourseId = courseId;
+  }
+
+  // Recompute top-level status once all items are decided
+  const allDecided = request.courses.every((c) => c.status !== "pending");
+  if (allDecided) {
+    const approvedCount = request.courses.filter((c) => c.status === "approved").length;
+    const rejectedCount = request.courses.filter((c) => c.status === "rejected").length;
+    if (approvedCount > 0 && rejectedCount > 0) request.status = "mixed";
+    else request.status = approvedCount > 0 ? "approved" : "rejected";
+    request.reviewedAt = new Date();
+  }
+
+  await request.save();
+  await request.populate(ITEM_POPULATE);
 
   res.json({ success: true, data: request });
 });

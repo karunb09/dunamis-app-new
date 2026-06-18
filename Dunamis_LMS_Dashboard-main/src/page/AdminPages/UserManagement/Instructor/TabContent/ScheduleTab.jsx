@@ -8,9 +8,9 @@ const DAY_LABELS = {
 };
 
 const SECTION_CONFIG = {
-  group:      { title: "Group Sessions",      badge: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100" },
-  individual: { title: "Individual Sessions", badge: "bg-violet-50 text-violet-700 border-violet-100" },
-  demo:       { title: "Demo Sessions",       badge: "bg-pink-50 text-pink-700 border-pink-100" },
+  group:      { title: "Group Sessions",      rowClass: "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-100" },
+  individual: { title: "Individual Sessions", rowClass: "text-violet-700 bg-violet-50 border-violet-100" },
+  demo:       { title: "Demo Sessions",       rowClass: "text-pink-700 bg-pink-50 border-pink-100" },
 };
 
 const getSectionId = (slot) => {
@@ -52,63 +52,84 @@ export default function ScheduleTab({ teacher }) {
   if (!slots.length) {
     return (
       <div className="p-4">
-        <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
-          <h3 className="text-base font-semibold text-gray-900">No schedule set</h3>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-gray-500">
-            This instructor has not added any availability slots yet.
-          </p>
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+          <p className="text-sm font-medium text-slate-700">No schedule set</p>
+          <p className="mt-1 text-sm text-slate-400">This instructor has not added any availability slots yet.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-5 p-4">
       {["group", "individual", "demo"].map((sectionId) => {
         const sectionSlots = grouped[sectionId];
         if (!sectionSlots.length) return null;
         const config = SECTION_CONFIG[sectionId];
         return (
-          <div key={sectionId}>
-            <h3 className="mb-3 text-sm font-semibold text-gray-700">{config.title}</h3>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <section key={sectionId}>
+            <div className="mb-2 flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-slate-700">{config.title}</h3>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
+                {sectionSlots.length}
+              </span>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
               {sectionSlots.map((slot, index) => {
                 const days = sortDays(Array.isArray(slot.days) ? slot.days : []);
                 const courseId = String(slot.courseId?._id || slot.courseId || "");
                 const course = courseById[courseId];
                 const courseName = course?.name || null;
+                const isLast = index === sectionSlots.length - 1;
+
                 return (
                   <div
                     key={slot._id || index}
-                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+                    className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3 text-sm ${
+                      isLast ? "" : "border-b border-slate-100"
+                    }`}
                   >
-                    <div className="mb-3 flex items-center justify-between">
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold ${config.badge}`}>
-                        {config.title.replace(" Sessions", "")}
-                      </span>
-                      <span className={`text-xs font-medium ${slot.isActive ? "text-green-600" : "text-gray-400"}`}>
-                        {slot.isActive ? "Active" : "Inactive"}
-                      </span>
-                    </div>
-                    <p className="mb-1 text-sm font-medium text-gray-900">
+                    {/* Type badge */}
+                    <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${config.rowClass}`}>
+                      {config.title.replace(" Sessions", "")}
+                    </span>
+
+                    {/* Days */}
+                    <span className="shrink-0 font-medium text-slate-800">
                       {days.map((d) => DAY_LABELS[d] || d).join(" • ")}
-                    </p>
-                    <div className="mb-1 flex items-center gap-1 text-sm text-gray-600">
-                      <FiClock className="text-xs" />
-                      <span>{convertTo12Hour(slot.startTime)} &ndash; {convertTo12Hour(slot.endTime)}</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <FiUsers className="text-xs" />
-                      <span>{slot.maxStudents} {slot.maxStudents === 1 ? "student" : "students"} max</span>
-                    </div>
+                    </span>
+
+                    {/* Time */}
+                    <span className="flex shrink-0 items-center gap-1 text-slate-500">
+                      <FiClock className="h-3.5 w-3.5" />
+                      {convertTo12Hour(slot.startTime)} – {convertTo12Hour(slot.endTime)}
+                    </span>
+
+                    {/* Capacity */}
+                    <span className="flex shrink-0 items-center gap-1 text-slate-400">
+                      <FiUsers className="h-3.5 w-3.5" />
+                      {slot.maxStudents} {slot.maxStudents === 1 ? "student" : "students"}
+                    </span>
+
+                    {/* Course name */}
                     {courseName && (
-                      <p className="mt-2 truncate text-xs text-gray-400">{courseName}</p>
+                      <span className="truncate text-xs text-slate-400 uppercase tracking-wide">
+                        {courseName}
+                      </span>
                     )}
+
+                    {/* Status */}
+                    <span className={`ml-auto shrink-0 text-xs font-medium ${
+                      slot.isActive ? "text-emerald-600" : "text-slate-400"
+                    }`}>
+                      {slot.isActive ? "Active" : "Inactive"}
+                    </span>
                   </div>
                 );
               })}
             </div>
-          </div>
+          </section>
         );
       })}
     </div>

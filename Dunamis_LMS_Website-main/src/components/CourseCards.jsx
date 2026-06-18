@@ -24,7 +24,8 @@ export default function CourseCard({
 
   return (
     <motion.div
-      className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md"
+      onClick={onViewDetails}
+      className="flex h-full w-full cursor-pointer flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md"
       style={{ transformPerspective: 1200 }}
       whileHover={{
         rotateY: 3,
@@ -122,7 +123,7 @@ export default function CourseCard({
 
         <div className={`mt-auto grid gap-3 pt-3 ${onBookDemo ? "grid-cols-2" : "grid-cols-1"}`}>
           <motion.button
-            onClick={onViewDetails}
+            onClick={(e) => { e.stopPropagation(); onViewDetails?.(); }}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             className="cursor-pointer w-full bg-[#FF6B35] hover:bg-[#fd5a1f] text-white font-medium py-2 px-4 rounded-2xl transition-colors duration-200"
@@ -131,7 +132,7 @@ export default function CourseCard({
           </motion.button>
           {onBookDemo ? (
             <motion.button
-              onClick={onBookDemo}
+              onClick={(e) => { e.stopPropagation(); onBookDemo(); }}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               className="cursor-pointer w-full border border-[#FF6B35] bg-white text-[#FF6B35] font-medium py-2 px-4 rounded-2xl hover:bg-[#fff3ed] transition-colors duration-200"

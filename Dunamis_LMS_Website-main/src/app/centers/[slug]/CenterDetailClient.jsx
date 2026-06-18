@@ -78,11 +78,11 @@ function InfoCard({ icon, label, value }) {
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
         {icon}
       </div>
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-medium text-gray-800">{value}</p>
+        <p className="mt-0.5 break-words text-sm font-medium text-gray-800">{value}</p>
       </div>
     </motion.div>
   );

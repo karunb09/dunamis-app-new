@@ -5,20 +5,31 @@ import Swal from "sweetalert2";
 import {
   fetchAllRequests,
   updateCourseRequestStatus,
+  updateCourseItemStatus,
 } from "../../../redux/courseRequests/courseRequestSlice";
 import DataCards from "../../../components/DataCards";
 import PersonCard from "../../../components/cards/PersonCard";
 import SlideOver from "../../../components/SlideOver";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../../utils/resolveImageUrl";
-import { FiCheck, FiX, FiSearch } from "react-icons/fi";
+import { getStoredToken } from "../../../utils/authSession";
+import { FiCheck, FiX, FiSearch, FiChevronDown } from "react-icons/fi";
 
-const STATUS_BADGE = {
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const ITEM_BADGE = {
   pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
   approved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
   rejected: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
 };
 
-const FILTER_TABS = ["all", "pending", "approved", "rejected"];
+const STATUS_BADGE = {
+  pending: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  approved: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  rejected: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
+  mixed: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+};
+
+const FILTER_TABS = ["all", "pending", "approved", "rejected", "mixed"];
 
 const getInstructorName = (req) => {
   const detail = req.instructor?.teacherDetail?.name;
@@ -28,6 +39,13 @@ const getInstructorName = (req) => {
   return "Instructor";
 };
 
+const getStatusLabel = (req) => {
+  if (req.status !== "mixed") return req.status;
+  const approvedCount = req.courses.filter((c) => c.status === "approved").length;
+  const rejectedCount = req.courses.filter((c) => c.status === "rejected").length;
+  return `${approvedCount} approved, ${rejectedCount} rejected`;
+};
+
 const CourseRequestsPage = () => {
   const dispatch = useDispatch();
   const { allRequests, loading } = useSelector((state) => state.courseRequests);
@@ -35,6 +53,89 @@ const CourseRequestsPage = () => {
   const [filterTab, setFilterTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [slideOver, setSlideOver] = useState({ open: false, request: null });
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [itemActioning, setItemActioning] = useState(null);
+
+  const fetchCoursesForCategory = async (categoryId) => {
+    try {
+      const res = await fetch(`${BASE_URL}/course/manage`, {
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+        credentials: "include",
+      });
+      const data = await res.json();
+      const list = data.data || data.courses || [];
+      const filtered = list.filter((c) => {
+        const catId = c.category?._id || c.category;
+        return catId?.toString() === categoryId?.toString();
+      });
+      setCourseOptions(filtered);
+      return filtered;
+    } catch {
+      setCourseOptions([]);
+      return [];
+    }
+  };
+
+  const handleApproveItem = async (requestId, itemIndex, categoryId) => {
+    const options = await fetchCoursesForCategory(categoryId);
+    if (options.length === 0) {
+      toast.error("No courses found for this category. Create one first.");
+      return;
+    }
+    const result = await Swal.fire({
+      title: "Approve Course Request",
+      width: "min(440px, 92vw)",
+      html: `
+        <p style="margin:0 0 10px;font-size:13px;color:#64748b;text-align:left;">Select the course to assign this instructor to:</p>
+        <select id="swal-course-select" style="width:100%;box-sizing:border-box;border:1px solid #e2e8f0;border-radius:12px;padding:10px 12px;font-size:14px;">
+          <option value="">— Choose a course —</option>
+          ${options.map((c) => `<option value="${c._id}">${c.name}</option>`).join("")}
+        </select>
+      `,
+      showCancelButton: true,
+      confirmButtonColor: "#10b981",
+      cancelButtonColor: "#94a3b8",
+      confirmButtonText: "Approve & Assign",
+      preConfirm: () => {
+        const val = document.getElementById("swal-course-select")?.value;
+        if (!val) { Swal.showValidationMessage("Please select a course"); }
+        return val;
+      },
+    });
+    if (!result.isConfirmed) return;
+    setItemActioning(`${requestId}-${itemIndex}`);
+    try {
+      await dispatch(updateCourseItemStatus({ id: requestId, itemIndex, status: "approved", courseId: result.value })).unwrap();
+      toast.success("Course approved and instructor assigned!");
+    } catch (err) {
+      toast.error(err || "Failed to approve");
+    } finally {
+      setItemActioning(null);
+    }
+  };
+
+  const handleRejectItem = async (requestId, itemIndex) => {
+    const result = await Swal.fire({
+      title: "Reject this course?",
+      width: "min(440px, 92vw)",
+      input: "textarea",
+      inputPlaceholder: "Optional notes for the instructor…",
+      showCancelButton: true,
+      confirmButtonColor: "#f43f5e",
+      cancelButtonColor: "#94a3b8",
+      confirmButtonText: "Yes, Reject",
+    });
+    if (!result.isConfirmed) return;
+    setItemActioning(`${requestId}-${itemIndex}`);
+    try {
+      await dispatch(updateCourseItemStatus({ id: requestId, itemIndex, status: "rejected", adminNotes: result.value || "" })).unwrap();
+      toast.success("Course rejected");
+    } catch (err) {
+      toast.error(err || "Failed to reject");
+    } finally {
+      setItemActioning(null);
+    }
+  };
 
   useEffect(() => {
     dispatch(fetchAllRequests(filterTab === "all" ? "" : filterTab));
@@ -43,6 +144,7 @@ const CourseRequestsPage = () => {
   const handleUpdateStatus = async (id, newStatus) => {
     const result = await Swal.fire({
       title: `${newStatus === "approved" ? "Approve" : "Reject"} this request?`,
+      width: "min(440px, 92vw)",
       input: newStatus === "rejected" ? "textarea" : undefined,
       inputPlaceholder: "Optional notes for the instructor…",
       showCancelButton: true,
@@ -87,7 +189,7 @@ const CourseRequestsPage = () => {
         name={name}
         subtitle={email}
         avatarSrc={avatarSrc}
-        statusBadge={{ label: req.status, className: STATUS_BADGE[req.status] || "" }}
+        statusBadge={{ label: getStatusLabel(req), className: STATUS_BADGE[req.status] || "" }}
         meta={[
           { label: "Submitted", value: new Date(req.createdAt).toLocaleDateString() },
           { label: "Courses", value: req.courses.length },
@@ -165,6 +267,7 @@ const CourseRequestsPage = () => {
           renderCard={renderCard}
           itemsPerPage={12}
           emptyMessage="No course requests found."
+          selectable={false}
         />
       )}
 
@@ -173,29 +276,12 @@ const CourseRequestsPage = () => {
         open={slideOver.open}
         onClose={() => setSlideOver((prev) => ({ ...prev, open: false }))}
         footer={
-          liveReq?.status === "pending" ? (
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleUpdateStatus(liveReq._id, "rejected")}
-                className="flex-1 rounded-2xl border border-rose-200 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50"
-              >
-                Reject
-              </button>
-              <button
-                onClick={() => handleUpdateStatus(liveReq._id, "approved")}
-                className="flex-1 rounded-2xl bg-emerald-500 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600"
-              >
-                Approve
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setSlideOver((prev) => ({ ...prev, open: false }))}
-              className="w-full rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Close
-            </button>
-          )
+          <button
+            onClick={() => setSlideOver((prev) => ({ ...prev, open: false }))}
+            className="w-full rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Close
+          </button>
         }
       >
         {liveReq && (
@@ -240,35 +326,59 @@ const CourseRequestsPage = () => {
                 ))}
               </div>
 
-              {/* Requested courses */}
+              {/* Requested courses — per-item review */}
               <div>
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">Requested Courses</p>
                 <div className="space-y-3">
-                  {liveReq.courses.map((c, i) => (
-                    <div key={i} className="rounded-[16px] border border-slate-100 bg-white p-3">
-                      <p className="text-sm font-medium text-slate-800">
-                        {c.category?.name || "Unknown Category"}
-                        {c.subCategory?.name ? ` — ${c.subCategory.name}` : ""}
-                      </p>
-                      {c.demoVideo && (
-                        <video
-                          controls
-                          src={resolveImageUrl(c.demoVideo)}
-                          className="mt-2 w-full rounded-xl"
-                        />
-                      )}
-                    </div>
-                  ))}
+                  {liveReq.courses.map((c, i) => {
+                    const actioning = itemActioning === `${liveReq._id}-${i}`;
+                    return (
+                      <div key={i} className="rounded-[16px] border border-slate-100 bg-white p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800">
+                              {c.category?.name || "Unknown Category"}
+                              {c.subCategory?.name ? ` — ${c.subCategory.name}` : ""}
+                            </p>
+                            {c.approvedCourseId && (
+                              <p className="mt-0.5 text-xs text-emerald-600">
+                                Assigned to: {c.approvedCourseId.name || "Course"}
+                              </p>
+                            )}
+                            {c.adminNotes && (
+                              <p className="mt-0.5 text-xs text-slate-400">{c.adminNotes}</p>
+                            )}
+                          </div>
+                          <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${ITEM_BADGE[c.status] || ""}`}>
+                            {c.status}
+                          </span>
+                        </div>
+                        {c.demoVideo && (
+                          <video controls src={resolveImageUrl(c.demoVideo)} className="mt-2 w-full rounded-xl" />
+                        )}
+                        {c.status === "pending" && (
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              disabled={actioning}
+                              onClick={() => handleApproveItem(liveReq._id, i, c.category?._id || c.category)}
+                              className="flex items-center gap-1 rounded-xl bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                            >
+                              <FiCheck size={11} /> {actioning ? "…" : "Approve"}
+                            </button>
+                            <button
+                              disabled={actioning}
+                              onClick={() => handleRejectItem(liveReq._id, i)}
+                              className="flex items-center gap-1 rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              <FiX size={11} /> Reject
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              {/* Admin notes */}
-              {liveReq.adminNotes && (
-                <div>
-                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-slate-400">Admin Notes</p>
-                  <p className="rounded-[16px] border border-slate-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-700">{liveReq.adminNotes}</p>
-                </div>
-              )}
             </div>
           </div>
         )}

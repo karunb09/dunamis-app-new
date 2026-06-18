@@ -16,6 +16,20 @@ const courseItemSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+    adminNotes: {
+      type: String,
+      default: "",
+    },
+    approvedCourseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "course",
+      default: null,
+    },
   },
   { _id: false }
 );
@@ -41,7 +55,7 @@ const courseRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "mixed"],
       default: "pending",
     },
     adminNotes: {

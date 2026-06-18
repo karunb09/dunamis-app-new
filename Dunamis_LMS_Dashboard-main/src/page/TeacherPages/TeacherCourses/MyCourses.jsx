@@ -17,6 +17,7 @@ const STATUS_BADGE = {
   pending: "bg-amber-50 text-amber-700 ring-amber-200",
   approved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   rejected: "bg-rose-50 text-rose-700 ring-rose-200",
+  mixed: "bg-sky-50 text-sky-700 ring-sky-200",
 };
 
 const emptyItem = () => ({ category: "", subCategory: "", videoFile: null });
@@ -196,9 +197,16 @@ const MyCourses = () => {
     setSubmitting(true);
     const fd = new FormData();
     fd.append("requestType", requestType);
+    fd.append(
+      "courses",
+      JSON.stringify(
+        courseItems.map((item) => ({
+          category: item.category,
+          ...(item.subCategory && { subCategory: item.subCategory }),
+        }))
+      )
+    );
     courseItems.forEach((item, i) => {
-      fd.append(`courses[${i}][category]`, item.category);
-      if (item.subCategory) fd.append(`courses[${i}][subCategory]`, item.subCategory);
       if (item.videoFile) fd.append(`demoVideo_${i}`, item.videoFile);
     });
     try {
@@ -390,25 +398,29 @@ const MyCourses = () => {
           ) : (
             <div className="space-y-3">
               {myRequests.map((req) => (
-                <div key={req._id} className="flex items-start gap-4 rounded-[20px] border border-slate-100 bg-white px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-1.5">
-                      {req.courses.map((c, i) => (
-                        <span key={i} className="text-sm text-slate-700">
-                          {c.category?.name || "Category"}
-                          {c.subCategory?.name ? ` — ${c.subCategory.name}` : ""}
-                          {i < req.courses.length - 1 ? "," : ""}
+                <div key={req._id} className="rounded-[20px] border border-slate-100 bg-white px-4 py-3">
+                  <p className="mb-2 text-xs text-slate-400">{new Date(req.createdAt).toLocaleDateString()}</p>
+                  <div className="space-y-2">
+                    {req.courses.map((c, i) => (
+                      <div key={i} className="flex items-start justify-between gap-2 rounded-[14px] bg-slate-50 px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm text-slate-700">
+                            {c.category?.name || "Category"}
+                            {c.subCategory?.name ? ` — ${c.subCategory.name}` : ""}
+                          </p>
+                          {c.approvedCourseId?.name && (
+                            <p className="mt-0.5 text-xs text-emerald-600">Assigned: {c.approvedCourseId.name}</p>
+                          )}
+                          {c.status === "rejected" && c.adminNotes && (
+                            <p className="mt-0.5 text-xs text-rose-500">{c.adminNotes}</p>
+                          )}
+                        </div>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ring-1 ${STATUS_BADGE[c.status] || STATUS_BADGE.pending}`}>
+                          {c.status}
                         </span>
-                      ))}
-                    </div>
-                    <p className="mt-0.5 text-xs text-slate-400">{new Date(req.createdAt).toLocaleDateString()}</p>
-                    {req.status === "rejected" && req.adminNotes && (
-                      <p className="mt-1 text-xs text-rose-600">{req.adminNotes}</p>
-                    )}
+                      </div>
+                    ))}
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ring-1 capitalize ${STATUS_BADGE[req.status] || ""}`}>
-                    {req.status}
-                  </span>
                 </div>
               ))}
             </div>

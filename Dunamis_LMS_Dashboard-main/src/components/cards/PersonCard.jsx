@@ -34,9 +34,10 @@ const PersonCard = ({
 
     return (
         <div
+            onClick={onView || undefined}
             className={`flex flex-col rounded-[24px] border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] ${
                 selected ? "border-orange-300 ring-1 ring-orange-200" : "border-slate-200"
-            }`}
+            } ${onView ? "cursor-pointer" : ""}`}
         >
             {/* Header */}
             <div className="flex items-start gap-3 p-5 pb-3">
@@ -116,7 +117,7 @@ const PersonCard = ({
                     {onView && (
                         <button
                             type="button"
-                            onClick={onView}
+                            onClick={(e) => { e.stopPropagation(); onView(); }}
                             className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                         >
                             {primaryLabel}
