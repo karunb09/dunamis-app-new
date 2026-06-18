@@ -121,6 +121,7 @@ const buildCashfreeOrderPayload = ({ transaction, user, course }) => {
     order_id: transaction.merchantOrderId,
     order_amount: transaction.amount,
     order_currency: transaction.currency,
+    order_expiry_time: transaction.expiresAt.toISOString(),
     customer_details: {
       customer_id: transaction.studentId.toString(),
       customer_name: getDisplayName(user),
