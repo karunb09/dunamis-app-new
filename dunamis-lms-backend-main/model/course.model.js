@@ -203,12 +203,11 @@ const courseSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-courseSchema.pre("remove", async function (next) {
+courseSchema.pre("remove", async function () {
   await Teacher.updateMany(
     { course: this._id },
     { $pull: { course: this._id } }
   );
-  next();
 });
 
 module.exports = mongoose.model("course", courseSchema);

@@ -418,11 +418,15 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
             }
 
             if (generatedPassword) {
-                await mailSender(
-                  application.email,
-                  "Your teacher Account created",
-                  sendPasswordTemplate(user, "teacher", generatedPassword)
-                );
+                try {
+                  await mailSender(
+                    application.email,
+                    "Your teacher Account created",
+                    sendPasswordTemplate(user, "teacher", generatedPassword)
+                  );
+                } catch (mailErr) {
+                  console.error("Failed to send teacher credentials email", mailErr);
+                }
             }
 
             // Seed versioned document arrays from the application if not yet populated
@@ -454,12 +458,16 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
         application.status = status;
         await application.save();
 
-        await mailSender(
-            application.email,
-            "Dunamis India Application Update",
-            sendApplicationStatus(firstName, application.email, application.status),
-            sendApplicationStatus.attachments()
-        );
+        try {
+          await mailSender(
+              application.email,
+              "Dunamis India Application Update",
+              sendApplicationStatus(firstName, application.email, application.status),
+              sendApplicationStatus.attachments()
+          );
+        } catch (mailErr) {
+          console.error("Failed to send application status email", mailErr);
+        }
 
         res.status(200).json({
             success: true,
@@ -526,6 +534,7 @@ exports.sendInstructorEmailOTP = asyncHandler(async (req, res) => {
   } else {
     await OTP.create({ email: normalizedEmail, otp });
   }
+  console.log(`Generated OTP for ${normalizedEmail}: ${otp}`);
 
   const body = `<p>Your Dunamis instructor application verification code is:</p>
 <h2 style="letter-spacing:4px;font-size:32px;">${otp}</h2>
