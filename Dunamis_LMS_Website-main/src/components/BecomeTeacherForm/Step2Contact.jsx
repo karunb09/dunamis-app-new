@@ -66,7 +66,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
     setSending(true);
     setOtpError("");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/teacherApplication/send-email-otp`, {
+      const res = await fetch(`${API_BASE}/v1/teacherApplication/send-email-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: formData.email.trim() }),
@@ -88,7 +88,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
     setVerifying(true);
     setOtpError("");
     try {
-      const res = await fetch(`${API_BASE}/api/v1/teacherApplication/verify-email-otp`, {
+      const res = await fetch(`${API_BASE}/v1/teacherApplication/verify-email-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: formData.email.trim(), otp: otpValue.trim() }),
