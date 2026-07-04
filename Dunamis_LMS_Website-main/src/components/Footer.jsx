@@ -165,7 +165,15 @@ const Footer = () => {
               Dunamis Music Private Limited. All rights reserved.
             </a>
             <span className="flex items-center gap-1">
-              · Made with <LuHeart className="w-3 h-3 text-red-500 fill-current" />
+              · Made with <LuHeart className="w-3 h-3 text-red-500 fill-current" /> by{" "}
+              <a
+                href="https://karunb09.github.io/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors"
+              >
+                KB
+              </a>
             </span>
           </div>
         </div>

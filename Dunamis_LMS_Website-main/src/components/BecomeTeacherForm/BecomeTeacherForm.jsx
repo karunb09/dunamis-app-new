@@ -64,6 +64,7 @@ export default function MultiStepForm() {
         success: submitSuccess,
         error: submitError,
         errorDetails,
+        uploadProgress,
     } =
         useSelector((state) => state.application);
 
@@ -284,6 +285,22 @@ export default function MultiStepForm() {
 
                 {/* Render step */}
                 {steps[step - 1]}
+
+                {isSubmitting ? (
+                    <div className="mt-6">
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div
+                                className="h-full bg-orange-500 transition-all duration-200"
+                                style={{ width: `${uploadProgress}%` }}
+                            />
+                        </div>
+                        <p className="mt-1 text-center text-sm text-gray-500">
+                            {uploadProgress < 100
+                                ? `Uploading… ${uploadProgress}% (large video files may take a few minutes)`
+                                : "Finishing up…"}
+                        </p>
+                    </div>
+                ) : null}
 
                 {/* Navigation buttons */}
                 <div className="mt-6 flex justify-between items-center">
