@@ -54,3 +54,6 @@ nginx-conf
 
 # opencode config
 opencode.json
+
+# docs
+docs/*
