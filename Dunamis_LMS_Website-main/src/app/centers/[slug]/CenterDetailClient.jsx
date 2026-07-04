@@ -32,6 +32,12 @@ const normalizeCourses = (courses = []) => {
     const activePrice = Array.isArray(course.price)
       ? course.price.find((p) => p?.isActive) || course.price[0]
       : null;
+    const tenurePlans = (activePrice?.tenurePlans || []).filter(
+      (p) => p?.isActive !== false
+    );
+    const primaryPlan =
+      tenurePlans.find((p) => p?.months === 6) || tenurePlans[0];
+    const monthlyFee = primaryPlan?.monthlyFee || activePrice?.monthlyFee;
 
     seen.add(key);
     acc.push({
@@ -41,12 +47,8 @@ const normalizeCourses = (courses = []) => {
       code: course.code || course.courseCode || "",
       description: course.description || "",
       level: course.level || "",
-      price: formatCurrency(activePrice?.fullPayment || activePrice?.monthlyFee),
-      priceSuffix: activePrice?.fullPayment
-        ? ""
-        : activePrice?.monthlyFee
-        ? "/month"
-        : "",
+      price: formatCurrency(monthlyFee || activePrice?.fullPayment),
+      priceSuffix: monthlyFee ? "/month" : "",
     });
     return acc;
   }, []);
