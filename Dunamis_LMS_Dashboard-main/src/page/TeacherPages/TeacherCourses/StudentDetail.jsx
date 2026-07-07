@@ -322,15 +322,15 @@ const StudentDetail = ({ onBack }) => {
 
   return (
     <div className="w-full min-h-screen bg-gray-50 p-2">
-      <div className="flex items-center justify-between bg-white shadow-md rounded-2xl p-4 mb-6">
-        <div className="flex items-center space-x-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white shadow-md rounded-2xl p-4 mb-6">
+        <div className="flex min-w-0 items-center space-x-3">
           <button onClick={onBack} className="text-gray-600 hover:text-gray-900 mr-2 text-2xl">
             ←
           </button>
-          <img src={student.avatar} alt={student.name} className="w-12 h-12 rounded-full object-cover object-top" />
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">{student.name}</h2>
-            <p className="text-sm text-gray-500">{student.subject}</p>
+          <img src={student.avatar} alt={student.name} className="w-12 h-12 shrink-0 rounded-full object-cover object-top" />
+          <div className="min-w-0">
+            <h2 className="truncate text-lg sm:text-xl font-semibold text-gray-800">{student.name}</h2>
+            <p className="truncate text-sm text-gray-500">{student.subject}</p>
           </div>
         </div>
         <div className="flex items-center space-x-3">

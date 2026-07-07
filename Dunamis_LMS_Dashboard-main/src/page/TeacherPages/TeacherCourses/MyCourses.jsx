@@ -269,7 +269,7 @@ const MyCourses = () => {
       </div>
 
       {/* Tab bar */}
-      <div className="mb-6 flex gap-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         {[{ key: "courses", label: "My Courses" }, { key: "requests", label: "Course Requests" }, { key: "media", label: "Media & Credentials" }].map((tab) => (
           <button
             key={tab.key}

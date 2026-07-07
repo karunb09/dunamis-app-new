@@ -318,7 +318,7 @@ const Assessment = () => {
                 <p className="text-sm text-red-500">Submit error: {submitError}</p>
               )}
 
-              <div className="flex justify-between items-center pt-4">
+              <div className="flex flex-wrap justify-between items-center gap-3 pt-4">
                 <button
                   type="button"
                   onClick={handleCancel}
@@ -392,7 +392,7 @@ const Assessment = () => {
 
                   <div className="bg-gray-50 border-t px-4 sm:px-6 py-3 sm:py-4">
                     <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm text-gray-700 gap-x-3 gap-y-2 mb-3">
-                      <div className="flex divide-x divide-gray-300 gap-10">
+                      <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:gap-10 sm:divide-x sm:divide-gray-300">
                         <div>
                           <p className="text-gray-500">Homework *</p>
                           <p className="text-lg font-semibold">{item.homework || 0}</p>

@@ -250,7 +250,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       <div
         className={clsx(
-          "fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-opacity md:hidden",
+          "fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-opacity lg:hidden",
           { hidden: !isOpen }
         )}
         onClick={onClose}
@@ -258,12 +258,12 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       <div
         className={clsx(
-          "fixed inset-y-0 left-0 z-40 flex w-[290px] max-w-[84vw] flex-col border-r border-slate-800 bg-slate-950 shadow-2xl transition-all duration-300 ease-in-out md:sticky md:top-0 md:h-screen md:max-w-none md:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[290px] max-w-[84vw] flex-col border-r border-slate-800 bg-slate-950 shadow-2xl transition-all duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:max-w-none lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          isDesktopOpen ? "md:w-72" : "md:w-20"
+          isDesktopOpen ? "lg:w-72" : "lg:w-20"
         )}
       >
-        <div className="absolute top-1/2 -right-4 z-50 hidden -translate-y-1/2 md:block">
+        <div className="absolute top-1/2 -right-4 z-50 hidden -translate-y-1/2 lg:block">
           <button
             onClick={() => setIsDesktopOpen(!isDesktopOpen)}
             className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-700 shadow-lg transition hover:bg-slate-50"
@@ -306,7 +306,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 md:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 lg:hidden"
                 aria-label="Close sidebar"
               >
                 <FiX className="text-lg" />

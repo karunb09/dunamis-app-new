@@ -183,18 +183,18 @@ const InstructorProfile = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center">
-        <div className="flex items-start gap-4 w-full">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center">
+        <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
           <img
             src={instructorAvatar}
             alt={instructor.name?.firstName}
-            className="w-28 h-28 rounded-full object-cover object-top flex-shrink-0"
+            className="w-20 h-20 sm:w-28 sm:h-28 rounded-full object-cover object-top flex-shrink-0"
           />
-          <div className="flex-1">
+          <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-2xl font-bold leading-tight">{`${instructor.name?.firstName} ${instructor.name?.lastName}`}</h1>
                 <p className="text-sm text-gray-600 mt-1">{instructor.areaOfExpertise || "Instructor"}</p>
 
@@ -204,8 +204,8 @@ const InstructorProfile = () => {
                     <span>{instructor.currentAddress || "—"}</span>
                   </span>
                   <span className="flex items-center gap-2">
-                    <FiMail className="text-xl text-gray-500" />
-                    <span>{selectedTeacher.user?.email || "—"}</span>
+                    <FiMail className="shrink-0 text-xl text-gray-500" />
+                    <span className="break-all">{selectedTeacher.user?.email || "—"}</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <FiPhone className="text-xl text-gray-500" />
@@ -242,13 +242,13 @@ const InstructorProfile = () => {
               </div>
 
               {/* Menu */}
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button
                   onClick={() => setMenuOpen((s) => !s)}
-                  className="p-2 rounded-full hover:bg-gray-100"
+                  className="flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                   aria-label="open menu"
                 >
-                  <FiMoreHorizontal className="text-2xl text-gray-600" />
+                  <FiMoreHorizontal className="text-xl" />
                 </button>
 
                 {menuOpen && (
@@ -286,7 +286,7 @@ const InstructorProfile = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-cyan-50 border border-cyan-200 p-6 rounded-xl shadow-sm text-center flex flex-col items-center gap-2">
           <FiUsers className="text-3xl text-cyan-600" />
           <p className="text-2xl font-bold">{selectedTeacher.studentCount}</p>

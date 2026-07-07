@@ -112,7 +112,7 @@ const CoverageStatusBadge = ({ status }) => {
 // ─── slot card (pending tab) ─────────────────────────────────────────────────
 
 const SlotCard = ({ slot, onTakeAttendance, readOnly = false }) => (
-  <div className="mb-3 flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+  <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
     <div className="flex items-start gap-3">
       <div className="mt-0.5 rounded-lg bg-gray-100 p-2">
         <HiOutlineCalendar className="h-5 w-5 text-gray-600" />
@@ -136,13 +136,13 @@ const SlotCard = ({ slot, onTakeAttendance, readOnly = false }) => (
       <button
         type="button"
         onClick={() => onTakeAttendance(slot)}
-        className="ml-4 shrink-0 rounded-full bg-gray-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-gray-700"
+        className="self-start shrink-0 rounded-full bg-gray-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-gray-700 sm:ml-4 sm:self-auto"
       >
         Take Attendance
       </button>
     )}
     {readOnly && (
-      <span className="ml-4 shrink-0 rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-500">
+      <span className="self-start shrink-0 rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-500 sm:ml-4 sm:self-auto">
         Upcoming
       </span>
     )}
@@ -238,8 +238,8 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
                 <div key={s.studentId} className="rounded-xl border border-gray-200 p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <Avatar name={s.name} src={s.image} />
-                    <span className="font-medium text-gray-900 text-sm">{s.name}</span>
-                    <div className="ml-auto flex gap-2">
+                    <span className="min-w-0 truncate font-medium text-gray-900 text-sm">{s.name}</span>
+                    <div className="ml-auto flex shrink-0 gap-2">
                       {ATTENDANCE_STATUS.map((status) => (
                         <button
                           key={status}

@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { LuMapPin, LuPhone, LuClock, LuChevronRight, LuBuilding2 } from "react-icons/lu";
 import { GiMusicalNotes } from "react-icons/gi";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOfflineCenters } from "@/store/centerSlice";
@@ -89,6 +90,7 @@ function CardSkeleton() {
 }
 
 function CenterCard({ center }) {
+  const router = useRouter();
   return (
     <motion.div
       layout
@@ -96,7 +98,8 @@ function CenterCard({ center }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.35 }}
-      className="group relative overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col"
+      onClick={() => router.push(`/centers/${center.slug}`)}
+      className="group relative cursor-pointer overflow-hidden rounded-2xl bg-white shadow-md hover:shadow-xl transition-shadow duration-300 flex flex-col"
     >
       {/* Hero image */}
       <div className="relative h-52 overflow-hidden shrink-0">
@@ -169,6 +172,7 @@ function CenterCard({ center }) {
         {/* CTA */}
         <Link
           href={`/centers/${center.slug}`}
+          onClick={(e) => e.stopPropagation()}
           className="mt-auto flex items-center justify-center gap-2 rounded-xl bg-[#FF6B35] hover:bg-[#ff4400] text-white text-sm font-semibold py-2.5 transition-colors"
         >
           View Centre <LuChevronRight className="w-4 h-4" />

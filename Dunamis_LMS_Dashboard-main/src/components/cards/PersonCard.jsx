@@ -132,9 +132,10 @@ const PersonCard = ({
                                     e.stopPropagation();
                                     setMenuOpen((o) => !o);
                                 }}
-                                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800"
+                                aria-label="More actions"
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
                             >
-                                <FiMoreVertical size={16} />
+                                <FiMoreVertical size={20} />
                             </button>
                             {menuOpen && (
                                 <div className="absolute bottom-full mb-1 right-0 z-40 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">

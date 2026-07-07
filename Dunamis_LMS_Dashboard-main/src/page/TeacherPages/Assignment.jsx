@@ -165,8 +165,8 @@ function Assignments() {
 
   return (
     <div className="w-full min-h-screen bg-white p-4 font-sans">
-      <div className="flex justify-between items-center mb-4">
-        <div className="relative w-1/3 min-w-[200px]">
+      <div className="flex justify-between items-center gap-3 mb-4">
+        <div className="relative w-full max-w-sm sm:w-1/3 sm:min-w-[200px]">
           <input
             type="text"
             placeholder="Search assignments..."
@@ -191,7 +191,7 @@ function Assignments() {
         </div>
       </div>
 
-      <div className="flex gap-4 sm:gap-6 mb-6 text-gray-500 text-xs sm:text-sm md:text-base border-b">
+      <div className="flex gap-4 sm:gap-6 mb-6 text-gray-500 text-xs sm:text-sm md:text-base border-b overflow-x-auto whitespace-nowrap">
         {Tabs.map((tab) => (
           <button
             key={tab}
@@ -384,7 +384,7 @@ function CreateAssignment({ onClose }) {
           </div>
         </div>
       </div>
-      <div className="flex gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <input
           type="text"
           name="title"

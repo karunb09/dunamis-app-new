@@ -20,9 +20,9 @@ export default function RemunerationTab({ remunerations }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
                 <h2 className="text-xl font-semibold">{formattedMonth}</h2>
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                     <button className="px-4 py-2 rounded-full border flex items-center gap-2 text-sm hover:bg-gray-50">
                         <FiDownload /> Download Pay Slips
                     </button>
@@ -32,7 +32,7 @@ export default function RemunerationTab({ remunerations }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                 {/* Total Hours */}
                 <Card title="Total Hours" icon={<FiClock />} value={remuneration.totalHours ?? 0}>
                     {remuneration.groupHours ?? 0}h group classes | {remuneration.individualHours ?? 0}h individual classes

@@ -475,7 +475,7 @@ const Navigation = ({ onMenuClick }) => {
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-orange-200 hover:text-orange-500 md:hidden"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl text-slate-700 transition hover:text-orange-500 lg:hidden"
             aria-label="Open sidebar menu"
           >
             <FiMenu className="text-xl" />
@@ -510,7 +510,7 @@ const Navigation = ({ onMenuClick }) => {
             </button>
 
             {isNotificationMenuOpen ? (
-              <div className="absolute right-0 top-full z-30 mt-3 w-[calc(100vw-2rem)] max-w-[340px] overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
+              <div className="fixed inset-x-4 top-[76px] z-30 max-h-[calc(100vh-92px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[340px]">
                 <div className="border-b border-slate-100 px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-slate-900">

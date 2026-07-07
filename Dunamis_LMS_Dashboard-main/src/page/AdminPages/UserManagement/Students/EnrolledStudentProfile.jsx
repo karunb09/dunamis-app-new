@@ -53,21 +53,21 @@ const StudentProfile = () => {
   const assignmentsCount = Array.isArray(student?.assignment) ? student.assignment.length : 0;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm flex justify-between items-start">
-        <div className="flex items-center gap-4">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm flex flex-wrap justify-between items-start gap-3">
+        <div className="flex min-w-0 items-center gap-4">
           {profileImage && (
             <img
               src={profileImage}
               alt={`${firstName} ${lastName}`}
-              className="w-16 h-16 rounded-full"
+              className="w-16 h-16 shrink-0 rounded-full"
             />
           )}
-          <div>
+          <div className="min-w-0">
             <div className="text-xl font-semibold">
               {firstName} {lastName}
             </div>
-            <div className="text-gray-600">{email}</div>
+            <div className="truncate text-gray-600">{email}</div>
             <div className="text-sm text-gray-500">{phone}</div>
           </div>
         </div>

@@ -287,7 +287,7 @@ export default function SiteContentPage() {
 
             {!isSuccessStory && (
               <>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {!isFaq && (
                     <label className="block">
                       <span className="text-sm font-medium text-slate-700">Rating</span>

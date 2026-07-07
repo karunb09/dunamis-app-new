@@ -418,7 +418,7 @@ const AddCoursePage = () => {
 
             <div>{renderTabContent()}</div>
 
-            <div className="col-span-full flex justify-between mt-6">
+            <div className="col-span-full flex flex-wrap justify-between gap-3 mt-6">
                 <button onClick={handleCancel} className="px-4 py-2 border bg-gray-50 rounded-2xl hover:bg-gray-100">
                     Cancel
                 </button>

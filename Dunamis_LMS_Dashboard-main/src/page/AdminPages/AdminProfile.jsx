@@ -131,7 +131,7 @@ const AdminProfile = () => {
 
   return (
     <div className="min-h-screen bg-white p-6">
-      <div className="mb-6 flex items-start justify-between">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Account</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">My Profile</h1>

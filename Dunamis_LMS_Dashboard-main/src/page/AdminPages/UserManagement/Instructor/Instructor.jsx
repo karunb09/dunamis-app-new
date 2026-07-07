@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { FaCheckCircle, FaClock, FaFilter, FaSearch, FaSortAmountDown, FaTrash, FaUserCheck, FaUserSlash } from 'react-icons/fa';
-import { FiClipboard } from "react-icons/fi";
+import { FiClipboard, FiEdit2 } from "react-icons/fi";
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { fetchTeachers, updateTeacher, deleteTeacher } from '../../../../redux/Intructor/teacherSlice';
@@ -14,6 +14,7 @@ import IconActionButton from '../../../../components/IconActionButton';
 import DataCards from '../../../../components/DataCards';
 import PersonCard from '../../../../components/cards/PersonCard';
 import SlideOver from '../../../../components/SlideOver';
+import EditInstructorModal from './EditInstructorModal';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -53,6 +54,7 @@ const Instructor = () => {
     const [filters, setFilters] = useState({ accountStatus: '', salaryStatus: '', mode: '' });
     const [processingAction, setProcessingAction] = useState(null);
     const [slideOver, setSlideOver] = useState({ open: false, instructor: null });
+    const [editModal, setEditModal] = useState({ open: false, instructor: null });
     const dropdownRef = useRef(null);
 
     const getErrorMessage = (error, fallback) => {
@@ -130,6 +132,43 @@ const Instructor = () => {
     };
 
     const closeSlideOver = () => setSlideOver((prev) => ({ ...prev, open: false }));
+
+    const closeEditModal = () => {
+        if (!processingAction) setEditModal((prev) => ({ ...prev, open: false }));
+    };
+
+    const editData = editModal.instructor
+        ? {
+            mode: editModal.instructor.mode !== '—' ? editModal.instructor.mode : 'online',
+            branch: '',
+            courses: teachers.find((t) => t.id === editModal.instructor.id)?.courses?.map((c) => c.name) || [],
+            profilePicture: editModal.instructor.avatar || editModal.instructor.userImage || '',
+        }
+        : null;
+
+    const handleEditSave = (updated) => {
+        const row = editModal.instructor;
+        if (!row) return;
+
+        const payload = new FormData();
+        payload.append('teacherDetails', JSON.stringify({ mode: updated.mode || 'online' }));
+        if (updated.profilePictureFile) payload.append('profilePicture', updated.profilePictureFile);
+
+        runInstructorAction({
+            actionKey: `edit-${row.id}`,
+            progressLabel: `Updating ${row.name}...`,
+            loadingMessage: `Saving changes for ${row.name}`,
+            action: async () => {
+                await dispatch(updateTeacher({ id: row.id, updatedData: payload })).unwrap();
+                await dispatch(fetchTeachers());
+            },
+            successTitle: 'Instructor updated',
+            successText: `${row.name}'s details have been updated.`,
+            errorFallback: `Failed to update ${row.name}.`,
+        })
+            .then(() => setEditModal({ open: false, instructor: null }))
+            .catch(() => {});
+    };
 
     const renderInstructorSlide = () => {
         const r = slideOver.instructor;
@@ -364,6 +403,12 @@ const Instructor = () => {
                         primaryLabel="View Instructor"
                         menuItems={[
                             {
+                                label: "Edit",
+                                icon: <FiEdit2 size={13} />,
+                                disabled: Boolean(processingAction),
+                                onClick: () => setEditModal({ open: true, instructor: row }),
+                            },
+                            {
                                 label: "Copy Details",
                                 icon: <FiClipboard size={13} />,
                                 onClick: () => handleCopyDetails([row]),
@@ -475,6 +520,14 @@ const Instructor = () => {
             >
                 {renderInstructorSlide()}
             </SlideOver>
+
+            <EditInstructorModal
+                open={editModal.open}
+                onClose={closeEditModal}
+                data={editData}
+                onSave={handleEditSave}
+                saving={Boolean(processingAction)}
+            />
         </div>
     );
 };
