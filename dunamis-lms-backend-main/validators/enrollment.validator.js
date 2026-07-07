@@ -5,15 +5,18 @@ const { objectId, nonEmpty } = require("./common");
 // extra/optional fields keep working — validation only enforces the declared
 // money/identity fields at the boundary.
 
+// Optional fields use .nullish(): the website sends explicit nulls
+// (branchId: null on every online enrollment), and .optional() alone
+// rejects null — which 400'd all online create-order calls.
 const createOrderSchema = z.looseObject({
   courseId: objectId("courseId"),
   teacherId: objectId("teacherId"),
   slotId: objectId("slotId"),
   sessionType: nonEmpty("sessionType"),
-  planType: z.string().trim().optional(),
-  planMonths: z.coerce.number().int().positive().optional(),
-  deliveryMode: z.string().trim().optional(),
-  branchId: objectId("branchId").optional(),
+  planType: z.string().trim().nullish(),
+  planMonths: z.coerce.number().int().positive().nullish(),
+  deliveryMode: z.string().trim().nullish(),
+  branchId: objectId("branchId").nullish(),
 });
 
 // Payment verification accepts any of the three order-id aliases the

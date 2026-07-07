@@ -113,6 +113,22 @@ test("createOrder: valid keeps extra fields and coerces planMonths", () => {
   assert.equal(req.body.note, "passthrough");
 });
 
+test("createOrder: explicit nulls for optional fields pass (website sends branchId: null online)", () => {
+  const { req, nextCalled } = runValidate(createOrderSchema, {
+    courseId: OID,
+    teacherId: OID,
+    slotId: OID,
+    sessionType: "standard",
+    planType: "monthly",
+    planMonths: null,
+    deliveryMode: null,
+    branchId: null,
+  });
+  assert.equal(nextCalled, true);
+  assert.equal(req.body.branchId, null);
+  assert.equal(req.body.planMonths, null);
+});
+
 test("verifyPayment: requires at least one order id", () => {
   assert.equal(runValidate(verifyPaymentSchema, {}).res.statusCode, 400);
   assert.equal(runValidate(verifyPaymentSchema, { order_id: "ORD1" }).nextCalled, true);
