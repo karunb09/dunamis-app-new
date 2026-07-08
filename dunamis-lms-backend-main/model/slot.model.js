@@ -81,6 +81,10 @@ const slotSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    classReminderSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -4,6 +4,7 @@ const Student = require("../model/student.model");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Assignment = require("../model/assignment.model");
+const { notifyEvent } = require("../utils/notificationService");
 
 const normalizeDate = (date) => {
   const d = new Date(date);
@@ -12,7 +13,7 @@ const normalizeDate = (date) => {
 };
 
 async function runAssignmentCycle(force = false) {
-  console.log("Running 3-month assignment generation cycle...");
+  console.log("Running monthly assignment generation cycle...");
   if (force) console.log("FORCE_MODE ENABLED — skipping month check");
 
   const today = normalizeDate(new Date());
@@ -54,7 +55,7 @@ async function runAssignmentCycle(force = false) {
 
       console.log("Months since join:", monthsSinceJoin);
 
-      if (force || (monthsSinceJoin > 0 && monthsSinceJoin % 3 === 0)) {
+      if (force || monthsSinceJoin > 0) {
         console.log("Eligible for assignment cycle");
 
         const existing = await Assignment.findOne({
@@ -101,8 +102,20 @@ async function runAssignmentCycle(force = false) {
         console.log(
           `Created assignment for ${student.userId?.email} → ${course.name} | _id: ${newAssignment._id}`
         );
+
+        const studentName = student.userId?.name
+          ? `${student.userId.name.firstName} ${student.userId.name.lastName}`.trim()
+          : "a student";
+        await notifyEvent({
+          event: "assignmentCycle",
+          instructorUser: assignedTeacher.userId
+            ? { _id: assignedTeacher.userId }
+            : null,
+          title: "Assignment due to be set",
+          message: `Monthly assignment cycle: set an assignment for ${studentName} in ${course.name}.`,
+        });
       } else {
-        console.log("Skipping — monthsSinceJoin not multiple of 3");
+        console.log("Skipping — no full month completed yet");
       }
     }
   }

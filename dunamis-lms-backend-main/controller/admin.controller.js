@@ -4,6 +4,7 @@ const User = require("../model/user.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
+const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 
 exports.createAdmin = asyncHandler(async (req, res) => {
     const {
@@ -14,6 +15,7 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       accessLevel,
       permission,
       department,
+      employeePrefix,
     } = req.body;
 
     if (
@@ -50,12 +52,15 @@ exports.createAdmin = asyncHandler(async (req, res) => {
 
     console.log("password generated: ", password);
 
+    const employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMA"));
+
     const user = await User.create({
       name: { firstName, lastName },
       email: normalizedEmail,
       mobileNo,
       password: password,
       accountType: "admin",
+      employeeId,
       image: `https://api.dicebear.com/9.x/initials/svg?seed=${firstName}%20${lastName}`,
     });
 

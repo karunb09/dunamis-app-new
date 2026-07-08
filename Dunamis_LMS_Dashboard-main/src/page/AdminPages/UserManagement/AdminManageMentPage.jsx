@@ -142,7 +142,7 @@ const AdminManageMentPage = () => {
             if (filters.department && admin.department !== filters.department) return false;
             return true;
         })
-        .map((admin, index) => ({ ...admin, mockId: `#ADM-${1000 + index}` }));
+        .map((admin) => ({ ...admin, employeeId: admin.userId?.employeeId || "—" }));
 
     if (sortOption) {
         switch (sortOption) {
@@ -323,7 +323,7 @@ const AdminManageMentPage = () => {
                                     : { label: "Inactive", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", dot: true, dotClass: "bg-rose-500" }
                             }
                             meta={[
-                                { label: "Admin ID", value: row.mockId },
+                                { label: "Employee ID", value: row.employeeId },
                                 { label: "Department", value: row.department || "N/A" },
                                 { label: "Role", value: row.role || "N/A" },
                                 { label: "Created", value: new Date(row.createdAt).toLocaleDateString() },

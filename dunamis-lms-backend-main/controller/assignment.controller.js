@@ -2,6 +2,7 @@ const Assignment = require("../model/assignment.model");
 const asyncHandler = require("../utils/asyncHandler");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
+const { createDashboardNotice } = require("../utils/notificationService");
 
 exports.createAssignment = asyncHandler(async (req, res) => {
     const { assignmentId, title, description, dueDate } = req.body;
@@ -44,6 +45,18 @@ exports.createAssignment = asyncHandler(async (req, res) => {
     }));
 
     await assignment.save();
+
+    Student.find({ _id: { $in: assignment.students.map((s) => s.studentId) } })
+      .select("userId")
+      .then((students) =>
+        createDashboardNotice({
+          title: "New assignment posted",
+          message: `You have a new assignment: "${title}", due ${new Date(dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
+          userIds: students.map((s) => s.userId),
+          creatorId: req.user.userId,
+        })
+      )
+      .catch((err) => console.error("Assignment student notice failed:", err.message));
 
     res.status(201).json({
         success: true,

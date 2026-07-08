@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 import { FaMusic, FaLanguage, FaPersonBooth } from "react-icons/fa";
 import toast from "react-hot-toast";
+import Swal from "sweetalert2";
 
 import DataTable from "../../../../components/Table";
 import EditInstructorModal from "./EditInstructorModal";
@@ -182,6 +183,39 @@ const InstructorProfile = () => {
     }
   };
 
+  const handleEditEmployeeId = async () => {
+    setMenuOpen(false);
+    const { value: employeeId, isConfirmed } = await Swal.fire({
+      title: "Edit Employee ID",
+      input: "text",
+      inputValue: selectedTeacher.user?.employeeId || "",
+      inputPlaceholder: "e.g. DSMT001",
+      showCancelButton: true,
+      confirmButtonText: "Save",
+      confirmButtonColor: "#FF6B35",
+    });
+    if (!isConfirmed || !employeeId?.trim()) return;
+
+    const token = getStoredToken();
+    try {
+      const res = await fetch(`${VITE_BASE_URL}/user/${selectedTeacher.user._id}/employee-id`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ employeeId: employeeId.trim() }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || "Failed to update employee ID");
+      toast.success(`Employee ID updated to ${data.user.employeeId}`);
+      dispatch(fetchTeacherById(instructorId));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
@@ -214,6 +248,11 @@ const InstructorProfile = () => {
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2 items-center">
+                  {selectedTeacher.user?.employeeId && (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-700 text-sm rounded-full font-mono">
+                      {selectedTeacher.user.employeeId}
+                    </span>
+                  )}
                   <span className="px-2 py-1 bg-blue-100 text-blue-600 text-sm rounded-full">
                     {instructor.areaOfExpertise}
                   </span>
@@ -261,6 +300,12 @@ const InstructorProfile = () => {
                       className="w-full text-left px-4 py-2 hover:bg-gray-50"
                     >
                       Edit
+                    </button>
+                    <button
+                      onClick={handleEditEmployeeId}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50"
+                    >
+                      Edit Employee ID
                     </button>
                     <button className="w-full text-left px-4 py-2 hover:bg-gray-50">Disable</button>
                     <button className="w-full text-left px-4 py-2 hover:bg-gray-50">Block</button>
@@ -332,7 +377,7 @@ const InstructorProfile = () => {
         {activeTab === "Students" && <StudentsTab instructor={selectedTeacher} />}
         {activeTab === "Reviews" && <ReviewsTab instructor={selectedTeacher} />}
         {activeTab === "Orientations" && <OrientationsTab />}
-        {activeTab === "Remuneration" && <RemunerationTab remunerations={selectedTeacher.remunerations} />}
+        {activeTab === "Remuneration" && <RemunerationTab remunerations={selectedTeacher.remunerations} employeeId={selectedTeacher.user?.employeeId} />}
         {activeTab === "Financial History" && (
           <DataTable columns={columns} data={filteredFinancialData} selectable={false} />
         )}

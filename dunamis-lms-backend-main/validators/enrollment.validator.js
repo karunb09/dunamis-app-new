@@ -17,6 +17,7 @@ const createOrderSchema = z.looseObject({
   planMonths: z.coerce.number().int().positive().nullish(),
   deliveryMode: z.string().trim().nullish(),
   branchId: objectId("branchId").nullish(),
+  referralCode: z.string().trim().nullish(),
 });
 
 // Payment verification accepts any of the three order-id aliases the

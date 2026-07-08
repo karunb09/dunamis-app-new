@@ -30,6 +30,14 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "teacher", "student", "superadmin"],
       default: "student",
     },
+    // Absent (not null) for students/legacy docs — sparse unique index requires the field to be unset.
+    employeeId: {
+      type: String,
+      uppercase: true,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     accountStatus: {
       type: String,
       enum: ["active", "inactive"],

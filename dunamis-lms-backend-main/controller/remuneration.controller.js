@@ -46,10 +46,11 @@ exports.getRemunerationById = asyncHandler(async (req, res) => {
       });
     }
 
-    const record = await Remuneration.findById(id).populate(
-      "teacherId",
-      "userId"
-    );
+    const record = await Remuneration.findById(id).populate({
+      path: "teacherId",
+      select: "userId",
+      populate: { path: "userId", select: "name employeeId" },
+    });
 
     if (!record) {
       return res.status(404).json({

@@ -11,7 +11,7 @@ const {
 } = require("../mail/demoBookingEmail");
 const {
   createDashboardNotice,
-  getAdminUsers,
+  notifyEvent,
 } = require("../utils/notificationService");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -81,8 +81,6 @@ const sendDemoBookingEmails = async ({
 
   const deliveries = [];
   const studentEmail = lead?.email || student?.userId?.email || "";
-  const instructorEmail = slot.createdBy?.userId?.email || "";
-  const adminUsers = await getAdminUsers();
 
   if (studentEmail) {
     const { subject, html, attachments = [] } =
@@ -94,43 +92,31 @@ const sendDemoBookingEmails = async ({
     });
   }
 
-  if (instructorEmail) {
-    const { subject, html, attachments = [] } =
-      instructorDemoBookingEmailTemplate(payload);
-    deliveries.push({
-      type: "instructor",
-      recipient: instructorEmail,
-      task: mailSender(instructorEmail, subject, html, attachments),
-    });
-  }
+  const staffEmail = adminDemoBookingEmailTemplate(payload);
+  const instructorEmail = instructorDemoBookingEmailTemplate(payload);
+  deliveries.push({
+    type: "staff",
+    recipient: "matrix",
+    task: notifyEvent({
+      event: "demoBooked",
+      instructorUser: slot.createdBy?.userId,
+      subject: staffEmail.subject,
+      html: staffEmail.html,
+      attachments: staffEmail.attachments || [],
+      instructorSubject: instructorEmail.subject,
+      instructorHtml: instructorEmail.html,
+    }),
+  });
 
-  if (adminUsers.length) {
-    const { subject, html, attachments = [] } = adminDemoBookingEmailTemplate(payload);
-    adminUsers.forEach((admin) => {
-      if (!admin.email) return;
-      deliveries.push({
-        type: "admin",
-        recipient: admin.email,
-        task: mailSender(admin.email, subject, html, attachments),
-      });
-    });
-  }
-
-  const specificNoticeUsers = [
-    student?.userId?._id,
-    slot.createdBy?.userId?._id,
-    ...adminUsers.map((admin) => admin._id),
-  ].filter(Boolean);
-
-  if (specificNoticeUsers.length) {
+  if (student?.userId?._id) {
     deliveries.push({
       type: "dashboard-notice",
       recipient: "dashboard",
       task: createDashboardNotice({
         title: "New demo booking",
-        message: `${payload.student?.name?.firstName || payload.lead?.firstName || "A student"} booked a demo for ${slot.courseId?.name || "a course"}.`,
-        userIds: specificNoticeUsers,
-        creatorId: student?.userId?._id || slot.createdBy?.userId?._id,
+        message: `Your demo for ${slot.courseId?.name || "a course"} is booked.`,
+        userIds: [student.userId._id],
+        creatorId: student.userId._id,
       }),
     });
   }

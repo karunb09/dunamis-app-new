@@ -14,6 +14,8 @@ const {
   ACCESS_TOKEN_TTL_MS,
 } = require("../config/auth");
 const asyncHandler = require("../utils/asyncHandler");
+const { EMPLOYEE_ID_REGEX, bumpCounterFloor } = require("../utils/employeeId");
+const { isReferralCodeTaken } = require("../utils/referral");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -636,6 +638,43 @@ const buildDashboardNoticeFilter = (requestUser, includeDeleted = false) => {
     $or: targetConditions,
   };
 };
+
+exports.setEmployeeId = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const employeeId = String(req.body.employeeId || "").trim().toUpperCase();
+
+  if (!EMPLOYEE_ID_REGEX.test(employeeId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMT001.",
+    });
+  }
+
+  const user = await User.findById(id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  if (user.employeeId !== employeeId && (await isReferralCodeTaken(employeeId, { excludeUserId: user._id }))) {
+    return res.status(409).json({
+      success: false,
+      message: `Employee ID ${employeeId} is already in use`,
+    });
+  }
+
+  user.employeeId = employeeId;
+  await user.save();
+  await bumpCounterFloor(employeeId);
+
+  return res.status(200).json({
+    success: true,
+    message: "Employee ID updated",
+    user: { _id: user._id, employeeId: user.employeeId },
+  });
+});
 
 exports.getUserDashboardNotices = asyncHandler(async (req, res) => {
     const userId = req.user.userId;

@@ -4,6 +4,11 @@ const Student = require("../model/student.model");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Assessment = require("../model/assessment.model");
+const {
+  notifyEvent,
+  createDashboardNotice,
+} = require("../utils/notificationService");
+const { buildAssessmentDueEmail } = require("../mail/assessmentEmail");
 
 const normalizeDate = (date) => {
   const d = new Date(date);
@@ -11,14 +16,14 @@ const normalizeDate = (date) => {
   return d;
 };
 
-const addDays = (date, days) => {
+const addMonths = (date, months) => {
   const d = new Date(date);
-  d.setDate(d.getDate() + days);
+  d.setMonth(d.getMonth() + months);
   return d;
 };
 
 async function runAssessmentCycle() {
-  console.log("Running 15-day assessment cycle check...");
+  console.log("Running 3-month assessment cycle check...");
 
   const today = normalizeDate(new Date());
 
@@ -58,13 +63,13 @@ async function runAssessmentCycle() {
       let nextDue;
 
       if (lastAssessment) {
-        nextDue = addDays(lastAssessment.dueDate, 15);
+        nextDue = addMonths(lastAssessment.dueDate, 3);
       } else {
         const enrollment = student.enrolledCourses.find(
           (e) => e.courseId.toString() === course._id.toString()
         );
         const joinedDate = enrollment?.joinedAt || student.createdAt;
-        nextDue = addDays(joinedDate, 15);
+        nextDue = addMonths(joinedDate, 3);
       }
 
       const normalizedNextDue = normalizeDate(nextDue);
@@ -76,23 +81,51 @@ async function runAssessmentCycle() {
           dueDate: normalizedNextDue,
         });
         if (existing) continue;
-        if (!existing) {
-          await Assessment.create({
-            studentId: student._id,
-            courseId,
-            teacherId,
-            dueDate: normalizedNextDue,
-            status: "Pending",
-          });
 
-          console.log(
-            `Created assessment → Student: ${
-              student.userId?.name?.firstName || "Unknown"
-            } | Course: ${
-              course.name
-            } | Teacher: ${teacherId} | Due: ${normalizedNextDue.toDateString()}`
-          );
-        }
+        await Assessment.create({
+          studentId: student._id,
+          courseId,
+          teacherId,
+          dueDate: normalizedNextDue,
+          status: "Pending",
+        });
+
+        console.log(
+          `Created assessment → Student: ${
+            student.userId?.name?.firstName || "Unknown"
+          } | Course: ${
+            course.name
+          } | Teacher: ${teacherId} | Due: ${normalizedNextDue.toDateString()}`
+        );
+
+        const teacher = await Teacher.findById(teacherId)
+          .populate("userId", "name email _id")
+          .lean();
+        const studentName = student.userId?.name
+          ? `${student.userId.name.firstName} ${student.userId.name.lastName}`.trim()
+          : "A student";
+        const { subject, html } = buildAssessmentDueEmail({
+          studentName,
+          courseName: course.name,
+          dueDate: normalizedNextDue,
+        });
+
+        await Promise.allSettled([
+          notifyEvent({
+            event: "assessmentCycle",
+            instructorUser: teacher?.userId,
+            subject,
+            html,
+          }),
+          student.userId?._id
+            ? createDashboardNotice({
+                title: "Assessment scheduled",
+                message: `Your ${course.name} assessment is due on ${normalizedNextDue.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
+                userIds: [student.userId._id],
+                contentType: "Reminder",
+              })
+            : Promise.resolve(),
+        ]);
       }
     }
   }

@@ -9,6 +9,7 @@ const welcomeEmailTemplate = require("../mail/welcomeEmail");
 const Student = require("../model/student.model");
 const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
+const { notifyEvent } = require("../utils/notificationService");
 
 // Send OTP
 exports.sendOTP = asyncHandler(async (req, res) => {
@@ -168,6 +169,14 @@ exports.createStudent = asyncHandler(async (req, res) => {
     user.roleId = studentDoc._id;
     user.roleModel = "student";
     await user.save();
+
+    notifyEvent({
+      event: "signUp",
+      title: "New student registration",
+      message: `${firstName} ${lastName} (${normalizedEmail}) signed up.`,
+      creatorId: user._id,
+    }).catch((err) => console.error("Signup staff notice failed:", err.message));
+
      // TODO: Enable this later
     await mailSender(
       email,

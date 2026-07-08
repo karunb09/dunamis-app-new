@@ -74,6 +74,8 @@ const paymentTransactionSchema = new mongoose.Schema(
     // Chosen fixed-duration plan in months (3 / 6 / 12). Null for legacy
     // transactions that predate tenure plans.
     planMonths: { type: Number, default: null },
+    // Employee ID or freelancer partner code entered by the student at payment.
+    referralCode: { type: String, uppercase: true, trim: true, default: null },
     installmentNo: { type: Number, default: 1 },
     installmentTotal: { type: Number, default: 1 },
     installmentAmount: { type: Number, default: null },

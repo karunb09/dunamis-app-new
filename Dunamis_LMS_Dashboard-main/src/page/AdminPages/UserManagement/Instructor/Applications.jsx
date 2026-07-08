@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import {
     deleteApplication,
@@ -62,6 +63,7 @@ const Applications = () => {
     const [filters, setFilters] = useState({ status: "", mode: "" });
     const [selectedInstructor, setSelectedInstructor] = useState(null);
     const [generatedPassword, setGeneratedPassword] = useState("");
+    const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
     const [deletingApplicationId, setDeletingApplicationId] = useState("");
     const [slideOver, setSlideOver] = useState({ open: false, application: null });
     const dropdownRef = useRef(null);
@@ -124,15 +126,35 @@ const Applications = () => {
 
     const handleStatusChange = async (id, newStatus) => {
         const selectedApp = allApplications.find((app) => app._id === id);
-        const result = await dispatch(updateApplicationStatus({ id, status: newStatus }));
+        let employeePrefix;
+        if (newStatus === "selected") {
+            const { value: unit, isConfirmed } = await Swal.fire({
+                title: "Assign employee unit",
+                text: "The instructor's employee ID (e.g. DSMT001) is generated from this unit.",
+                input: "select",
+                inputOptions: { DSM: "DSM", DSD: "DSD", DCC: "DCC" },
+                inputValue: "DSM",
+                showCancelButton: true,
+                confirmButtonText: "Assign & Select",
+                confirmButtonColor: "#FF6B35",
+            });
+            if (!isConfirmed) return;
+            employeePrefix = `${unit}T`;
+        }
+        const result = await dispatch(updateApplicationStatus({ id, status: newStatus, employeePrefix }));
         if (result.meta.requestStatus === "rejected") {
             toast.error(result.payload || "Failed to update application status.");
             return;
         }
         if (newStatus === "selected" && selectedApp && result.meta.requestStatus === "fulfilled") {
             const password = result.payload?.generatedPassword;
-            if (!password) { toast.success("Instructor account is ready."); return; }
+            const employeeId = result.payload?.employeeId || "";
+            if (!password) {
+                toast.success(employeeId ? `Instructor account is ready (${employeeId}).` : "Instructor account is ready.");
+                return;
+            }
             setGeneratedPassword(password);
+            setAssignedEmployeeId(employeeId);
             setSelectedInstructor(selectedApp);
         }
     };
@@ -459,7 +481,8 @@ const Applications = () => {
                 <CredentialModal
                     instructor={selectedInstructor}
                     password={generatedPassword}
-                    onClose={() => setSelectedInstructor(null)}
+                    employeeId={assignedEmployeeId}
+                    onClose={() => { setSelectedInstructor(null); setAssignedEmployeeId(""); }}
                 />
             )}
 

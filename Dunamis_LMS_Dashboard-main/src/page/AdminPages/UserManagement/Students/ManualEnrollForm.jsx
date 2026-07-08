@@ -51,6 +51,7 @@ export default function ManualEnrollForm({ onSuccess }) {
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [receiptRef, setReceiptRef] = useState("");
+  const [referralCode, setReferralCode] = useState("");
 
   // Slots
   const [slots, setSlots] = useState([]);
@@ -215,6 +216,7 @@ export default function ManualEnrollForm({ onSuccess }) {
           amount: Number(amount),
           paymentDate,
           receiptRef: receiptRef || undefined,
+          referralCode: referralCode.trim().toUpperCase() || undefined,
         },
         { headers: getAuthHeaders() }
       );
@@ -578,6 +580,19 @@ export default function ManualEnrollForm({ onSuccess }) {
                 onChange={(e) => setReceiptRef(e.target.value)}
                 placeholder="Cash receipt number"
                 className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-400"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="mb-1.5 block text-xs font-medium text-gray-600">
+                Referral code (optional)
+              </label>
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="Employee ID or freelancer code, e.g. DSMT001"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-mono text-sm uppercase outline-none focus:border-orange-400"
               />
             </div>
           </div>

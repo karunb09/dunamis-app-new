@@ -2,7 +2,7 @@ const cron = require("node-cron");
 const Student = require("../model/student.model");
 const {
   createDashboardNotice,
-  getAdminUsers,
+  notifyEvent,
   sendEmails,
 } = require("../utils/notificationService");
 
@@ -43,7 +43,7 @@ const escapeHtml = (value) =>
 
 const getCourseName = (payment) => payment.courseId?.name || "your course";
 
-const sendInstallmentReminder = async ({ student, payment, type, admins }) => {
+const sendInstallmentReminder = async ({ student, payment, type }) => {
   const studentUser = student.userId;
   if (!studentUser?._id) return;
 
@@ -78,34 +78,17 @@ const sendInstallmentReminder = async ({ student, payment, type, admins }) => {
     }),
   ]);
 
-  // Notify admins (dashboard notice + email) for both upcoming and overdue
-  if (admins.length) {
-    const adminTitle = isOverdue ? "Student installment overdue" : "Student fee due soon";
-    const adminMessage = isOverdue
-      ? `${studentFirstName} has an overdue installment for ${courseName}.`
-      : `${studentFirstName}'s installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
+  const staffTitle = isOverdue ? "Student installment overdue" : "Student fee due soon";
+  const staffMessage = isOverdue
+    ? `${studentFirstName} has an overdue installment for ${courseName}.`
+    : `${studentFirstName}'s installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
 
-    await Promise.allSettled([
-      createDashboardNotice({
-        title: adminTitle,
-        message: adminMessage,
-        userIds: admins.map((admin) => admin._id),
-        creatorId: studentUser._id,
-        contentType: "Reminder",
-      }),
-      sendEmails({
-        recipients: admins.map((admin) => admin.email).filter(Boolean),
-        subject: `${adminTitle}: ${courseName}`,
-        html: buildInstallmentEmail({
-          title: adminTitle,
-          intro: adminMessage,
-          courseName,
-          amount,
-          dueDate: payment.dueDate,
-        }),
-      }),
-    ]);
-  }
+  await notifyEvent({
+    event: "feeReminder",
+    title: staffTitle,
+    message: staffMessage,
+    creatorId: studentUser._id,
+  });
 };
 
 const checkInstallmentReminders = async () => {
@@ -114,21 +97,18 @@ const checkInstallmentReminders = async () => {
   reminderWindow.setDate(reminderWindow.getDate() + 7);
 
   try {
-    const [students, admins] = await Promise.all([
-      Student.find({
-        payments: {
-          $elemMatch: {
-            paymentType: "Installment",
-            PaymentStatus: "completed",
-            monthlyPaymentStatus: "pending",
-            dueDate: { $lte: reminderWindow },
-          },
+    const students = await Student.find({
+      payments: {
+        $elemMatch: {
+          paymentType: "Installment",
+          PaymentStatus: "completed",
+          monthlyPaymentStatus: "pending",
+          dueDate: { $lte: reminderWindow },
         },
-      })
-        .populate("userId", "name email mobileNo")
-        .populate("payments.courseId", "name code"),
-      getAdminUsers(),
-    ]);
+      },
+    })
+      .populate("userId", "name email mobileNo")
+      .populate("payments.courseId", "name code");
 
     for (const student of students) {
       const latestByEnrollment = new Map();
@@ -159,13 +139,13 @@ const checkInstallmentReminders = async () => {
         if (Number.isNaN(dueDate.getTime()) || dueDate > reminderWindow) continue;
 
         if (dueDate < now && !payment.overdueNoticeSentAt) {
-          await sendInstallmentReminder({ student, payment, type: "overdue", admins });
+          await sendInstallmentReminder({ student, payment, type: "overdue" });
           await Student.updateOne(
             { _id: student._id, "payments._id": payment._id },
             { $set: { "payments.$.overdueNoticeSentAt": new Date() } }
           );
         } else if (dueDate >= now && !payment.reminderSentAt) {
-          await sendInstallmentReminder({ student, payment, type: "reminder", admins });
+          await sendInstallmentReminder({ student, payment, type: "reminder" });
           await Student.updateOne(
             { _id: student._id, "payments._id": payment._id },
             { $set: { "payments.$.reminderSentAt": new Date() } }

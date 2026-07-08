@@ -23,12 +23,12 @@ const SORT_OPTIONS = [
     { value: 'joiningDate-desc', label: 'Joining Date Desc' },
 ];
 
-const mapTeacherToInstructor = (teacher, index) => {
+const mapTeacherToInstructor = (teacher) => {
     const fullName = `${teacher.user?.name?.firstName || ''} ${teacher.user?.name?.lastName || ''}`.trim();
     return {
         id: teacher.id,
         userId: teacher.user?._id,
-        instructorId: `#INST-${index + 1000}`,
+        instructorId: teacher.user?.employeeId || '—',
         name: fullName,
         email: teacher.user?.email || '',
         avatar: teacher.teacherApplication?.profilePicture || '',
@@ -389,7 +389,7 @@ const Instructor = () => {
                                 : { label: "Inactive", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", dot: true, dotClass: "bg-rose-500" }
                         }
                         meta={[
-                            { label: "Instructor ID", value: row.instructorId },
+                            { label: "Employee ID", value: row.instructorId },
                             { label: "Students", value: row.studentCount },
                             { label: "Mode", value: row.mode !== '—' ? row.mode : "N/A" },
                             {

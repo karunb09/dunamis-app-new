@@ -31,6 +31,7 @@ const INITIAL_FORM = {
   availability: "Flexible",
   mode: "online",
   specialization: "",
+  employeeUnit: "DSM",
 };
 
 const AddInstructorForm = () => {
@@ -117,11 +118,17 @@ const AddInstructorForm = () => {
         currentCTC: formData.currentCTC.trim(),
         expectedCTC: formData.expectedCTC.trim(),
         specialization: formData.specialization.trim(),
+        employeePrefix: `${formData.employeeUnit}T`,
       })
     )
       .unwrap()
-      .then(() => {
-        toast.success("Instructor created. Credentials have been emailed.");
+      .then((res) => {
+        const employeeId = res?.data?.employeeId;
+        toast.success(
+          employeeId
+            ? `Instructor created (${employeeId}). Credentials have been emailed.`
+            : "Instructor created. Credentials have been emailed."
+        );
         navigate("/admin/instructor-management", { replace: true });
       })
       .catch((error) => {
@@ -194,6 +201,22 @@ const AddInstructorForm = () => {
                 <option value="offline">Offline</option>
                 <option value="hybrid">Hybrid (Online + Offline)</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Employee Unit</label>
+              <select
+                name="employeeUnit"
+                value={formData.employeeUnit}
+                onChange={handleChange}
+                className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-black"
+              >
+                <option value="DSM">DSM</option>
+                <option value="DSD">DSD</option>
+                <option value="DCC">DCC</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                The employee ID (e.g. {formData.employeeUnit}T001) is generated from this unit.
+              </p>
             </div>
           </div>
         </div>

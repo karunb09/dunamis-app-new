@@ -31,11 +31,11 @@ const BackButton = ({
         <button
             type="button"
             onClick={handleBack}
-            className={`inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 ${className}`}
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-medium text-slate-700 transition hover:bg-slate-50 hover:text-slate-900 sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-2 ${className}`}
             aria-label={label}
         >
             <HiArrowLeft className="text-base" />
-            {label}
+            <span className="hidden sm:inline">{label}</span>
         </button>
     );
 };

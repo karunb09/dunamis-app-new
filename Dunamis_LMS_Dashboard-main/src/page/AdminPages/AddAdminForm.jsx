@@ -3,6 +3,19 @@ import { useDispatch } from "react-redux";
 import { createAdmin, fetchAdminById, fetchAdmins, updateAdmin } from "../../redux/Admin/AdminSlice";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
+import axiosAuth from "../../utils/axiosAuth";
+
+const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+const EMPLOYEE_PREFIX_OPTIONS = [
+    { value: "DMPL", label: "DMPL — Central Office" },
+    { value: "DSMA", label: "DSMA — DSM Admin" },
+    { value: "DSMB", label: "DSMB — DSM BD" },
+    { value: "DSDA", label: "DSDA — DSD Admin" },
+    { value: "DSDB", label: "DSDB — DSD BD" },
+    { value: "DCCA", label: "DCCA — DCC Admin" },
+    { value: "DCCB", label: "DCCB — DCC BD" },
+];
 
 const AddAdminForm = () => {
     const { id } = useParams();
@@ -17,6 +30,8 @@ const AddAdminForm = () => {
         role: "",
         accessLevel: "",
         department: "",
+        employeePrefix: "DSMA",
+        employeeId: "",
         permissions: {
             allAccess: false,
             courseManagement: false,
@@ -29,8 +44,11 @@ const AddAdminForm = () => {
             financials: false,
             enquiries: false,
             updates: false,
+            referralManagement: false,
         },
     });
+    const [adminUserId, setAdminUserId] = useState("");
+    const [initialEmployeeId, setInitialEmployeeId] = useState("");
 
     const [loading, setLoading] = useState(false);
 
@@ -46,6 +64,7 @@ const AddAdminForm = () => {
         { key: "financials", label: "Financials" },
         { key: "enquiries", label: "Enquiries" },
         { key: "updates", label: "Updates" },
+        { key: "referralManagement", label: "Referral Management" },
     ];
 
     useEffect(() => {
@@ -70,8 +89,12 @@ const AddAdminForm = () => {
                         role: admin.role || "",
                         accessLevel: admin.accessLevel || "",
                         department: admin.department || "",
+                        employeePrefix: "DSMA",
+                        employeeId: user.employeeId || "",
                         permissions: loadedPermissions,
                     });
+                    setAdminUserId(user._id || "");
+                    setInitialEmployeeId(user.employeeId || "");
                 })
                 .catch((error) => {
                     console.error("Error loading admin:", error);
@@ -178,9 +201,21 @@ const AddAdminForm = () => {
         setLoading(true);
 
         if (id) {
+            const newEmployeeId = formData.employeeId.trim().toUpperCase();
             dispatch(updateAdmin({ id, adminData: formDataWithName }))
                 .unwrap()
-                .then(() => {
+                .then(async () => {
+                    if (adminUserId && newEmployeeId && newEmployeeId !== initialEmployeeId) {
+                        try {
+                            await axiosAuth.patch(`${BASE_URL}/user/${adminUserId}/employee-id`, {
+                                employeeId: newEmployeeId,
+                            });
+                        } catch (patchError) {
+                            toast.error(
+                                patchError.response?.data?.message || "Failed to update employee ID."
+                            );
+                        }
+                    }
                     dispatch(fetchAdmins());
                     toast.success("Admin updated successfully!");
                     navigate("/admin/admin-management", { replace: true });
@@ -191,10 +226,15 @@ const AddAdminForm = () => {
                 })
                 .finally(() => setLoading(false));
         } else {
-            dispatch(createAdmin(formDataWithName))
+            dispatch(createAdmin({ ...formDataWithName, employeePrefix: formData.employeePrefix }))
                 .unwrap()
-                .then(() => {
-                    toast.success("Admin created successfully!");
+                .then((res) => {
+                    const employeeId = res?.userId?.employeeId;
+                    toast.success(
+                        employeeId
+                            ? `Admin created successfully (${employeeId})!`
+                            : "Admin created successfully!"
+                    );
                     navigate("/admin/admin-management", { replace: true });
                 })
                 .catch((error) => {
@@ -292,6 +332,36 @@ const AddAdminForm = () => {
                 <div className="bg-white p-6 rounded-xl border">
                     <h3 className="font-semibold mb-4 text-lg">Role & Access</h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {id ? (
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Employee ID</label>
+                                <input
+                                    type="text"
+                                    name="employeeId"
+                                    placeholder="e.g. DSMA001"
+                                    value={formData.employeeId}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border rounded-2xl font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                        ) : (
+                            <div>
+                                <label className="block text-sm font-medium mb-2">Employee ID Prefix</label>
+                                <select
+                                    name="employeePrefix"
+                                    value={formData.employeePrefix}
+                                    onChange={handleChange}
+                                    className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    {EMPLOYEE_PREFIX_OPTIONS.map(({ value, label }) => (
+                                        <option key={value} value={value}>{label}</option>
+                                    ))}
+                                </select>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    The employee ID (e.g. {formData.employeePrefix}001) is generated from this prefix.
+                                </p>
+                            </div>
+                        )}
                         <div>
                             <label className="block text-sm font-medium mb-2">
                                 Role <span className="text-red-500">*</span>

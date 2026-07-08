@@ -51,7 +51,7 @@ export const fetchApplicationById = createAsyncThunk(
 //Update application status
 export const updateApplicationStatus = createAsyncThunk(
   "application/updateStatus",
-  async ({ id, status }, thunkAPI) => {
+  async ({ id, status, employeePrefix }, thunkAPI) => {
     try {
       const token = getStoredToken();
       const res = await fetch(
@@ -63,7 +63,7 @@ export const updateApplicationStatus = createAsyncThunk(
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
-          body: JSON.stringify({ status }), 
+          body: JSON.stringify(employeePrefix ? { status, employeePrefix } : { status }),
         }
       );
       const data = await res.json();
@@ -77,6 +77,7 @@ export const updateApplicationStatus = createAsyncThunk(
         id,
         status,
         generatedPassword: data.credentials?.password || "",
+        employeeId: data.employeeId || "",
       };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.message);

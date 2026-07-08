@@ -3,9 +3,9 @@ import toast from "react-hot-toast";
 import { IoClose } from "react-icons/io5";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../../../utils/resolveImageUrl";
 
-const CredentialModal = ({ instructor, password, onClose }) => {
+const CredentialModal = ({ instructor, password, employeeId, onClose }) => {
     const handleCopy = () => {
-        const fullCopyText = `Username: ${instructor.email}\nPassword: ${password}`;
+        const fullCopyText = `${employeeId ? `Employee ID: ${employeeId}\n` : ""}Username: ${instructor.email}\nPassword: ${password}`;
         navigator.clipboard.writeText(fullCopyText)
             .then(() => toast.success("Credentials copied to clipboard!"))
             .catch(() => toast.error("Failed to copy to clipboard."));
@@ -43,6 +43,17 @@ const CredentialModal = ({ instructor, password, onClose }) => {
                     />
                     <span className="font-medium">{fullName}</span>
                 </div>
+
+                {employeeId && (
+                    <div className="mb-3">
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">
+                            Employee ID
+                        </label>
+                        <p className="font-mono bg-gray-100 rounded px-3 py-2 select-all cursor-pointer">
+                            {employeeId}
+                        </p>
+                    </div>
+                )}
 
                 <div className="mb-3">
                     <label className="block text-sm font-semibold text-gray-700 mb-1">

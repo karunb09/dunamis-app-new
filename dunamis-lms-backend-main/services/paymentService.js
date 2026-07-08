@@ -13,9 +13,10 @@ const {
   addStudentToSlot,
 } = require("./enrollmentService");
 const {
-  getAdminUsers,
+  notifyEvent,
   notifyUsers,
 } = require("../utils/notificationService");
+const { recordReferralIfAny } = require("../utils/referral");
 require("dotenv").config();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ const createCashfreeEnrollmentTransaction = async ({
   planType,
   installmentNo = 1,
   dueDate = new Date(),
+  referralCode = null,
 }) => {
   const fingerprintPayload = {
     studentId: student._id.toString(),
@@ -175,6 +177,7 @@ const createCashfreeEnrollmentTransaction = async ({
     sessionType: context.slot.sessionType,
     planType,
     planMonths: pricing.planMonths ?? null,
+    referralCode,
     paymentType: pricing.paymentType,
     installmentNo,
     installmentTotal: pricing.installmentTotal,
@@ -351,11 +354,10 @@ const sendEnrollmentSideEffects = async (transaction) => {
   }
 
   try {
-    const [student, course, teacher, admins] = await Promise.all([
+    const [student, course, teacher] = await Promise.all([
       Student.findById(transaction.studentId).populate("userId"),
       Course.findById(transaction.courseId),
       Teacher.findById(transaction.teacherId).populate("userId"),
-      getAdminUsers(),
     ]);
 
     if (!student?.userId || !course) return;
@@ -377,6 +379,10 @@ const sendEnrollmentSideEffects = async (transaction) => {
       installmentText,
     };
 
+    const isFirstPayment =
+      transaction.paymentType !== "Installment" ||
+      Number(transaction.installmentNo || 1) <= 1;
+
     await Promise.allSettled([
       notifyUsers({
         title: "Payment received",
@@ -390,38 +396,36 @@ const sendEnrollmentSideEffects = async (transaction) => {
         }),
         creatorId: student.userId._id,
       }),
-      teacher?.userId
-        ? notifyUsers({
-            title: "New paid enrollment",
-            message: `${studentName} has completed payment for ${course.name}.`,
-            users: [teacher.userId],
-            subject: `New paid enrollment: ${course.name}`,
+      isFirstPayment
+        ? notifyEvent({
+            event: "courseEnrolled",
+            instructorUser: teacher?.userId,
+            subject: `Payment received: ${course.name}`,
             html: paymentReceiptEmailTemplate({
+              ...commonContext,
+              title: "New payment received",
+              intro:
+                transaction.status === "paid_pending_fulfillment"
+                  ? "Payment is verified, but the enrollment needs manual fulfillment review."
+                  : "A course payment has been verified and fulfilled.",
+            }),
+            instructorSubject: `New paid enrollment: ${course.name}`,
+            instructorHtml: paymentReceiptEmailTemplate({
               ...commonContext,
               title: "New paid enrollment",
               intro: "A student has completed payment for a course assigned to you.",
             }),
             creatorId: student.userId._id,
           })
-        : Promise.resolve(),
-      notifyUsers({
-        title:
-          transaction.status === "paid_pending_fulfillment"
-            ? "Payment needs fulfillment review"
-            : "New payment received",
-        message: `${studentName} paid ${formatMoney(transaction.amount)} for ${course.name}.`,
-        users: admins,
-        subject: `Cashfree payment received: ${course.name}`,
-        html: paymentReceiptEmailTemplate({
-          ...commonContext,
-          title: "Cashfree payment received",
-          intro:
-            transaction.status === "paid_pending_fulfillment"
-              ? "Payment is verified, but the enrollment needs manual fulfillment review."
-              : "A course payment has been verified and fulfilled.",
-        }),
-        creatorId: student.userId._id,
-      }),
+        : notifyEvent({
+            event: "feeReceived",
+            title:
+              transaction.status === "paid_pending_fulfillment"
+                ? "Payment needs fulfillment review"
+                : "Installment received",
+            message: `${studentName} paid ${formatMoney(transaction.amount)} for ${course.name} (installment ${transaction.installmentNo} of ${transaction.installmentTotal}).`,
+            creatorId: student.userId._id,
+          }),
     ]);
   } catch (error) {
     console.error("Failed to send enrollment notifications:", error.message);
@@ -442,6 +446,12 @@ const fulfillPaidTransaction = async (transactionId) => {
 
   if (!["paid", "paid_pending_fulfillment"].includes(transaction.status)) {
     return { fulfilled: false, error: "Payment is not ready for fulfillment" };
+  }
+
+  try {
+    await recordReferralIfAny(transaction);
+  } catch (error) {
+    console.error("Failed to record referral attribution:", error.message);
   }
 
   let coreFulfilled = false;

@@ -20,6 +20,7 @@ import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSl
 import assessmentReducer from "./Assesment/AssesmentSlice";
 import siteContentReducer from "./SiteContent/SiteContentSlice";
 import courseRequestReducer from "./courseRequests/courseRequestSlice";
+import referralReducer from "./Referral/ReferralSlice";
 
 const AUTH_ERROR_MESSAGES = new Set([
   "Access denied. No token provided.",
@@ -63,6 +64,7 @@ export const store = configureStore({
     assessment: assessmentReducer,
     siteContent: siteContentReducer,
     courseRequests: courseRequestReducer,
+    referral: referralReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(sessionExpiredMiddleware),

@@ -6,7 +6,7 @@ const Student = require("../model/student.model");
 const Content = require("../model/content.model");
 const Slot = require("../model/slot.model");
 const mongoose = require("mongoose");
-const { createDashboardNotice, getAdminUsers } = require("../utils/notificationService");
+const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
 
 exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
     const {
@@ -132,21 +132,38 @@ exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
 
     await AttendanceHomework.insertMany(attendanceEntries);
 
-    // Fire-and-forget: notify admins via dashboard (does not affect HTTP response)
+    // Fire-and-forget: staff/student notices (does not affect HTTP response)
     setImmediate(async () => {
       try {
-        const adminUsers = await getAdminUsers();
-        if (adminUsers.length) {
-          await createDashboardNotice({
-            title: "Attendance Submitted",
-            message: `${teacher.name || "An instructor"} recorded attendance for ${course.name} — ${attendanceEntries.length} student(s).`,
-            userIds: adminUsers.map((u) => u._id),
+        await notifyEvent({
+          event: "classAttendance",
+          instructorUser: { _id: userId },
+          title: "Attendance Submitted",
+          message: `${teacher.name || "An instructor"} recorded attendance for ${course.name} — ${attendanceEntries.length} student(s).`,
+          creatorId: userId,
+        });
+
+        const homeworkEntries = attendanceEntries.filter(
+          (entry) => entry.homework && entry.homework.trim()
+        );
+        if (homeworkEntries.length) {
+          await notifyEvent({
+            event: "homework",
+            instructorUser: { _id: userId },
+            title: "Homework posted",
+            message: `${teacher.name || "An instructor"} posted homework for ${course.name} — ${homeworkEntries.length} student(s).`,
             creatorId: userId,
-            contentType: "Transactional",
+          });
+
+          await createDashboardNotice({
+            title: "New homework posted",
+            message: `You have new homework for ${course.name}. Check your dashboard.`,
+            userIds: homeworkEntries.map((entry) => entry.userId),
+            creatorId: userId,
           });
         }
       } catch (err) {
-        console.error("Admin attendance notice failed:", err.message);
+        console.error("Attendance notices failed:", err.message);
       }
     });
 

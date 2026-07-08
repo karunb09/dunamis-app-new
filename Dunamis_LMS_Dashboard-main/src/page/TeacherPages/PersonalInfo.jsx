@@ -136,6 +136,15 @@ const PersonalInfo = ({ user, loading }) => {
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
         </div>
 
+        {user?.employeeId && (
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-mono text-sm font-semibold text-slate-700">
+              {user.employeeId}
+            </span>
+            <span className="text-xs text-slate-400">Employee ID</span>
+          </div>
+        )}
+
         {editMode && (
           <div className="flex flex-col items-start gap-1.5">
             <div className="flex gap-2">

@@ -38,7 +38,7 @@ export const createAdmin = createAsyncThunk(
     try {
       const { data } = await axiosAuth.post(`${BASE_URL}/admin/create`, adminData);
       if (!data.success) return rejectWithValue(data.message);
-      return data.admin;
+      return { ...data.admin, userId: data.user };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }

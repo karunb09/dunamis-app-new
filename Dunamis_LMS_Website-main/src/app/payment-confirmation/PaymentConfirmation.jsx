@@ -5,10 +5,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import { HiArrowLeft, HiCheckCircle, HiClock, HiUser } from 'react-icons/hi';
 import { useRouter, useSearchParams } from 'next/navigation';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 import LoginModal from '@/components/PopupModals/LoginModal';
 import PaymentModal from '@/components/PopupModals/PaymentModal';
 import { createEnrollmentOrder, verifyEnrollmentPayment, clearOrder } from '@/store/enrollmentSlice';
-import { getCurrentSelection, clearEnrollSelection } from '@/helpers/session';
+import { getCurrentSelection, clearEnrollSelection, upsertEnrollSelection } from '@/helpers/session';
+import { API_BASE } from '@/lib/apiBase';
 import { resolveImageUrl } from '@/lib/resolveImageUrl';
 import {
   clearEnrollmentResume,
@@ -37,6 +39,8 @@ export default function PaymentConfirmation() {
   const [pendingPaymentAction, setPendingPaymentAction] = useState(false);
   const [returnVerificationStatus, setReturnVerificationStatus] = useState(null);
   const [sel, setSel] = useState(null);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralStatus, setReferralStatus] = useState(null);
   const isStudent = String(user?.accountType || '').toLowerCase() === 'student';
   const returnOrderId = searchParams.get('order_id');
 
@@ -53,6 +57,10 @@ export default function PaymentConfirmation() {
       setSel(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (sel?.referralCode) setReferralCode(sel.referralCode);
+  }, [sel]);
 
   useEffect(() => {
     if (!sel) return;
@@ -164,6 +172,25 @@ export default function PaymentConfirmation() {
   const handleBackToCourse = () =>
     router.push(courseId ? `/courses/${courseId}` : '/courses');
 
+  const handleReferralChange = (e) => {
+    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    setReferralCode(value);
+    setReferralStatus(null);
+    upsertEnrollSelection({ referralCode: value });
+  };
+
+  const handleApplyReferral = async () => {
+    const code = referralCode.trim();
+    if (!code) return;
+    setReferralStatus('checking');
+    try {
+      const { data } = await axios.get(`${API_BASE}/v1/referral/validate/${code}`);
+      setReferralStatus(data?.valid ? { valid: true, name: data.referrer?.name } : { valid: false });
+    } catch {
+      setReferralStatus({ valid: false });
+    }
+  };
+
   const submitPayment = async (account = user) => {
     if (submittingRef.current) return;
 
@@ -204,6 +231,7 @@ export default function PaymentConfirmation() {
         slotId: slot.slotId,
         deliveryMode,
         branchId,
+        referralCode: referralCode.trim() || undefined,
       };
 
       const result = await dispatch(createEnrollmentOrder(orderData));
@@ -530,6 +558,36 @@ export default function PaymentConfirmation() {
                 <p className="text-sm text-gray-500">{priceBlock.billingText}</p>
               </div>
             )}
+
+            <div className="mb-6">
+              <label className="mb-2 block text-sm font-medium text-gray-700">Referral code (optional)</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={referralCode}
+                  onChange={handleReferralChange}
+                  placeholder="e.g. DSMT001"
+                  maxLength={12}
+                  className="w-full rounded-full border border-gray-200 px-4 py-2.5 font-mono text-sm uppercase tracking-wide focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                />
+                <button
+                  type="button"
+                  onClick={handleApplyReferral}
+                  disabled={!referralCode.trim() || referralStatus === 'checking'}
+                  className="shrink-0 rounded-full border border-orange-500 px-5 py-2.5 text-sm font-semibold text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+                >
+                  {referralStatus === 'checking' ? 'Checking...' : 'Apply'}
+                </button>
+              </div>
+              {referralStatus?.valid && (
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-green-600">
+                  <HiCheckCircle className="h-4 w-4 flex-shrink-0" /> Referred by {referralStatus.name}
+                </p>
+              )}
+              {referralStatus && referralStatus !== 'checking' && !referralStatus.valid && (
+                <p className="mt-2 text-sm text-red-600">Code not recognized — you can still continue with payment.</p>
+              )}
+            </div>
 
             {orderError && (
               <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{orderError}</div>

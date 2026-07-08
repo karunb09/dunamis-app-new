@@ -36,6 +36,7 @@ const {
   createMerchantOrderId,
 } = require("../services/paymentService");
 const asyncHandler = require("../utils/asyncHandler");
+const { resolveReferralCode, normalizeCode } = require("../utils/referral");
 require("dotenv").config();
 
 const isStudentRequest = (req) => req.user?.accountType === "student";
@@ -79,6 +80,7 @@ exports.createOrder = async (req, res) => {
       planMonths,
       deliveryMode,
       branchId,
+      referralCode,
     } = req.body;
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
@@ -121,6 +123,10 @@ exports.createOrder = async (req, res) => {
       return res.status(400).json({ success: false, message: pricing.error });
     }
 
+    // Invalid codes are dropped silently — a bad referral must never block payment.
+    const resolvedReferral = await resolveReferralCode(referralCode);
+    const resolvedReferralCode = resolvedReferral ? normalizeCode(referralCode) : null;
+
     const activeTransaction = await findActiveEnrollmentTransaction({
       studentId: student._id,
       courseId,
@@ -132,6 +138,10 @@ exports.createOrder = async (req, res) => {
 
     if (activeTransaction) {
       if (activeTransaction.status === "pending" && activeTransaction.paymentSessionId) {
+        if (resolvedReferralCode && !activeTransaction.referralCode) {
+          activeTransaction.referralCode = resolvedReferralCode;
+          await activeTransaction.save();
+        }
         return res.status(200).json({
           success: true,
           message: "Existing pending order returned",
@@ -154,6 +164,7 @@ exports.createOrder = async (req, res) => {
       pricing,
       planType: resolvedPlanType,
       installmentNo: 1,
+      referralCode: resolvedReferralCode,
     });
 
     return res.status(200).json({
@@ -655,6 +666,7 @@ exports.adminEnrollStudent = async (req, res) => {
       amount,
       paymentDate,
       receiptRef,
+      referralCode,
     } = req.body;
 
     if (!courseId || !slotId || !teacherId || !branchId || !sessionType || !amount) {
@@ -744,6 +756,8 @@ exports.adminEnrollStudent = async (req, res) => {
 
     const manualOrderId = `manual_${Date.now()}_${student._id.toString().slice(-6)}_${context.course._id.toString().slice(-6)}_${crypto.randomBytes(3).toString("hex")}`;
 
+    const resolvedReferral = await resolveReferralCode(referralCode);
+
     const transaction = await PaymentTransaction.create({
       userId: student.userId._id || student.userId,
       studentId: student._id,
@@ -756,6 +770,7 @@ exports.adminEnrollStudent = async (req, res) => {
       sessionType,
       planType: resolvedPlanType,
       planMonths: pricing.planMonths ?? null,
+      referralCode: resolvedReferral ? normalizeCode(referralCode) : null,
       paymentType: pricing.paymentType,
       installmentNo: 1,
       installmentTotal: pricing.installmentTotal,

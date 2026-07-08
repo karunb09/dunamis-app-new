@@ -14,6 +14,7 @@ import {
   FiUserCheck,
   FiDollarSign,
   FiMessageCircle,
+  FiGift,
   FiBell,
   FiChevronLeft,
   FiChevronRight,
@@ -150,6 +151,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           icon: <FiMessageCircle />,
           text: "Enquiries",
           permission: "enquiries",
+        },
+        {
+          to: "/admin/referral-management",
+          icon: <FiGift />,
+          text: "Referral Management",
+          permission: "referralManagement",
         },
         {
           to: "/admin/updates",

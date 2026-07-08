@@ -12,6 +12,7 @@ const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
 const { localFileUpload } = require("../utils/locallyUploader");
+const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 
 const normalizeStringArray = (value) => {
   if (Array.isArray(value)) {
@@ -216,6 +217,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       mode,
       specialization,
       profilePicture,
+      employeePrefix,
     } = req.body;
 
     const readLanguages = normalizeStringArray(readLanguage);
@@ -300,6 +302,8 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       specialChars: true,
     });
 
+    const employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMT"));
+
     const user = await User.create({
       name: {
         firstName: firstName.trim(),
@@ -310,6 +314,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       password,
       accountType: "teacher",
       accountStatus: "active",
+      employeeId,
       image: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
         `${firstName.trim()} ${lastName.trim()}`
       )}`,
@@ -367,6 +372,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
         userId: user._id,
         teacherDetailId: teacherDetail._id,
         email: user.email,
+        employeeId: user.employeeId,
       },
     });
 });
@@ -465,7 +471,7 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
     const teachers = await Teacher.find(filter)
       .populate({
         path: "userId",
-        select: "name email mobileNo accountType accountStatus image _id",
+        select: "name email mobileNo accountType accountStatus employeeId image _id",
       })
       .populate({
         path: "teacherDetail",
@@ -687,7 +693,7 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
       .select("+weeklyAvailability")
       .populate({
         path: "userId",
-        select: "name email mobileNo accountType image _id",
+        select: "name email mobileNo accountType employeeId image _id",
       })
       .populate({
         path: "teacherDetail",
@@ -949,7 +955,7 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     await teacher.save();
 
     const updatedTeacher = await Teacher.findById(id)
-      .populate({ path: "userId", select: "name email mobileNo accountType accountStatus image _id" })
+      .populate({ path: "userId", select: "name email mobileNo accountType accountStatus employeeId image _id" })
       .populate({ path: "teacherDetail" })
       .populate({ path: "course", select: "_id name code mode level image category" });
 

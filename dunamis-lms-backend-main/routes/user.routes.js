@@ -15,7 +15,8 @@ const{
     deleteDashboardNotice,
     forgotPassword,
     verifyOTP,
-    resetPassword
+    resetPassword,
+    setEmployeeId
 
 } = require("../controller/user.controller")
 const { isAuth, accessToRole } = require("../middleware/auth");
@@ -41,6 +42,7 @@ router.patch("/notices/read-all", isAuth, markAllDashboardNoticesRead);
 router.patch("/notices/:noticeId/read", isAuth, markDashboardNoticeRead);
 router.delete("/notices", isAuth, clearDashboardNotices);
 router.delete("/notices/:noticeId", isAuth, deleteDashboardNotice);
+router.patch("/:id/employee-id", isAuth, accessToRole(["admin", "superadmin"]), setEmployeeId);
 router.get("/:id", isAuth, getUserById)
 router.put("/:id", isAuth, updateUser);
 

@@ -7,7 +7,7 @@ import {
     FiUser,
 } from "react-icons/fi";
 
-export default function RemunerationTab({ remunerations }) {
+export default function RemunerationTab({ remunerations, employeeId }) {
     // Use the first remuneration or fallback to empty object
     const remuneration = remunerations?.[0] ?? {};
 
@@ -21,7 +21,14 @@ export default function RemunerationTab({ remunerations }) {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-                <h2 className="text-xl font-semibold">{formattedMonth}</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-semibold">{formattedMonth}</h2>
+                    {employeeId && (
+                        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-mono">
+                            {employeeId}
+                        </span>
+                    )}
+                </div>
                 <div className="flex flex-wrap gap-3">
                     <button className="px-4 py-2 rounded-full border flex items-center gap-2 text-sm hover:bg-gray-50">
                         <FiDownload /> Download Pay Slips

@@ -98,6 +98,7 @@ const assessmentRoutes = require("./routes/assessment.route")
 const siteContentRoutes = require("./routes/siteContent.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const courseRequestRoutes = require("./routes/courseRequest.routes");
+const referralRoutes = require("./routes/referral.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -144,6 +145,7 @@ require("./cronJobs/runAssessmentCycle")
 require("./cronJobs/assignment.cron")
 require("./cronJobs/attendanceDigest.cron");
 require("./cronJobs/missedAttendanceReminder.cron");
+require("./cronJobs/classReminder.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -215,6 +217,7 @@ app.use("/api/v1/assessment", assessmentRoutes);
 app.use("/api/v1/siteContent", siteContentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course-requests", courseRequestRoutes);
+app.use("/api/v1/referral", referralRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

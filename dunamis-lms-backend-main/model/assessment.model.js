@@ -65,7 +65,7 @@ const assessmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Unique record per 15-day cycle
+// Unique record per assessment cycle
 assessmentSchema.index(
   { studentId: 1, courseId: 1, dueDate: 1 },
   { unique: true }

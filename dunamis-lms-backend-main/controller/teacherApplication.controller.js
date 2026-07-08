@@ -7,6 +7,7 @@ const sendPasswordTemplate = require("../mail/sendPassword");
 const sendApplicationStatus = require("../mail/sendApplicationStatus");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
+const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 
 const getTodayDateString = () => {
   const today = new Date();
@@ -313,7 +314,7 @@ exports.getTeacherApplicationById = asyncHandler(async (req, res) => {
 // Update application status
 exports.updateApplicationStatus = asyncHandler(async (req, res) => {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, employeePrefix } = req.body;
 
         const validStatuses = ["new", "shortlisted", "rejected", "interviewed", "selected"];
         
@@ -345,6 +346,7 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
         }
 
         let generatedPassword = null;
+        let assignedEmployeeId = null;
 
         if (status === "selected") {
             let user = await User.findOne({ email: application.email });
@@ -392,6 +394,12 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
             }
 
             let shouldSaveUser = false;
+
+            if (!user.employeeId) {
+                user.employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMT"));
+                shouldSaveUser = true;
+            }
+            assignedEmployeeId = user.employeeId;
 
             if (user.accountType !== "teacher") {
                 user.accountType = "teacher";
@@ -473,6 +481,7 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
             success: true,
             message: "Application status updated successfully",
             data: application,
+            employeeId: assignedEmployeeId,
             credentials: generatedPassword
                 ? {
                     email: application.email,
