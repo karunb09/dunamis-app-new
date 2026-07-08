@@ -4,16 +4,16 @@ const ALLOWED_PREFIXES = [
   "DMPL",
   "DSMA",
   "DSMB",
-  "DSMT",
+  "DSMI",
   "DSDA",
   "DSDB",
-  "DSDT",
+  "DSDI",
   "DCCA",
   "DCCB",
-  "DCCT",
+  "DCCI",
 ];
 
-const EMPLOYEE_ID_REGEX = /^(DMPL|(DSM|DSD|DCC)[ATB])\d{3,}$/;
+const EMPLOYEE_ID_REGEX = /^(DMPL|(DSM|DSD|DCC)[AIB])\d{3,}$/;
 
 const resolvePrefix = (employeePrefix, fallback) =>
   ALLOWED_PREFIXES.includes(employeePrefix) ? employeePrefix : fallback;
@@ -32,7 +32,7 @@ async function generateEmployeeId(prefix) {
 
 // Raises the prefix counter so future auto-generation never collides with a manually assigned ID.
 async function bumpCounterFloor(employeeId) {
-  const match = String(employeeId).match(/^(DMPL|(?:DSM|DSD|DCC)[ATB])(\d+)$/);
+  const match = String(employeeId).match(/^(DMPL|(?:DSM|DSD|DCC)[AIB])(\d+)$/);
   if (!match) return;
   await Counter.updateOne(
     { _id: match[1] },

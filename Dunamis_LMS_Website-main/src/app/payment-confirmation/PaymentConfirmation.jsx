@@ -566,7 +566,7 @@ export default function PaymentConfirmation() {
                   type="text"
                   value={referralCode}
                   onChange={handleReferralChange}
-                  placeholder="e.g. DSMT001"
+                  placeholder="e.g. DSMI001"
                   maxLength={12}
                   className="w-full rounded-full border border-gray-200 px-4 py-2.5 font-mono text-sm uppercase tracking-wide focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                 />

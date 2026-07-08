@@ -189,7 +189,7 @@ const InstructorProfile = () => {
       title: "Edit Employee ID",
       input: "text",
       inputValue: selectedTeacher.user?.employeeId || "",
-      inputPlaceholder: "e.g. DSMT001",
+      inputPlaceholder: "e.g. DSMI001",
       showCancelButton: true,
       confirmButtonText: "Save",
       confirmButtonColor: "#FF6B35",

@@ -646,7 +646,7 @@ exports.setEmployeeId = asyncHandler(async (req, res) => {
   if (!EMPLOYEE_ID_REGEX.test(employeeId)) {
     return res.status(400).json({
       success: false,
-      message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMT001.",
+      message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMI001.",
     });
   }
 

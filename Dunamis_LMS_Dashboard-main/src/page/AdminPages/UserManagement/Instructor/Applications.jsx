@@ -130,7 +130,7 @@ const Applications = () => {
         if (newStatus === "selected") {
             const { value: unit, isConfirmed } = await Swal.fire({
                 title: "Assign employee unit",
-                text: "The instructor's employee ID (e.g. DSMT001) is generated from this unit.",
+                text: "The instructor's employee ID (e.g. DSMI001) is generated from this unit.",
                 input: "select",
                 inputOptions: { DSM: "DSM", DSD: "DSD", DCC: "DCC" },
                 inputValue: "DSM",
@@ -139,7 +139,7 @@ const Applications = () => {
                 confirmButtonColor: "#FF6B35",
             });
             if (!isConfirmed) return;
-            employeePrefix = `${unit}T`;
+            employeePrefix = `${unit}I`;
         }
         const result = await dispatch(updateApplicationStatus({ id, status: newStatus, employeePrefix }));
         if (result.meta.requestStatus === "rejected") {

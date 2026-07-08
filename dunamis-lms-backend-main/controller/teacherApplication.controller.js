@@ -396,7 +396,7 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
             let shouldSaveUser = false;
 
             if (!user.employeeId) {
-                user.employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMT"));
+                user.employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMI"));
                 shouldSaveUser = true;
             }
             assignedEmployeeId = user.employeeId;

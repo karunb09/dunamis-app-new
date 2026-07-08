@@ -168,6 +168,15 @@ const AdminProfile = () => {
           <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
         </div>
 
+        {selectedUser?.employeeId && (
+          <div className="flex flex-col items-center gap-1 sm:items-start">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-mono text-sm font-semibold text-slate-700">
+              {selectedUser.employeeId}
+            </span>
+            <span className="text-xs text-slate-400">Employee ID</span>
+          </div>
+        )}
+
         {isEditing && (
           <div className="flex flex-col gap-1">
             <div className="flex gap-2">

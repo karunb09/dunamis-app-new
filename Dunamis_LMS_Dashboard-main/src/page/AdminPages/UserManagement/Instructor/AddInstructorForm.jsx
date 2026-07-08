@@ -118,7 +118,7 @@ const AddInstructorForm = () => {
         currentCTC: formData.currentCTC.trim(),
         expectedCTC: formData.expectedCTC.trim(),
         specialization: formData.specialization.trim(),
-        employeePrefix: `${formData.employeeUnit}T`,
+        employeePrefix: `${formData.employeeUnit}I`,
       })
     )
       .unwrap()
@@ -215,7 +215,7 @@ const AddInstructorForm = () => {
                 <option value="DCC">DCC</option>
               </select>
               <p className="mt-1 text-xs text-gray-500">
-                The employee ID (e.g. {formData.employeeUnit}T001) is generated from this unit.
+                The employee ID (e.g. {formData.employeeUnit}I001) is generated from this unit.
               </p>
             </div>
           </div>

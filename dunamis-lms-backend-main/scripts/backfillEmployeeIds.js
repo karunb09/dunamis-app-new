@@ -1,6 +1,6 @@
 /**
  * One-time backfill: assign employee IDs to existing staff (superadmin/teacher/admin)
- * in creation-date order. superadmin → DMPL, teacher → DSMT, admin → DSMA.
+ * in creation-date order. superadmin → DMPL, teacher → DSMI, admin → DSMA.
  *
  * Run from dunamis-lms-backend-main/:
  *   node scripts/backfillEmployeeIds.js
@@ -17,7 +17,7 @@ const { generateEmployeeId } = require("../utils/employeeId");
 
 const PREFIX_BY_ACCOUNT_TYPE = {
   superadmin: "DMPL",
-  teacher: "DSMT",
+  teacher: "DSMI",
   admin: "DSMA",
 };
 
