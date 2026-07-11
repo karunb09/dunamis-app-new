@@ -441,7 +441,7 @@ const Availability = ({
     setDayPairDropdownOpen(false);
     setDraftSlot({
       ...nextSlot,
-      days: slot ? (nextSlot.days || []) : [],
+      days: slot ? (getDayPairForDays(nextSlot.days)?.days || []) : [],
       branchId: nextSlot.branchId || "",
       startTime,
       endTime: addMinutesToTime(startTime, duration),
@@ -492,16 +492,12 @@ const Availability = ({
   };
 
   const toggleDayPair = (pairId) => {
-    const selectedPairIds = DAY_PAIR_OPTIONS
-      .filter((o) => o.days.every((d) => draftSlot.days.includes(d)))
-      .map((o) => o.id);
-    const newSelectedPairIds = selectedPairIds.includes(pairId)
-      ? selectedPairIds.filter((id) => id !== pairId)
-      : [...selectedPairIds, pairId];
-    const newDays = [...new Set(
-      newSelectedPairIds.flatMap((id) => DAY_PAIR_OPTIONS.find((o) => o.id === id)?.days || [])
-    )];
-    updateDraft({ days: newDays });
+    const pair = DAY_PAIR_OPTIONS.find((o) => o.id === pairId);
+    if (!pair) return;
+    const isSelected =
+      pair.days.length === draftSlot.days.length &&
+      pair.days.every((d) => draftSlot.days.includes(d));
+    updateDraft({ days: isSelected ? [] : pair.days });
     if (!editingSlotId) setSelectedTimes(new Set());
   };
 
@@ -546,8 +542,8 @@ const Availability = ({
   };
 
   const validateDraftSlot = () => {
-    if (draftSlot.days.length === 0) {
-      toast.error("Select at least one day pair");
+    if (!getDayPairForDays(draftSlot.days)) {
+      toast.error("Select a valid day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun");
       return false;
     }
 
@@ -643,8 +639,8 @@ const Availability = ({
       toast.error("Select a branch for this offline course slot");
       return;
     }
-    if (draftSlot.days.length === 0) {
-      toast.error("Select at least one day pair");
+    if (!getDayPairForDays(draftSlot.days)) {
+      toast.error("Select a valid day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun");
       return;
     }
 
@@ -773,13 +769,7 @@ const Availability = ({
     const isIndividualSection = activeSectionId === "individual";
     const timeOptions =
       TIME_OPTIONS_BY_SECTION[activeSectionId] || TIME_OPTIONS_BY_SECTION.group;
-    const selectedPairIds = DAY_PAIR_OPTIONS
-      .filter((o) => o.days.every((d) => draftSlot.days.includes(d)))
-      .map((o) => o.id);
-    const selectedPairLabels = selectedPairIds
-      .map((id) => DAY_PAIR_OPTIONS.find((o) => o.id === id)?.label)
-      .filter(Boolean)
-      .join(", ");
+    const selectedPair = getDayPairForDays(draftSlot.days);
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -815,8 +805,8 @@ const Availability = ({
               onClick={() => setDayPairDropdownOpen((prev) => !prev)}
               className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-300"
             >
-              <span className={selectedPairLabels ? "text-slate-700" : "text-slate-400"}>
-                {selectedPairLabels || "Select day pairs"}
+              <span className={selectedPair ? "text-slate-700" : "text-slate-400"}>
+                {selectedPair ? selectedPair.label : "Select a day pair"}
               </span>
               <FiChevronDown
                 className={`shrink-0 transition-transform ${dayPairDropdownOpen ? "rotate-180" : ""}`}
@@ -825,17 +815,17 @@ const Availability = ({
             {dayPairDropdownOpen && (
               <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
                 {DAY_PAIR_OPTIONS.map((pair) => {
-                  const isChecked = pair.days.every((d) => draftSlot.days.includes(d));
+                  const isChecked = selectedPair?.id === pair.id;
                   return (
                     <label
                       key={pair.id}
                       className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
                     >
                       <input
-                        type="checkbox"
+                        type="radio"
                         checked={isChecked}
                         onChange={() => toggleDayPair(pair.id)}
-                        className="h-4 w-4 cursor-pointer rounded accent-slate-900"
+                        className="h-4 w-4 cursor-pointer accent-slate-900"
                       />
                       <div>
                         <span className="text-sm font-semibold text-slate-800">{pair.label}</span>

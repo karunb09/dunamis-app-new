@@ -498,7 +498,7 @@ const Navigation = ({ onMenuClick }) => {
             <button
               type="button"
               onClick={handleNotificationsClick}
-              className="relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-orange-200 hover:text-orange-500"
+              className="relative hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-orange-200 hover:text-orange-500 sm:inline-flex"
               aria-label="Notifications"
             >
               <FiBell className="text-lg" />
@@ -738,6 +738,11 @@ const Navigation = ({ onMenuClick }) => {
                   >
                     <FiBell className="text-base" />
                     Notifications
+                    {totalNotificationCount > 0 ? (
+                      <span className="ml-auto inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                        {totalNotificationCount > 9 ? "9+" : totalNotificationCount}
+                      </span>
+                    ) : null}
                   </button>
 
                   <button

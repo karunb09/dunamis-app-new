@@ -233,9 +233,10 @@ const Applications = () => {
                     <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Update Status</p>
                     <select
                         value={r.status}
+                        disabled={r.status === "selected"}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => handleStatusChange(r._id, e.target.value)}
-                        className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-medium capitalize outline-none transition focus:ring-2 focus:ring-orange-100 ${
+                        className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-medium capitalize outline-none transition focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed ${
                             statusSelectClasses[r.status] || "border-slate-200 bg-white text-slate-700"
                         }`}
                     >
@@ -243,6 +244,11 @@ const Applications = () => {
                             <option key={status} value={status}>{status}</option>
                         ))}
                     </select>
+                    {r.status === "selected" && (
+                        <p className="mt-2 text-xs text-emerald-700">
+                            Instructor selected and credentials issued — status is locked.
+                        </p>
+                    )}
                 </div>
             </>
         );
@@ -456,9 +462,11 @@ const Applications = () => {
                                         <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Application Status</p>
                                         <select
                                             value={row.status}
+                                            disabled={row.status === "selected"}
+                                            title={row.status === "selected" ? "Instructor selected — application cycle complete" : undefined}
                                             onClick={(e) => e.stopPropagation()}
                                             onChange={(e) => handleStatusChange(row._id, e.target.value)}
-                                            className={`w-full rounded-xl border px-3 py-2 text-xs font-medium capitalize outline-none transition focus:ring-1 ${
+                                            className={`w-full rounded-xl border px-3 py-2 text-xs font-medium capitalize outline-none transition focus:ring-1 disabled:cursor-not-allowed ${
                                                 statusSelectClasses[row.status] || "border-slate-200 bg-white text-slate-700"
                                             }`}
                                         >

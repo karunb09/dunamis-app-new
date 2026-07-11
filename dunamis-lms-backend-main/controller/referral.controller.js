@@ -140,3 +140,11 @@ exports.updatePartner = asyncHandler(async (req, res) => {
   await partner.save();
   res.status(200).json({ success: true, partner });
 });
+
+exports.deletePartner = asyncHandler(async (req, res) => {
+  const partner = await ReferralPartner.findByIdAndDelete(req.params.id);
+  if (!partner) {
+    return res.status(404).json({ success: false, message: "Referral partner not found" });
+  }
+  res.status(200).json({ success: true, partnerId: req.params.id });
+});

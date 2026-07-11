@@ -530,3 +530,49 @@ exports.getStudentHomeworkDashboard = asyncHandler(async (req, res) => {
       data: formatted,
     });
 });
+
+exports.getStudentAttendance = asyncHandler(async (req, res) => {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        message: "User ID missing from token. Please log in again.",
+      });
+    }
+
+    const student = await Student.findOne({ userId }).select("_id");
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found.",
+      });
+    }
+
+    const records = await AttendanceHomework.find({ studentId: student._id })
+      .populate("courseId", "name")
+      .populate("category", "name icon")
+      .sort({ date: -1 })
+      .lean();
+
+    const attendance = records.map((item) => ({
+      _id: item._id,
+      courseName: item.courseId?.name || "N/A",
+      categoryName: item.category?.name || "N/A",
+      attendanceStatus: item.attendanceStatus,
+      sessionType: item.sessionType,
+      date: item.date,
+    }));
+
+    const total = attendance.length;
+    const present = attendance.filter((a) => a.attendanceStatus === "Present").length;
+    const absent = total - present;
+    const attendanceRate = total ? Math.round((present / total) * 100) : 0;
+
+    res.status(200).json({
+      success: true,
+      count: total,
+      summary: { total, present, absent, attendanceRate },
+      data: attendance,
+    });
+});

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaTrash } from "react-icons/fa";
 import { FiPlus, FiX } from "react-icons/fi";
 import PageTabBar from "../../../components/PageTabBar";
 import DataCards from "../../../components/DataCards";
@@ -13,6 +13,7 @@ import {
     fetchPartners,
     createPartner,
     updatePartner,
+    deletePartner,
 } from "../../../redux/Referral/ReferralSlice";
 
 const TABS = ["Referrals", "Freelancers"];
@@ -171,6 +172,24 @@ const ReferralManagementPage = () => {
         }
     };
 
+    const handleDeletePartner = async (partner) => {
+        const { isConfirmed } = await Swal.fire({
+            title: "Delete this freelancer?",
+            text: `${partner.name} — code ${partner.code} will stop working immediately. Past referral records are kept.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonText: "Delete",
+            confirmButtonColor: "#e11d48",
+        });
+        if (!isConfirmed) return;
+        try {
+            await dispatch(deletePartner(partner._id)).unwrap();
+            toast.success("Freelancer deleted.");
+        } catch (err) {
+            toast.error(err || "Failed to delete freelancer.");
+        }
+    };
+
     const handleCopyCode = (partner) => {
         navigator.clipboard
             .writeText(partner.code)
@@ -294,7 +313,12 @@ const ReferralManagementPage = () => {
                                 {
                                     label: row.status === "active" ? "Disable Code" : "Enable Code",
                                     onClick: () => handleTogglePartnerStatus(row),
-                                    danger: row.status === "active",
+                                },
+                                {
+                                    label: "Delete Freelancer",
+                                    icon: <FaTrash size={13} />,
+                                    onClick: () => handleDeletePartner(row),
+                                    danger: true,
                                 },
                             ]}
                         />

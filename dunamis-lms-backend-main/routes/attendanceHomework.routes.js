@@ -6,6 +6,7 @@ const {
   submitAttendanceHomework,
   getTeacherHomeworkHistory,
   getStudentHomeworkDashboard,
+  getStudentAttendance,
   getTeacherPastClasses,
   getTeacherUpcomingClasses,
 } = require("../controller/attendanceHomework.controller");
@@ -18,6 +19,9 @@ router.get("/teacher/history", isAuth, accessToRole(["teacher"]),getTeacherHomew
 
 // Get student homework dashboard (student)
 router.get("/student/homework", isAuth, accessToRole(["student"]), getStudentHomeworkDashboard);
+
+// Get student attendance records + summary (student)
+router.get("/student/attendance", isAuth, accessToRole(["student"]), getStudentAttendance);
 
 // Get past enrolled slots with attendance coverage status (teacher)
 router.get("/teacher/past-classes", isAuth, accessToRole(["teacher"]), getTeacherPastClasses);

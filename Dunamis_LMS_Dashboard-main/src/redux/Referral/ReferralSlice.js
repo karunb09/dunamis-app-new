@@ -71,6 +71,19 @@ export const updatePartner = createAsyncThunk(
   }
 );
 
+export const deletePartner = createAsyncThunk(
+  "referral/deletePartner",
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosAuth.delete(`${BASE_URL}/referral/partners/${id}`);
+      if (!data.success) return rejectWithValue(data.message);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
 const referralSlice = createSlice({
   name: "referral",
   initialState: {
@@ -125,6 +138,9 @@ const referralSlice = createSlice({
         state.partners = state.partners.map((partner) =>
           partner._id === action.payload._id ? action.payload : partner
         );
+      })
+      .addCase(deletePartner.fulfilled, (state, action) => {
+        state.partners = state.partners.filter((partner) => partner._id !== action.payload);
       });
   },
 });

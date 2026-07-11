@@ -195,8 +195,13 @@ const ApplicationDetails = () => {
                 <label className="block font-medium mb-1">Application Status</label>
                 <select
                     value={status}
+                    disabled={status === "selected"}
                     onChange={(e) => handleStatusChange(e.target.value)}
-                    className="border px-3 py-2 rounded w-full sm:w-64"
+                    className={`border px-3 py-2 rounded w-full sm:w-64 ${
+                        status === "selected"
+                            ? "cursor-not-allowed border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : ""
+                    }`}
                 >
                     {["new", "shortlisted", "interviewed", "selected", "rejected"].map(
                         (option) => (
@@ -206,6 +211,11 @@ const ApplicationDetails = () => {
                         )
                     )}
                 </select>
+                {status === "selected" && (
+                    <p className="mt-1.5 text-xs text-emerald-700">
+                        Instructor selected and credentials issued — this application has completed its cycle.
+                    </p>
+                )}
             </div>
 
             {/* Two-column section layout */}
@@ -242,7 +252,7 @@ const ApplicationDetails = () => {
                     <h3 className="text-lg font-semibold mb-4">Contact Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="text-sm text-gray-600">T</label>
+                            <label className="text-sm text-gray-600">Email</label>
                             <p>{email || "—"}</p>
                         </div>
                         <div>
