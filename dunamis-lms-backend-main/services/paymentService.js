@@ -273,7 +273,26 @@ const markTransactionPaid = async ({ transaction, order, payment }) => {
     ? new Date(payment.payment_completion_time)
     : new Date();
 
+  // A Cashfree-side merchant offer/promo can capture less than the order amount
+  // while the order is still PAID. Record the captured amount and the gap for
+  // reconciliation instead of blocking fulfillment.
+  const capturedAmount =
+    payment?.payment_amount != null ? Number(payment.payment_amount) : null;
+  const gatewayOfferDiscount =
+    capturedAmount != null && capturedAmount < Number(transaction.amount)
+      ? Number(transaction.amount) - capturedAmount
+      : 0;
+  if (gatewayOfferDiscount > 0) {
+    console.log(
+      `[reconciliation] Gateway offer on ${transaction.merchantOrderId}: captured ${formatMoney(
+        capturedAmount
+      )} of ${formatMoney(transaction.amount)} (offer ${formatMoney(gatewayOfferDiscount)})`
+    );
+  }
+
   const update = {
+    gatewayCapturedAmount: capturedAmount,
+    gatewayOfferDiscount,
     status: "paid",
     feeStatus: "Paid",
     cashfreeCfOrderId: order.cf_order_id?.toString() || transaction.cashfreeCfOrderId,

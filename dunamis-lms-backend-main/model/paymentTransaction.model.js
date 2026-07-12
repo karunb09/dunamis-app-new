@@ -79,6 +79,12 @@ const paymentTransactionSchema = new mongoose.Schema(
     // Pre-discount amount, set only when a referral discount changed the charge.
     originalAmount: { type: Number, default: null },
     discountAmount: { type: Number, default: 0 },
+    // Amount Cashfree actually captured. May be less than `amount` when a
+    // Cashfree-side merchant offer/promo applied at checkout; the order is
+    // still PAID for the full `amount`. Set at confirmation for reconciliation.
+    gatewayCapturedAmount: { type: Number, default: null },
+    // amount - gatewayCapturedAmount when a gateway offer reduced the capture.
+    gatewayOfferDiscount: { type: Number, default: 0 },
     installmentNo: { type: Number, default: 1 },
     installmentTotal: { type: Number, default: 1 },
     installmentAmount: { type: Number, default: null },
