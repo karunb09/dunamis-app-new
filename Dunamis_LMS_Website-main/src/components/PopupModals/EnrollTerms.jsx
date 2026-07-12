@@ -26,7 +26,7 @@ import {
   normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
-import { getActiveTenurePlans, pickDefaultTenure, findTenure } from '@/helpers/tenurePlans';
+import { getActiveTenurePlans, pickDefaultTenure, pickShortestTenure, findTenure } from '@/helpers/tenurePlans';
 import StepNav from './EnrollTermsParts/StepNav';
 import StepDelivery from './EnrollTermsParts/StepDelivery';
 import StepInstructor from './EnrollTermsParts/StepInstructor';
@@ -170,7 +170,6 @@ export default function EnrollTerm({
   isOpen,
   onClose,
   course,
-  onNext,
   preferredInstructorId = '',
 }) {
   const router = useRouter();
@@ -373,7 +372,6 @@ export default function EnrollTerm({
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
     setSelectedSessionType('');
     setSelectedPlanType('');
-    setSelectedMonths(null);
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
     setIsNavigating(false);
@@ -512,10 +510,11 @@ export default function EnrollTerm({
     setSelectedSlotId(group.slots[0].id || '');
   }, [selectedGroupId, slotGroups, selectedSlotId]);
 
-  // Reset months when tenure plans change so user must explicitly pick a duration.
+  // Default to the shortest (3-month) plan on open and whenever the tenure plans change.
   useEffect(() => {
-    setSelectedMonths(null);
-  }, [tenurePlans]);
+    if (!isOpen) return;
+    setSelectedMonths(pickShortestTenure(tenurePlans)?.months ?? null);
+  }, [tenurePlans, isOpen]);
 
   // Reset session/plan choice when user navigates back before step 3.
   useEffect(() => {
@@ -959,8 +958,11 @@ export default function EnrollTerm({
                         <span className="block text-base font-semibold text-gray-900">
                           {plan.months} mo
                         </span>
-                        <span className="block text-[11px] text-gray-500">
-                          {toMoney(plan.fullPayment) || '—'}
+                        <span className="block text-[11px] font-medium text-gray-700">
+                          {plan.monthlyFee ? `${toMoney(plan.monthlyFee)}/mo` : '—'}
+                        </span>
+                        <span className="block text-[10px] text-gray-400">
+                          {plan.fullPayment ? `${toMoney(plan.fullPayment)} total` : ''}
                         </span>
                       </button>
                     );

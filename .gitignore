@@ -4,6 +4,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+nginx-conf
 
 # Environment variables
 .env
@@ -57,3 +58,6 @@ opencode.json
 
 # docs
 docs/*
+
+# claude
+.claude/*

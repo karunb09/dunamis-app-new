@@ -22,5 +22,9 @@ export const pickDefaultTenure = (plans = []) =>
     plans[0] ||
     null;
 
+// Shortest available plan (plans are sorted ascending by months) — used as the
+// pre-selected duration in the enroll plan step.
+export const pickShortestTenure = (plans = []) => plans[0] || null;
+
 export const findTenure = (plans = [], months) =>
     plans.find((plan) => plan.months === Number(months)) || null;

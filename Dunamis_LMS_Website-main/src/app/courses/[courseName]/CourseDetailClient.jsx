@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LuClock, LuUsers, LuStar, LuChevronDown, LuChevronLeft, LuCircleCheck, LuMapPin, LuWifi, LuBookOpen, LuAward, LuPlay } from "react-icons/lu";
 import BookDemoModal from "@/components/PopupModals/BookDemoModal";
 import EnrollTerm from "@/components/PopupModals/EnrollTerms";
-import EnrollModal from "@/components/PopupModals/EnrollModal";
 import LoginModal from "@/components/PopupModals/LoginModal";
 import { IoMdStar } from "react-icons/io";
 import toast from "react-hot-toast";
@@ -175,10 +174,8 @@ export default function CourseDetailClient({ initialCourse = null }) {
   const { courseName } = useParams();
 
   const [isEnrollTermOpen, setEnrollTermOpen] = useState(false);
-  const [isEnrollOpen, setEnrollOpen] = useState(false);
   const [isBookDemoOpen, setBookDemoOpen] = useState(false);
   const [isLoginOpen, setLoginOpen] = useState(false);
-  const [enrollSelection, setEnrollSelection] = useState(null);
   const [pendingQueryAction, setPendingQueryAction] = useState(null);
   const [pendingEnrollmentAuth, setPendingEnrollmentAuth] = useState(false);
   const [activeTab, setActiveTab] = useState("Overview");
@@ -690,10 +687,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
       </AnimatePresence>
 
       {/* ════ MODALS ══════════════════════════════════════════════ */}
-      <EnrollTerm isOpen={isEnrollTermOpen} onClose={() => setEnrollTermOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId}
-        onNext={(selection) => { setEnrollSelection(selection); setEnrollTermOpen(false); setEnrollOpen(true); }} />
-      <EnrollModal isOpen={isEnrollOpen} onClose={() => setEnrollOpen(false)}
-        onBack={() => { setEnrollOpen(false); setEnrollTermOpen(true); }} course={rawCourse} selection={enrollSelection} />
+      <EnrollTerm isOpen={isEnrollTermOpen} onClose={() => setEnrollTermOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId} />
       <BookDemoModal isOpen={isBookDemoOpen} onClose={() => setBookDemoOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId} />
       <LoginModal open={isLoginOpen}
         onClose={() => { setLoginOpen(false); setPendingEnrollmentAuth(false); }}
