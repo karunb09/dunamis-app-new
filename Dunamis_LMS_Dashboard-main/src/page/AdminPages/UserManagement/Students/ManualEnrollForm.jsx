@@ -591,7 +591,7 @@ export default function ManualEnrollForm({ onSuccess }) {
                 type="text"
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                placeholder="Employee ID or freelancer code, e.g. DSMI001"
+                placeholder="Freelancer code, e.g. BLRKSNFTM"
                 className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-mono text-sm uppercase outline-none focus:border-orange-400"
               />
             </div>

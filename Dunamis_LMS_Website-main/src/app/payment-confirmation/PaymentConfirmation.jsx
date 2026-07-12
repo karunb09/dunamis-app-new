@@ -163,6 +163,20 @@ export default function PaymentConfirmation() {
     };
   }, [selectedSessionType, planType, monthlyFee, fullPayment, discount]);
 
+  // Preview of the server-side first-payment discount. Mirrors the backend math
+  // in utils/referral.js applyReferralDiscount so the shown total matches the charge.
+  const referralDiscount = useMemo(() => {
+    if (priceBlock?.error || !referralStatus?.valid || !referralStatus.discount) return null;
+    const fee = Number(priceBlock.courseFee);
+    const { type, value } = referralStatus.discount;
+    if (!value || value <= 0) return null;
+    const raw = type === 'percent' ? Math.round((fee * value) / 100) : Math.round(value);
+    const total = Math.max(1, fee - raw);
+    return total < fee ? { off: fee - total, total } : null;
+  }, [priceBlock, referralStatus]);
+
+  const payableAmount = referralDiscount ? referralDiscount.total : priceBlock?.courseFee;
+
   const srcImage = useMemo(() => {
     return resolveImageUrl(courseImageParam, '');
   }, [courseImageParam]);
@@ -185,7 +199,7 @@ export default function PaymentConfirmation() {
     setReferralStatus('checking');
     try {
       const { data } = await axios.get(`${API_BASE}/v1/referral/validate/${code}`);
-      setReferralStatus(data?.valid ? { valid: true, name: data.referrer?.name } : { valid: false });
+      setReferralStatus(data?.valid ? { valid: true, name: data.referrer?.name, discount: data.discount || null } : { valid: false });
     } catch {
       setReferralStatus({ valid: false });
     }
@@ -550,12 +564,22 @@ export default function PaymentConfirmation() {
                   </div>
                 )}
 
+                {referralDiscount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Referral discount</span>
+                    <span className="font-semibold text-green-600">−{asMoney(referralDiscount.off)}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between pt-2">
                   <span className="text-xl font-bold text-gray-900">Total Amount</span>
-                  <span className="text-3xl font-bold text-gray-900">{asMoney(priceBlock.courseFee)}</span>
+                  <span className="text-3xl font-bold text-gray-900">{asMoney(payableAmount)}</span>
                 </div>
 
                 <p className="text-sm text-gray-500">{priceBlock.billingText}</p>
+                {referralDiscount && planType === 'monthly' && (
+                  <p className="text-xs text-gray-500">Discount applies to your first payment only.</p>
+                )}
               </div>
             )}
 
@@ -566,7 +590,7 @@ export default function PaymentConfirmation() {
                   type="text"
                   value={referralCode}
                   onChange={handleReferralChange}
-                  placeholder="e.g. DSMI001"
+                  placeholder="e.g. BLRKSNFTM"
                   maxLength={12}
                   className="w-full rounded-full border border-gray-200 px-4 py-2.5 font-mono text-sm uppercase tracking-wide focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                 />
@@ -606,7 +630,7 @@ export default function PaymentConfirmation() {
                   ? 'Creating order...'
                   : priceBlock?.error
                     ? 'Resolve errors to continue'
-                    : `Pay ${asMoney(priceBlock.courseFee)}`
+                    : `Pay ${asMoney(payableAmount)}`
                 : 'Sign in to continue'}
             </button>
 

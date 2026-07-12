@@ -28,10 +28,15 @@ const PARTNER_BADGES = {
     inactive: { label: "Inactive", className: "bg-rose-50 text-rose-700 ring-1 ring-rose-200", dot: true, dotClass: "bg-rose-500" },
 };
 
-const EMPTY_PARTNER_FORM = { name: "", phone: "", email: "", city: "", area: "" };
+const EMPTY_PARTNER_FORM = { name: "", phone: "", email: "", city: "", area: "", discountType: "", discountValue: "" };
 
 const suggestCode = ({ city, area, name }) =>
     `${city.replace(/[^a-zA-Z]/g, "").slice(0, 3)}${area.replace(/[^a-zA-Z]/g, "").slice(0, 3)}${name.replace(/[^a-zA-Z]/g, "").slice(0, 3)}`.toUpperCase();
+
+const formatDiscount = (partner) => {
+    if (!partner.discountType || !(partner.discountValue > 0)) return null;
+    return partner.discountType === "percent" ? `${partner.discountValue}% off` : `₹${partner.discountValue} off`;
+};
 
 const getStudentName = (referral) => {
     const name = referral.studentId?.userId?.name;
@@ -104,7 +109,15 @@ const ReferralManagementPage = () => {
         setPartnerModal({ open: true, partner });
         setPartnerForm(
             partner
-                ? { name: partner.name, phone: partner.phone || "", email: partner.email || "", city: partner.city, area: partner.area }
+                ? {
+                    name: partner.name,
+                    phone: partner.phone || "",
+                    email: partner.email || "",
+                    city: partner.city,
+                    area: partner.area,
+                    discountType: partner.discountType || "",
+                    discountValue: partner.discountValue > 0 ? String(partner.discountValue) : "",
+                }
                 : EMPTY_PARTNER_FORM
         );
         setPartnerCode(partner?.code || "");
@@ -136,6 +149,19 @@ const ReferralManagementPage = () => {
             return;
         }
 
+        const discountType = partnerForm.discountType || null;
+        const discountValue = discountType ? Number(partnerForm.discountValue) || 0 : 0;
+        if (discountType) {
+            if (discountValue <= 0) {
+                toast.error("Enter a discount value, or choose 'No discount'.");
+                return;
+            }
+            if (discountType === "percent" && discountValue > 100) {
+                toast.error("Percent discount cannot exceed 100.");
+                return;
+            }
+        }
+
         const payload = {
             name: partnerForm.name.trim(),
             phone: partnerForm.phone.trim(),
@@ -143,6 +169,8 @@ const ReferralManagementPage = () => {
             city: partnerForm.city.trim(),
             area: partnerForm.area.trim(),
             code,
+            discountType,
+            discountValue,
         };
 
         setSavingPartner(true);
@@ -280,6 +308,11 @@ const ReferralManagementPage = () => {
                                 onView={() => handleToggleReward(row)}
                                 primaryLabel={row.rewardStatus === "rewarded" ? "Mark as Pending" : "Mark as Rewarded"}
                             >
+                                {row.discountAmount > 0 && (
+                                    <span className="inline-flex w-fit items-center rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+                                        Student discount {formatAmount(row.discountAmount)}
+                                    </span>
+                                )}
                                 {row.rewardNote && (
                                     <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">{row.rewardNote}</p>
                                 )}
@@ -321,7 +354,13 @@ const ReferralManagementPage = () => {
                                     danger: true,
                                 },
                             ]}
-                        />
+                        >
+                            {formatDiscount(row) && (
+                                <span className="inline-flex w-fit items-center rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 ring-1 ring-orange-200">
+                                    {formatDiscount(row)} · first payment
+                                </span>
+                            )}
+                        </PersonCard>
                     )}
                 />
             )}
@@ -411,6 +450,33 @@ const ReferralManagementPage = () => {
                                 />
                                 <p className="mt-1 text-xs text-slate-500">
                                     9 letters — city (3) + area (3) + name (3). Auto-suggested, edit if needed.
+                                </p>
+                            </div>
+                            <div>
+                                <label className="mb-1 block text-sm font-medium text-slate-700">Student discount (first payment)</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <select
+                                        value={partnerForm.discountType}
+                                        onChange={(event) => setPartnerForm((prev) => ({ ...prev, discountType: event.target.value }))}
+                                        className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                    >
+                                        <option value="">No discount</option>
+                                        <option value="percent">Percent (%)</option>
+                                        <option value="flat">Flat (₹)</option>
+                                    </select>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max={partnerForm.discountType === "percent" ? 100 : undefined}
+                                        value={partnerForm.discountValue}
+                                        onChange={(event) => setPartnerForm((prev) => ({ ...prev, discountValue: event.target.value }))}
+                                        disabled={!partnerForm.discountType}
+                                        placeholder={partnerForm.discountType === "flat" ? "e.g. 500" : "e.g. 10"}
+                                        className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 disabled:bg-slate-50 disabled:text-slate-400"
+                                    />
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500">
+                                    Applied to the student's first payment only. Leave as "No discount" for an attribution-only code.
                                 </p>
                             </div>
                         </div>

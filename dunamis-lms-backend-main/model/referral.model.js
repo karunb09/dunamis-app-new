@@ -48,6 +48,10 @@ const referralSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    discountAmount: {
+      type: Number,
+      default: 0,
+    },
     rewardStatus: {
       type: String,
       enum: ["pending", "rewarded"],

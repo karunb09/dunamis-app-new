@@ -36,7 +36,7 @@ const {
   createMerchantOrderId,
 } = require("../services/paymentService");
 const asyncHandler = require("../utils/asyncHandler");
-const { resolveReferralCode, normalizeCode } = require("../utils/referral");
+const { resolveReferralCode, normalizeCode, applyReferralDiscount } = require("../utils/referral");
 require("dotenv").config();
 
 const isStudentRequest = (req) => req.user?.accountType === "student";
@@ -113,19 +113,21 @@ exports.createOrder = async (req, res) => {
         .json({ success: false, message: context.error.message });
     }
 
-    const pricing = buildPricingForPlan(
+    const basePricing = buildPricingForPlan(
       context.course,
       sessionType,
       resolvedPlanType,
       planMonths
     );
-    if (pricing.error) {
-      return res.status(400).json({ success: false, message: pricing.error });
+    if (basePricing.error) {
+      return res.status(400).json({ success: false, message: basePricing.error });
     }
 
     // Invalid codes are dropped silently — a bad referral must never block payment.
     const resolvedReferral = await resolveReferralCode(referralCode);
     const resolvedReferralCode = resolvedReferral ? normalizeCode(referralCode) : null;
+    // Freelancer discount applies to the first payment only.
+    const pricing = applyReferralDiscount(basePricing, resolvedReferral);
 
     const activeTransaction = await findActiveEnrollmentTransaction({
       studentId: student._id,
@@ -137,7 +139,12 @@ exports.createOrder = async (req, res) => {
     });
 
     if (activeTransaction) {
-      if (activeTransaction.status === "pending" && activeTransaction.paymentSessionId) {
+      const reusable =
+        activeTransaction.status === "pending" && activeTransaction.paymentSessionId;
+
+      // Reuse only when the price is unchanged; otherwise the Cashfree order
+      // holds a stale amount and must be superseded by a freshly priced one.
+      if (reusable && activeTransaction.amount === pricing.amount) {
         if (resolvedReferralCode && !activeTransaction.referralCode) {
           activeTransaction.referralCode = resolvedReferralCode;
           await activeTransaction.save();
@@ -152,10 +159,16 @@ exports.createOrder = async (req, res) => {
         });
       }
 
-      return res.status(400).json({
-        success: false,
-        message: "An active payment already exists for this enrollment",
-      });
+      if (!reusable) {
+        return res.status(400).json({
+          success: false,
+          message: "An active payment already exists for this enrollment",
+        });
+      }
+
+      activeTransaction.status = "expired";
+      activeTransaction.lastError = "Superseded by repriced order";
+      await activeTransaction.save();
     }
 
     const transaction = await createCashfreeEnrollmentTransaction({
@@ -342,7 +355,14 @@ exports.handleCashfreeWebhook = async (req, res) => {
     );
 
     if (webhookUpdate.modifiedCount === 0) {
-      return res.status(200).json({ success: true, message: "Duplicate webhook ignored" });
+      // Already recorded this exact event. Still re-run SUCCESS fulfillment when
+      // the order isn't fulfilled yet — a prior delivery may have failed after
+      // the event was persisted; fulfillment is idempotent. Everything else is a
+      // true no-op duplicate.
+      const current = await PaymentTransaction.findById(transaction._id);
+      if (event.type !== "PAYMENT_SUCCESS_WEBHOOK" || current?.status === "fulfilled") {
+        return res.status(200).json({ success: true, message: "Duplicate webhook ignored" });
+      }
     }
 
     if (event.type === "PAYMENT_SUCCESS_WEBHOOK") {
@@ -558,7 +578,7 @@ exports.createNextInstallmentOrder = async (req, res) => {
 
 exports.generateInstallmentOrders = async (req, res) => {
   try {
-    const { courseId, sessionType, teacherId, slotId, deliveryMode, branchId, planMonths } = req.body;
+    const { courseId, sessionType, teacherId, slotId, deliveryMode, branchId, planMonths, referralCode } = req.body;
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
     const userId = new mongoose.Types.ObjectId(req.user.userId);
@@ -593,6 +613,10 @@ exports.generateInstallmentOrders = async (req, res) => {
       return res.status(400).json({ success: false, message: pricing.error });
     }
 
+    // Freelancer discount applies to installment 1 only; renewals stay full price.
+    const resolvedReferral = await resolveReferralCode(referralCode);
+    const resolvedReferralCode = resolvedReferral ? normalizeCode(referralCode) : null;
+
     const createdTransactions = [];
     for (let installmentNo = 1; installmentNo <= pricing.installmentTotal; installmentNo += 1) {
       const existing = await findActiveEnrollmentTransaction({
@@ -608,13 +632,15 @@ exports.generateInstallmentOrders = async (req, res) => {
       const dueDate = new Date();
       dueDate.setMonth(dueDate.getMonth() + installmentNo - 1);
 
+      const isFirst = installmentNo === 1;
       const transaction = await createCashfreeEnrollmentTransaction({
         student,
         context,
-        pricing,
+        pricing: isFirst ? applyReferralDiscount(pricing, resolvedReferral) : pricing,
         planType: "monthly",
         installmentNo,
         dueDate,
+        referralCode: isFirst ? resolvedReferralCode : null,
       });
       createdTransactions.push(transaction);
     }

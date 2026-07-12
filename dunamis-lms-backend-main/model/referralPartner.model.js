@@ -32,6 +32,18 @@ const referralPartnerSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    // Optional student discount applied to the first payment only.
+    // null type / 0 value = attribution-only code (no discount).
+    discountType: {
+      type: String,
+      enum: ["percent", "flat", null],
+      default: null,
+    },
+    discountValue: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
     status: {
       type: String,
       enum: ["active", "inactive"],

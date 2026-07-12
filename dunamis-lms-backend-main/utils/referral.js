@@ -13,33 +13,43 @@ async function resolveReferralCode(rawCode) {
   const code = normalizeCode(rawCode);
   if (!code) return null;
 
-  const employee = await User.findOne({
-    employeeId: code,
-    accountStatus: "active",
-  }).select("name employeeId");
-  if (employee) {
-    return {
-      referrerType: "employee",
-      referrerUser: employee._id,
-      referrerPartner: null,
-      referrerName: `${employee.name?.firstName || ""} ${employee.name?.lastName || ""}`.trim(),
-    };
-  }
-
   const partner = await ReferralPartner.findOne({
     code,
     status: "active",
-  }).select("name code");
+  }).select("name code discountType discountValue");
   if (partner) {
     return {
       referrerType: "freelancer",
-      referrerUser: null,
       referrerPartner: partner._id,
       referrerName: partner.name,
+      discountType: partner.discountType || null,
+      discountValue: Number(partner.discountValue) || 0,
     };
   }
 
   return null;
+}
+
+// Applies a freelancer discount to the pricing object (first payment only).
+// Returns the input unchanged for attribution-only codes or when the floor
+// would cancel the discount. amount floors at 1 (PaymentTransaction.amount min: 1).
+function applyReferralDiscount(pricing, resolved) {
+  const value = Number(resolved?.discountValue) || 0;
+  if (!resolved?.discountType || value <= 0) return pricing;
+
+  const raw =
+    resolved.discountType === "percent"
+      ? Math.round((pricing.amount * value) / 100)
+      : Math.round(value);
+  const amount = Math.max(1, pricing.amount - raw);
+  if (amount === pricing.amount) return pricing;
+
+  return {
+    ...pricing,
+    amount,
+    originalAmount: pricing.amount,
+    discountAmount: pricing.amount - amount,
+  };
 }
 
 async function isReferralCodeTaken(rawCode, { excludeUserId = null, excludePartnerId = null } = {}) {
@@ -69,12 +79,12 @@ async function recordReferralIfAny(transaction) {
       $setOnInsert: {
         code: normalizeCode(transaction.referralCode),
         referrerType: resolved.referrerType,
-        referrerUser: resolved.referrerUser,
         referrerPartner: resolved.referrerPartner,
         referrerName: resolved.referrerName,
         studentId: transaction.studentId,
         courseId: transaction.courseId,
         amount: transaction.amount,
+        discountAmount: transaction.discountAmount || 0,
       },
     },
     { upsert: true }
@@ -85,6 +95,7 @@ module.exports = {
   PARTNER_CODE_REGEX,
   normalizeCode,
   resolveReferralCode,
+  applyReferralDiscount,
   isReferralCodeTaken,
   recordReferralIfAny,
 };

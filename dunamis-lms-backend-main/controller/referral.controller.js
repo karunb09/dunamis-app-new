@@ -8,6 +8,23 @@ const {
   isReferralCodeTaken,
 } = require("../utils/referral");
 
+// Normalizes discount fields from a partner create/update body.
+// No type (or "none") = attribution-only. Returns { error } on invalid input.
+const parseDiscount = (body) => {
+  const type = body.discountType;
+  if (type !== "percent" && type !== "flat") {
+    return { discountType: null, discountValue: 0 };
+  }
+  const value = Number(body.discountValue);
+  if (!Number.isFinite(value) || value < 0) {
+    return { error: "discountValue must be a non-negative number" };
+  }
+  if (type === "percent" && value > 100) {
+    return { error: "Percent discount cannot exceed 100" };
+  }
+  return { discountType: type, discountValue: value };
+};
+
 exports.validateCode = asyncHandler(async (req, res) => {
   const resolved = await resolveReferralCode(req.params.code);
   return res.status(200).json({
@@ -16,6 +33,10 @@ exports.validateCode = asyncHandler(async (req, res) => {
     referrer: resolved
       ? { name: resolved.referrerName, type: resolved.referrerType }
       : null,
+    discount:
+      resolved?.discountType && resolved.discountValue > 0
+        ? { type: resolved.discountType, value: resolved.discountValue }
+        : null,
   });
 });
 
@@ -87,6 +108,11 @@ exports.createPartner = asyncHandler(async (req, res) => {
     });
   }
 
+  const discount = parseDiscount(req.body);
+  if (discount.error) {
+    return res.status(400).json({ success: false, message: discount.error });
+  }
+
   const partner = await ReferralPartner.create({
     name: name.trim(),
     city: city.trim(),
@@ -94,6 +120,8 @@ exports.createPartner = asyncHandler(async (req, res) => {
     code,
     phone: phone?.trim() || "",
     email: email?.trim() || "",
+    discountType: discount.discountType,
+    discountValue: discount.discountValue,
     createdBy: req.user.userId,
   });
 
@@ -128,6 +156,15 @@ exports.updatePartner = asyncHandler(async (req, res) => {
       });
     }
     partner.code = code;
+  }
+
+  if (req.body.discountType !== undefined || req.body.discountValue !== undefined) {
+    const discount = parseDiscount(req.body);
+    if (discount.error) {
+      return res.status(400).json({ success: false, message: discount.error });
+    }
+    partner.discountType = discount.discountType;
+    partner.discountValue = discount.discountValue;
   }
 
   if (name !== undefined) partner.name = String(name).trim();

@@ -184,6 +184,8 @@ const createCashfreeEnrollmentTransaction = async ({
     installmentAmount: pricing.installmentAmount,
     dueDate,
     amount: pricing.amount,
+    originalAmount: pricing.originalAmount ?? null,
+    discountAmount: pricing.discountAmount ?? 0,
     currency: "INR",
     merchantOrderId: createMerchantOrderId({
       studentId: student._id,
@@ -254,13 +256,13 @@ const validateCashfreePaidOrder = ({ transaction, order, payment }) => {
     throw new Error("Cashfree order currency mismatch");
   }
 
-  if (payment) {
-    if (!amountMatches(payment.payment_amount, transaction.amount)) {
-      throw new Error("Cashfree payment amount mismatch");
-    }
-    if (payment.payment_currency !== transaction.currency) {
-      throw new Error("Cashfree payment currency mismatch");
-    }
+  // The order-level PAID status + order_amount match is authoritative. The
+  // captured payment_amount can legitimately be lower than the order amount
+  // when the customer redeems a Cashfree-side promo/offer, so we must not
+  // require payment_amount to equal the order amount — doing so strands a
+  // genuinely-paid order in unfulfilled state. Currency must still match.
+  if (payment && payment.payment_currency !== transaction.currency) {
+    throw new Error("Cashfree payment currency mismatch");
   }
 
   return true;
