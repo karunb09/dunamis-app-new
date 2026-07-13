@@ -1,36 +1,27 @@
 const cron = require("node-cron");
 const Teacher = require("../model/teacher.model");
-const {
-  syncTeacherAvailabilitySlots,
-  startOfDay,
-  endOfDay,
-  addDays,
-} = require("../utils/syncAvailabilitySlots");
+const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
+const { rollingRange } = require("../utils/classRoster");
 
-// Run every Sunday at midnight
+// Every Sunday at midnight: keep a rolling window of recurring slots generated
+// ahead of today. syncTeacherAvailabilitySlots also populates each generated
+// slot's students from the class roster, so enrolled students carry forward.
 cron.schedule("0 0 * * 0", async () => {
   try {
-    console.log("Generating recurring slots for next week...");
+    console.log("Generating rolling-window recurring slots...");
 
     const teachers = await Teacher.find().populate(
       "weeklyAvailability.courseId weeklyAvailability.branchId"
     );
 
+    const { rangeStart, rangeEnd } = rollingRange();
+
     for (const teacher of teachers) {
       if (!teacher.weeklyAvailability?.length) continue;
-      const today = new Date();
-      const daysUntilNextMonday = ((8 - today.getDay()) % 7) || 7;
-      const nextWeekStart = startOfDay(addDays(today, daysUntilNextMonday));
-      const nextWeekEnd = endOfDay(addDays(nextWeekStart, 6));
-
-      await syncTeacherAvailabilitySlots({
-        teacher,
-        rangeStart: nextWeekStart,
-        rangeEnd: nextWeekEnd,
-      });
+      await syncTeacherAvailabilitySlots({ teacher, rangeStart, rangeEnd });
     }
 
-    console.log("Next week's recurring slots created successfully!");
+    console.log("Rolling-window recurring slots generated successfully!");
   } catch (err) {
     console.error("Error generating recurring slots:", err.message);
   }

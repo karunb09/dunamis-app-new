@@ -1,6 +1,8 @@
 const Slot = require("../model/slot.model");
 const Teacher = require("../model/teacher.model");
 const DemoBooking = require("../model/demoBooking.model");
+const ClassRoster = require("../model/classRoster.model");
+const { applyRostersToSlots } = require("./classRoster");
 
 const DAY_NAMES = [
   "sunday",
@@ -142,9 +144,19 @@ const buildDesiredSlotDocs = ({
   return docs;
 };
 
-const deleteObsoleteRecurringSlots = async (slots = [], desiredKeys = new Set()) => {
+const deleteObsoleteRecurringSlots = async (
+  slots = [],
+  desiredKeys = new Set(),
+  protectedParentIds = new Set()
+) => {
   const unneededSlots = slots.filter((slot) => {
     if (desiredKeys.has(buildRecurringSlotKey(slot))) {
+      return false;
+    }
+
+    // Never drop a slot for a recurring class that still has enrolled members,
+    // even if it is momentarily empty (before roster propagation).
+    if (protectedParentIds.has(String(slot.parentAvailabilityId))) {
       return false;
     }
 
@@ -224,8 +236,27 @@ const syncTeacherAvailabilitySlots = async ({
 
   let deleted = 0;
   if (replaceExisting) {
-    deleted = await deleteObsoleteRecurringSlots(existingSlots, desiredKeys);
+    const activeRosters = await ClassRoster.find({
+      teacherId: resolvedTeacher._id,
+      status: "active",
+    }).select("parentAvailabilityId");
+    const protectedParentIds = new Set(
+      activeRosters.map((roster) => String(roster.parentAvailabilityId))
+    );
+    deleted = await deleteObsoleteRecurringSlots(
+      existingSlots,
+      desiredKeys,
+      protectedParentIds
+    );
   }
+
+  // Populate generated/existing enrolled slots in range with their roster members
+  // so enrolled students appear in every current/future occurrence.
+  await applyRostersToSlots({
+    teacherId: resolvedTeacher._id,
+    rangeStart: start,
+    rangeEnd: end,
+  });
 
   return { created: docsToCreate.length, deleted };
 };

@@ -10,6 +10,7 @@ const Student = require("../model/student.model");
 const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
 const { notifyEvent } = require("../utils/notificationService");
+const { getStudentSchedules } = require("../utils/classRoster");
 
 // Send OTP
 exports.sendOTP = asyncHandler(async (req, res) => {
@@ -243,48 +244,44 @@ exports.getStudentById = asyncHandler(async (req, res) => {
       });
     }
 
-    const slotIds = student.enrolledCourses
-      .map((c) => c.slotId)
-      .filter((id) => id);
+    // Recurring schedule comes from the class roster (durable membership), not
+    // from a single dated slot — so it survives weekly slot regeneration.
+    const schedules = await getStudentSchedules(student._id);
+    const scheduleByCourse = new Map(
+      schedules.map((schedule) => [String(schedule.courseId), schedule])
+    );
 
-    if (slotIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "Student fetched successfully",
-        student,
-      });
-    }
-
-    const teachers = await Teacher.find({
-      "weeklyAvailability._id": { $in: slotIds },
-    }).select("name weeklyAvailability");
-
-    const slotMap = {};
-    teachers.forEach((teacher) => {
-      teacher.weeklyAvailability.forEach((slot) => {
-        if (slotIds.some((s) => s.toString() === slot._id.toString())) {
-          slotMap[slot._id.toString()] = {
-            _id: slot._id,
-            day: slot.days,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            recurringDays: slot.recurringDays,
-            sessionType: slot.sessionType,
-            maxStudents: slot.maxStudents,
-            teacherName: teacher.name,
-            teacherId: teacher._id,
-          };
-        }
-      });
-    });
-
-    const enrichedCourses = student.enrolledCourses.map((course) => ({
-      ...course.toObject(),
-      slotDetails: slotMap[course.slotId?.toString()] || null,
-    }));
+    const teacherIds = [
+      ...new Set(schedules.map((s) => String(s.teacherId)).filter(Boolean)),
+    ];
+    const teacherDocs = teacherIds.length
+      ? await Teacher.find({ _id: { $in: teacherIds } }).select("name")
+      : [];
+    const teacherNameById = new Map(
+      teacherDocs.map((teacher) => [String(teacher._id), teacher.name])
+    );
 
     const studentData = student.toObject();
-    studentData.enrolledCourses = enrichedCourses;
+    studentData.enrolledCourses = (studentData.enrolledCourses || []).map((course) => {
+      const courseId = String(course.courseId?._id || course.courseId);
+      const schedule = scheduleByCourse.get(courseId);
+      return {
+        ...course,
+        slotDetails: schedule
+          ? {
+              parentAvailabilityId: schedule.parentAvailabilityId,
+              day: schedule.recurringDays,
+              recurringDays: schedule.recurringDays,
+              startTime: schedule.startTime,
+              endTime: schedule.endTime,
+              sessionType: schedule.sessionType,
+              branchId: schedule.branchId,
+              teacherId: schedule.teacherId,
+              teacherName: teacherNameById.get(String(schedule.teacherId)) || null,
+            }
+          : null,
+      };
+    });
 
     res.status(200).json({
       success: true,

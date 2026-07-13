@@ -4,6 +4,8 @@ const Course = require("../model/course.model");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
+const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
+const { registerRosterMembership, rollingRange } = require("../utils/classRoster");
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -343,35 +345,42 @@ const applyStudentFulfillment = async (transaction) => {
 };
 
 const addStudentToSlot = async (transaction) => {
+  // Durable membership in the recurring class is the source of truth; capacity
+  // is enforced here (throws → payment routed to manual fulfillment).
+  const roster = await registerRosterMembership(transaction);
+
+  // Generate/refresh a rolling window of dated slots so the student appears in
+  // the current and upcoming occurrences (not just the one they picked).
+  if (transaction.teacherId) {
+    const { rangeStart, rangeEnd } = rollingRange();
+    await syncTeacherAvailabilitySlots({
+      teacherId: transaction.teacherId,
+      rangeStart,
+      rangeEnd,
+    });
+  }
+
+  // Ensure the specific occurrence they picked carries them too. It may be in
+  // the past (e.g. recovered orders), which the rolling window won't touch.
   const slot = await syncSlotStudentCount(await Slot.findById(transaction.slotId));
-  if (!slot) throw new Error("Selected slot no longer exists");
+  if (!slot) {
+    if (roster) return true;
+    throw new Error("Selected slot no longer exists");
+  }
 
   const alreadyInSlot = (slot.students || []).some(
     (studentId) => studentId.toString() === transaction.studentId.toString()
   );
   if (alreadyInSlot) return true;
 
-  const result = await Slot.updateOne(
-    {
-      _id: transaction.slotId,
-      students: { $ne: transaction.studentId },
-      currentStudentsCount: { $lt: slot.maxStudents },
-    },
+  await Slot.updateOne(
+    { _id: transaction.slotId, students: { $ne: transaction.studentId } },
     {
       $addToSet: { students: transaction.studentId },
       $inc: { currentStudentsCount: 1 },
     }
   );
-
-  if (result.modifiedCount === 1) return true;
-
-  const freshSlot = await syncSlotStudentCount(await Slot.findById(transaction.slotId));
-  const studentWasAdded = (freshSlot?.students || []).some(
-    (studentId) => studentId.toString() === transaction.studentId.toString()
-  );
-
-  if (studentWasAdded) return true;
-  throw new Error("Selected slot is full. Payment requires manual fulfillment.");
+  return true;
 };
 
 // ─── Overdue / access ─────────────────────────────────────────────────────────
