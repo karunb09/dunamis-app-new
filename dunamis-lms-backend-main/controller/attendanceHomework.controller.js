@@ -4,6 +4,7 @@ const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const Slot = require("../model/slot.model");
+const ClassRoster = require("../model/classRoster.model");
 const mongoose = require("mongoose");
 const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
 const { buildContentTitleMaps } = require("../utils/contentTitles");
@@ -235,6 +236,27 @@ exports.getTeacherClassAttendance = asyncHandler(async (req, res) => {
     if (!slot)
       return res.status(404).json({ success: false, message: "Class not found." });
 
+    // Students come from the recurring class roster (section membership) so a
+    // past occurrence with a stale/empty students array still lists everyone.
+    // Falls back to the slot's own students for legacy pre-roster classes.
+    let rosterStudents = [];
+    if (slot.parentAvailabilityId) {
+      const roster = await ClassRoster.findOne({
+        parentAvailabilityId: slot.parentAvailabilityId,
+        status: "active",
+      }).lean();
+      if (roster) {
+        const ids = (roster.students || [])
+          .filter((m) => m.status === "active")
+          .map((m) => m.studentId);
+        rosterStudents = await Student.find({ _id: { $in: ids } })
+          .select("userId")
+          .populate("userId", "name image")
+          .lean();
+      }
+    }
+    const sourceStudents = rosterStudents.length ? rosterStudents : slot.students || [];
+
     const classDay = dayRangeOf(slot.date);
     const entries = await AttendanceHomework.find({
       teacherId: teacher._id,
@@ -243,7 +265,7 @@ exports.getTeacherClassAttendance = asyncHandler(async (req, res) => {
     }).lean();
     const byStudent = new Map(entries.map((e) => [String(e.studentId), e]));
 
-    const students = (slot.students || []).map((s) => {
+    const students = sourceStudents.map((s) => {
       const entry = byStudent.get(String(s._id));
       return {
         _id: s._id,
@@ -538,6 +560,10 @@ exports.getTeacherPastClasses = asyncHandler(async (req, res) => {
     });
 });
 
+// One card per recurring class section (batch), driven by the roster — students
+// come from section membership, not a single dated slot. A course with multiple
+// batches (different day/time) therefore surfaces every batch, each with its own
+// students and its latest (most recent) class occurrence to record against.
 exports.getTeacherCourseClasses = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
@@ -545,62 +571,92 @@ exports.getTeacherCourseClasses = asyncHandler(async (req, res) => {
     if (!teacher)
       return res.status(404).json({ success: false, message: "Teacher not found." });
 
+    const rosters = await ClassRoster.find({ teacherId: teacher._id, status: "active" })
+      .populate("courseId", "name")
+      .lean();
+
+    const sections = rosters
+      .map((roster) => ({
+        ...roster,
+        memberIds: (roster.students || [])
+          .filter((m) => m.status === "active")
+          .map((m) => m.studentId),
+      }))
+      .filter((section) => section.memberIds.length > 0);
+
+    if (!sections.length)
+      return res.status(200).json({ success: true, count: 0, data: [] });
+
+    const allStudentIds = [
+      ...new Set(sections.flatMap((s) => s.memberIds.map((id) => String(id)))),
+    ];
+    const studentDocs = await Student.find({ _id: { $in: allStudentIds } })
+      .select("userId")
+      .populate("userId", "name image")
+      .lean();
+    const studentById = new Map(
+      studentDocs.map((s) => [
+        String(s._id),
+        { _id: s._id, name: formatUserName(s.userId?.name), image: s.userId?.image || null },
+      ])
+    );
+
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
-    const slots = await Slot.find({
-      createdBy: teacher._id,
-      slotType: "enrolled",
-      date: { $lte: todayEnd },
-    })
-      .populate("courseId", "name")
-      .populate({
-        path: "students",
-        select: "userId",
-        populate: { path: "userId", select: "name image" },
-      })
-      .sort({ date: -1 })
-      .lean();
-
-    // Latest (today's or most recent past) class per course.
-    const latestByCourse = new Map();
-    for (const slot of slots) {
-      const courseId = (slot.courseId?._id || slot.courseId)?.toString();
-      if (!courseId || latestByCourse.has(courseId)) continue;
-      latestByCourse.set(courseId, slot);
-    }
-
     const data = await Promise.all(
-      [...latestByCourse.entries()].map(async ([courseId, slot]) => {
-        const classDay = dayRangeOf(slot.date);
-        const submitted = await AttendanceHomework.exists({
-          teacherId: teacher._id,
-          slotId: slot._id,
-          date: { $gte: classDay.start, $lte: classDay.end },
-        });
+      sections.map(async (section) => {
+        const latest = await Slot.findOne({
+          createdBy: teacher._id,
+          slotType: "enrolled",
+          parentAvailabilityId: section.parentAvailabilityId,
+          date: { $lte: todayEnd },
+        })
+          .sort({ date: -1 })
+          .lean();
+
+        let latestClass = null;
+        if (latest) {
+          const classDay = dayRangeOf(latest.date);
+          const submitted = await AttendanceHomework.exists({
+            teacherId: teacher._id,
+            slotId: latest._id,
+            date: { $gte: classDay.start, $lte: classDay.end },
+          });
+          latestClass = {
+            slotId: latest._id,
+            date: latest.date,
+            startTime: latest.startTime,
+            endTime: latest.endTime,
+            submitted: Boolean(submitted),
+          };
+        }
+
+        const students = section.memberIds
+          .map((id) => studentById.get(String(id)))
+          .filter(Boolean);
 
         return {
-          courseId,
-          courseName: slot.courseId?.name || "N/A",
-          latestClass: {
-            slotId: slot._id,
-            date: slot.date,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            sessionType: slot.sessionType,
-            studentCount: slot.students?.length || 0,
-            students: (slot.students || []).map((s) => ({
-              _id: s._id,
-              name: formatUserName(s.userId?.name),
-              image: s.userId?.image || null,
-            })),
-            submitted: Boolean(submitted),
-          },
+          parentAvailabilityId: section.parentAvailabilityId,
+          courseId: section.courseId?._id || section.courseId,
+          courseName: section.courseId?.name || "N/A",
+          recurringDays: section.recurringDays || [],
+          startTime: section.startTime,
+          endTime: section.endTime,
+          sessionType: section.sessionType,
+          studentCount: students.length,
+          students,
+          latestClass,
         };
       })
     );
 
-    data.sort((a, b) => new Date(b.latestClass.date) - new Date(a.latestClass.date));
+    // Most recently held sections first; sections with no class yet fall to the end.
+    data.sort((a, b) => {
+      const ad = a.latestClass ? new Date(a.latestClass.date).getTime() : -Infinity;
+      const bd = b.latestClass ? new Date(b.latestClass.date).getTime() : -Infinity;
+      return bd - ad;
+    });
 
     return res.status(200).json({ success: true, count: data.length, data });
 });

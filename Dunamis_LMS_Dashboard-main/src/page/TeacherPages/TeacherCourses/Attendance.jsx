@@ -121,10 +121,18 @@ const CoverageStatusBadge = ({ status }) => {
   );
 };
 
-// ─── course class card (pending tab) ─────────────────────────────────────────
+// ─── class section card (pending tab) ────────────────────────────────────────
+
+const formatDays = (days) =>
+  (Array.isArray(days) ? days : [])
+    .map((d) => (typeof d === "string" ? d.charAt(0).toUpperCase() + d.slice(1, 3) : d))
+    .join("/");
 
 const CourseClassCard = ({ course, onTakeAttendance }) => {
-  const cls = course.latestClass || {};
+  const cls = course.latestClass;
+  const scheduleLabel = [formatDays(course.recurringDays), formatTime(course.startTime)]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -133,11 +141,9 @@ const CourseClassCard = ({ course, onTakeAttendance }) => {
         </div>
         <div className="min-w-0">
           <p className="truncate font-semibold text-gray-900">{course.courseName}</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Last class · {formatDate(cls.date)}
-          </p>
+          <p className="mt-0.5 text-xs text-gray-500">{scheduleLabel || "Class"}</p>
         </div>
-        {cls.submitted && (
+        {cls?.submitted && (
           <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
             Submitted
           </span>
@@ -146,25 +152,41 @@ const CourseClassCard = ({ course, onTakeAttendance }) => {
       <div className="flex flex-wrap gap-3 text-xs text-gray-500">
         <span className="flex items-center gap-1">
           <HiOutlineClock className="h-3.5 w-3.5" />
-          {formatTime(cls.startTime)} – {formatTime(cls.endTime)}
+          {cls ? `Last class · ${formatDate(cls.date)}` : "No class held yet"}
         </span>
         <span className="flex items-center gap-1">
           <HiOutlineUsers className="h-3.5 w-3.5" />
-          {cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
+          {course.studentCount} student{course.studentCount !== 1 ? "s" : ""}
         </span>
-        <span className="capitalize">{cls.sessionType}</span>
+        <span className="capitalize">{course.sessionType}</span>
       </div>
-      <button
-        type="button"
-        onClick={() => onTakeAttendance({ courseId: course.courseId, courseName: course.courseName, ...cls })}
-        className={`mt-1 w-full rounded-full px-4 py-2 text-xs font-medium transition ${
-          cls.submitted
-            ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-            : "bg-gray-900 text-white hover:bg-gray-700"
-        }`}
-      >
-        {cls.submitted ? "Edit Attendance" : "Take Attendance"}
-      </button>
+      {cls ? (
+        <button
+          type="button"
+          onClick={() =>
+            onTakeAttendance({
+              slotId: cls.slotId,
+              courseId: course.courseId,
+              courseName: course.courseName,
+              sessionType: course.sessionType,
+              date: cls.date,
+              startTime: cls.startTime,
+              endTime: cls.endTime,
+            })
+          }
+          className={`mt-1 w-full rounded-full px-4 py-2 text-xs font-medium transition ${
+            cls.submitted
+              ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+              : "bg-gray-900 text-white hover:bg-gray-700"
+          }`}
+        >
+          {cls.submitted ? "Edit Attendance" : "Take Attendance"}
+        </button>
+      ) : (
+        <p className="mt-1 rounded-full border border-dashed border-gray-200 px-4 py-2 text-center text-xs text-gray-400">
+          Attendance opens after the first class
+        </p>
+      )}
     </div>
   );
 };
@@ -687,7 +709,7 @@ const Attendance = () => {
         <div>
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm text-gray-500">
-              {courseClasses.length} course{courseClasses.length !== 1 ? "s" : ""} · select a course to record its last class
+              {courseClasses.length} class{courseClasses.length !== 1 ? "es" : ""} · select one to record its last session
             </span>
             <button
               type="button"
@@ -720,7 +742,7 @@ const Attendance = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {courseClasses.map((course) => (
                 <CourseClassCard
-                  key={course.courseId}
+                  key={course.parentAvailabilityId}
                   course={course}
                   onTakeAttendance={setAttendanceSlot}
                 />
