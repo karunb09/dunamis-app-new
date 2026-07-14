@@ -500,10 +500,13 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
       teachers.map(async (teacher) => {
         const teacherDetail = teacher.teacherDetail;
         const courseIds = teacher.course.map((c) => c._id);
+        const teacherIdStr = String(teacher._id);
 
-        // Calculate student count
+        // Students assigned to THIS teacher only — a shared course would
+        // otherwise count every co-teacher's students. payments[].teacherId is
+        // the authoritative student↔teacher link.
         const students = await Student.find({
-          "enrolledCourses.courseId": { $in: courseIds },
+          "payments.teacherId": teacher._id,
         })
           .populate({
             path: "userId",
@@ -511,7 +514,7 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
           })
           .populate({
             path: "enrolledCourses.courseId",
-            select: "name sessionType",
+            select: "name sessionType mode",
           });
 
         const studentIds = students.map((s) => s._id);
@@ -531,23 +534,40 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
           averageRating: parseFloat(averageRating.toFixed(1)),
         });
 
-        const formattedStudents = students.map((s) => ({
-          id: s._id,
-          name: s.userId?.name,
-          email: s.userId?.email,
-          mobileNo: s.userId?.mobileNo,
-          image: s.userId?.image,
-          courses: s.enrolledCourses
-            .filter((ec) =>
-              courseIds.some((tid) => ec.courseId?._id?.equals(tid))
-            )
-            .map((ec) => ({
-              id: ec.courseId?._id,
-              name: ec.courseId?.name,
-              sessionType: ec.courseId?.sessionType,
-              enrollmentDate: ec.enrollmentDate,
-            })),
-        }));
+        const formattedStudents = students.map((s) => {
+          const enrollmentByCourse = {};
+          (s.payments || []).forEach((p) => {
+            if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
+            const cid = String(p.courseId);
+            if (!enrollmentByCourse[cid]) {
+              enrollmentByCourse[cid] = {
+                deliveryMode: p.deliveryMode || null,
+                sessionType: p.sessionType || null,
+              };
+            }
+          });
+
+          return {
+            id: s._id,
+            name: s.userId?.name,
+            email: s.userId?.email,
+            mobileNo: s.userId?.mobileNo,
+            image: s.userId?.image,
+            courses: s.enrolledCourses
+              .filter((ec) => enrollmentByCourse[String(ec.courseId?._id)])
+              .map((ec) => {
+                const enrollment =
+                  enrollmentByCourse[String(ec.courseId?._id)] || {};
+                return {
+                  id: ec.courseId?._id,
+                  name: ec.courseId?.name,
+                  sessionType: enrollment.sessionType || ec.courseId?.sessionType,
+                  mode: enrollment.deliveryMode || ec.courseId?.mode,
+                  enrollmentDate: ec.enrollmentDate,
+                };
+              }),
+          };
+        });
 
         return {
           id: teacher._id,
@@ -740,9 +760,13 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
     // Get courses IDs
     const courseIds = teacher.course.map((c) => c._id);
 
-    // Get all students enrolled in teacher's courses
+    // Students actually assigned to THIS teacher. A course may have several
+    // teachers, so matching by courseId alone leaks every teacher's roster into
+    // each profile. payments[].teacherId is the authoritative student↔teacher
+    // link, written at fulfillment for both online and cash enrollments.
+    const teacherIdStr = String(teacher._id);
     const students = await Student.find({
-      "enrolledCourses.courseId": { $in: courseIds },
+      "payments.teacherId": teacher._id,
     })
       .populate({
         path: "userId",
@@ -825,38 +849,56 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
     });
 
     // Format students
-    const formattedStudents = students.map((s) => ({
-      id: s._id,
-      name: s.userId?.name,
-      email: s.userId?.email,
-      mobileNo: s.userId?.mobileNo,
-      image: s.userId?.image,
-      courses: s.enrolledCourses
-        .filter((ec) => courseIds.some((tid) => ec.courseId?._id?.equals(tid)))
-        .map((ec) => {
-          const course = ec.courseId;
-          return {
-            id: course?._id,
-            name: course?.name,
-            code: course?.code,
-            description: course?.description,
-            sessionType: course?.sessionType,
-            mode: course?.mode,
-            level: course?.level,
-            startDate: course?.startDate,
-            endDate: course?.endDate,
-            certification: course?.certification,
-            category: course?.category,
-            subCategory: course?.subCategory,
-            content: course?.content,
-            objectives: course?.objectives,
-            image: course?.image,
-            price: course?.price,
-            enrollmentDate: ec.enrollmentDate,
-            schedule: scheduleByStudentCourse[`${s._id}_${course?._id}`] || null,
+    const formattedStudents = students.map((s) => {
+      // Courses this student takes WITH this teacher, plus the delivery mode
+      // (online/offline) captured on the enrolling payment — the instructor's
+      // own mode may be "hybrid", which is not the student's session mode.
+      const enrollmentByCourse = {};
+      (s.payments || []).forEach((p) => {
+        if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
+        const cid = String(p.courseId);
+        if (!enrollmentByCourse[cid]) {
+          enrollmentByCourse[cid] = {
+            deliveryMode: p.deliveryMode || null,
+            sessionType: p.sessionType || null,
           };
-        }),
-    }));
+        }
+      });
+
+      return {
+        id: s._id,
+        name: s.userId?.name,
+        email: s.userId?.email,
+        mobileNo: s.userId?.mobileNo,
+        image: s.userId?.image,
+        courses: s.enrolledCourses
+          .filter((ec) => enrollmentByCourse[String(ec.courseId?._id)])
+          .map((ec) => {
+            const course = ec.courseId;
+            const enrollment = enrollmentByCourse[String(course?._id)] || {};
+            return {
+              id: course?._id,
+              name: course?.name,
+              code: course?.code,
+              description: course?.description,
+              sessionType: enrollment.sessionType || course?.sessionType,
+              mode: enrollment.deliveryMode || course?.mode,
+              level: course?.level,
+              startDate: course?.startDate,
+              endDate: course?.endDate,
+              certification: course?.certification,
+              category: course?.category,
+              subCategory: course?.subCategory,
+              content: course?.content,
+              objectives: course?.objectives,
+              image: course?.image,
+              price: course?.price,
+              enrollmentDate: ec.enrollmentDate,
+              schedule: scheduleByStudentCourse[`${s._id}_${course?._id}`] || null,
+            };
+          }),
+      };
+    });
 
     // Format teacher for response
     const formattedTeacher = {

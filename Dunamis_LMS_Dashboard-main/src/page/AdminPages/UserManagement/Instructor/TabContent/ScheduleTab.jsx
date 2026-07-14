@@ -1,26 +1,31 @@
+import { useMemo, useState } from "react";
 import { FiClock, FiUsers } from "react-icons/fi";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 const DAY_LABELS = {
+  monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",
+  friday: "Friday", saturday: "Saturday", sunday: "Sunday",
+};
+
+const DAY_SHORT = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
   friday: "Fri", saturday: "Sat", sunday: "Sun",
 };
 
-const SECTION_CONFIG = {
-  group:      { title: "Group Sessions",      rowClass: "text-fuchsia-700 bg-fuchsia-50 border-fuchsia-100" },
-  individual: { title: "Individual Sessions", rowClass: "text-violet-700 bg-violet-50 border-violet-100" },
-  demo:       { title: "Demo Sessions",       rowClass: "text-pink-700 bg-pink-50 border-pink-100" },
+const TYPE_CONFIG = {
+  group: { label: "Group", dot: "bg-fuchsia-500", chip: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800" },
+  individual: { label: "Individual", dot: "bg-violet-500", chip: "border-violet-200 bg-violet-50 text-violet-800" },
+  demo: { label: "Demo", dot: "bg-pink-500", chip: "border-pink-200 bg-pink-50 text-pink-800" },
 };
 
-const getSectionId = (slot) => {
+const TYPE_ORDER = ["group", "individual", "demo"];
+
+const getType = (slot) => {
   if (slot?.slotType === "demo") return "demo";
   if (slot?.sessionType === "premium") return "individual";
   return "group";
 };
-
-const sortDays = (days) =>
-  [...days].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
 
 const convertTo12Hour = (value) => {
   const time = String(value || "").trim();
@@ -35,19 +40,67 @@ const convertTo12Hour = (value) => {
   return `${hour12}:${minutes} ${period}`;
 };
 
+const toMinutes = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const meridiem = raw.match(/(am|pm)/i);
+  const [h, m] = raw.replace(/\s*(am|pm)/i, "").split(":").map((n) => parseInt(n, 10) || 0);
+  let hour = h;
+  if (meridiem) {
+    const isPM = /pm/i.test(meridiem[0]);
+    if (isPM && hour < 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0;
+  }
+  return hour * 60 + m;
+};
+
 export default function ScheduleTab({ teacher }) {
   const slots = Array.isArray(teacher?.weeklyAvailability) ? teacher.weeklyAvailability : [];
 
-  const courseById = (teacher?.courses || []).reduce((map, c) => {
-    const id = String(c._id || c.id || "");
-    if (id) map[id] = c;
-    return map;
-  }, {});
+  const courseById = useMemo(
+    () =>
+      (teacher?.courses || []).reduce((map, c) => {
+        const id = String(c._id || c.id || "");
+        if (id) map[id] = c;
+        return map;
+      }, {}),
+    [teacher]
+  );
 
-  const grouped = { group: [], individual: [], demo: [] };
-  slots.forEach((slot) => {
-    grouped[getSectionId(slot)].push(slot);
+  const slotCourseId = (slot) => String(slot.courseId?._id || slot.courseId || "");
+
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [courseFilter, setCourseFilter] = useState("all");
+
+  const typeCounts = useMemo(() => {
+    const counts = { group: 0, individual: 0, demo: 0 };
+    slots.forEach((s) => { counts[getType(s)] += 1; });
+    return counts;
+  }, [slots]);
+
+  const courseOptions = useMemo(() => {
+    const map = new Map();
+    slots.forEach((s) => {
+      const id = slotCourseId(s);
+      if (id && courseById[id] && !map.has(id)) {
+        map.set(id, courseById[id].name || "Course");
+      }
+    });
+    return [...map.entries()];
+  }, [slots, courseById]);
+
+  const filtered = slots.filter((s) => {
+    if (typeFilter !== "all" && getType(s) !== typeFilter) return false;
+    if (courseFilter !== "all" && slotCourseId(s) !== courseFilter) return false;
+    return true;
   });
+
+  const byDay = DAYS.map((day) => ({
+    day,
+    daySlots: filtered
+      .filter((s) => Array.isArray(s.days) && s.days.includes(day))
+      .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)),
+  }));
 
   if (!slots.length) {
     return (
@@ -60,78 +113,94 @@ export default function ScheduleTab({ teacher }) {
     );
   }
 
+  const filterChip = (active) =>
+    `inline-flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-sm font-medium transition ${
+      active
+        ? "border-orange-300 bg-orange-50 text-orange-700"
+        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+    }`;
+
   return (
-    <div className="space-y-5 p-4">
-      {["group", "individual", "demo"].map((sectionId) => {
-        const sectionSlots = grouped[sectionId];
-        if (!sectionSlots.length) return null;
-        const config = SECTION_CONFIG[sectionId];
-        return (
-          <section key={sectionId}>
-            <div className="mb-2 flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-slate-700">{config.title}</h3>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500">
-                {sectionSlots.length}
+    <div className="space-y-4 p-4">
+      {/* Filter bar — chips double as the type legend */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <button className={filterChip(typeFilter === "all")} onClick={() => setTypeFilter("all")}>
+            All
+            <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">{slots.length}</span>
+          </button>
+          {TYPE_ORDER.map((type) => (
+            <button key={type} className={filterChip(typeFilter === type)} onClick={() => setTypeFilter(type)}>
+              <span className={`h-2 w-2 rounded-full ${TYPE_CONFIG[type].dot}`} />
+              {TYPE_CONFIG[type].label}
+              <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">{typeCounts[type]}</span>
+            </button>
+          ))}
+        </div>
+
+        {courseOptions.length > 1 && (
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+          >
+            <option value="all">All courses</option>
+            {courseOptions.map(([id, name]) => (
+              <option key={id} value={id}>{name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Weekly agenda — one row per day, sessions sorted by start time */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        {byDay.map(({ day, daySlots }, index) => (
+          <div
+            key={day}
+            className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center ${
+              index === byDay.length - 1 ? "" : "border-b border-slate-100"
+            } ${daySlots.length ? "" : "bg-slate-50/50"}`}
+          >
+            <div className="flex w-full shrink-0 items-center gap-2 sm:w-28">
+              <span className="flex h-7 w-11 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
+                {DAY_SHORT[day]}
               </span>
+              <span className="text-sm font-medium text-slate-700 sm:hidden">{DAY_LABELS[day]}</span>
             </div>
 
-            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              {sectionSlots.map((slot, index) => {
-                const days = sortDays(Array.isArray(slot.days) ? slot.days : []);
-                const courseId = String(slot.courseId?._id || slot.courseId || "");
-                const course = courseById[courseId];
-                const courseName = course?.name || null;
-                const isLast = index === sectionSlots.length - 1;
-
-                return (
-                  <div
-                    key={slot._id || index}
-                    className={`flex flex-wrap items-center gap-x-4 gap-y-1.5 px-4 py-3 text-sm ${
-                      isLast ? "" : "border-b border-slate-100"
-                    }`}
-                  >
-                    {/* Type badge */}
-                    <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${config.rowClass}`}>
-                      {config.title.replace(" Sessions", "")}
-                    </span>
-
-                    {/* Days */}
-                    <span className="shrink-0 font-medium text-slate-800">
-                      {days.map((d) => DAY_LABELS[d] || d).join(" • ")}
-                    </span>
-
-                    {/* Time */}
-                    <span className="flex shrink-0 items-center gap-1 text-slate-500">
-                      <FiClock className="h-3.5 w-3.5" />
-                      {convertTo12Hour(slot.startTime)} – {convertTo12Hour(slot.endTime)}
-                    </span>
-
-                    {/* Capacity */}
-                    <span className="flex shrink-0 items-center gap-1 text-slate-400">
-                      <FiUsers className="h-3.5 w-3.5" />
-                      {slot.maxStudents} {slot.maxStudents === 1 ? "student" : "students"}
-                    </span>
-
-                    {/* Course name */}
-                    {courseName && (
-                      <span className="truncate text-xs text-slate-400 uppercase tracking-wide">
-                        {courseName}
+            {daySlots.length ? (
+              <div className="flex flex-1 flex-wrap gap-2">
+                {daySlots.map((slot, i) => {
+                  const type = getType(slot);
+                  const config = TYPE_CONFIG[type];
+                  const courseName = courseById[slotCourseId(slot)]?.name;
+                  return (
+                    <div
+                      key={slot._id || i}
+                      className={`inline-flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${config.chip}`}
+                    >
+                      <span className={`h-2 w-2 shrink-0 rounded-full ${config.dot}`} />
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold">
+                        <FiClock className="h-3 w-3 opacity-60" />
+                        {convertTo12Hour(slot.startTime)}–{convertTo12Hour(slot.endTime)}
                       </span>
-                    )}
-
-                    {/* Status */}
-                    <span className={`ml-auto shrink-0 text-xs font-medium ${
-                      slot.isActive ? "text-emerald-600" : "text-slate-400"
-                    }`}>
-                      {slot.isActive ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
+                      {courseName && (
+                        <span className="max-w-[140px] truncate text-[11px] font-medium opacity-70">· {courseName}</span>
+                      )}
+                      <span className="inline-flex items-center gap-0.5 text-[11px] opacity-70">
+                        <FiUsers className="h-3 w-3" />
+                        {slot.maxStudents}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <span className="text-xs text-slate-300">No sessions</span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

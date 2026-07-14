@@ -14,10 +14,12 @@ function hexToRgba(hex, alpha = 1) {
 
 const DEFAULT_AVATAR = "https://tse4.mm.bing.net/th/id/OIP.Ae18imWmNTdnadgBRha8ZQHaHa?cb=12&rs=1&pid=ImgDetMain&o=7&rm=3";
 
+const titleCase = (value) =>
+    value ? value.charAt(0).toUpperCase() + value.slice(1) : "—";
+
 export default function StudentsTab({ instructor }) {
     const students = instructor?.students || [];
     const attendanceHistory = instructor?.attendanceHistory || [];
-    const mode = instructor?.teacherDetails?.mode;
 
     const transformedStudents = students.map((s) => {
         const course = s.courses?.[0];
@@ -38,7 +40,7 @@ export default function StudentsTab({ instructor }) {
             courseCategory: category?.name || "—",
             courseIcon: category?.icon || "—",
             courseColor: category?.color || "—",
-            type: course?.sessionType || mode || "—",
+            mode: titleCase(course?.mode),
             description: firstContent?.courseDescription || "No description available.",
             studentCount: instructor?.studentCount || "—",
             sessionCount: attendance?.attendance || "—",
@@ -81,7 +83,7 @@ export default function StudentsTab({ instructor }) {
                         <h4 className="text-md font-medium text-gray-900 mb-1">{s.courseName}</h4>
 
                         <div className="text-xs text-gray-600 mb-2 flex items-center gap-1">
-                            <FiUsers className="text-gray-400" /> {s.type} Mode
+                            <FiUsers className="text-gray-400" /> {s.mode} Mode
                         </div>
 
                         <p className="text-xs text-gray-500 mb-3 line-clamp-2">{s.description}</p>
