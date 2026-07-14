@@ -30,20 +30,19 @@ export default function CoursesTab({ instructor, categoryConfig }) {
                 return (
                     <div
                         key={course._id}
-                        className="flex max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
+                        className="flex flex-col sm:flex-row w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
                     >
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                             <img
                                 src={resolveImageUrl(course.image, course.category?.icon || "")}
                                 alt={course.name}
-                                className="h-full w-56 object-cover rounded-l-2xl"
+                                className="h-40 w-full object-cover sm:h-full sm:w-48"
                             />
                         </div>
 
-
-                        <div className="p-4 flex flex-col justify-between flex-grow">
+                        <div className="p-4 flex flex-col justify-between grow min-w-0">
                             <div>
-                                <div className="flex gap-2 mb-2 items-center">
+                                <div className="flex flex-wrap gap-2 mb-2 items-center">
                                     <span
                                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
                                         style={{ backgroundColor: bgColor, color: categoryColor }}
@@ -55,12 +54,9 @@ export default function CoursesTab({ instructor, categoryConfig }) {
                                     </span>
                                 </div>
 
-                                <h3 className="text-md font-semibold text-gray-900">{course.name}</h3>
+                                <h3 className="text-md font-semibold text-gray-900 break-words">{course.name}</h3>
                                 <p className="text-sm text-gray-500 mb-3">by {instructorName}</p>
                                 <p className="text-sm text-gray-600 line-clamp-3">{description}</p>
-                            </div>
-
-                            <div className="mt-4 flex items-center justify-between">
                             </div>
                         </div>
                     </div>

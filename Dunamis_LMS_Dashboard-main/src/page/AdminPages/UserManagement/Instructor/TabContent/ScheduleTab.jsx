@@ -1,31 +1,27 @@
-import { useMemo, useState } from "react";
 import { FiClock, FiUsers } from "react-icons/fi";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
-
-const DAY_LABELS = {
-  monday: "Monday", tuesday: "Tuesday", wednesday: "Wednesday", thursday: "Thursday",
-  friday: "Friday", saturday: "Saturday", sunday: "Sunday",
-};
 
 const DAY_SHORT = {
   monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
   friday: "Fri", saturday: "Sat", sunday: "Sun",
 };
 
-const TYPE_CONFIG = {
-  group: { label: "Group", dot: "bg-fuchsia-500", chip: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800" },
-  individual: { label: "Individual", dot: "bg-violet-500", chip: "border-violet-200 bg-violet-50 text-violet-800" },
-  demo: { label: "Demo", dot: "bg-pink-500", chip: "border-pink-200 bg-pink-50 text-pink-800" },
+const SECTION_CONFIG = {
+  group: { title: "Group", dot: "bg-fuchsia-500", accent: "text-fuchsia-700" },
+  individual: { title: "Individual", dot: "bg-violet-500", accent: "text-violet-700" },
+  demo: { title: "Demo", dot: "bg-pink-500", accent: "text-pink-700" },
 };
 
-const TYPE_ORDER = ["group", "individual", "demo"];
+const SECTION_ORDER = ["group", "individual", "demo"];
 
-const getType = (slot) => {
+const getSectionId = (slot) => {
   if (slot?.slotType === "demo") return "demo";
   if (slot?.sessionType === "premium") return "individual";
   return "group";
 };
+
+const sortDays = (days) => [...days].sort((a, b) => DAYS.indexOf(a) - DAYS.indexOf(b));
 
 const convertTo12Hour = (value) => {
   const time = String(value || "").trim();
@@ -54,53 +50,18 @@ const toMinutes = (value) => {
   return hour * 60 + m;
 };
 
+function hexToRgba(hex, alpha = 1) {
+  if (!hex) return `rgba(0,0,0,${alpha})`;
+  let c = hex.replace("#", "");
+  if (c.length === 3) c = c.split("").map((x) => x + x).join("");
+  const r = parseInt(c.substring(0, 2), 16);
+  const g = parseInt(c.substring(2, 4), 16);
+  const b = parseInt(c.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export default function ScheduleTab({ teacher }) {
   const slots = Array.isArray(teacher?.weeklyAvailability) ? teacher.weeklyAvailability : [];
-
-  const courseById = useMemo(
-    () =>
-      (teacher?.courses || []).reduce((map, c) => {
-        const id = String(c._id || c.id || "");
-        if (id) map[id] = c;
-        return map;
-      }, {}),
-    [teacher]
-  );
-
-  const slotCourseId = (slot) => String(slot.courseId?._id || slot.courseId || "");
-
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [courseFilter, setCourseFilter] = useState("all");
-
-  const typeCounts = useMemo(() => {
-    const counts = { group: 0, individual: 0, demo: 0 };
-    slots.forEach((s) => { counts[getType(s)] += 1; });
-    return counts;
-  }, [slots]);
-
-  const courseOptions = useMemo(() => {
-    const map = new Map();
-    slots.forEach((s) => {
-      const id = slotCourseId(s);
-      if (id && courseById[id] && !map.has(id)) {
-        map.set(id, courseById[id].name || "Course");
-      }
-    });
-    return [...map.entries()];
-  }, [slots, courseById]);
-
-  const filtered = slots.filter((s) => {
-    if (typeFilter !== "all" && getType(s) !== typeFilter) return false;
-    if (courseFilter !== "all" && slotCourseId(s) !== courseFilter) return false;
-    return true;
-  });
-
-  const byDay = DAYS.map((day) => ({
-    day,
-    daySlots: filtered
-      .filter((s) => Array.isArray(s.days) && s.days.includes(day))
-      .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)),
-  }));
 
   if (!slots.length) {
     return (
@@ -113,94 +74,103 @@ export default function ScheduleTab({ teacher }) {
     );
   }
 
-  const filterChip = (active) =>
-    `inline-flex items-center gap-1.5 rounded-2xl border px-3 py-1.5 text-sm font-medium transition ${
-      active
-        ? "border-orange-300 bg-orange-50 text-orange-700"
-        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
-    }`;
+  const courseById = (teacher?.courses || []).reduce((map, c) => {
+    const id = String(c._id || c.id || "");
+    if (id) map[id] = c;
+    return map;
+  }, {});
+
+  const slotCourseId = (slot) => String(slot.courseId?._id || slot.courseId || "");
+
+  // Group slots by course, then split each course into session-type sections.
+  const groups = new Map();
+  slots.forEach((slot) => {
+    const cid = slotCourseId(slot);
+    const course = courseById[cid];
+    const key = cid || "__general__";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        name: course?.name || "General availability",
+        category: course?.category || null,
+        sections: { group: [], individual: [], demo: [] },
+      });
+    }
+    groups.get(key).sections[getSectionId(slot)].push(slot);
+  });
+
+  const cards = [...groups.values()];
+  cards.forEach((card) => {
+    SECTION_ORDER.forEach((sec) => {
+      card.sections[sec].sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
+    });
+  });
 
   return (
-    <div className="space-y-4 p-4">
-      {/* Filter bar — chips double as the type legend */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <button className={filterChip(typeFilter === "all")} onClick={() => setTypeFilter("all")}>
-            All
-            <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">{slots.length}</span>
-          </button>
-          {TYPE_ORDER.map((type) => (
-            <button key={type} className={filterChip(typeFilter === type)} onClick={() => setTypeFilter(type)}>
-              <span className={`h-2 w-2 rounded-full ${TYPE_CONFIG[type].dot}`} />
-              {TYPE_CONFIG[type].label}
-              <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">{typeCounts[type]}</span>
-            </button>
-          ))}
-        </div>
-
-        {courseOptions.length > 1 && (
-          <select
-            value={courseFilter}
-            onChange={(e) => setCourseFilter(e.target.value)}
-            className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-          >
-            <option value="all">All courses</option>
-            {courseOptions.map(([id, name]) => (
-              <option key={id} value={id}>{name}</option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {/* Weekly agenda — one row per day, sessions sorted by start time */}
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {byDay.map(({ day, daySlots }, index) => (
-          <div
-            key={day}
-            className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center ${
-              index === byDay.length - 1 ? "" : "border-b border-slate-100"
-            } ${daySlots.length ? "" : "bg-slate-50/50"}`}
-          >
-            <div className="flex w-full shrink-0 items-center gap-2 sm:w-28">
-              <span className="flex h-7 w-11 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-600">
-                {DAY_SHORT[day]}
-              </span>
-              <span className="text-sm font-medium text-slate-700 sm:hidden">{DAY_LABELS[day]}</span>
+    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
+      {cards.map((card, idx) => {
+        const color = card.category?.color || null;
+        return (
+          <div key={idx} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            {/* Course header */}
+            <div className="border-b border-slate-100 px-4 py-3">
+              {card.category?.name && (
+                <span
+                  className="mb-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                  style={{
+                    backgroundColor: hexToRgba(color, 0.15),
+                    color: color || "#475569",
+                  }}
+                >
+                  {card.category.icon} {card.category.name}
+                </span>
+              )}
+              <h3 className="text-sm font-semibold break-words text-slate-800">{card.name}</h3>
             </div>
 
-            {daySlots.length ? (
-              <div className="flex flex-1 flex-wrap gap-2">
-                {daySlots.map((slot, i) => {
-                  const type = getType(slot);
-                  const config = TYPE_CONFIG[type];
-                  const courseName = courseById[slotCourseId(slot)]?.name;
-                  return (
-                    <div
-                      key={slot._id || i}
-                      className={`inline-flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${config.chip}`}
-                    >
-                      <span className={`h-2 w-2 shrink-0 rounded-full ${config.dot}`} />
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold">
-                        <FiClock className="h-3 w-3 opacity-60" />
-                        {convertTo12Hour(slot.startTime)}–{convertTo12Hour(slot.endTime)}
+            {/* Session-type sections */}
+            <div className="divide-y divide-slate-100">
+              {SECTION_ORDER.map((sec) => {
+                const sectionSlots = card.sections[sec];
+                if (!sectionSlots.length) return null;
+                const config = SECTION_CONFIG[sec];
+                return (
+                  <div key={sec} className="px-4 py-3">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${config.dot}`} />
+                      <span className={`text-xs font-semibold uppercase tracking-wide ${config.accent}`}>
+                        {config.title}
                       </span>
-                      {courseName && (
-                        <span className="max-w-[140px] truncate text-[11px] font-medium opacity-70">· {courseName}</span>
-                      )}
-                      <span className="inline-flex items-center gap-0.5 text-[11px] opacity-70">
-                        <FiUsers className="h-3 w-3" />
-                        {slot.maxStudents}
+                      <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">
+                        {sectionSlots.length}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <span className="text-xs text-slate-300">No sessions</span>
-            )}
+
+                    <div className="space-y-1.5">
+                      {sectionSlots.map((slot, i) => (
+                        <div key={slot._id || i} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                          <span className="font-medium text-slate-700">
+                            {sortDays(Array.isArray(slot.days) ? slot.days : [])
+                              .map((d) => DAY_SHORT[d] || d)
+                              .join(" • ") || "—"}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-slate-500">
+                            <FiClock className="h-3.5 w-3.5" />
+                            {convertTo12Hour(slot.startTime)}–{convertTo12Hour(slot.endTime)}
+                          </span>
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                            <FiUsers className="h-3.5 w-3.5" />
+                            {slot.maxStudents}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
     </div>
   );
 }
