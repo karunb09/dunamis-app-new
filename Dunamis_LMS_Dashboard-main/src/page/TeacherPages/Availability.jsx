@@ -12,6 +12,8 @@ import {
 } from "react-icons/fi";
 import axios from "../../api/axios";
 import { getStoredToken } from "../../utils/authSession";
+import { resolveImageUrl } from "../../utils/resolveImageUrl";
+import DynamicCourseIcon from "../../components/DynamicCourseIcon";
 
 const DAYS = [
   "monday",
@@ -261,6 +263,8 @@ const normalizeCourseOptions = (source) => {
         id,
         label: course?.name || course?.title || course?.code || `Course ${index + 1}`,
         mode: course?.mode || "online",
+        image: course?.image,
+        category: course?.category,
         branches,
       };
     })
@@ -334,11 +338,12 @@ const Availability = ({
   );
 
   const [slots, setSlots] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
   const [draftSlot, setDraftSlot] = useState(emptySlot());
 
   const selectedCourse = useMemo(
-    () => courseOptions.find((c) => c.id === draftSlot.courseId) || null,
-    [courseOptions, draftSlot.courseId]
+    () => courseOptions.find((c) => c.id === selectedCourseId) || null,
+    [courseOptions, selectedCourseId]
   );
   const isOfflineCourse = selectedCourse?.mode === "offline";
   const branchOptions = isOfflineCourse ? (selectedCourse?.branches || []) : [];
@@ -360,14 +365,24 @@ const Availability = ({
     );
     setSlots(nextSlots);
     setHasUnsavedChanges(false);
+    setActiveSectionId(null);
     setEditingSlotId(null);
-    setDraftSlot(emptySlot(courseOptions[0]?.id || "", activeSectionId || "group"));
+    setDraftSlot(emptySlot(selectedCourseId || courseOptions[0]?.id || "", "group"));
   }, [teacher, user]);
 
   useEffect(() => {
-    if (draftSlot.courseId || !courseOptions.length) return;
-    setDraftSlot((prev) => ({ ...prev, courseId: courseOptions[0].id }));
-  }, [courseOptions, draftSlot.courseId]);
+    if (selectedCourseId || !courseOptions.length) return;
+    setSelectedCourseId(courseOptions[0].id);
+  }, [courseOptions, selectedCourseId]);
+
+  // Selecting a different course closes any open editor for the previous one.
+  useEffect(() => {
+    if (!selectedCourseId) return;
+    setActiveSectionId(null);
+    setEditingSlotId(null);
+    setSelectedTimes(new Set());
+    setDraftSlot(emptySlot(selectedCourseId, "group"));
+  }, [selectedCourseId]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -379,35 +394,46 @@ const Availability = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Full slot list (all courses) — authoritative for save + cross-course overlap checks.
   const activeSlots = useMemo(
     () => slots.filter((slot) => slot.isActive !== false),
     [slots]
   );
 
+  // Scoped to the selected course — display only.
+  const courseSlots = useMemo(
+    () => slots.filter((slot) => slot.courseId === selectedCourseId),
+    [slots, selectedCourseId]
+  );
+  const courseActiveSlots = useMemo(
+    () => courseSlots.filter((slot) => slot.isActive !== false),
+    [courseSlots]
+  );
+
   const summaryCards = useMemo(
     () => [
-      { label: "Active Slots", value: activeSlots.length },
+      { label: "Active Slots", value: courseActiveSlots.length },
       {
         label: "Demo Slots",
-        value: activeSlots.filter((slot) => slot.slotType === "demo").length,
+        value: courseActiveSlots.filter((slot) => slot.slotType === "demo").length,
       },
       {
         label: "Class Slots",
-        value: activeSlots.filter((slot) => slot.slotType === "enrolled").length,
+        value: courseActiveSlots.filter((slot) => slot.slotType === "enrolled").length,
       },
       {
         label: "1:1 Slots",
-        value: activeSlots.filter((slot) => slot.sessionType === "premium").length,
+        value: courseActiveSlots.filter((slot) => slot.sessionType === "premium").length,
       },
     ],
-    [activeSlots]
+    [courseActiveSlots]
   );
 
   const sections = useMemo(
     () =>
       SECTION_ORDER.map((sectionId) => {
         const config = SECTION_CONFIG[sectionId];
-        const items = slots
+        const items = courseSlots
           .filter((slot) => getSectionIdForSlot(slot) === sectionId)
           .slice()
           .sort((left, right) => {
@@ -422,7 +448,7 @@ const Availability = ({
           items,
         };
       }),
-    [slots]
+    [courseSlots]
   );
 
   const activeSection = SECTION_CONFIG[activeSectionId] || SECTION_CONFIG.group;
@@ -430,7 +456,7 @@ const Availability = ({
   const resetDraftForSection = (sectionId, slot = null) => {
     const nextSlot =
       slot ||
-      emptySlot(courseOptions[0]?.id || "", sectionId || activeSectionId);
+      emptySlot(selectedCourseId, sectionId || activeSectionId);
     const nextSectionId = sectionId || activeSectionId;
     const duration = getDurationForSection(nextSectionId);
     const startTime = nextSlot.startTime || emptySlot("", nextSectionId).startTime;
@@ -773,29 +799,7 @@ const Availability = ({
 
     return (
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr]">
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              Select Course
-            </span>
-            <select
-              value={draftSlot.courseId}
-              onChange={(event) => {
-                const courseId = event.target.value;
-                const course = courseOptions.find((c) => c.id === courseId);
-                updateDraft({ courseId, branchId: course?.mode === "offline" ? draftSlot.branchId : "" });
-              }}
-              className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-300"
-            >
-              <option value="">Choose course</option>
-              {courseOptions.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.label}{course.mode === "offline" ? " (Offline)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="relative block" ref={dayPairDropdownRef}>
             <span className="mb-2 block text-sm font-medium text-slate-900">
               Select Day Pair <span className="text-rose-500">*</span>
@@ -1051,14 +1055,67 @@ const Availability = ({
   return (
     <div className="space-y-8">
       <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
+        <h2 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
+
+        {!courseOptions.length ? (
+          <div className="mt-6 rounded-[28px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+            No assigned courses were found for this instructor. Please ask admin
+            to assign at least one course before publishing availability.
+          </div>
+        ) : (
+          <>
+            <p className="mb-3 mt-6 text-sm font-semibold text-slate-900">
+              Select a course to manage its schedule
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {courseOptions.map((course) => {
+                const isSelected = selectedCourseId === course.id;
+                return (
+                  <button
+                    key={course.id}
+                    type="button"
+                    onClick={() => setSelectedCourseId(course.id)}
+                    className={`flex overflow-hidden rounded-[24px] border-2 text-left transition ${
+                      isSelected ? "border-orange-300 shadow-sm" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <img
+                      src={resolveImageUrl(course.image)}
+                      alt={course.label}
+                      className="h-24 w-2/5 shrink-0 object-cover"
+                      onError={(e) => { e.target.src = "/music.png"; }}
+                    />
+                    <div className="flex flex-col justify-center p-4">
+                      <div className="mb-1.5 flex flex-wrap gap-1.5">
+                        <span className="flex items-center gap-1 rounded-full border border-slate-200 bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-700">
+                          <DynamicCourseIcon category={course.category} />
+                          {course.category?.name || "Course"}
+                        </span>
+                        {course.mode === "offline" && (
+                          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                            Offline
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="line-clamp-1 text-sm font-semibold text-slate-900">{course.label}</h3>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </section>
+
+      {selectedCourse && (
+      <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
-            <h2 className="text-3xl font-semibold tracking-tight text-slate-950">
-              {title}
+            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Schedule</p>
+            <h2 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-950">
+              {selectedCourse.label}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              {description}
-            </p>
 
             <div className="mt-5 flex flex-wrap gap-2 text-xs font-medium">
               <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-600">
@@ -1098,13 +1155,6 @@ const Availability = ({
             <p>Overlapping slots are disabled across group, individual, and demo schedules.</p>
           </div>
         </div>
-
-        {!courseOptions.length ? (
-          <div className="mt-6 rounded-[28px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-            No assigned courses were found for this instructor. Please ask admin
-            to assign at least one course before publishing availability.
-          </div>
-        ) : null}
 
         {hasUnsavedChanges ? (
           <div className="mt-6 rounded-[28px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
@@ -1279,6 +1329,7 @@ const Availability = ({
           </button>
         </div>
       </section>
+      )}
     </div>
   );
 };

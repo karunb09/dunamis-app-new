@@ -160,9 +160,11 @@ const MyCourses = () => {
 
   const getStudentsForCourse = (courseId) => {
     if (!Array.isArray(students)) return [];
+    const catalogCourse = courses.find((c) => c._id === courseId);
     return students
-      .filter((s) => s.courses?.some((c) => c.id === courseId || c._id === courseId))
       .map((s, i) => {
+        const enrolled = s.courses?.find((c) => (c.id || c._id) === courseId);
+        if (!enrolled) return null;
         const name = `${s.name?.firstName || ""} ${s.name?.lastName || ""}`.trim();
         return {
           id: s.id || s._id || `s-${i}`,
@@ -170,12 +172,16 @@ const MyCourses = () => {
             ? resolveImageUrl(s.studentDetails.profilePicture)
             : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,
           name: name || "Unknown Student",
-          course: courses.find((c) => c._id === courseId)?.name || "",
+          course: catalogCourse?.name || "",
+          category: catalogCourse?.category,
+          mode: catalogCourse?.mode,
           progress: "0%",
           modules: "0 of 0",
-          schedule: "N/A",
+          schedule: enrolled.schedule,
+          sessionType: enrolled.schedule?.sessionType,
         };
-      });
+      })
+      .filter(Boolean);
   };
 
   // Modal helpers
@@ -376,7 +382,10 @@ const MyCourses = () => {
                     </div>
                   </div>
 
-                  <StudentTable groupStudents={getStudentsForCourse(selectedCourseData._id)} individualStudents={[]} />
+                  <StudentTable
+                    groupStudents={getStudentsForCourse(selectedCourseData._id).filter((s) => s.sessionType !== "premium")}
+                    individualStudents={getStudentsForCourse(selectedCourseData._id).filter((s) => s.sessionType === "premium")}
+                  />
                   <Curriculum modules={selectedCourseData.content?.[0]?.modules || []} />
                 </div>
               )}

@@ -7,6 +7,7 @@ const Student = require("../model/student.model");
 const Course = require("../model/course.model");
 const Branch = require("../model/branch.model");
 const Slot = require("../model/slot.model");
+const ClassRoster = require("../model/classRoster.model");
 const DemoBooking = require("../model/demoBooking.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
@@ -786,6 +787,28 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
     const studentIds = students.map((s) => s._id);
     const studentCount = studentIds.length;
 
+    // Per-student, per-course recurring schedule (days/time/session type)
+    const rosters = await ClassRoster.find({
+      teacherId: teacher._id,
+      status: "active",
+    })
+      .select("courseId recurringDays startTime endTime sessionType students")
+      .lean();
+
+    const scheduleByStudentCourse = {};
+    rosters.forEach((roster) => {
+      (roster.students || [])
+        .filter((member) => member.status === "active")
+        .forEach((member) => {
+          scheduleByStudentCourse[`${member.studentId}_${roster.courseId}`] = {
+            days: roster.recurringDays || [],
+            startTime: roster.startTime,
+            endTime: roster.endTime,
+            sessionType: roster.sessionType,
+          };
+        });
+    });
+
     // Calculate average rating
     const feedbacks = await Feedback.find({ courseId: { $in: courseIds } });
     const averageRating =
@@ -830,6 +853,7 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
             image: course?.image,
             price: course?.price,
             enrollmentDate: ec.enrollmentDate,
+            schedule: scheduleByStudentCourse[`${s._id}_${course?._id}`] || null,
           };
         }),
     }));

@@ -48,15 +48,15 @@ const Report = () => {
       {/* Summary strip */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {summaryCards.map((card) => (
-          <div key={card.label} className="flex items-center justify-between rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-3">
+          <div key={card.label} className="flex items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex min-w-0 items-center gap-3">
               {card.icon}
-              <div>
-                <p className="text-xs text-slate-500">{card.label}</p>
-                <p className="mt-0.5 text-base font-semibold text-slate-800">{card.value}</p>
+              <div className="min-w-0">
+                <p className="truncate text-xs text-slate-500">{card.label}</p>
+                <p className="mt-0.5 truncate text-base font-semibold text-slate-800">{card.value}</p>
               </div>
             </div>
-            <span className={`text-lg font-bold ${card.badgeClass}`}>{card.badge}</span>
+            <span className={`shrink-0 text-lg font-bold tabular-nums ${card.badgeClass}`}>{card.badge}</span>
           </div>
         ))}
       </div>
@@ -86,25 +86,25 @@ const Report = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
               {month.stats.map((stat) => (
-                <div key={stat.title} className="rounded-[20px] border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-xs text-slate-500">{stat.title}</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-800">{stat.value}</p>
-                  <p className="mt-0.5 text-[10px] text-slate-400">{stat.sub}</p>
+                <div key={stat.title} className="flex flex-col rounded-[20px] border border-slate-200 bg-slate-50 p-3">
+                  <p className="truncate text-xs text-slate-500">{stat.title}</p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-slate-800">{stat.value}</p>
+                  <p className="mt-0.5 line-clamp-1 text-[10px] text-slate-400">{stat.sub}</p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-4 flex items-center justify-between rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3">
-              <div>
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3">
+              <div className="min-w-0">
                 <p className="text-xs text-slate-500">Monthly Remuneration</p>
-                <p className="mt-0.5 text-base font-semibold text-slate-800">
+                <p className="mt-0.5 text-base font-semibold tabular-nums text-slate-800">
                   {month.remuneration ?? "₹ ----"}
                 </p>
                 <p className="text-xs text-slate-400">{month.remunerationNote}</p>
               </div>
-              <button className="text-sm font-medium text-slate-500 transition hover:text-slate-800">
+              <button className="shrink-0 text-sm font-medium text-slate-500 transition hover:text-slate-800">
                 View Details →
               </button>
             </div>

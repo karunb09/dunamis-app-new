@@ -7,6 +7,7 @@ import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
 import { FiGrid, FiList, FiSearch, FiX } from "react-icons/fi";
 import { HiMiniUserGroup } from "react-icons/hi2";
 import { MdAccessTime } from "react-icons/md";
+import { formatScheduleLabel, formatSessionType } from "../../../utils/formatSchedule";
 
 const MyStudent = () => {
   const dispatch = useDispatch();
@@ -47,11 +48,11 @@ const MyStudent = () => {
       name,
       subject: courseName,
       category,
-      type: courseDetails?.mode === "individual" ? "Individual" : "Group",
+      type: formatSessionType(enrolled?.schedule),
       progress: s.progress || 0,
       completion: s.completion || 0,
       module: totalModules > 0 ? `Module ${currentModule} of ${totalModules}` : "No modules",
-      time: s.schedule || enrolled?.schedule || "Schedule not set",
+      time: formatScheduleLabel(enrolled?.schedule),
       avatar: s.studentDetails?.profilePicture
         ? `${import.meta.env.VITE_IMAGE}${s.studentDetails.profilePicture}`
         : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}`,

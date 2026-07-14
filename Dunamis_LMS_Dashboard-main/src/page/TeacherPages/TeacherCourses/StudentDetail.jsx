@@ -4,6 +4,7 @@ import { HiDotsHorizontal } from "react-icons/hi";
 import { getAssignmentsByStatus } from "../../../redux/Assignment/AssignmentSlice";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import { formatScheduleLabel, formatSessionType } from "../../../utils/formatSchedule";
 
 const StudentDetail = ({ onBack }) => {
   const dispatch = useDispatch();
@@ -46,9 +47,9 @@ const StudentDetail = ({ onBack }) => {
       ? resolveImageUrl(fullStudentData.studentDetails.profilePicture)
       : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(studentName)}`,
     progress: fullStudentData.progress || 0,
-    time: fullStudentData.schedule || "Schedule not set",
-    type: courseDetails?.mode || "Group Class",
-    schedule: fullStudentData.schedule || "Weekly Schedule",
+    time: formatScheduleLabel(enrolledCourse?.schedule),
+    type: formatSessionType(enrolledCourse?.schedule),
+    schedule: "Weekly Schedule",
   };
 
   const enrolledCourseIds = fullStudentData.courses?.map((c) => c.id || c._id) || [];
@@ -256,21 +257,25 @@ const StudentDetail = ({ onBack }) => {
         return (
           <div className="bg-white rounded-xl shadow-sm p-4">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Schedules</h2>
-            {student.time && student.time !== "Schedule not set" ? (
-              <div className="border rounded-xl p-4 bg-blue-50">
-                <div>
-                  <p className="text-sm text-gray-600 font-medium">{student.schedule || "Weekly Schedule"}</p>
-                  <p className="text-sm text-gray-500">{student.time}</p>
-                  <h3 className="text-lg font-semibold text-gray-800 mt-2">{student.subject}</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {enrolledCourses[0]?.description || "Course description not available"}
-                  </p>
-                  <div className="mt-3">
-                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700 border">
-                      {student.type}
-                    </span>
-                  </div>
-                </div>
+            {fullStudentData.courses && fullStudentData.courses.length > 0 ? (
+              <div className="space-y-3">
+                {fullStudentData.courses.map((course, idx) => {
+                  const catalogCourse = courses.find((c) => c._id === course.id || c._id === course._id);
+                  return (
+                    <div key={course.id || course._id || idx} className="border rounded-2xl p-4 bg-blue-50">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-800">{course.name}</h3>
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-white text-gray-700 border shrink-0">
+                          {formatSessionType(course.schedule)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">{formatScheduleLabel(course.schedule)}</p>
+                      {catalogCourse?.description && (
+                        <p className="text-sm text-gray-500 mt-2">{catalogCourse.description}</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500">
