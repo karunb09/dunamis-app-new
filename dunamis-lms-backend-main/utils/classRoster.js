@@ -17,6 +17,31 @@ const endOfDay = (value) => {
   return date;
 };
 
+// Parses "HH:MM" (24h) or "H:MM AM/PM" into minutes past midnight.
+const parseTimeMinutes = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const meridiem = raw.match(/(am|pm)/i);
+  const [h, m] = raw
+    .replace(/\s*(am|pm)/i, "")
+    .split(":")
+    .map((n) => parseInt(n, 10) || 0);
+  let hours = h;
+  if (meridiem) {
+    const isPM = /pm/i.test(meridiem[0]);
+    if (isPM && hours < 12) hours += 12;
+    if (!isPM && hours === 12) hours = 0;
+  }
+  return hours * 60 + m;
+};
+
+const slotStartAt = (slot) =>
+  new Date(startOfDay(slot.date).getTime() + parseTimeMinutes(slot.startTime) * 60000);
+
+// A slot that has already started must never gain new roster members — a
+// student enrolling in the evening should not appear in the morning's class.
+const hasSlotStarted = (slot, now = new Date()) => slotStartAt(slot) < now;
+
 const rollingRange = (from = new Date()) => ({
   rangeStart: startOfDay(from),
   rangeEnd: endOfDay(new Date(startOfDay(from).getTime() + ROLLING_WEEKS * 7 * 86400000)),
@@ -109,15 +134,19 @@ const applyRostersToSlots = async ({ teacherId, rangeStart, rangeEnd }) => {
     byParent.set(String(roster.parentAvailabilityId), ids);
   }
 
-  const from = new Date(Math.max(startOfDay(rangeStart).getTime(), startOfDay().getTime()));
+  const now = new Date();
+  const from = new Date(Math.max(startOfDay(rangeStart).getTime(), startOfDay(now).getTime()));
   const slots = await Slot.find({
     createdBy: teacherId,
     slotType: "enrolled",
     date: { $gte: from, $lte: endOfDay(rangeEnd) },
-  }).select("_id parentAvailabilityId students");
+  }).select("_id parentAvailabilityId students date startTime");
 
   const ops = [];
   for (const slot of slots) {
+    // Skip occurrences that already started today — their roster is frozen.
+    if (hasSlotStarted(slot, now)) continue;
+
     const desired = byParent.get(String(slot.parentAvailabilityId)) || [];
     const current = (slot.students || []).map(String);
     const unchanged =
@@ -168,6 +197,7 @@ const getStudentSchedules = async (studentId) => {
 module.exports = {
   ROLLING_WEEKS,
   rollingRange,
+  hasSlotStarted,
   registerRosterMembership,
   applyRostersToSlots,
   getStudentSchedules,

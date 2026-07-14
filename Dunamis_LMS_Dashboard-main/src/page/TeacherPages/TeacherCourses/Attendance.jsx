@@ -1,14 +1,23 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   getTeacherHomeworkHistory,
   submitAttendanceHomework,
   getTeacherPastClasses,
-  getTeacherUpcomingClasses,
+  getTeacherCourseClasses,
+  getTeacherClassAttendance,
+  updateAttendanceHomework,
+  clearClassDetail,
 } from "../../../redux/AttendanceHomework/AttendanceHomeworkSlice";
+import { useCourseDetailsQuery } from "../../../hooks/useCourses";
 import toast from "react-hot-toast";
 import { IoSearch, IoClose } from "react-icons/io5";
 import { HiOutlineCalendar, HiOutlineClock, HiOutlineUsers } from "react-icons/hi";
+
+const HOMEWORK_WORD_LIMIT = 500;
+
+const countWords = (text) =>
+  String(text || "").trim().split(/\s+/).filter(Boolean).length;
 
 const tabs = [
   { id: "pending", label: "Pending" },
@@ -31,6 +40,9 @@ const getInitials = (name) =>
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "S";
+
+const getContentPath = (row) =>
+  [row?.module, row?.lesson, row?.topic].filter(Boolean).join(" › ");
 
 const getSlotText = (row) => {
   const days = Array.isArray(row?.slotDetails?.day)
@@ -109,45 +121,53 @@ const CoverageStatusBadge = ({ status }) => {
   );
 };
 
-// ─── slot card (pending tab) ─────────────────────────────────────────────────
+// ─── course class card (pending tab) ─────────────────────────────────────────
 
-const SlotCard = ({ slot, onTakeAttendance, readOnly = false }) => (
-  <div className="mb-3 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 rounded-lg bg-gray-100 p-2">
-        <HiOutlineCalendar className="h-5 w-5 text-gray-600" />
-      </div>
-      <div>
-        <p className="font-medium text-gray-900">{slot.courseName}</p>
-        <div className="mt-1 flex flex-wrap gap-3 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <HiOutlineClock className="h-3.5 w-3.5" />
-            {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
-          </span>
-          <span className="flex items-center gap-1">
-            <HiOutlineUsers className="h-3.5 w-3.5" />
-            {slot.studentCount} student{slot.studentCount !== 1 ? "s" : ""}
-          </span>
-          <span className="capitalize">{slot.sessionType}</span>
+const CourseClassCard = ({ course, onTakeAttendance }) => {
+  const cls = course.latestClass || {};
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 rounded-xl bg-orange-50 p-2.5">
+          <HiOutlineCalendar className="h-5 w-5 text-orange-500" />
         </div>
+        <div className="min-w-0">
+          <p className="truncate font-semibold text-gray-900">{course.courseName}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Last class · {formatDate(cls.date)}
+          </p>
+        </div>
+        {cls.submitted && (
+          <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+            Submitted
+          </span>
+        )}
       </div>
-    </div>
-    {!readOnly && (
+      <div className="flex flex-wrap gap-3 text-xs text-gray-500">
+        <span className="flex items-center gap-1">
+          <HiOutlineClock className="h-3.5 w-3.5" />
+          {formatTime(cls.startTime)} – {formatTime(cls.endTime)}
+        </span>
+        <span className="flex items-center gap-1">
+          <HiOutlineUsers className="h-3.5 w-3.5" />
+          {cls.studentCount} student{cls.studentCount !== 1 ? "s" : ""}
+        </span>
+        <span className="capitalize">{cls.sessionType}</span>
+      </div>
       <button
         type="button"
-        onClick={() => onTakeAttendance(slot)}
-        className="self-start shrink-0 rounded-full bg-gray-900 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-gray-700 sm:ml-4 sm:self-auto"
+        onClick={() => onTakeAttendance({ courseId: course.courseId, courseName: course.courseName, ...cls })}
+        className={`mt-1 w-full rounded-full px-4 py-2 text-xs font-medium transition ${
+          cls.submitted
+            ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+            : "bg-gray-900 text-white hover:bg-gray-700"
+        }`}
       >
-        Take Attendance
+        {cls.submitted ? "Edit Attendance" : "Take Attendance"}
       </button>
-    )}
-    {readOnly && (
-      <span className="self-start shrink-0 rounded-full border border-gray-300 px-3 py-1 text-xs text-gray-500 sm:ml-4 sm:self-auto">
-        Upcoming
-      </span>
-    )}
-  </div>
-);
+    </div>
+  );
+};
 
 // ─── attendance slide-over ────────────────────────────────────────────────────
 
@@ -155,32 +175,165 @@ const ATTENDANCE_STATUS = ["Present", "Absent"];
 
 const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
   const dispatch = useDispatch();
-  const { submitLoading, submitError } = useSelector(
-    (state) => state.attendanceHomework || {}
+  const { submitLoading, submitError, classDetail, classDetailLoading, classDetailError } =
+    useSelector((state) => state.attendanceHomework || {});
+
+  const { data: courseDetails, isError: contentFailed } = useCourseDetailsQuery(
+    slot.courseId
   );
 
-  const [studentAttendance, setStudentAttendance] = useState(() =>
-    (slot.students || []).map((s) => ({
-      studentId: s._id,
-      name: s.name,
-      image: s.image,
-      attendanceStatus: "Present",
-      homework: "",
-    }))
-  );
+  // Flatten course content into select groups; value encodes the id path so a
+  // single dropdown resolves moduleId/lessonId/topicId. keyFromIds reverses it
+  // to prefill the dropdown when editing an existing submission.
+  const contentOptions = useMemo(() => {
+    const modules = (courseDetails?.content || []).flatMap((c) => c?.modules || []);
+    const groups = [];
+    const idsByKey = new Map();
+
+    for (const module of modules) {
+      const lessons = module.lessons || [];
+      if (lessons.length === 0) {
+        const key = `m|${module._id}`;
+        idsByKey.set(key, { moduleId: module._id });
+        groups.push({ label: module.title, options: [{ value: key, label: module.title }] });
+        continue;
+      }
+
+      const lessonOnly = [];
+      for (const lesson of lessons) {
+        const topics = lesson.topics || [];
+        if (topics.length === 0) {
+          const key = `l|${module._id}|${lesson._id}`;
+          idsByKey.set(key, { moduleId: module._id, lessonId: lesson._id });
+          lessonOnly.push({ value: key, label: lesson.title });
+          continue;
+        }
+        groups.push({
+          label: `${module.title} › ${lesson.title}`,
+          options: topics.map((topic) => {
+            const key = `t|${module._id}|${lesson._id}|${topic._id}`;
+            idsByKey.set(key, {
+              moduleId: module._id,
+              lessonId: lesson._id,
+              topicId: topic._id,
+            });
+            return { value: key, label: topic.title };
+          }),
+        });
+      }
+      if (lessonOnly.length) groups.push({ label: module.title, options: lessonOnly });
+    }
+
+    const keyFromIds = ({ moduleId, lessonId, topicId }) => {
+      if (!moduleId) return "";
+      const key = topicId
+        ? `t|${moduleId}|${lessonId}|${topicId}`
+        : lessonId
+          ? `l|${moduleId}|${lessonId}`
+          : `m|${moduleId}`;
+      return idsByKey.has(key) ? key : "";
+    };
+
+    return { groups, idsByKey, keyFromIds };
+  }, [courseDetails]);
+
+  const hasContent = contentOptions.groups.length > 0;
+
+  const isEdit = Boolean(classDetail?.submitted);
+  const [studentAttendance, setStudentAttendance] = useState([]);
+  const dirtyRef = useRef(false);
+
+  // Load the authoritative roster + any existing submission for this class.
+  useEffect(() => {
+    if (slot?.slotId) dispatch(getTeacherClassAttendance(slot.slotId));
+    return () => dispatch(clearClassDetail());
+  }, [dispatch, slot?.slotId]);
+
+  // Prefill from the fetched detail; stop once the teacher edits anything.
+  useEffect(() => {
+    if (!classDetail || String(classDetail.slotId) !== String(slot.slotId)) return;
+    if (dirtyRef.current) return;
+    setStudentAttendance(
+      (classDetail.students || []).map((s) => ({
+        studentId: s._id,
+        name: s.name,
+        image: s.image,
+        attendanceStatus: s.attendanceStatus || "Present",
+        homework: s.homework || "",
+        contentKey: contentOptions.keyFromIds({
+          moduleId: s.moduleId,
+          lessonId: s.lessonId,
+          topicId: s.topicId,
+        }),
+      }))
+    );
+  }, [classDetail, slot.slotId, contentOptions]);
 
   useEffect(() => {
     if (submitError) toast.error(submitError);
   }, [submitError]);
 
   const updateStudent = (index, field, value) => {
+    dirtyRef.current = true;
     setStudentAttendance((prev) =>
       prev.map((s, i) => (i === index ? { ...s, [field]: value } : s))
     );
   };
 
+  // Typing past the limit is blocked, but a single overflowing paste is let
+  // through so the teacher sees the inline error instead of losing text.
+  const updateHomework = (index, value) => {
+    dirtyRef.current = true;
+    setStudentAttendance((prev) =>
+      prev.map((s, i) => {
+        if (i !== index) return s;
+        const prevWords = countWords(s.homework);
+        const nextWords = countWords(value);
+        if (
+          nextWords > HOMEWORK_WORD_LIMIT &&
+          prevWords >= HOMEWORK_WORD_LIMIT &&
+          nextWords >= prevWords
+        ) {
+          return s;
+        }
+        return { ...s, homework: value };
+      })
+    );
+  };
+
+  const applyContentToAll = () => {
+    dirtyRef.current = true;
+    setStudentAttendance((prev) =>
+      prev.map((s) => ({ ...s, contentKey: prev[0].contentKey }))
+    );
+  };
+
+  const overLimit = studentAttendance.some(
+    (s) => countWords(s.homework) > HOMEWORK_WORD_LIMIT
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const firstInvalid = studentAttendance.find(
+      (s) => countWords(s.homework) > HOMEWORK_WORD_LIMIT
+    );
+    if (firstInvalid) {
+      toast.error("Fix the highlighted fields before submitting");
+      document
+        .getElementById(`attendance-card-${firstInvalid.studentId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    const contentIds = (s) => {
+      const ids = contentOptions.idsByKey.get(s.contentKey) || {};
+      return {
+        moduleId: ids.moduleId || undefined,
+        lessonId: ids.lessonId || undefined,
+        topicId: ids.topicId || undefined,
+      };
+    };
 
     const payload = {
       slotId: slot.slotId,
@@ -193,20 +346,31 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
       payload.studentId = s.studentId;
       payload.attendanceStatus = s.attendanceStatus;
       payload.homework = s.homework;
+      Object.assign(payload, contentIds(s));
     } else {
       payload.students = studentAttendance.map((s) => ({
         studentId: s.studentId,
         attendanceStatus: s.attendanceStatus,
         homework: s.homework,
+        ...contentIds(s),
       }));
     }
 
-    const result = await dispatch(submitAttendanceHomework(payload));
+    const result = await dispatch(
+      isEdit
+        ? updateAttendanceHomework({ slotId: slot.slotId, payload })
+        : submitAttendanceHomework(payload)
+    );
     if (!result.error) {
-      toast.success("Attendance submitted successfully.");
+      toast.success(isEdit ? "Attendance updated successfully." : "Attendance submitted successfully.");
       onSuccess();
     }
   };
+
+  const showApplyToAll =
+    slot.sessionType !== "premium" &&
+    studentAttendance.length > 1 &&
+    Boolean(studentAttendance[0]?.contentKey);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -218,9 +382,11 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
         {/* header */}
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Take Attendance</h2>
+            <h2 className="text-base font-semibold text-gray-900">
+              {isEdit ? "Edit Attendance" : "Take Attendance"}
+            </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              {slot.courseName} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+              {slot.courseName} · {formatDate(slot.date)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
             </p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100">
@@ -231,62 +397,143 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
         {/* student list */}
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-            {studentAttendance.length === 0 ? (
-              <p className="text-sm text-gray-500">No students enrolled in this slot.</p>
+            {classDetailLoading && studentAttendance.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-b-2 border-gray-900" />
+                <p className="mt-3 text-sm text-gray-500">Loading class…</p>
+              </div>
+            ) : classDetailError ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-center">
+                <p className="text-sm font-medium text-rose-700">{classDetailError}</p>
+                <button
+                  type="button"
+                  onClick={() => dispatch(getTeacherClassAttendance(slot.slotId))}
+                  className="mt-3 rounded-full border border-rose-300 bg-white px-4 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : studentAttendance.length === 0 ? (
+              <p className="text-sm text-gray-500">No students enrolled in this class.</p>
             ) : (
-              studentAttendance.map((s, index) => (
-                <div key={s.studentId} className="rounded-xl border border-gray-200 p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar name={s.name} src={s.image} />
-                    <span className="min-w-0 truncate font-medium text-gray-900 text-sm">{s.name}</span>
-                    <div className="ml-auto flex shrink-0 gap-2">
-                      {ATTENDANCE_STATUS.map((status) => (
-                        <button
-                          key={status}
-                          type="button"
-                          onClick={() => updateStudent(index, "attendanceStatus", status)}
-                          className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                            s.attendanceStatus === status
-                              ? status === "Present"
-                                ? "bg-green-600 text-white"
-                                : "bg-red-500 text-white"
-                              : "border border-gray-300 text-gray-600 hover:bg-gray-50"
-                          }`}
-                        >
-                          {status}
-                        </button>
-                      ))}
+              studentAttendance.map((s, index) => {
+                const words = countWords(s.homework);
+                const isOver = words > HOMEWORK_WORD_LIMIT;
+                return (
+                  <div
+                    key={s.studentId}
+                    id={`attendance-card-${s.studentId}`}
+                    className="rounded-xl border border-gray-200 p-4"
+                  >
+                    <div className="mb-3 flex items-center gap-3">
+                      <Avatar name={s.name} src={s.image} />
+                      <span className="min-w-0 truncate text-sm font-medium text-gray-900">{s.name}</span>
+                      <select
+                        value={s.attendanceStatus}
+                        onChange={(e) => updateStudent(index, "attendanceStatus", e.target.value)}
+                        className={`ml-auto shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-medium outline-none focus:border-orange-400 ${
+                          s.attendanceStatus === "Present"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                            : "border-rose-200 bg-rose-50 text-rose-600"
+                        }`}
+                      >
+                        {ATTENDANCE_STATUS.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
                     </div>
+
+                    <textarea
+                      placeholder="Homework (optional)"
+                      value={s.homework}
+                      onChange={(e) => updateHomework(index, e.target.value)}
+                      rows={2}
+                      className={`w-full resize-none rounded-lg border px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none ${
+                        isOver
+                          ? "border-rose-300 focus:border-rose-400"
+                          : "border-gray-200 focus:border-orange-400"
+                      }`}
+                    />
+                    <div className="mt-1 flex items-center justify-between">
+                      <p className={`text-[11px] ${isOver ? "font-medium text-rose-600" : "text-gray-400"}`}>
+                        {isOver
+                          ? `Homework exceeds the ${HOMEWORK_WORD_LIMIT}-word limit (currently ${words} words)`
+                          : ""}
+                      </p>
+                      <p className={`text-[11px] ${isOver ? "font-medium text-rose-600" : "text-gray-400"}`}>
+                        {words}/{HOMEWORK_WORD_LIMIT} words
+                      </p>
+                    </div>
+
+                    {hasContent ? (
+                      <div className="mt-2">
+                        <div className="mb-1 flex items-center justify-between">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                            Covered in class (optional)
+                          </span>
+                          {index === 0 && showApplyToAll && (
+                            <button
+                              type="button"
+                              onClick={applyContentToAll}
+                              className="text-[11px] font-semibold text-orange-600 hover:text-orange-700"
+                            >
+                              Apply to all
+                            </button>
+                          )}
+                        </div>
+                        <select
+                          value={s.contentKey}
+                          onChange={(e) => updateStudent(index, "contentKey", e.target.value)}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 outline-none focus:border-orange-400"
+                        >
+                          <option value="">Select module · lesson · topic</option>
+                          {contentOptions.groups.map((group) => (
+                            <optgroup key={group.label} label={group.label}>
+                              {group.options.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    ) : contentFailed ? (
+                      <p className="mt-2 text-[11px] text-gray-400">
+                        Couldn&apos;t load course modules — attendance can still be submitted.
+                      </p>
+                    ) : null}
                   </div>
-                  <textarea
-                    placeholder="Homework (optional)"
-                    value={s.homework}
-                    onChange={(e) => updateStudent(index, "homework", e.target.value)}
-                    rows={2}
-                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
-                  />
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
           {/* footer */}
           <div className="border-t px-5 py-4">
             <div className="mb-3 flex gap-2 text-xs text-gray-500">
-              <span className="text-green-600 font-medium">
+              <span className="font-medium text-green-600">
                 {studentAttendance.filter((s) => s.attendanceStatus === "Present").length} Present
               </span>
               <span>·</span>
-              <span className="text-red-500 font-medium">
+              <span className="font-medium text-red-500">
                 {studentAttendance.filter((s) => s.attendanceStatus === "Absent").length} Absent
               </span>
             </div>
             <button
               type="submit"
-              disabled={submitLoading || studentAttendance.length === 0}
+              disabled={submitLoading || studentAttendance.length === 0 || overLimit}
               className="w-full rounded-full bg-gray-900 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitLoading ? "Submitting..." : "Submit Attendance"}
+              {submitLoading
+                ? isEdit
+                  ? "Updating..."
+                  : "Submitting..."
+                : isEdit
+                  ? "Update Attendance"
+                  : "Submit Attendance"}
             </button>
           </div>
         </form>
@@ -302,7 +549,7 @@ const Attendance = () => {
   const {
     homeworkHistory = [],
     pastClasses = [],
-    upcomingClasses = { today: [], upcoming: [] },
+    courseClasses = [],
     loading,
     classesLoading,
     error,
@@ -316,7 +563,7 @@ const Attendance = () => {
 
   // Fetch data lazily per tab
   useEffect(() => {
-    if (activeTab === "pending") dispatch(getTeacherUpcomingClasses());
+    if (activeTab === "pending") dispatch(getTeacherCourseClasses());
   }, [dispatch, activeTab]);
 
   useEffect(() => {
@@ -348,6 +595,9 @@ const Attendance = () => {
         row?.sessionType,
         row?.attendanceStatus,
         row?.homework,
+        row?.module,
+        row?.lesson,
+        row?.topic,
       ]
         .filter(Boolean)
         .join(" ")
@@ -372,11 +622,13 @@ const Attendance = () => {
 
   const handleAttendanceSuccess = () => {
     setAttendanceSlot(null);
-    dispatch(getTeacherUpcomingClasses());
+    if (activeTab === "pending") dispatch(getTeacherCourseClasses());
+    else if (activeTab === "history" && historyView === "classes") dispatch(getTeacherPastClasses());
+    else if (activeTab === "history") dispatch(getTeacherHomeworkHistory());
   };
 
   const handleRefresh = () => {
-    if (activeTab === "pending") dispatch(getTeacherUpcomingClasses());
+    if (activeTab === "pending") dispatch(getTeacherCourseClasses());
     else if (activeTab === "history" && historyView === "records") dispatch(getTeacherHomeworkHistory());
     else if (activeTab === "history" && historyView === "classes") dispatch(getTeacherPastClasses());
   };
@@ -435,11 +687,11 @@ const Attendance = () => {
         <div>
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm text-gray-500">
-              {upcomingClasses.today.length + upcomingClasses.upcoming.length} class(es) scheduled
+              {courseClasses.length} course{courseClasses.length !== 1 ? "s" : ""} · select a course to record its last class
             </span>
             <button
               type="button"
-              onClick={() => dispatch(getTeacherUpcomingClasses())}
+              onClick={() => dispatch(getTeacherCourseClasses())}
               className="rounded-full border border-gray-300 px-4 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Refresh
@@ -448,46 +700,32 @@ const Attendance = () => {
 
           {classesLoading ? (
             <Spinner />
+          ) : classesError ? (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-center">
+              <p className="text-sm font-medium text-rose-700">{classesError}</p>
+              <button
+                type="button"
+                onClick={() => dispatch(getTeacherCourseClasses())}
+                className="mt-3 rounded-full border border-rose-300 bg-white px-4 py-1.5 text-xs font-medium text-rose-700 hover:bg-rose-100"
+              >
+                Retry
+              </button>
+            </div>
+          ) : courseClasses.length === 0 ? (
+            <EmptyState
+              title="No classes yet"
+              description="Once a class has taken place, the course appears here so you can record attendance and homework."
+            />
           ) : (
-            <>
-              {/* Today */}
-              <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold text-gray-800 uppercase tracking-wide">
-                  Today&apos;s Classes
-                </h2>
-                {upcomingClasses.today.length === 0 ? (
-                  <EmptyState
-                    title="No classes today"
-                    description="No enrolled slots are scheduled for today."
-                  />
-                ) : (
-                  upcomingClasses.today.map((slot) => (
-                    <SlotCard
-                      key={slot.slotId}
-                      slot={slot}
-                      onTakeAttendance={setAttendanceSlot}
-                    />
-                  ))
-                )}
-              </section>
-
-              {/* Upcoming */}
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-gray-800 uppercase tracking-wide">
-                  Upcoming Classes
-                </h2>
-                {upcomingClasses.upcoming.length === 0 ? (
-                  <EmptyState
-                    title="No upcoming classes"
-                    description="Future enrolled slots will appear here."
-                  />
-                ) : (
-                  upcomingClasses.upcoming.map((slot) => (
-                    <SlotCard key={slot.slotId} slot={slot} readOnly />
-                  ))
-                )}
-              </section>
-            </>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {courseClasses.map((course) => (
+                <CourseClassCard
+                  key={course.courseId}
+                  course={course}
+                  onTakeAttendance={setAttendanceSlot}
+                />
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -562,7 +800,7 @@ const Attendance = () => {
                             <td className="px-3 py-2">{row?.categoryName || "N/A"}</td>
                             <td className="px-3 py-2">{row?.courseName || "N/A"}</td>
                             <td className="px-3 py-2">{getSlotText(row)}</td>
-                            <td className="px-3 py-2">{formatDate(row?.createdAt)}</td>
+                            <td className="px-3 py-2">{formatDate(row?.date || row?.createdAt)}</td>
                             <td className="px-3 py-2">{row?.sessionType || "N/A"}</td>
                             <td className="px-3 py-2">
                               <span
@@ -574,8 +812,11 @@ const Attendance = () => {
                                 {row?.attendanceStatus || "N/A"}
                               </span>
                             </td>
-                            <td className="max-w-xs truncate px-3 py-2 text-gray-500">
-                              {row?.homework || "No homework"}
+                            <td className="max-w-xs px-3 py-2 text-gray-500">
+                              <p className="truncate">{row?.homework || "No homework"}</p>
+                              {getContentPath(row) && (
+                                <p className="mt-0.5 truncate text-xs text-gray-400">{getContentPath(row)}</p>
+                              )}
                             </td>
                           </tr>
                         );
@@ -609,10 +850,13 @@ const Attendance = () => {
                         <th className="px-3 py-2 font-medium">Students</th>
                         <th className="px-3 py-2 font-medium">Submitted</th>
                         <th className="px-3 py-2 font-medium">Status</th>
+                        <th className="px-3 py-2 font-medium">Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPastClasses.map((cls, index) => (
+                      {filteredPastClasses.map((cls, index) => {
+                        const recorded = cls.coverageStatus !== "Missing";
+                        return (
                         <tr key={cls.slotId || index} className="border-b hover:bg-gray-50">
                           <td className="px-3 py-2">{formatDate(cls.date)}</td>
                           <td className="px-3 py-2 font-medium">{cls.courseName}</td>
@@ -625,8 +869,18 @@ const Attendance = () => {
                           <td className="px-3 py-2">
                             <CoverageStatusBadge status={cls.coverageStatus} />
                           </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => setAttendanceSlot(cls)}
+                              className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              {recorded ? "Edit" : "Record"}
+                            </button>
+                          </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -666,8 +920,11 @@ const Attendance = () => {
                     </div>
                   </div>
                   <p className="text-sm leading-6 text-gray-700">{row.homework}</p>
+                  {getContentPath(row) && (
+                    <p className="mt-2 text-xs text-gray-400">{getContentPath(row)}</p>
+                  )}
                   <div className="mt-4 flex flex-wrap gap-2 text-xs text-gray-500">
-                    <span>{formatDate(row?.createdAt)}</span>
+                    <span>{formatDate(row?.date || row?.createdAt)}</span>
                     <span>{row?.sessionType || "Session not available"}</span>
                   </div>
                 </article>

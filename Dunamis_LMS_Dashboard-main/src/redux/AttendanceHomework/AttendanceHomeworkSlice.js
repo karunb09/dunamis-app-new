@@ -48,6 +48,47 @@ export const submitAttendanceHomework = createAsyncThunk(
   }
 );
 
+// getTeacherClassAttendance (roster + existing submission for one slot)
+export const getTeacherClassAttendance = createAsyncThunk(
+  "attendanceHomework/getClassAttendance",
+  async (slotId, { rejectWithValue }) => {
+    try {
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("Authentication token not found. Please login again.");
+      const response = await axios.get(
+        `${BASE_URL}/attendance-homework/teacher/class/${slotId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Failed to load class details"
+      );
+    }
+  }
+);
+
+// updateAttendanceHomework (edit a recorded class)
+export const updateAttendanceHomework = createAsyncThunk(
+  "attendanceHomework/update",
+  async ({ slotId, payload }, { rejectWithValue }) => {
+    try {
+      const token = getAuthToken();
+      if (!token) return rejectWithValue("Authentication token not found. Please login again.");
+      const response = await axios.put(
+        `${BASE_URL}/attendance-homework/teacher/class/${slotId}`,
+        payload,
+        { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || error.message || "Failed to update attendance and homework"
+      );
+    }
+  }
+);
+
 // getTeacherHomeworkHistory
 export const getTeacherHomeworkHistory = createAsyncThunk(
   "attendanceHomework/getTeacherHistory",
@@ -128,21 +169,21 @@ export const getTeacherPastClasses = createAsyncThunk(
   }
 );
 
-// getTeacherUpcomingClasses
-export const getTeacherUpcomingClasses = createAsyncThunk(
-  "attendanceHomework/getUpcomingClasses",
+// getTeacherCourseClasses
+export const getTeacherCourseClasses = createAsyncThunk(
+  "attendanceHomework/getCourseClasses",
   async (_, { rejectWithValue }) => {
     try {
       const token = getAuthToken();
       if (!token) return rejectWithValue("Authentication token not found. Please login again.");
       const response = await axios.get(
-        `${BASE_URL}/attendance-homework/teacher/upcoming-classes`,
+        `${BASE_URL}/attendance-homework/teacher/course-classes`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       return response.data;
     } catch (error) {
       return rejectWithValue(
-        error.response?.data?.message || error.message || "Failed to fetch upcoming classes"
+        error.response?.data?.message || error.message || "Failed to fetch your courses"
       );
     }
   }
@@ -154,7 +195,10 @@ const attendanceHomeworkSlice = createSlice({
     homeworkHistory: [],
     studentHomework: [],
     pastClasses: [],
-    upcomingClasses: { today: [], upcoming: [] },
+    courseClasses: [],
+    classDetail: null,
+    classDetailLoading: false,
+    classDetailError: null,
     selectedRecord: null,
     loading: false,
     error: null,
@@ -174,6 +218,11 @@ const attendanceHomeworkSlice = createSlice({
     clearSelectedRecord: (state) => {
       state.selectedRecord = null;
     },
+    clearClassDetail: (state) => {
+      state.classDetail = null;
+      state.classDetailError = null;
+      state.submitError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -188,6 +237,30 @@ const attendanceHomeworkSlice = createSlice({
         }
       })
       .addCase(submitAttendanceHomework.rejected, (state, action) => {
+        state.submitLoading = false;
+        state.submitError = action.payload || action.error.message;
+      })
+      .addCase(getTeacherClassAttendance.pending, (state) => {
+        state.classDetailLoading = true;
+        state.classDetailError = null;
+        state.classDetail = null;
+      })
+      .addCase(getTeacherClassAttendance.fulfilled, (state, action) => {
+        state.classDetailLoading = false;
+        state.classDetail = action.payload.data || null;
+      })
+      .addCase(getTeacherClassAttendance.rejected, (state, action) => {
+        state.classDetailLoading = false;
+        state.classDetailError = action.payload || action.error.message;
+      })
+      .addCase(updateAttendanceHomework.pending, (state) => {
+        state.submitLoading = true;
+        state.submitError = null;
+      })
+      .addCase(updateAttendanceHomework.fulfilled, (state) => {
+        state.submitLoading = false;
+      })
+      .addCase(updateAttendanceHomework.rejected, (state, action) => {
         state.submitLoading = false;
         state.submitError = action.payload || action.error.message;
       })
@@ -227,22 +300,22 @@ const attendanceHomeworkSlice = createSlice({
         state.classesLoading = false;
         state.classesError = action.payload || action.error.message;
       })
-      .addCase(getTeacherUpcomingClasses.pending, (state) => {
+      .addCase(getTeacherCourseClasses.pending, (state) => {
         state.classesLoading = true;
         state.classesError = null;
       })
-      .addCase(getTeacherUpcomingClasses.fulfilled, (state, action) => {
+      .addCase(getTeacherCourseClasses.fulfilled, (state, action) => {
         state.classesLoading = false;
-        state.upcomingClasses = action.payload.data || { today: [], upcoming: [] };
+        state.courseClasses = action.payload.data || [];
       })
-      .addCase(getTeacherUpcomingClasses.rejected, (state, action) => {
+      .addCase(getTeacherCourseClasses.rejected, (state, action) => {
         state.classesLoading = false;
         state.classesError = action.payload || action.error.message;
       });
   },
 });
 
-export const { clearError, setSelectedRecord, clearSelectedRecord } =
+export const { clearError, setSelectedRecord, clearSelectedRecord, clearClassDetail } =
   attendanceHomeworkSlice.actions;
 
 export default attendanceHomeworkSlice.reducer;

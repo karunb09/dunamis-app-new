@@ -5,7 +5,7 @@ const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
-const { registerRosterMembership, rollingRange } = require("../utils/classRoster");
+const { registerRosterMembership, rollingRange, hasSlotStarted } = require("../utils/classRoster");
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -367,6 +367,10 @@ const addStudentToSlot = async (transaction) => {
     if (roster) return true;
     throw new Error("Selected slot no longer exists");
   }
+
+  // A class that already started must not gain a just-enrolled student; the
+  // roster covers all future occurrences instead.
+  if (roster && hasSlotStarted(slot)) return true;
 
   const alreadyInSlot = (slot.students || []).some(
     (studentId) => studentId.toString() === transaction.studentId.toString()

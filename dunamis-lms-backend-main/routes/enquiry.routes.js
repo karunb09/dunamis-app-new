@@ -18,11 +18,11 @@ router.post("/create", validate(createEnquirySchema), createEnquiry);
 router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllEnquiries);
 router.get("/:id", isAuth, accessToRole(["admin", "superadmin"]), getEnquiryById);
 
-// Super Admin assigns
+// Assign
 router.put(
   "/assign/:id",
   isAuth,
-  accessToRole(["superadmin"]),
+  accessToRole(["admin", "superadmin"]),
   assignEnquiry
 );
 

@@ -8,7 +8,6 @@ import {
 } from "../../redux/Enquiry/EnquirySlice";
 import { fetchAdmins } from "../../redux/Admin/AdminSlice";
 import { FiX } from "react-icons/fi";
-import { getStoredUser } from "../../utils/authSession";
 import DataCards from "../../components/DataCards";
 import PersonCard from "../../components/cards/PersonCard";
 
@@ -50,13 +49,6 @@ const EnquiriesPage = () => {
 
     const sortRef = useRef(null);
 
-    const currentUser = getStoredUser() || {};
-    const currentAdminRoleId = currentUser.roleId;
-    const isSuperAdmin =
-        currentUser.role === 'superadmin' ||
-        currentUser.accountType === 'superadmin' ||
-        currentUser.adminDetails?.role === 'superadmin';
-
     useEffect(() => {
         dispatch(getAllEnquiries());
         dispatch(fetchAdmins());
@@ -92,11 +84,7 @@ const EnquiriesPage = () => {
         closeModal();
     };
 
-    let roleFilteredData = isSuperAdmin
-        ? enquiries
-        : enquiries.filter((enquiry) => enquiry.assignedTo?._id === currentAdminRoleId);
-
-    let filteredData = roleFilteredData.filter((item) =>
+    let filteredData = enquiries.filter((item) =>
         item.name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 

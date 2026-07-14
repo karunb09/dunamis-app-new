@@ -3,26 +3,105 @@ const asyncHandler = require("../utils/asyncHandler");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
-const Content = require("../model/content.model");
 const Slot = require("../model/slot.model");
 const mongoose = require("mongoose");
 const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
+const { buildContentTitleMaps } = require("../utils/contentTitles");
+
+const HOMEWORK_WORD_LIMIT = 500;
+
+const countWords = (text) =>
+  String(text || "").trim().split(/\s+/).filter(Boolean).length;
+
+const formatUserName = (name) =>
+  [name?.firstName, name?.lastName].filter(Boolean).join(" ") || "Student";
+
+const dayRangeOf = (value) => {
+  const start = new Date(value);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(value);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+};
+
+const formatClassDate = (value) =>
+  new Date(value).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+
+// Builds validated AttendanceHomework entries from the request body. Shared by
+// create (submit) and edit (update). Returns { entries, error } — error is a
+// { status, message } describing the first field/record that failed.
+const resolveAttendanceEntries = async ({ body, teacher, course, slot }) => {
+  const { sessionType, students, studentId } = body;
+  const overLimit = [];
+
+  const buildEntry = (student, fields) => {
+    const words = countWords(fields.homework);
+    if (words > HOMEWORK_WORD_LIMIT) {
+      overLimit.push(`${formatUserName(student.userId?.name)} (${words} words)`);
+    }
+    return {
+      teacherId: teacher._id,
+      studentId: student._id,
+      userId: student.userId?._id || student.userId,
+      slotId: slot._id,
+      sessionType,
+      courseId: course._id,
+      category: course.category,
+      subCategory: course.subCategory,
+      attendanceStatus: fields.attendanceStatus || "Present",
+      homework: fields.homework || "",
+      moduleId: fields.moduleId || null,
+      lessonId: fields.lessonId || null,
+      topicId: fields.topicId || null,
+      date: slot.date || new Date(),
+    };
+  };
+
+  let entries = [];
+  if (sessionType === "premium") {
+    if (!studentId)
+      return { error: { status: 400, message: "Select the student before submitting a premium session." } };
+    const student = await Student.findById(studentId)
+      .select("_id userId")
+      .populate("userId", "name");
+    if (!student) return { error: { status: 404, message: "Student not found." } };
+    entries.push(buildEntry(student, body));
+  } else if (sessionType === "standard") {
+    if (!students || !Array.isArray(students) || students.length === 0)
+      return { error: { status: 400, message: "Add at least one student before submitting attendance." } };
+    entries = (
+      await Promise.all(
+        students.map(async (s) => {
+          const student = await Student.findById(s.studentId)
+            .select("_id userId")
+            .populate("userId", "name");
+          return student ? buildEntry(student, s) : null;
+        })
+      )
+    ).filter(Boolean);
+  } else {
+    return { error: { status: 400, message: "Invalid session type — expected standard or premium." } };
+  }
+
+  if (overLimit.length) {
+    return {
+      error: {
+        status: 400,
+        message: `Homework for ${overLimit.join(", ")} exceeds the ${HOMEWORK_WORD_LIMIT}-word limit.`,
+      },
+    };
+  }
+
+  return { entries };
+};
 
 exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
-    const {
-      slotId,
-      sessionType,
-      courseId,
-      category,
-      subCategory,
-      students, // array (for standard)
-      studentId, // single (for premium)
-      attendanceStatus,
-      homework,
-      moduleId,
-      lessonId,
-      topicId,
-    } = req.body;
+    const { slotId, sessionType, courseId, category } = req.body;
 
     const userId = req.user.userId;
 
@@ -32,101 +111,42 @@ exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
         .status(404)
         .json({ success: false, message: "Teacher not found." });
 
-    const course = await Course.findById(courseId).select("_id name");
+    const course = await Course.findById(courseId).select(
+      "_id name category subCategory"
+    );
     if (!course)
       return res
         .status(404)
         .json({ success: false, message: "Course not found." });
 
-    let attendanceEntries = [];
-
-    if (sessionType === "premium") {
-      if (!studentId)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Student ID is required for premium session.",
-          });
-
-      const student = await Student.findById(studentId).select("_id userId");
-      if (!student)
-        return res
-          .status(404)
-          .json({ success: false, message: "Student not found." });
-
-      attendanceEntries.push({
-        teacherId: teacher._id,
-        studentId: student._id,
-        userId: student.userId,
-        slotId,
-        sessionType,
-        courseId,
-        category,
-        subCategory,
-        attendanceStatus: attendanceStatus || "Present",
-        homework: homework || "",
-        moduleId: moduleId || null,
-        lessonId: lessonId || null,
-        topicId: topicId || null,
-      });
-    } else if (sessionType === "standard") {
-      if (!students || !Array.isArray(students) || students.length === 0)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Students array is required for standard session.",
-          });
-
-      attendanceEntries = await Promise.all(
-        students.map(async (s) => {
-          const student = await Student.findById(s.studentId).select(
-            "_id userId"
-          );
-          if (!student) return null;
-
-          return {
-            teacherId: teacher._id,
-            studentId: student._id,
-            userId: student.userId,
-            slotId,
-            sessionType,
-            courseId,
-            category,
-            subCategory,
-            attendanceStatus: s.attendanceStatus || "Present",
-            homework: s.homework || "",
-            moduleId: s.moduleId || null,
-            lessonId: s.lessonId || null,
-            topicId: s.topicId || null,
-          };
-        })
-      );
-
-      attendanceEntries = attendanceEntries.filter((a) => a !== null);
-    } else {
+    const slot = await Slot.findById(slotId).select("date");
+    if (!slot)
       return res
-        .status(400)
-        .json({ success: false, message: "Invalid session type." });
-    }
+        .status(404)
+        .json({ success: false, message: "Class slot not found." });
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    const { entries: attendanceEntries, error } = await resolveAttendanceEntries({
+      body: req.body,
+      teacher,
+      course,
+      slot,
+    });
+    if (error)
+      return res.status(error.status).json({ success: false, message: error.message });
 
+    // "Date attended" is the class date, not the submission time.
+    const classDate = slot.date || new Date();
+    const classDay = dayRangeOf(classDate);
     const existing = await AttendanceHomework.findOne({
       teacherId: teacher._id,
-      courseId,
       slotId,
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
+      date: { $gte: classDay.start, $lte: classDay.end },
     });
 
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: "Attendance already recorded for this slot today.",
+        message: `Attendance already recorded for this class on ${formatClassDate(classDate)}.`,
       });
     }
 
@@ -191,6 +211,118 @@ exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
                 moduleId: attendanceEntries[0].moduleId,
               },
       },
+    });
+});
+
+// Class roster + any existing submission for a slot — prefills the slide-over
+// for both recording a new class and editing a submitted one.
+exports.getTeacherClassAttendance = asyncHandler(async (req, res) => {
+    const { slotId } = req.params;
+    const userId = req.user.userId;
+
+    const teacher = await Teacher.findOne({ userId }).select("_id");
+    if (!teacher)
+      return res.status(404).json({ success: false, message: "Teacher not found." });
+
+    const slot = await Slot.findOne({ _id: slotId, createdBy: teacher._id })
+      .populate("courseId", "name")
+      .populate({
+        path: "students",
+        select: "userId",
+        populate: { path: "userId", select: "name image" },
+      })
+      .lean();
+    if (!slot)
+      return res.status(404).json({ success: false, message: "Class not found." });
+
+    const classDay = dayRangeOf(slot.date);
+    const entries = await AttendanceHomework.find({
+      teacherId: teacher._id,
+      slotId,
+      date: { $gte: classDay.start, $lte: classDay.end },
+    }).lean();
+    const byStudent = new Map(entries.map((e) => [String(e.studentId), e]));
+
+    const students = (slot.students || []).map((s) => {
+      const entry = byStudent.get(String(s._id));
+      return {
+        _id: s._id,
+        name: formatUserName(s.userId?.name),
+        image: s.userId?.image || null,
+        attendanceStatus: entry?.attendanceStatus || null,
+        homework: entry?.homework || "",
+        moduleId: entry?.moduleId || null,
+        lessonId: entry?.lessonId || null,
+        topicId: entry?.topicId || null,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        slotId: slot._id,
+        courseId: slot.courseId?._id || slot.courseId,
+        courseName: slot.courseId?.name || "N/A",
+        date: slot.date,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        sessionType: slot.sessionType,
+        submitted: entries.length > 0,
+        students,
+      },
+    });
+});
+
+// Edit a previously recorded class — upserts each student's entry in place.
+exports.updateAttendanceHomework = asyncHandler(async (req, res) => {
+    const { slotId } = req.params;
+    const userId = req.user.userId;
+
+    const teacher = await Teacher.findOne({ userId }).select("_id");
+    if (!teacher)
+      return res.status(404).json({ success: false, message: "Teacher not found." });
+
+    const slot = await Slot.findOne({ _id: slotId, createdBy: teacher._id }).select(
+      "date courseId"
+    );
+    if (!slot)
+      return res.status(404).json({ success: false, message: "Class not found." });
+
+    const course = await Course.findById(slot.courseId).select(
+      "_id name category subCategory"
+    );
+    if (!course)
+      return res.status(404).json({ success: false, message: "Course not found." });
+
+    const { entries, error } = await resolveAttendanceEntries({
+      body: req.body,
+      teacher,
+      course,
+      slot,
+    });
+    if (error)
+      return res.status(error.status).json({ success: false, message: error.message });
+
+    const classDay = dayRangeOf(slot.date || new Date());
+    await Promise.all(
+      entries.map((entry) =>
+        AttendanceHomework.updateOne(
+          {
+            teacherId: teacher._id,
+            slotId: slot._id,
+            studentId: entry.studentId,
+            date: { $gte: classDay.start, $lte: classDay.end },
+          },
+          { $set: entry },
+          { upsert: true }
+        )
+      )
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Attendance & homework updated successfully.",
+      count: entries.length,
     });
 });
 
@@ -302,17 +434,24 @@ exports.getTeacherHomeworkHistory = asyncHandler(async (req, res) => {
       });
     }
 
+    const { moduleTitles, lessonTitles, topicTitles } =
+      await buildContentTitleMaps(history);
+
     const formattedHistory = history.map((item) => ({
       _id: item._id,
-      studentName: item.studentId?.userId?.name || "Unknown",
+      studentName: formatUserName(item.studentId?.userId?.name),
       studentProfile: item.studentId?.userId?.image || null,
       courseName: item.courseId?.name || "N/A",
       categoryName: item.category?.name || "N/A",
       categoryIcon: item.category?.icon || "N/A",
       attendanceStatus: item.attendanceStatus,
       homework: item.homework || "No homework",
+      module: moduleTitles[item.moduleId?.toString()] || "",
+      lesson: lessonTitles[item.lessonId?.toString()] || "",
+      topic: topicTitles[item.topicId?.toString()] || "",
       sessionType: item.sessionType,
       createdAt: item.createdAt,
+      date: item.date,
       slotDetails: slotMap[item.slotId?.toString()] || null,
     }));
 
@@ -399,22 +538,20 @@ exports.getTeacherPastClasses = asyncHandler(async (req, res) => {
     });
 });
 
-exports.getTeacherUpcomingClasses = asyncHandler(async (req, res) => {
+exports.getTeacherCourseClasses = asyncHandler(async (req, res) => {
     const userId = req.user.userId;
 
     const teacher = await Teacher.findOne({ userId }).select("_id");
     if (!teacher)
       return res.status(404).json({ success: false, message: "Teacher not found." });
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
     todayEnd.setHours(23, 59, 59, 999);
 
     const slots = await Slot.find({
       createdBy: teacher._id,
       slotType: "enrolled",
-      date: { $gte: todayStart },
+      date: { $lte: todayEnd },
     })
       .populate("courseId", "name")
       .populate({
@@ -422,32 +559,50 @@ exports.getTeacherUpcomingClasses = asyncHandler(async (req, res) => {
         select: "userId",
         populate: { path: "userId", select: "name image" },
       })
-      .sort({ date: 1 })
+      .sort({ date: -1 })
       .lean();
 
-    const mapSlot = (slot) => ({
-      slotId: slot._id,
-      courseId: slot.courseId?._id || slot.courseId,
-      courseName: slot.courseId?.name || "N/A",
-      date: slot.date,
-      startTime: slot.startTime,
-      endTime: slot.endTime,
-      sessionType: slot.sessionType,
-      studentCount: slot.students?.length || 0,
-      students: (slot.students || []).map((s) => ({
-        _id: s._id,
-        name: s.userId?.name || "Student",
-        image: s.userId?.image || null,
-      })),
-    });
+    // Latest (today's or most recent past) class per course.
+    const latestByCourse = new Map();
+    for (const slot of slots) {
+      const courseId = (slot.courseId?._id || slot.courseId)?.toString();
+      if (!courseId || latestByCourse.has(courseId)) continue;
+      latestByCourse.set(courseId, slot);
+    }
 
-    const today = slots.filter((s) => s.date <= todayEnd).map(mapSlot);
-    const upcoming = slots.filter((s) => s.date > todayEnd).map(mapSlot);
+    const data = await Promise.all(
+      [...latestByCourse.entries()].map(async ([courseId, slot]) => {
+        const classDay = dayRangeOf(slot.date);
+        const submitted = await AttendanceHomework.exists({
+          teacherId: teacher._id,
+          slotId: slot._id,
+          date: { $gte: classDay.start, $lte: classDay.end },
+        });
 
-    return res.status(200).json({
-      success: true,
-      data: { today, upcoming },
-    });
+        return {
+          courseId,
+          courseName: slot.courseId?.name || "N/A",
+          latestClass: {
+            slotId: slot._id,
+            date: slot.date,
+            startTime: slot.startTime,
+            endTime: slot.endTime,
+            sessionType: slot.sessionType,
+            studentCount: slot.students?.length || 0,
+            students: (slot.students || []).map((s) => ({
+              _id: s._id,
+              name: formatUserName(s.userId?.name),
+              image: s.userId?.image || null,
+            })),
+            submitted: Boolean(submitted),
+          },
+        };
+      })
+    );
+
+    data.sort((a, b) => new Date(b.latestClass.date) - new Date(a.latestClass.date));
+
+    return res.status(200).json({ success: true, count: data.length, data });
 });
 
 exports.getStudentHomeworkDashboard = asyncHandler(async (req, res) => {
@@ -486,43 +641,22 @@ exports.getStudentHomeworkDashboard = asyncHandler(async (req, res) => {
       });
     }
 
-    const contentDocs = await Content.find({}, "modules").lean();
+    const { moduleTitles, lessonTitles, topicTitles } =
+      await buildContentTitleMaps(homeworkList);
 
-    const formatted = homeworkList.map((hw) => {
-      let moduleTitle = "";
-      let lessonTitle = "";
-      let topicTitle = "";
-
-      for (const content of contentDocs) {
-        for (const module of content.modules || []) {
-          if (module._id.toString() === hw.moduleId?.toString()) {
-            moduleTitle = module.title;
-            for (const lesson of module.lessons || []) {
-              if (lesson._id.toString() === hw.lessonId?.toString()) {
-                lessonTitle = lesson.title;
-                for (const topic of lesson.topics || []) {
-                  if (topic._id.toString() === hw.topicId?.toString()) {
-                    topicTitle = topic.title;
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      return {
-        _id: hw._id,
-        courseName: hw.courseId?.name || "",
-        categoryName: hw.category?.name || "",
-        subCategoryName: hw.subCategory?.name || "",
-        homework: hw.homework || "No homework assigned",
-        lesson: lessonTitle || "",
-        topic: topicTitle || "",
-        module: moduleTitle || "",
-        date: hw.date,
-      };
-    });
+    const formatted = homeworkList.map((hw) => ({
+      _id: hw._id,
+      courseName: hw.courseId?.name || "",
+      categoryName: hw.category?.name || "",
+      subCategoryName: hw.subCategory?.name || "",
+      homework: hw.homework || "No homework assigned",
+      attendanceStatus: hw.attendanceStatus,
+      sessionType: hw.sessionType,
+      lesson: lessonTitles[hw.lessonId?.toString()] || "",
+      topic: topicTitles[hw.topicId?.toString()] || "",
+      module: moduleTitles[hw.moduleId?.toString()] || "",
+      date: hw.date,
+    }));
 
     res.status(200).json({
       success: true,
@@ -531,48 +665,3 @@ exports.getStudentHomeworkDashboard = asyncHandler(async (req, res) => {
     });
 });
 
-exports.getStudentAttendance = asyncHandler(async (req, res) => {
-    const userId = req.user?.userId;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "User ID missing from token. Please log in again.",
-      });
-    }
-
-    const student = await Student.findOne({ userId }).select("_id");
-    if (!student) {
-      return res.status(404).json({
-        success: false,
-        message: "Student not found.",
-      });
-    }
-
-    const records = await AttendanceHomework.find({ studentId: student._id })
-      .populate("courseId", "name")
-      .populate("category", "name icon")
-      .sort({ date: -1 })
-      .lean();
-
-    const attendance = records.map((item) => ({
-      _id: item._id,
-      courseName: item.courseId?.name || "N/A",
-      categoryName: item.category?.name || "N/A",
-      attendanceStatus: item.attendanceStatus,
-      sessionType: item.sessionType,
-      date: item.date,
-    }));
-
-    const total = attendance.length;
-    const present = attendance.filter((a) => a.attendanceStatus === "Present").length;
-    const absent = total - present;
-    const attendanceRate = total ? Math.round((present / total) * 100) : 0;
-
-    res.status(200).json({
-      success: true,
-      count: total,
-      summary: { total, present, absent, attendanceRate },
-      data: attendance,
-    });
-});
