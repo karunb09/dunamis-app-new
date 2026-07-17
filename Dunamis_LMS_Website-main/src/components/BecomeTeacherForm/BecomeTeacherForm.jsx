@@ -11,6 +11,7 @@ import Step1Personal from "./Step1Personal";
 import Step2Contact from "./Step2Contact";
 import Step3Professional from "./Step3Professional";
 import Step4Preferences from "./Step4Preferences";
+import { formatFileSize } from "./FormFields";
 
 const getTodayDateString = () => {
     const today = new Date();
@@ -65,8 +66,16 @@ export default function MultiStepForm() {
         error: submitError,
         errorDetails,
         uploadProgress,
+        fileProgress,
     } =
         useSelector((state) => state.application);
+
+    const uploadItems = [
+        { key: "profilePicture", label: "Profile Picture", file: profilePicture },
+        { key: "cv", label: "CV", file: cv },
+        { key: "profileVideo", label: "Profile Video", file: profileVideo },
+        { key: "relevantCertificate", label: "Relevant Certificate", file: relevantCertificate },
+    ].filter((item) => item.file);
 
     // toast alerts
     useEffect(() => {
@@ -287,18 +296,56 @@ export default function MultiStepForm() {
                 {steps[step - 1]}
 
                 {isSubmitting ? (
-                    <div className="mt-6">
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
-                            <div
-                                className="h-full bg-orange-500 transition-all duration-200"
-                                style={{ width: `${uploadProgress}%` }}
-                            />
+                    <div className="mt-6 space-y-4">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {uploadItems.map(({ key, label, file }) => {
+                                const pct = fileProgress[key] ?? 0;
+                                const done = pct === 100;
+                                return (
+                                    <div
+                                        key={key}
+                                        className="rounded-2xl border border-gray-100 bg-gray-50 p-3"
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-gray-700">
+                                                    {label}
+                                                </p>
+                                                <p className="truncate text-xs text-gray-500">
+                                                    {file.name} · {formatFileSize(file.size)}
+                                                </p>
+                                            </div>
+                                            <span
+                                                className={`shrink-0 text-xs font-semibold ${done ? "text-green-600" : "text-orange-600"
+                                                    }`}
+                                            >
+                                                {done ? "Done ✓" : `${pct}%`}
+                                            </span>
+                                        </div>
+                                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                                            <div
+                                                className={`h-full transition-all duration-200 ${done ? "bg-green-500" : "bg-orange-500"
+                                                    }`}
+                                                style={{ width: `${pct}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <p className="mt-1 text-center text-sm text-gray-500">
-                            {uploadProgress < 100
-                                ? `Uploading… ${uploadProgress}% (large video files may take a few minutes)`
-                                : "Finishing up…"}
-                        </p>
+                        <div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                                <div
+                                    className="h-full bg-orange-500 transition-all duration-200"
+                                    style={{ width: `${uploadProgress}%` }}
+                                />
+                            </div>
+                            <p className="mt-1 text-center text-sm text-gray-500">
+                                {uploadProgress < 100
+                                    ? `Uploading… ${uploadProgress}% (large video files may take a few minutes)`
+                                    : "Finishing up…"}
+                            </p>
+                        </div>
                     </div>
                 ) : null}
 
