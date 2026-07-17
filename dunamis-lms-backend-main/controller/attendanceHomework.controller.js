@@ -504,6 +504,7 @@ exports.getTeacherPastClasses = asyncHandler(async (req, res) => {
       createdBy: teacher._id,
       slotType: "enrolled",
       date: { $lt: todayStart },
+      "students.0": { $exists: true },
       ...courseFilter,
     });
 
@@ -511,6 +512,7 @@ exports.getTeacherPastClasses = asyncHandler(async (req, res) => {
       createdBy: teacher._id,
       slotType: "enrolled",
       date: { $lt: todayStart },
+      "students.0": { $exists: true },
       ...courseFilter,
     })
       .populate("courseId", "name")

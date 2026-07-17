@@ -121,18 +121,19 @@ const CoverageStatusBadge = ({ status }) => {
   );
 };
 
-// ─── class section card (pending tab) ────────────────────────────────────────
+// ─── course card (pending tab) ────────────────────────────────────────────────
 
 const formatDays = (days) =>
   (Array.isArray(days) ? days : [])
     .map((d) => (typeof d === "string" ? d.charAt(0).toUpperCase() + d.slice(1, 3) : d))
     .join("/");
 
-const CourseClassCard = ({ course, onTakeAttendance }) => {
-  const cls = course.latestClass;
-  const scheduleLabel = [formatDays(course.recurringDays), formatTime(course.startTime)]
-    .filter(Boolean)
-    .join(" · ");
+const CourseAttendanceCard = ({ group, onOpen }) => {
+  const held = group.sections.filter((s) => s.latestClass);
+  const pending = held.filter((s) => !s.latestClass.submitted);
+  const totalStudents = group.sections.reduce((sum, s) => sum + (s.studentCount || 0), 0);
+  const lastDate = held[0]?.latestClass?.date;
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -140,47 +141,43 @@ const CourseClassCard = ({ course, onTakeAttendance }) => {
           <HiOutlineCalendar className="h-5 w-5 text-orange-500" />
         </div>
         <div className="min-w-0">
-          <p className="truncate font-semibold text-gray-900">{course.courseName}</p>
-          <p className="mt-0.5 text-xs text-gray-500">{scheduleLabel || "Class"}</p>
+          <p className="truncate font-semibold text-gray-900">{group.courseName}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {group.sections.length} class timing{group.sections.length !== 1 ? "s" : ""}
+          </p>
         </div>
-        {cls?.submitted && (
-          <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
-            Submitted
-          </span>
-        )}
+        {held.length > 0 &&
+          (pending.length > 0 ? (
+            <span className="ml-auto shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+              {pending.length} pending
+            </span>
+          ) : (
+            <span className="ml-auto shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+              All caught up
+            </span>
+          ))}
       </div>
       <div className="flex flex-wrap gap-3 text-xs text-gray-500">
         <span className="flex items-center gap-1">
           <HiOutlineClock className="h-3.5 w-3.5" />
-          {cls ? `Last class · ${formatDate(cls.date)}` : "No class held yet"}
+          {lastDate ? `Last class · ${formatDate(lastDate)}` : "No class held yet"}
         </span>
         <span className="flex items-center gap-1">
           <HiOutlineUsers className="h-3.5 w-3.5" />
-          {course.studentCount} student{course.studentCount !== 1 ? "s" : ""}
+          {totalStudents} student{totalStudents !== 1 ? "s" : ""}
         </span>
-        <span className="capitalize">{course.sessionType}</span>
       </div>
-      {cls ? (
+      {held.length > 0 ? (
         <button
           type="button"
-          onClick={() =>
-            onTakeAttendance({
-              slotId: cls.slotId,
-              courseId: course.courseId,
-              courseName: course.courseName,
-              sessionType: course.sessionType,
-              date: cls.date,
-              startTime: cls.startTime,
-              endTime: cls.endTime,
-            })
-          }
+          onClick={() => onOpen(group)}
           className={`mt-1 w-full rounded-full px-4 py-2 text-xs font-medium transition ${
-            cls.submitted
-              ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
-              : "bg-gray-900 text-white hover:bg-gray-700"
+            pending.length > 0
+              ? "bg-gray-900 text-white hover:bg-gray-700"
+              : "border border-gray-300 text-gray-700 hover:bg-gray-50"
           }`}
         >
-          {cls.submitted ? "Edit Attendance" : "Take Attendance"}
+          {pending.length > 0 ? "Record Attendance" : "View / Edit Attendance"}
         </button>
       ) : (
         <p className="mt-1 rounded-full border border-dashed border-gray-200 px-4 py-2 text-center text-xs text-gray-400">
@@ -195,13 +192,35 @@ const CourseClassCard = ({ course, onTakeAttendance }) => {
 
 const ATTENDANCE_STATUS = ["Present", "Absent"];
 
-const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
+const sectionKey = (section) =>
+  String(section?.parentAvailabilityId || section?.latestClass?.slotId || "");
+
+const AttendanceSlideOver = ({ course, onClose, onSuccess }) => {
   const dispatch = useDispatch();
   const { submitLoading, submitError, classDetail, classDetailLoading, classDetailError } =
     useSelector((state) => state.attendanceHomework || {});
 
+  const sections = course.sections || [];
+  const recordable = sections.filter((s) => s.latestClass);
+  // Default to the class the teacher most likely just finished: the most
+  // recent timing that still lacks a submission, else the most recent one.
+  const [activeKey, setActiveKey] = useState(() =>
+    sectionKey(recordable.find((s) => !s.latestClass.submitted) || recordable[0])
+  );
+  const section = sections.find((s) => sectionKey(s) === activeKey) || null;
+  const cls = section?.latestClass || null;
+  const slot = {
+    slotId: cls?.slotId,
+    courseId: course.courseId,
+    courseName: course.courseName,
+    sessionType: section?.sessionType,
+    date: cls?.date,
+    startTime: cls?.startTime,
+    endTime: cls?.endTime,
+  };
+
   const { data: courseDetails, isError: contentFailed } = useCourseDetailsQuery(
-    slot.courseId
+    course.courseId
   );
 
   // Flatten course content into select groups; value encodes the id path so a
@@ -264,6 +283,12 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
   const isEdit = Boolean(classDetail?.submitted);
   const [studentAttendance, setStudentAttendance] = useState([]);
   const dirtyRef = useRef(false);
+
+  const switchSection = (key) => {
+    setActiveKey(key);
+    dirtyRef.current = false;
+    setStudentAttendance([]);
+  };
 
   // Load the authoritative roster + any existing submission for this class.
   useEffect(() => {
@@ -402,18 +427,45 @@ const AttendanceSlideOver = ({ slot, onClose, onSuccess }) => {
       {/* panel */}
       <div className="relative z-10 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
         {/* header */}
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">
-              {isEdit ? "Edit Attendance" : "Take Attendance"}
-            </h2>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {slot.courseName} · {formatDate(slot.date)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
-            </p>
+        <div className="border-b px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">
+                {isEdit ? "Edit Attendance" : "Take Attendance"}
+              </h2>
+              <p className="mt-0.5 text-xs text-gray-500">{course.courseName}</p>
+            </div>
+            <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100">
+              <IoClose className="h-5 w-5 text-gray-600" />
+            </button>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100">
-            <IoClose className="h-5 w-5 text-gray-600" />
-          </button>
+          {sections.length > 1 ? (
+            <div className="mt-3">
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                Class timing
+              </label>
+              <select
+                value={activeKey}
+                onChange={(e) => switchSection(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-xs text-gray-700 outline-none focus:border-orange-400"
+              >
+                {sections.map((s) => (
+                  <option key={sectionKey(s)} value={sectionKey(s)} disabled={!s.latestClass}>
+                    {[formatDays(s.recurringDays), `${formatTime(s.startTime)} – ${formatTime(s.endTime)}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    {s.latestClass
+                      ? ` · ${formatDate(s.latestClass.date)} · ${s.latestClass.submitted ? "Submitted" : "Pending"}`
+                      : " · No class yet"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500">
+              {formatDate(slot.date)} · {formatTime(slot.startTime)} – {formatTime(slot.endTime)}
+            </p>
+          )}
         </div>
 
         {/* student list */}
@@ -581,7 +633,7 @@ const Attendance = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [historyView, setHistoryView] = useState("records");
   const [search, setSearch] = useState("");
-  const [attendanceSlot, setAttendanceSlot] = useState(null);
+  const [attendanceCourse, setAttendanceCourse] = useState(null);
 
   // Fetch data lazily per tab
   useEffect(() => {
@@ -642,8 +694,25 @@ const Attendance = () => {
 
   const homeworkRows = filteredRows.filter((row) => row?.homework);
 
+  // One card per course; its class timings (sections) feed the slide-over dropdown.
+  const courseGroups = useMemo(() => {
+    const map = new Map();
+    for (const section of courseClasses) {
+      const key = String(section.courseId);
+      if (!map.has(key)) {
+        map.set(key, {
+          courseId: section.courseId,
+          courseName: section.courseName,
+          sections: [],
+        });
+      }
+      map.get(key).sections.push(section);
+    }
+    return Array.from(map.values());
+  }, [courseClasses]);
+
   const handleAttendanceSuccess = () => {
-    setAttendanceSlot(null);
+    setAttendanceCourse(null);
     if (activeTab === "pending") dispatch(getTeacherCourseClasses());
     else if (activeTab === "history" && historyView === "classes") dispatch(getTeacherPastClasses());
     else if (activeTab === "history") dispatch(getTeacherHomeworkHistory());
@@ -709,7 +778,7 @@ const Attendance = () => {
         <div>
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm text-gray-500">
-              {courseClasses.length} class{courseClasses.length !== 1 ? "es" : ""} · select one to record its last session
+              {courseGroups.length} course{courseGroups.length !== 1 ? "s" : ""} · pick a course, then choose the class timing
             </span>
             <button
               type="button"
@@ -740,11 +809,11 @@ const Attendance = () => {
             />
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {courseClasses.map((course) => (
-                <CourseClassCard
-                  key={course.parentAvailabilityId}
-                  course={course}
-                  onTakeAttendance={setAttendanceSlot}
+              {courseGroups.map((group) => (
+                <CourseAttendanceCard
+                  key={group.courseId}
+                  group={group}
+                  onOpen={setAttendanceCourse}
                 />
               ))}
             </div>
@@ -894,7 +963,26 @@ const Attendance = () => {
                           <td className="px-3 py-2">
                             <button
                               type="button"
-                              onClick={() => setAttendanceSlot(cls)}
+                              onClick={() =>
+                                setAttendanceCourse({
+                                  courseId: cls.courseId,
+                                  courseName: cls.courseName,
+                                  sections: [
+                                    {
+                                      startTime: cls.startTime,
+                                      endTime: cls.endTime,
+                                      sessionType: cls.sessionType,
+                                      latestClass: {
+                                        slotId: cls.slotId,
+                                        date: cls.date,
+                                        startTime: cls.startTime,
+                                        endTime: cls.endTime,
+                                        submitted: recorded,
+                                      },
+                                    },
+                                  ],
+                                })
+                              }
                               className="rounded-full border border-gray-300 px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                             >
                               {recorded ? "Edit" : "Record"}
@@ -957,10 +1045,10 @@ const Attendance = () => {
       )}
 
       {/* Attendance Slide-over */}
-      {attendanceSlot && (
+      {attendanceCourse && (
         <AttendanceSlideOver
-          slot={attendanceSlot}
-          onClose={() => setAttendanceSlot(null)}
+          course={attendanceCourse}
+          onClose={() => setAttendanceCourse(null)}
           onSuccess={handleAttendanceSuccess}
         />
       )}
