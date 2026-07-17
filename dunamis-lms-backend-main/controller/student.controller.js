@@ -225,6 +225,7 @@ exports.getStudentById = asyncHandler(async (req, res) => {
         },
       })
       .populate("payments.courseId", "name code")
+      .populate("payments.transactionRef", "discountAmount originalAmount referralCode")
       .populate({
         path: "demoCourse",
         populate: {
@@ -458,14 +459,29 @@ exports.searchStudents = asyncHandler(async (req, res) => {
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(escaped, "i");
 
+    const or = [
+      { "name.firstName": regex },
+      { "name.lastName": regex },
+      { email: regex },
+    ];
+
+    const digits = q.replace(/\D/g, "");
+    if (digits) {
+      // mobileNo is a Number (double) — $toString alone yields scientific notation
+      const suffix = digits.length > 10 ? digits.slice(-10) : digits;
+      or.push({
+        $expr: {
+          $regexMatch: {
+            input: { $toString: { $convert: { input: "$mobileNo", to: "long", onError: 0, onNull: 0 } } },
+            regex: suffix,
+          },
+        },
+      });
+    }
+
     const matchingUsers = await User.find({
       accountType: "student",
-      $or: [
-        { "name.firstName": regex },
-        { "name.lastName": regex },
-        { email: regex },
-        { mobileNo: regex },
-      ],
+      $or: or,
     })
       .select("_id name email mobileNo")
       .limit(20)

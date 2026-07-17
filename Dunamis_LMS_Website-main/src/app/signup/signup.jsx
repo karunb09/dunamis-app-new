@@ -44,36 +44,43 @@ export default function PersonalInfoPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row bg-white p-20">
-      {/* Left Section - Form */}
-      <SignUpForm />
+    <div className="min-h-screen bg-[#fffaf4] px-4 py-10 md:px-10 md:py-16">
+      <div className="mx-auto flex w-full max-w-5xl overflow-hidden rounded-[32px] border border-orange-100/80 bg-white shadow-[0_48px_140px_-70px_rgba(249,115,22,0.5)]">
+        {/* Left Section - Form */}
+        <SignUpForm />
 
-      {/* Right Section - Carousel */}
-      <div className="hidden md:flex flex-1 bg-gray-50 items-center justify-center px-10 relative overflow-hidden">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.img
-            key={currentIndex}
-            src={images[currentIndex]}
-            alt="Signup illustration"
-            variants={variants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            custom={direction}
-            className="max-w-xs"
-          />
-        </AnimatePresence>
+        {/* Right Section - Carousel */}
+        <div className="relative hidden flex-1 items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff1e8] via-[#fffaf4] to-[#e9fbfa] px-10 md:flex">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-orange-200/50 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-12 h-72 w-72 rounded-full bg-[#47c9c4]/20 blur-3xl" />
 
-        {/* Dots */}
-        <div className="absolute bottom-6 flex gap-2">
-          {images.map((_, i) => (
-            <span
-              key={i}
-              className={`w-2.5 h-2.5 rounded-full transition ${
-                currentIndex === i ? "bg-orange-500 scale-110" : "bg-gray-300"
-              }`}
-            />
-          ))}
+          <div className="relative h-80 w-full max-w-xs">
+            <AnimatePresence mode="wait" custom={direction}>
+              <motion.img
+                key={currentIndex}
+                src={images[currentIndex]}
+                alt="Signup illustration"
+                variants={variants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                custom={direction}
+                className="absolute inset-0 h-full w-full object-contain drop-shadow-xl"
+              />
+            </AnimatePresence>
+          </div>
+
+          {/* Dots */}
+          <div className="absolute bottom-8 flex gap-2">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`h-2.5 rounded-full transition-all duration-300 ${
+                  currentIndex === i ? "w-7 bg-orange-500" : "w-2.5 bg-orange-200"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from "react-icons/hi";
 import { login, logoutSession } from "@/store/authSlice";
+import FloatingInput from "@/components/FloatingInput";
 import {
   getPortalForAccountType,
   getPortalLabel,
@@ -106,13 +107,6 @@ export default function LoginPageClient() {
               assignments, and learning progress.
             </p>
           </div>
-          <div className="relative z-10 rounded-[2rem] border border-white/20 bg-white/10 p-5 backdrop-blur-sm">
-            <p className="text-sm font-semibold">Migration status</p>
-            <p className="mt-2 text-sm leading-6 text-white/80">
-              Instructors and admins use the staff dashboard linked from the
-              footer and onboarding emails.
-            </p>
-          </div>
           <div className="absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-white/15 blur-3xl" />
           <div className="absolute left-10 top-32 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
         </section>
@@ -129,57 +123,48 @@ export default function LoginPageClient() {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-slate-700">Email address</label>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
-                  <HiMail className="h-5 w-5" />
-                </span>
-                <input
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  className="w-full rounded-full border border-stone-200 bg-white px-12 py-3 text-slate-950 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                  placeholder="you@example.com"
-                />
-              </div>
-            </div>
+            <FloatingInput
+              id="login-email"
+              label="Email address"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              icon={<HiMail className="h-5 w-5" />}
+            />
 
             <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-sm font-semibold text-slate-700">Password</label>
+              <FloatingInput
+                id="login-password"
+                label="Password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                icon={<HiLockClosed className="h-5 w-5" />}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    tabIndex={-1}
+                    className="absolute inset-y-0 right-4 z-10 flex items-center text-slate-400 transition hover:text-slate-600"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+                  </button>
+                }
+              />
+              <div className="mt-2 text-right">
                 <Link href="/forgot-password" className="text-sm font-medium text-orange-600 hover:text-orange-700">
                   Forgot password?
                 </Link>
-              </div>
-              <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-4 flex items-center text-slate-400">
-                  <HiLockClosed className="h-5 w-5" />
-                </span>
-                <input
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  autoComplete="current-password"
-                  className="w-full rounded-full border border-stone-200 bg-white px-12 py-3 pr-14 text-slate-950 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
-                  placeholder="Password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((current) => !current)}
-                  className="absolute inset-y-0 right-4 flex items-center text-slate-400 transition hover:text-slate-600"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
-                </button>
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-lg shadow-orange-600/20 transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:bg-orange-400"
+              className="w-full rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading ? "Signing in..." : "Sign in as Student"}
             </button>

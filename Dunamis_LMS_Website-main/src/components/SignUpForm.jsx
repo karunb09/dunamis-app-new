@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { HiArrowLeft, HiCheckCircle } from "react-icons/hi";
+import { HiArrowLeft, HiCheckCircle, HiEye, HiEyeOff } from "react-icons/hi";
 import { useDispatch, useSelector } from "react-redux";
 import { sendOtp, createStudent, setStep } from "../store/signupSlice";
 import { Country } from "country-state-city";
 import * as Select from "@radix-ui/react-select";
 import { IoMdArrowDropdown } from "react-icons/io";
 import LoginModal from "@/components/PopupModals/LoginModal";
+import FloatingInput from "@/components/FloatingInput";
 import {
   clearEnrollmentResume,
   readEnrollmentResume,
@@ -126,7 +127,7 @@ const StudentTermsModal = ({
       aria-modal="true"
       aria-labelledby="student-terms-title"
     >
-      <div className="my-auto w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-2xl">
+      <div className="my-auto w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
         <div className="flex items-start justify-between border-b border-gray-200 px-5 py-4">
           <div>
             <h3 id="student-terms-title" className="text-xl font-semibold text-gray-900">
@@ -176,7 +177,7 @@ const StudentTermsModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+              className="rounded-2xl border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
             >
               Cancel
             </button>
@@ -184,10 +185,10 @@ const StudentTermsModal = ({
               type="button"
               onClick={onAgree}
               disabled={!hasReadTerms}
-              className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+              className={`rounded-2xl px-5 py-2 text-sm font-semibold transition ${
                 hasReadTerms
-                  ? "bg-orange-400 text-white hover:bg-orange-500"
-                  : "cursor-not-allowed bg-gray-200 text-gray-500"
+                  ? "bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] text-white shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30"
+                  : "cursor-not-allowed bg-slate-200 text-slate-400"
               }`}
             >
               I Agree
@@ -220,6 +221,8 @@ export default function SignUpForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // OTP State
   const [otp, setOtp] = useState("");
@@ -252,18 +255,39 @@ export default function SignUpForm() {
   const handleContinueStep1 = (e) => {
     e.preventDefault();
 
-    if (!firstName.trim() || !lastName.trim() || !mobile.trim()) {
+    const first = firstName.trim();
+    const last = lastName.trim();
+
+    if (!first || !last || !mobile.trim()) {
       toast.error("Please fill out all fields");
       return;
     }
 
-    const fullNumber = countryCode + mobile;
+    const nameRegex = /^[A-Za-z][A-Za-z\s.'-]*$/;
+    if (first.length < 3) {
+      toast.error("First name must be at least 3 characters");
+      return;
+    }
+    if (!nameRegex.test(first)) {
+      toast.error("First name can only contain letters");
+      return;
+    }
+    if (last.length < 3) {
+      toast.error("Last name must be at least 3 characters");
+      return;
+    }
+    if (!nameRegex.test(last)) {
+      toast.error("Last name can only contain letters");
+      return;
+    }
 
-    const phoneRegex = /^\+[1-9]\d{7,14}$/;
-    if (!phoneRegex.test(fullNumber)) {
-      toast.error(
-        "Please enter a valid mobile number with country code (e.g. +91 9876543210)"
-      );
+    if (countryCode === "+91") {
+      if (!/^[6-9]\d{9}$/.test(mobile)) {
+        toast.error("Please enter a valid 10-digit mobile number (starting with 6-9)");
+        return;
+      }
+    } else if (mobile.length < 6 || mobile.length > 10) {
+      toast.error("Mobile number must be 6 to 10 digits");
       return;
     }
 
@@ -288,6 +312,10 @@ export default function SignUpForm() {
     }
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      toast.error("Password must contain at least one letter and one number");
       return;
     }
     if (password !== confirmPassword) {
@@ -365,7 +393,7 @@ export default function SignUpForm() {
   };
 
   return (
-    <div className="w-[600px] mx-auto flex flex-col justify-center px-6 md:px-10 py-8 rounded-xl shadow-md bg-white">
+    <div className="relative mx-auto flex w-full max-w-xl flex-1 flex-col justify-center bg-white px-5 py-8 sm:px-8 sm:py-10 md:px-12 md:py-14">
       {/* Back Button */}
       <div
         onClick={
@@ -375,31 +403,48 @@ export default function SignUpForm() {
               ? () => router.back()
               : () => dispatch(setStep(step - 1))
         }
-        className={`mb-6 flex items-center text-sm transition ${
+        className={`mb-8 inline-flex w-fit items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition ${
           isStep2Busy
-            ? "cursor-not-allowed text-gray-300"
-            : "cursor-pointer text-gray-500 hover:text-gray-700"
+            ? "cursor-not-allowed border-slate-100 text-slate-300"
+            : "cursor-pointer border-slate-200 text-slate-500 hover:border-orange-200 hover:bg-orange-50/50 hover:text-slate-800"
         }`}
       >
-        <HiArrowLeft className="mr-1" />
+        <HiArrowLeft />
         <span>Back</span>
       </div>
 
       {/* Step Progress */}
-      <div className="flex items-center justify-center gap-4 mb-10 max-w-md mx-auto">
-        {[1, 2, 3].map((s) => (
-          <div key={s} className="flex items-center">
-            <div
-              className={`w-8 h-8 flex items-center justify-center rounded-full font-semibold ${
-                step >= s ? "bg-orange-400 text-white" : "bg-gray-200 text-gray-600"
-              }`}
-            >
-              {s}
-            </div>
-            {s < 3 && (
+      <div className="mx-auto mb-10 flex items-center justify-center gap-2">
+        {[
+          { n: 1, label: "Profile" },
+          { n: 2, label: "Account" },
+          { n: 3, label: "Done" },
+        ].map(({ n, label }, i) => (
+          <div key={n} className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`w-16 h-1 ${
-                  step >= s + 1 ? "bg-orange-400" : "bg-gray-200"
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
+                  step > n
+                    ? "bg-gradient-to-br from-[#FF6B35] to-[#fd5a1f] text-white shadow-lg shadow-orange-500/25"
+                    : step === n
+                      ? "bg-gradient-to-br from-[#FF6B35] to-[#fd5a1f] text-white shadow-lg shadow-orange-500/25 ring-4 ring-orange-100"
+                      : "bg-orange-50 text-orange-300"
+                }`}
+              >
+                {step > n ? "✓" : n}
+              </div>
+              <span
+                className={`text-[11px] font-medium ${
+                  step >= n ? "text-slate-700" : "text-slate-400"
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+            {i < 2 && (
+              <div
+                className={`mb-5 h-[3px] w-8 rounded-full sm:w-12 ${
+                  step >= n + 1 ? "bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f]" : "bg-orange-100"
                 }`}
               />
             )}
@@ -410,92 +455,102 @@ export default function SignUpForm() {
       {/* Step 1 */}
       {step === 1 && (
         <form
-          className="space-y-4 w-full md:w-3/4 mx-auto"
+          className="mx-auto w-full space-y-5 md:w-[85%]"
           onSubmit={handleContinueStep1}
         >
-          <h2 className="text-2xl text-center font-bold mb-1">
-            Personal Information
-          </h2>
-          <p className="text-center text-gray-600 text-sm mb-6">
-            Let's start with your basic details
-          </p>
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+              Create your account
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">
+              Personal Information
+            </h2>
+            <p className="mt-2 mb-8 text-sm text-slate-500">
+              Let's start with your basic details
+            </p>
+          </div>
 
-          <input
+          <FloatingInput
+            id="signup-first-name"
+            label="First name"
             type="text"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
-            placeholder="Enter your first name"
             required
-            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            maxLength={30}
           />
-          <input
+
+          <FloatingInput
+            id="signup-last-name"
+            label="Last name"
             type="text"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
-            placeholder="Enter your last name"
             required
-            className="w-full border border-gray-200 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+            maxLength={30}
           />
-          <div className="flex items-center gap-2 w-full">
+
+          <div className="flex w-full items-center gap-2">
             {/* Country Code Select */}
             <div className="relative w-1/4">
               <Select.Root
-              value={countryCode}
-              onValueChange={(val) => setCountryCode(val.split("-")[0])} // +61
-            >
-
+                value={countryCode}
+                onValueChange={(val) => setCountryCode(val.split("-")[0])}
+              >
                 <Select.Trigger
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-700 text-sm flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-3 py-[17px] text-sm text-slate-700 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
                   aria-label="Country Code"
                 >
-                  <span className="truncate">{countryCode}</span>
-                  <IoMdArrowDropdown className="text-gray-500 ml-1 flex-shrink-0" />
-                </Select.Trigger>
+                    <span className="truncate">{countryCode}</span>
+                    <IoMdArrowDropdown className="ml-1 flex-shrink-0 text-slate-400" />
+                  </Select.Trigger>
 
-                <Select.Portal>
-                  <Select.Content
-                    className="z-50 bg-white rounded-lg shadow-lg border border-gray-200 mb-1 max-h-48 overflow-y-auto"
-                    position="popper"
-                    side="bottom"
-                    align="center"
-                  >
-                    <Select.Viewport className="p-1">
-                     {Country.getAllCountries().map((country) => (
-                    <Select.Item
-                      key={country.isoCode} // unique key
-                      value={`+${country.phonecode}-${country.isoCode}`} // unique value for Select
-                      className="cursor-pointer select-none px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-orange-100 flex items-center justify-between"
+                  <Select.Portal>
+                    <Select.Content
+                      className="z-50 mb-1 max-h-48 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-xl"
+                      position="popper"
+                      side="bottom"
+                      align="center"
                     >
-                      <Select.ItemText>
-                        +{country.phonecode} {country.name}
-                      </Select.ItemText>
-                    </Select.Item>
-                  ))}
-
-                    </Select.Viewport>
-                  </Select.Content>
-                </Select.Portal>
+                      <Select.Viewport className="p-1.5">
+                        {Country.getAllCountries().map((country) => (
+                          <Select.Item
+                            key={country.isoCode}
+                            value={`+${country.phonecode}-${country.isoCode}`}
+                            className="flex cursor-pointer select-none items-center justify-between rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-orange-50"
+                          >
+                            <Select.ItemText>
+                              +{country.phonecode} {country.name}
+                            </Select.ItemText>
+                          </Select.Item>
+                        ))}
+                      </Select.Viewport>
+                    </Select.Content>
+                  </Select.Portal>
               </Select.Root>
             </div>
 
             {/* Mobile Number Input */}
-            <input
+            <FloatingInput
+              id="signup-mobile"
+              label="Mobile number"
               type="tel"
+              className="w-3/4"
               value={mobile}
               onChange={(e) => {
-                const value = e.target.value.replace(/\D/g, "");
+                const value = e.target.value.replace(/\D/g, "").slice(0, 10);
                 setMobile(value);
               }}
-              placeholder="Enter mobile number"
               required
-              className="w-3/4 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              maxLength={10}
+              inputMode="numeric"
             />
           </div>
 
-          <div className="text-center pt-4">
+          <div className="pt-4">
             <button
               type="submit"
-              className="bg-orange-400 hover:bg-orange-500 text-white font-medium px-6 py-2 rounded-2xl transition"
+              className="w-full rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105"
             >
               Continue
             </button>
@@ -505,7 +560,7 @@ export default function SignUpForm() {
 
       {/* Step 2 */}
       {step === 2 && (
-        <div className="relative mx-auto w-full md:w-1/2">
+        <div className="relative mx-auto w-full md:w-[85%]">
           {isStep2Busy && (
             <StepBlockingLoader
               title={isOtpLoading ? "Sending your OTP" : "Creating your account"}
@@ -518,23 +573,28 @@ export default function SignUpForm() {
           )}
 
           <form
-            className={`space-y-4 ${isStep2Busy ? "pointer-events-none select-none" : ""}`}
+            className={`space-y-5 ${isStep2Busy ? "pointer-events-none select-none" : ""}`}
             onSubmit={handleContinueStep2}
             aria-busy={isStep2Busy}
           >
-            <h2 className="mb-1 text-center text-2xl font-bold">Account Creation</h2>
-            <p className="mb-6 text-center text-sm text-gray-600">
-              Set up your login credentials
-            </p>
+            <div className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+                Almost there
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900 sm:text-3xl">Account Creation</h2>
+              <p className="mt-2 mb-8 text-sm text-slate-500">
+                Set up your login credentials
+              </p>
+            </div>
 
-            <input
+            <FloatingInput
+              id="signup-email"
+              label="Email address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email address"
               required
               disabled={isStep2Busy}
-              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
             />
 
             <div className="flex items-center gap-2">
@@ -543,18 +603,20 @@ export default function SignUpForm() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={isStep2Busy}
-                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-lg bg-orange-400 px-4 py-2 text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-orange-300"
+                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-500/20 transition hover:shadow-lg hover:shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isOtpLoading ? <ButtonSpinner label="Sending OTP" /> : "Send OTP"}
                 </button>
               ) : countdown > 0 ? (
-                <p className="text-sm text-gray-500">Resend OTP in {countdown}s</p>
+                <p className="text-sm text-slate-500">
+                  Resend OTP in <span className="font-semibold text-orange-500">{countdown}s</span>
+                </p>
               ) : (
                 <button
                   type="button"
                   onClick={handleSendOtp}
                   disabled={isStep2Busy}
-                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-lg bg-orange-400 px-4 py-2 text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-orange-300"
+                  className="inline-flex min-w-[144px] items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-orange-500/20 transition hover:shadow-lg hover:shadow-orange-500/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isOtpLoading ? <ButtonSpinner label="Sending OTP" /> : "Resend OTP"}
                 </button>
@@ -562,42 +624,77 @@ export default function SignUpForm() {
             </div>
 
             {otpSent && (
-              <input
+              <FloatingInput
+                id="signup-otp"
+                label="Verification code (OTP)"
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="Enter OTP"
                 required
                 disabled={isStep2Busy}
                 inputMode="numeric"
                 pattern="[0-9]{6}"
                 maxLength={6}
-                className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+                inputClassName="tracking-[0.3em]"
               />
             )}
 
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              required
-              minLength={6}
-              disabled={isStep2Busy}
-              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
-            />
-            <input
-              type="password"
+            <div className="space-y-1.5">
+              <FloatingInput
+                id="signup-password"
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                disabled={isStep2Busy}
+                trailing={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((current) => !current)}
+                    tabIndex={-1}
+                    className="absolute inset-y-0 right-4 z-10 flex items-center text-slate-400 transition hover:text-slate-600"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+                  </button>
+                }
+              />
+              <p className="text-[11px] text-slate-400">
+                At least 6 characters, with a letter and a number
+              </p>
+            </div>
+
+            <FloatingInput
+              id="signup-confirm-password"
+              label="Confirm password"
+              type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
+              onPaste={(e) => {
+                e.preventDefault();
+                toast.error("Please type your password to confirm it");
+              }}
+              onCopy={(e) => e.preventDefault()}
+              onCut={(e) => e.preventDefault()}
               required
               minLength={6}
               disabled={isStep2Busy}
-              className="w-full rounded-lg border border-gray-200 px-4 py-2 focus:outline-none focus:ring-2 focus:ring-orange-300 disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-400"
+              trailing={
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  tabIndex={-1}
+                  className="absolute inset-y-0 right-4 z-10 flex items-center text-slate-400 transition hover:text-slate-600"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <HiEyeOff className="h-5 w-5" /> : <HiEye className="h-5 w-5" />}
+                </button>
+              }
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5 rounded-2xl border border-slate-100 bg-slate-50/60 px-4 py-3">
               <input
                 type="checkbox"
                 id="terms"
@@ -606,27 +703,27 @@ export default function SignUpForm() {
                   if (!isStep2Busy) setTermsOpen(true);
                 }}
                 disabled={isStep2Busy}
-                className="h-4 w-4 cursor-pointer"
+                className="h-4 w-4 cursor-pointer accent-orange-500"
               />
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-slate-600">
                 <span>I accept the </span>
                 <button
                   type="button"
                   onClick={() => setTermsOpen(true)}
                   disabled={isStep2Busy}
-                  className="text-[#47c9c4] underline hover:text-[#47c9c4]"
+                  className="font-medium text-[#47c9c4] underline underline-offset-2 hover:text-teal-600"
                 >
                   Terms & Conditions
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
                 onClick={() => dispatch(setStep(1))}
                 disabled={isStep2Busy}
-                className="rounded-2xl border border-gray-300 bg-white px-6 py-2 font-medium text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+                className="w-full rounded-2xl border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 sm:w-auto"
               >
                 Back
               </button>
@@ -639,14 +736,14 @@ export default function SignUpForm() {
                   !otp ||
                   !hasAcceptedTerms
                 }
-                className={`inline-flex min-w-[164px] items-center justify-center gap-2 rounded-2xl px-6 py-2 font-medium transition ${
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-2.5 text-sm font-semibold transition sm:w-auto sm:min-w-[164px] ${
                   isStep2Busy ||
                   !password ||
                   !confirmPassword ||
                   !otp ||
                   !hasAcceptedTerms
-                    ? "cursor-not-allowed bg-gray-300 text-gray-500"
-                    : "bg-orange-400 text-white hover:bg-orange-500"
+                    ? "cursor-not-allowed bg-slate-200 text-slate-400"
+                    : "bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] text-white shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105"
                 }`}
               >
                 {isAccountCreating ? <ButtonSpinner label="Creating account" /> : "Continue"}
@@ -658,21 +755,25 @@ export default function SignUpForm() {
 
       {/* Step 3 */}
       {step === 3 && (
-        <div className="flex flex-col items-center text-center py-10">
-          <HiCheckCircle className="text-green-500 text-5xl mb-4" />
-          <h2 className="text-2xl font-bold mb-2">Account Created Successfully!</h2>
-          <p className="text-gray-600 text-sm mb-6">
+        <div className="flex flex-col items-center py-10 text-center">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-50/60">
+            <HiCheckCircle className="text-5xl text-emerald-500" />
+          </div>
+          <h2 className="mb-2 text-2xl font-bold text-slate-900 sm:text-3xl">
+            Account Created Successfully!
+          </h2>
+          <p className="mb-8 max-w-sm text-sm leading-6 text-slate-500">
             Welcome {firstName}! You can now sign in and continue your course enrollment.
           </p>
           <button
-             onClick={() => {
-               if (resumeHref && resumeHref !== "/courses") {
-                 setLoginOpen(true);
-                 return;
-               }
-               router.push("/courses");
-             }}
-            className="bg-orange-400 hover:bg-orange-500 text-white font-medium px-6 py-2 rounded-2xl transition"
+            onClick={() => {
+              if (resumeHref && resumeHref !== "/courses") {
+                setLoginOpen(true);
+                return;
+              }
+              router.push("/courses");
+            }}
+            className="rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105"
           >
             {resumeHref && resumeHref !== "/courses" ? "Continue to sign in" : "Done"}
           </button>

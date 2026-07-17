@@ -280,7 +280,7 @@ const applyStudentFulfillment = async (transaction) => {
       transaction.installmentNo < transaction.installmentTotal
         ? "pending"
         : "completed",
-    paymentGateway: "cashfree",
+    paymentGateway: transaction.gateway || "cashfree",
     transactionRef: transaction._id,
     cashfreeOrderId: transaction.merchantOrderId,
     cashfreeCfOrderId: transaction.cashfreeCfOrderId,

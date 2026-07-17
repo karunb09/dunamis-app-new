@@ -62,21 +62,20 @@ export default function ManualEnrollForm({ onSuccess }) {
   const [submitError, setSubmitError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Load offline courses once
+  // Load published courses once
   useEffect(() => {
     setCoursesLoading(true);
     axios
-      .get(`${BASE_URL}/course/get`, {
-        params: { mode: "offline", status: "published" },
-        headers: getAuthHeaders(),
-      })
+      .get(`${BASE_URL}/course/get`, { headers: getAuthHeaders() })
       .then((res) => {
-        const all = Array.isArray(res.data?.courses)
+        const all = Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data?.courses)
           ? res.data.courses
           : Array.isArray(res.data)
           ? res.data
           : [];
-        setCourses(all.filter((c) => c.mode === "offline"));
+        setCourses(all.filter((c) => c.isPublished));
       })
       .catch(() => {
         toast.error("Failed to load courses.");
@@ -138,6 +137,10 @@ export default function ManualEnrollForm({ onSuccess }) {
         setStudentError(
           `No student account found for "${query}". Ask the student to register on the website first.`
         );
+      } else if (!student._id) {
+        setStudentError(
+          `"${query}" has a user account but no student profile yet. Ask the student to complete registration on the website first.`
+        );
       } else {
         setFoundStudent(student);
       }
@@ -150,6 +153,8 @@ export default function ManualEnrollForm({ onSuccess }) {
       setSearching(false);
     }
   };
+
+  const isOfflineCourse = selectedCourse?.mode === "offline";
 
   const branchOptions = Array.isArray(selectedCourse?.branches)
     ? selectedCourse.branches
@@ -189,7 +194,7 @@ export default function ManualEnrollForm({ onSuccess }) {
       setSubmitError({ message: "Please select an instructor." });
       return;
     }
-    if (!selectedBranchId) {
+    if (isOfflineCourse && !selectedBranchId) {
       setSubmitError({ message: "Please select a branch." });
       return;
     }
@@ -209,7 +214,7 @@ export default function ManualEnrollForm({ onSuccess }) {
           courseId: selectedCourseId,
           slotId: selectedSlotId,
           teacherId: selectedTeacherId,
-          branchId: selectedBranchId,
+          branchId: selectedBranchId || undefined,
           sessionType,
           planType,
           planMonths: planType === "monthly" && planMonths ? Number(planMonths) : undefined,
@@ -336,8 +341,8 @@ export default function ManualEnrollForm({ onSuccess }) {
           <p className="text-sm text-gray-400">Loading courses…</p>
         ) : courses.length === 0 ? (
           <ErrorBox
-            message="No published offline courses found."
-            hint="Create and publish an offline course first, or contact IT support."
+            message="No published courses found."
+            hint="Create and publish a course first, or contact IT support."
           />
         ) : (
           <select
@@ -349,6 +354,7 @@ export default function ManualEnrollForm({ onSuccess }) {
             {courses.map((c) => (
               <option key={c._id || c.id} value={c._id || c.id}>
                 {c.name || c.title} {c.code ? `(${c.code})` : ""}
+                {c.mode ? ` · ${c.mode}` : ""}
               </option>
             ))}
           </select>
@@ -359,35 +365,37 @@ export default function ManualEnrollForm({ onSuccess }) {
       {selectedCourse && (
         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
-            3. Branch & Instructor
+            3. {isOfflineCourse ? "Branch & Instructor" : "Instructor"}
           </h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-gray-600">Branch</label>
-              {branchOptions.length === 0 ? (
-                <ErrorBox
-                  message="No branches assigned to this course."
-                  hint="Assign at least one branch to the course before enrolling."
-                />
-              ) : (
-                <select
-                  value={selectedBranchId}
-                  onChange={(e) => { setSelectedBranchId(e.target.value); setSelectedSlotId(""); }}
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-400"
-                >
-                  <option value="">— Select branch —</option>
-                  {branchOptions.map((b) => {
-                    const id = b._id || b.id || b;
-                    const name = b.branchName || b.name || id;
-                    return (
-                      <option key={id} value={id}>
-                        {name}
-                      </option>
-                    );
-                  })}
-                </select>
-              )}
-            </div>
+            {isOfflineCourse && (
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-gray-600">Branch</label>
+                {branchOptions.length === 0 ? (
+                  <ErrorBox
+                    message="No branches assigned to this course."
+                    hint="Assign at least one branch to the course before enrolling."
+                  />
+                ) : (
+                  <select
+                    value={selectedBranchId}
+                    onChange={(e) => { setSelectedBranchId(e.target.value); setSelectedSlotId(""); }}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-400"
+                  >
+                    <option value="">— Select branch —</option>
+                    {branchOptions.map((b) => {
+                      const id = b._id || b.id || b;
+                      const name = b.branchName || b.name || id;
+                      return (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      );
+                    })}
+                  </select>
+                )}
+              </div>
+            )}
 
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600">Instructor</label>

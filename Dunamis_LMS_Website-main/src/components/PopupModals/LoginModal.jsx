@@ -11,6 +11,7 @@ import {
     getRoleDestination,
 } from '@/lib/roleRouting';
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
+import FloatingInput from '@/components/FloatingInput';
 
 export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const dispatch = useDispatch();
@@ -121,41 +122,30 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                     <p className="mt-1 text-sm text-gray-500">Use this form for student accounts only. Instructors and admins should use the Staff Portal.</p>
 
                                     <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-700">Email address</label>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
-                                            <HiMail className="h-5 w-5" />
-                                        </span>
-                                        <input
-                                            name="email"
-                                            type="email"
-                                            required
-                                            autoComplete="email"
-                                            className="w-full rounded-full border border-gray-200 bg-white px-10 py-3 text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-orange-600 focus:ring-2 focus:ring-orange-500"
-                                            placeholder="you@example.com"
-                                        />
-                                    </div>
-                                </div>
+                                <FloatingInput
+                                    id="login-modal-email"
+                                    label="Email address"
+                                    name="email"
+                                    type="email"
+                                    required
+                                    autoComplete="email"
+                                    icon={<HiMail className="h-5 w-5" />}
+                                />
 
-                                <div>
-                                    <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>
-                                    <div className="relative">
-                                        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-gray-400">
-                                            <HiLockClosed className="h-5 w-5" />
-                                        </span>
-                                        <input
-                                            name="password"
-                                            type={showPassword ? 'text' : 'password'}
-                                            required
-                                            autoComplete="current-password"
-                                            className="w-full rounded-full border border-gray-200 bg-white px-10 py-3 pr-12 text-gray-900 placeholder:text-gray-400 shadow-sm outline-none transition focus:border-orange-600 focus:ring-2 focus:ring-orange-500"
-                                            placeholder="••••••••"
-                                        />
+                                <FloatingInput
+                                    id="login-modal-password"
+                                    label="Password"
+                                    name="password"
+                                    type={showPassword ? 'text' : 'password'}
+                                    required
+                                    autoComplete="current-password"
+                                    icon={<HiLockClosed className="h-5 w-5" />}
+                                    trailing={
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword((current) => !current)}
-                                            className="absolute inset-y-0 right-3 flex items-center text-gray-400 transition hover:text-gray-600"
+                                            tabIndex={-1}
+                                            className="absolute inset-y-0 right-4 z-10 flex items-center text-gray-400 transition hover:text-gray-600"
                                             aria-label={showPassword ? 'Hide password' : 'Show password'}
                                         >
                                             {showPassword ? (
@@ -164,8 +154,8 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                                 <HiEye className="h-5 w-5" />
                                             )}
                                         </button>
-                                    </div>
-                                </div>
+                                    }
+                                />
 
                                 <div className="flex items-center justify-between pt-1">
                                     <a href="/forgot-password" className="text-sm text-orange-600 hover:text-orange-600 underline">

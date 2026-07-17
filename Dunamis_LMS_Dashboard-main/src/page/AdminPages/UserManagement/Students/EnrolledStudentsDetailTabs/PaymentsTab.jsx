@@ -53,17 +53,29 @@ const PaymentsTab = ({ student }) => {
             ? `${payment.courseId.name} (${payment.courseId.code})`
             : "Unknown Course";
 
+        const discountAmount = Number(payment.transactionRef?.discountAmount || 0);
+        const referralCode = payment.transactionRef?.referralCode || null;
+
         return {
             _id: payment._id,
             course: courseName,
             sessionType: payment.sessionType || "-",
             amount: `₹${payment.amount?.toLocaleString('en-IN') || 0}`,
             amountRaw: payment.amount || 0,
+            discount: discountAmount > 0
+                ? `₹${discountAmount.toLocaleString('en-IN')}${referralCode ? ` (${referralCode})` : ""}`
+                : "-",
             dateTime: paidDate,
             dateRaw: payment.paidAt ? new Date(payment.paidAt) : new Date(0),
             paymentType: payment.paymentType || "Full Payment",
             paymentMode: payment.paymentMode || "Online",
-            transactionId: payment.razorpayPaymentId || payment.razorpayOrderId || "-",
+            transactionId:
+                payment.transactionId ||
+                payment.cashfreePaymentId ||
+                payment.cashfreeOrderId ||
+                payment.razorpayPaymentId ||
+                payment.razorpayOrderId ||
+                "-",
             status: payment.feeStatus || "Paid",
             installmentInfo: payment.installmentNo
                 ? `${payment.installmentNo}/${payment.installmentTotal}`
@@ -105,6 +117,7 @@ const PaymentsTab = ({ student }) => {
         { Header: "Course", accessor: "course" },
         { Header: "Session Type", accessor: "sessionType" },
         { Header: "Amount", accessor: "amount" },
+        { Header: "Discount", accessor: "discount" },
         { Header: "Time & Date", accessor: "dateTime" },
         { Header: "Payment Type", accessor: "paymentType" },
         { Header: "Installment", accessor: "installmentInfo" },
@@ -136,6 +149,7 @@ const PaymentsTab = ({ student }) => {
             "Course",
             "Session Type",
             "Amount",
+            "Discount",
             "Time & Date",
             "Payment Type",
             "Installment",
@@ -148,6 +162,7 @@ const PaymentsTab = ({ student }) => {
             p.course,
             p.sessionType,
             p.amount,
+            p.discount,
             p.dateTime,
             p.paymentType,
             p.installmentInfo,

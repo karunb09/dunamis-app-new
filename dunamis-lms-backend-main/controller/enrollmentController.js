@@ -695,10 +695,10 @@ exports.adminEnrollStudent = async (req, res) => {
       referralCode,
     } = req.body;
 
-    if (!courseId || !slotId || !teacherId || !branchId || !sessionType || !amount) {
+    if (!courseId || !slotId || !teacherId || !sessionType || !amount) {
       return res.status(400).json({
         success: false,
-        message: "courseId, slotId, teacherId, branchId, sessionType, and amount are required.",
+        message: "courseId, slotId, teacherId, sessionType, and amount are required.",
       });
     }
 
@@ -731,7 +731,17 @@ exports.adminEnrollStudent = async (req, res) => {
 
       const userQuery = [];
       if (normalizedEmail) userQuery.push({ email: normalizedEmail });
-      if (normalizedPhone) userQuery.push({ mobileNo: { $regex: normalizedPhone + "$" } });
+      if (normalizedPhone) {
+        // mobileNo is a Number (double) — regex needs long → string conversion
+        userQuery.push({
+          $expr: {
+            $regexMatch: {
+              input: { $toString: { $convert: { input: "$mobileNo", to: "long", onError: 0, onNull: 0 } } },
+              regex: normalizedPhone + "$",
+            },
+          },
+        });
+      }
 
       const user = userQuery.length ? await User.findOne({ $or: userQuery }) : null;
       if (user) {
@@ -757,7 +767,6 @@ exports.adminEnrollStudent = async (req, res) => {
       teacherId,
       slotId,
       sessionType,
-      deliveryMode: "offline",
       branchId,
       allowExistingStudentId: student._id,
     });
@@ -792,7 +801,7 @@ exports.adminEnrollStudent = async (req, res) => {
       slotId: context.slot._id,
       parentAvailabilityId: context.slot.parentAvailabilityId || null,
       branchId: context.resolvedBranchId,
-      deliveryMode: "offline",
+      deliveryMode: context.resolvedMode,
       sessionType,
       planType: resolvedPlanType,
       planMonths: pricing.planMonths ?? null,
