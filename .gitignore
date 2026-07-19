@@ -51,7 +51,8 @@ dunamis-lms-backend-main/uploads/
 nginx-conf
 
 # md files
-*.md
+Claude.md
+./*.md
 
 # opencode config
 opencode.json
