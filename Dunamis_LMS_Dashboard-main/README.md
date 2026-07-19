@@ -1,12 +1,24 @@
-# React + Vite
+# Dunamis LMS — Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Admin and instructor portal for [dashboard.dunamisindia.co.in](https://dashboard.dunamisindia.co.in): user, course, and branch management, scheduling, attendance, payments, referrals, and system status.
 
-Currently, two official plugins are available:
+Built with React 19, Vite, Tailwind CSS, Redux Toolkit, and React Router.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Develop
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev     # http://localhost:5173
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Requires a `.env` with `VITE_BASE_URL` pointing at the backend API (and optionally `VITE_IT_SUPPORT_EMAIL`).
+
+## Test & Build
+
+```bash
+npm test        # vitest
+npm run build   # required before serving in production
+npm run preview # serve the production build locally (:4173)
+```
+
+See the [repo root README](../README.md) for the full monorepo overview and deployment details.

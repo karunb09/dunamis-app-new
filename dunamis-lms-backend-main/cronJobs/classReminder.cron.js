@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Slot = require("../model/slot.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
@@ -82,8 +82,6 @@ async function sendClassReminders() {
 }
 
 // 8:00 AM IST = 02:30 UTC
-cron.schedule("30 2 * * *", sendClassReminders, {
-  timezone: "UTC",
-});
+scheduleWithHeartbeat("classReminder", "30 2 * * *", sendClassReminders);
 
 module.exports = { sendClassReminders };

@@ -88,3 +88,26 @@ jobs:
             else
               echo "No app changes detected. PM2 not restarted."
             fi
+
+      - name: Notify failure (ntfy)
+        if: failure()
+        continue-on-error: true
+        run: |
+          curl -sf -H "Title: Dunamis deploy FAILED" -H "Priority: high" -H "Tags: rotating_light" \
+            -d "Deploy of ${{ github.sha }} failed. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.NTFY_TOPIC_URL }}"
+
+      - name: Notify failure (email)
+        if: failure()
+        uses: dawidd6/action-send-mail@v4
+        with:
+          server_address: ${{ secrets.MAIL_HOST }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USER }}
+          password: ${{ secrets.MAIL_PASS }}
+          subject: "Deploy FAILED: dunamis-app ${{ github.sha }}"
+          to: ${{ secrets.ALERT_EMAIL }}
+          from: Dunamis Deploy <${{ secrets.MAIL_USER }}>
+          body: |
+            Deploy of ${{ github.sha }} to the VPS failed.
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

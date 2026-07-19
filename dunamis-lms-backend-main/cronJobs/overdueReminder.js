@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Assignment = require("../model/assignment.model");
 const mailSender = require("../utils/mailSender");
 
@@ -82,6 +82,4 @@ const checkAndSendOverdueReminders = async () => {
   }
 };
 
-cron.schedule("0 0 * * *", () => {
-  checkAndSendOverdueReminders();
-});
+scheduleWithHeartbeat("overdueReminder", "0 0 * * *", checkAndSendOverdueReminders);

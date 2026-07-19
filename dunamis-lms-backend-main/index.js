@@ -6,6 +6,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 const database = require("./config/database");
+const mongoose = require("mongoose");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const dotenv = require("dotenv");
@@ -99,6 +100,7 @@ const siteContentRoutes = require("./routes/siteContent.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const courseRequestRoutes = require("./routes/courseRequest.routes");
 const referralRoutes = require("./routes/referral.routes");
+const opsRoutes = require("./routes/ops.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -218,11 +220,24 @@ app.use("/api/v1/siteContent", siteContentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course-requests", courseRequestRoutes);
 app.use("/api/v1/referral", referralRoutes);
+app.use("/api/v1/ops", opsRoutes);
 
 app.get("/", (req, res) => {
   return res.json({
     success: true,
     message: "your server is up and running...",
+  });
+});
+
+// Root-level so uptime monitors bypass the /api/ rate limiter. 503 on DB loss
+// makes external monitors catch Mongo outages, not just process death.
+app.get("/health", (req, res) => {
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({
+    ok: dbUp,
+    db: dbUp ? "connected" : "disconnected",
+    uptimeSec: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
   });
 });
 

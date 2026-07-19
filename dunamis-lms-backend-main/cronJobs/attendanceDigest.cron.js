@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const AttendanceHomework = require("../model/attendanceHomework.model");
 const {
   getAdminUsers,
@@ -103,8 +103,6 @@ async function sendAttendanceDigest() {
 }
 
 // 10:00 PM IST = 16:30 UTC
-cron.schedule("30 16 * * *", sendAttendanceDigest, {
-  timezone: "UTC",
-});
+scheduleWithHeartbeat("attendanceDigest", "30 16 * * *", sendAttendanceDigest);
 
 module.exports = { sendAttendanceDigest };

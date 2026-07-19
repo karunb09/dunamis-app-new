@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const mongoose = require("mongoose");
 const Student = require("../model/student.model");
 const Course = require("../model/course.model");
@@ -123,13 +123,7 @@ async function runAssignmentCycle(force = false) {
   console.log("Assignment generation cycle completed.");
 }
 
-cron.schedule("0 0 * * *", async () => {
-  try {
-    await runAssignmentCycle();
-  } catch (error) {
-    console.error("Error in assignment cron:", error);
-  }
-});
+scheduleWithHeartbeat("assignmentCycle", "0 0 * * *", runAssignmentCycle);
 
 exports.manualAssignmentCycle = async (req, res) => {
   try {

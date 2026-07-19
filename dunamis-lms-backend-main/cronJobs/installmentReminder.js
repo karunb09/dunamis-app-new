@@ -1,4 +1,4 @@
-const cron = require("node-cron");
+const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Student = require("../model/student.model");
 const {
   createDashboardNotice,
@@ -158,6 +158,6 @@ const checkInstallmentReminders = async () => {
   }
 };
 
-cron.schedule("0 8 * * *", checkInstallmentReminders);
+scheduleWithHeartbeat("installmentReminder", "0 8 * * *", checkInstallmentReminders);
 
 module.exports = { checkInstallmentReminders };

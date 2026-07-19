@@ -35,6 +35,7 @@ const StudentProfile = lazy(() => import("./page/AdminPages/UserManagement/Stude
 const EnrolledStudents = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudents"));
 const CourseRequestsPage = lazy(() => import("./page/AdminPages/CourseRequests/CourseRequestsPage"));
 const ReferralManagementPage = lazy(() => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"));
+const SystemStatus = lazy(() => import("./page/AdminPages/SystemStatus"));
 
 const Dashboard = lazy(() => import("./page/TeacherPages/TeacherCourses/Home"));
 const MyCourses = lazy(() => import("./page/TeacherPages/TeacherCourses/MyCourses"));
@@ -211,6 +212,7 @@ const App = () => {
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
               <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="contentManagement"><SiteContentPage /></RequireAuth>} />
+              <Route path="/admin/system-status" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><SystemStatus /></RequireAuth>} />
               <Route
                 path="/admin/updates/create-updates"
                 element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><CreateUpdateForm /></RequireAuth>}
