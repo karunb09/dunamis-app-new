@@ -317,7 +317,7 @@ const markTransactionPaid = async ({ transaction, order, payment }) => {
       status: { $nin: ["fulfilled", "refunded"] },
     },
     { $set: update },
-    { new: true }
+    { returnDocument: "after" }
   );
 
   return updated || PaymentTransaction.findById(transaction._id);
@@ -494,7 +494,7 @@ const fulfillPaidTransaction = async (transactionId) => {
           lastError: null,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (fulfilledTransaction) {
@@ -514,7 +514,7 @@ const fulfillPaidTransaction = async (transactionId) => {
           lastError: error.message,
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (pendingTransaction) {

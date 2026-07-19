@@ -385,7 +385,7 @@ exports.updateBranch = asyncHandler(async (req, res) => {
     updates.branchImage = branchImagePath;
 
     const updatedBranch = await Branch.findByIdAndUpdate(id, updates, {
-      new: true, // return the updated document
+      returnDocument: "after",
       runValidators: true, // run schema validators
     });
 

@@ -47,7 +47,7 @@ exports.updateCategory = asyncHandler(async (req, res) => {
     }
 
     const updatedCategory = await Category.findByIdAndUpdate(id, updateQuery, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     }).populate("subcategories");
 

@@ -94,7 +94,7 @@ exports.updateCity = asyncHandler(async (req, res) => {
   const updates = req.body;
 
   const updatedCity = await City.findByIdAndUpdate(id, updates, {
-    new: true,
+    returnDocument: "after",
     runValidators: true,
   });
 

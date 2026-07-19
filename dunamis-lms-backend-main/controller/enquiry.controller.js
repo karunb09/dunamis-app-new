@@ -93,7 +93,7 @@ exports.assignEnquiry = asyncHandler(async (req, res) => {
     const enquiry = await Enquiry.findByIdAndUpdate(
       req.params.id,
       { assignedTo: adminId, status: "in-progress" },
-      { new: true }
+      { returnDocument: "after" }
     ).populate({
       path: "assignedTo",
       select: "role userId",
@@ -125,7 +125,7 @@ exports.respondEnquiry = asyncHandler(async (req, res) => {
         response: { message, respondedAt: new Date() },
         status: "resolved",
       },
-      { new: true }
+      { returnDocument: "after" }
     ).populate({
       path: "assignedTo",
       select: "role userId",

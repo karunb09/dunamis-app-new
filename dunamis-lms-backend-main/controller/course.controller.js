@@ -329,7 +329,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       await Teacher.findByIdAndUpdate(
         teacherId,
         { $addToSet: { course: course._id } },
-        { new: true }
+        { returnDocument: "after" }
       );
     }
 
@@ -343,7 +343,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
               teachers: { $each: teacherIds },
             },
           },
-          { new: true }
+          { returnDocument: "after" }
         );
       }
     }
@@ -652,7 +652,7 @@ exports.updateCourse = asyncHandler(async (req, res) => {
     }
 
     const persistedCourse = await Course.findByIdAndUpdate(id, updateData, {
-      new: true,
+      returnDocument: "after",
       runValidators: true,
     });
 

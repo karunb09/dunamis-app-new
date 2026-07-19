@@ -222,7 +222,7 @@ router.post('/:id/notes',
                         }
                     }
                 },
-                { new: true }
+                { returnDocument: "after" }
             );
 
             if (!application) {

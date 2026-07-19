@@ -81,7 +81,7 @@ const registerRosterMembership = async (transaction) => {
         status: "active",
       },
     },
-    { new: true, upsert: true }
+    { returnDocument: "after", upsert: true }
   );
 
   const alreadyActive = (roster.students || []).some(

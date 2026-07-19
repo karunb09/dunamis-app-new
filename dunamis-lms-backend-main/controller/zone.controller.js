@@ -57,7 +57,7 @@ const updateZone = async (req,res) => {
         const updatedZone = await zone.findByIdAndUpdate(
             id,
             {name, location, manager, adminContact, adminEmail, city},
-            {new:true, runValidators: true}
+            {returnDocument: "after", runValidators: true}
         );
 
         if(!updatedZone) {

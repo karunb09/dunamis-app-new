@@ -542,7 +542,7 @@ exports.updateBooking = asyncHandler(async (req, res) => {
     const updatedBooking = await DemoBooking.findByIdAndUpdate(
       req.params.id,
       updateFields,
-      { new: true }
+      { returnDocument: "after" }
     );
 
     return res.status(200).json({

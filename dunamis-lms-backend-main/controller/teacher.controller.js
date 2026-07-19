@@ -991,7 +991,7 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
 
     // 4. user info
     if (user && teacher.userId) {
-      await User.findByIdAndUpdate(teacher.userId, user, { new: true });
+      await User.findByIdAndUpdate(teacher.userId, user, { returnDocument: "after" });
     }
 
     const teacherDetailsUpdate = teacherDetails ? { ...teacherDetails } : {};
@@ -1013,7 +1013,7 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
       await TeacherDetail.findByIdAndUpdate(
         teacher.teacherDetail,
         teacherDetailsUpdate,
-        { new: true }
+        { returnDocument: "after" }
       );
     }
 

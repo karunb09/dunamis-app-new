@@ -182,7 +182,7 @@ exports.changePassword = asyncHandler(async (req, res) => {
           {
               password:encryptedPassword
           },
-          {new:true}
+          {returnDocument: "after"}
       )
   
       function passwordUpdated(email, message) {
@@ -724,7 +724,7 @@ exports.markDashboardNoticeRead = asyncHandler(async (req, res) => {
     const notice = await AdminNotice.findByIdAndUpdate(
       req.params.noticeId,
       { $addToSet: { readBy: req.user.userId } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!notice) {
@@ -738,7 +738,7 @@ exports.deleteDashboardNotice = asyncHandler(async (req, res) => {
     const notice = await AdminNotice.findByIdAndUpdate(
       req.params.noticeId,
       { $addToSet: { deletedBy: req.user.userId } },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!notice) {

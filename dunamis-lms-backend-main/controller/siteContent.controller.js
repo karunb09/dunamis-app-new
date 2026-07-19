@@ -207,7 +207,7 @@ exports.updateContent = asyncHandler(async (req, res) => {
     const item = await SiteContent.findByIdAndUpdate(
       req.params.id,
       { ...payload, updatedBy: req.user?.userId || null },
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!item) {
