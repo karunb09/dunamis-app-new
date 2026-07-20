@@ -21,18 +21,22 @@ const studentSchema = new mongoose.Schema(
     followUps: {
       followUp1: {
         type: String,
-        enum: ["pending", "complete"],
+        enum: ["pending", "contacted", "completed"],
         default: "pending",
       },
       followUp2: {
         type: String,
-        enum: ["pending", "complete"],
+        enum: ["pending", "contacted", "completed"],
         default: "pending",
       },
       followUp3: {
         type: String,
-        enum: ["pending", "complete"],
+        enum: ["pending", "contacted", "completed"],
         default: "pending",
+      },
+      response: {
+        type: String,
+        default: "",
       },
     },
     adminActions: {

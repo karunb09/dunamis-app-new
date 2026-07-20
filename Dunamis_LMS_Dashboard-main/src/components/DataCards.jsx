@@ -6,9 +6,12 @@ const DataCards = ({
     data = [],
     renderCard,
     itemsPerPage = 12,
+    itemsPerPageOptions,
+    onItemsPerPageChange,
     emptyMessage = "No data available.",
     onDeleteSelected,
     onCopyDetails,
+    onSelectionChange,
     selectable = true,
     bulkDeleteLoading = false,
     bulkDeleteLabel = "Delete",
@@ -29,29 +32,36 @@ const DataCards = ({
 
     useEffect(() => {
         const visibleIds = new Set(data.map((row) => row._id ?? row.id));
-        setSelectedRows((prev) => prev.filter((id) => visibleIds.has(id)));
+        // Return prev unchanged when nothing was pruned — a new array reference
+        // here would re-trigger onSelectionChange and loop with parent re-renders
+        setSelectedRows((prev) => {
+            const next = prev.filter((id) => visibleIds.has(id));
+            return next.length === prev.length ? prev : next;
+        });
     }, [data]);
+
+    useEffect(() => {
+        onSelectionChange?.(selectedRows);
+    }, [selectedRows, onSelectionChange]);
+
+    const selectedSet = new Set(selectedRows);
 
     const handleRowSelection = (id) =>
         setSelectedRows((prev) =>
             prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
 
-    const handleSelectAll = () => {
-        const allIds = currentData.map((row) => row._id ?? row.id);
-        setSelectedRows(
-            currentData.every((row) => selectedRows.includes(row._id ?? row.id))
-                ? selectedRows.filter((id) => !allIds.includes(id))
-                : [...new Set([...selectedRows, ...allIds])]
-        );
-    };
-
-    const isRowSelected = (id) => selectedRows.includes(id);
     const isAllSelected =
-        currentData.length > 0 &&
-        currentData.every((row) => selectedRows.includes(row._id ?? row.id));
+        data.length > 0 && data.every((row) => selectedSet.has(row._id ?? row.id));
+
+    const handleSelectAll = () =>
+        setSelectedRows(isAllSelected ? [] : data.map((row) => row._id ?? row.id));
+
+    const isRowSelected = (id) => selectedSet.has(id);
     const getSelectedRows = () =>
-        data.filter((row) => selectedRows.includes(row._id ?? row.id));
+        data.filter((row) => selectedSet.has(row._id ?? row.id));
+
+    const showPageSize = Array.isArray(itemsPerPageOptions) && onItemsPerPageChange;
 
     return (
         <div className="w-full">
@@ -70,9 +80,26 @@ const DataCards = ({
                     )}
                 </div>
 
-                {selectable && (
+                {(selectable || showPageSize) && (
                     <div className="flex flex-wrap items-center gap-2">
-                        {currentData.length > 0 && (
+                        {showPageSize && (
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                                Show
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        onItemsPerPageChange(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 focus:border-orange-400 focus:outline-none"
+                                >
+                                    {itemsPerPageOptions.map((n) => (
+                                        <option key={n} value={n}>{n}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                        {selectable && data.length > 0 && (
                             <label className="flex cursor-pointer items-center gap-2">
                                 <input
                                     type="checkbox"
@@ -80,7 +107,9 @@ const DataCards = ({
                                     onChange={handleSelectAll}
                                     className="h-4 w-4 cursor-pointer rounded border-slate-200 accent-orange-500 focus:ring-orange-300"
                                 />
-                                <span className="text-xs font-medium text-slate-500">Select all</span>
+                                <span className="text-xs font-medium text-slate-500">
+                                    Select all ({data.length})
+                                </span>
                             </label>
                         )}
                         {selectedRows.length > 0 && (

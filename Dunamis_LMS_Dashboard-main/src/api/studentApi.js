@@ -32,3 +32,21 @@ export async function fetchStudentById(id) {
     throw toError(err, "Failed to load student");
   }
 }
+
+export async function fetchStudentOverview(id) {
+  try {
+    const { data } = await axios.get(`/student/${id}/overview`);
+    return data?.overview ?? null;
+  } catch (err) {
+    throw toError(err, "Failed to load student overview");
+  }
+}
+
+export async function updateStudent(id, payload) {
+  try {
+    const { data } = await axios.put(`/student/${id}`, payload);
+    return data?.student ?? data;
+  } catch (err) {
+    throw toError(err, "Failed to update student");
+  }
+}

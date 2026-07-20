@@ -6,10 +6,13 @@ const DataTable = ({
     data = [],
     columns = [],
     itemsPerPage = 10,
+    itemsPerPageOptions,
+    onItemsPerPageChange,
     emptyMessage = "No data available.",
     onDeleteSelected,
     onCopyDetails,
     onRowClick,
+    onSelectionChange,
     selectable = true,
     rowClassName = "",
     bulkDeleteLoading = false,
@@ -35,8 +38,19 @@ const DataTable = ({
 
     useEffect(() => {
         const visibleIds = new Set(data.map((row) => row._id ?? row.id));
-        setSelectedRows((prev) => prev.filter((id) => visibleIds.has(id)));
+        // Return prev unchanged when nothing was pruned — a new array reference
+        // here would re-trigger onSelectionChange and loop with parent re-renders
+        setSelectedRows((prev) => {
+            const next = prev.filter((id) => visibleIds.has(id));
+            return next.length === prev.length ? prev : next;
+        });
     }, [data]);
+
+    useEffect(() => {
+        onSelectionChange?.(selectedRows);
+    }, [selectedRows, onSelectionChange]);
+
+    const selectedSet = new Set(selectedRows);
 
     const handleRowSelection = (id) => {
         setSelectedRows((prev) =>
@@ -44,24 +58,20 @@ const DataTable = ({
         );
     };
 
-    const handleSelectAll = () => {
-        const allIds = currentData.map((row) => row._id ?? row.id);
-        setSelectedRows(
-            currentData.every((row) => selectedRows.includes(row._id ?? row.id))
-                ? selectedRows.filter((id) => !allIds.includes(id))
-                : [...new Set([...selectedRows, ...allIds])]
-        );
-    };
-
-    const isRowSelected = (id) => selectedRows.includes(id);
     const isAllSelected =
-        currentData.length > 0 &&
-        currentData.every((row) => selectedRows.includes(row._id ?? row.id));
+        data.length > 0 && data.every((row) => selectedSet.has(row._id ?? row.id));
+
+    const handleSelectAll = () =>
+        setSelectedRows(isAllSelected ? [] : data.map((row) => row._id ?? row.id));
+
+    const isRowSelected = (id) => selectedSet.has(id);
 
     const getColumnKey = (col) => col.key || col.accessor;
     const getColumnHeader = (col) => col.header || col.Header;
     const getSelectedRows = () =>
-        data.filter((row) => selectedRows.includes(row._id ?? row.id));
+        data.filter((row) => selectedSet.has(row._id ?? row.id));
+
+    const showPageSize = Array.isArray(itemsPerPageOptions) && onItemsPerPageChange;
     const defaultColumnWidth = 164;
     const tableMinWidth = Math.max(
         760,
@@ -93,9 +103,26 @@ const DataTable = ({
                     )}
                 </div>
 
-                {selectable ? (
+                {selectable || showPageSize ? (
                     <div className="flex flex-wrap items-center gap-2">
-                        {selectedRows.length > 0 && (
+                        {showPageSize && (
+                            <label className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                                Show
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        onItemsPerPageChange(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 focus:border-orange-400 focus:outline-none"
+                                >
+                                    {itemsPerPageOptions.map((n) => (
+                                        <option key={n} value={n}>{n}</option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                        {selectable && selectedRows.length > 0 && (
                             <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-semibold text-orange-700">
                                 {selectedRows.length} selected
                             </span>

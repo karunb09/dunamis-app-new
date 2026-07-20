@@ -1,6 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import {
   FiArrowUpRight,
   FiAward,
@@ -11,8 +12,9 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { getStoredUser } from "../../../utils/authSession";
-import { getAllBookings } from "../../../redux/DemoBooking/DemoBookingSlice";
+import { getAllBookings, updateBookingStatus } from "../../../redux/DemoBooking/DemoBookingSlice";
 import DemoBookingsPanel from "./DemoBookingsPanel";
+import SavingOverlay from "../../../components/SavingOverlay";
 import {
   getTeacherRoleId,
   getUserDisplayName,
@@ -87,6 +89,21 @@ const Dashboard = () => {
     dispatch(getAllBookings(teacherId ? { teacherId } : {}));
   };
 
+  const [updatingBookingId, setUpdatingBookingId] = useState(null);
+
+  const handleUpdateDemoStatus = async (bookingId, demoStatus) => {
+    setUpdatingBookingId(bookingId);
+    try {
+      await dispatch(updateBookingStatus({ id: bookingId, updatedData: { demoStatus } })).unwrap();
+      toast.success(`Demo marked as ${demoStatus}`);
+      dispatch(getAllBookings(teacherId ? { teacherId } : {}));
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : err?.message || "Failed to update demo status");
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#fff4ec] via-[#fffaf6] to-white">
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6 lg:space-y-8">
@@ -144,12 +161,15 @@ const Dashboard = () => {
           </section>
 
           <section className="order-2 lg:order-1">
+            <SavingOverlay show={Boolean(updatingBookingId)} />
             <DemoBookingsPanel
               bookings={bookings}
               teacherId={teacherId}
               loading={demoLoading}
               error={demoError}
               onRefresh={handleRefreshDemoBookings}
+              onUpdateStatus={handleUpdateDemoStatus}
+              updatingId={updatingBookingId}
             />
           </section>
         </div>

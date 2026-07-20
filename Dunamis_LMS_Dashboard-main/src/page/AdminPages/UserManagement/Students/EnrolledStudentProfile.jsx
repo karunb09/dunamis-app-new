@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { FiBook, FiCheckCircle, FiAward } from "react-icons/fi";
 import { useStudentById } from "../../../../hooks/useStudents";
 
+import OverviewTab from "./EnrolledStudentsDetailTabs/OverviewTab";
 import CoursesTab from "./EnrolledStudentsDetailTabs/CourseTab";
 import AssessmentsTab from "./EnrolledStudentsDetailTabs/AssesmentTab";
 import AssignmentsTab from "./EnrolledStudentsDetailTabs/AssignmentsTab";
@@ -14,9 +15,9 @@ const StudentProfile = () => {
   const { id } = useParams();
   const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState("Courses");
+  const [activeTab, setActiveTab] = useState("Overview");
   const tabs = useMemo(
-    () => ["Courses", "Assessments", "Assignments", "Schedules", "Certifications", "Payments"],
+    () => ["Overview", "Courses", "Assessments", "Assignments", "Schedules", "Certifications", "Payments"],
     []
   );
 
@@ -116,6 +117,7 @@ const StudentProfile = () => {
       </div>
 
       {/* Tab Content */}
+      {activeTab === "Overview" && <OverviewTab studentId={id} />}
       {activeTab === "Courses" && <CoursesTab student={student} />}
       {activeTab === "Assessments" && <AssessmentsTab student={student} />}
       {activeTab === "Assignments" && <AssignmentsTab student={student} />}

@@ -5,6 +5,7 @@ const {
   sendOTP,
   getAllStudents,
   getStudentById,
+  getStudentOverview,
   updateStudent,
   deleteStudent,
   getStudentsByType,
@@ -45,6 +46,8 @@ router.get("/get-all", isAuth, accessToRole(["admin", "superadmin"]), getAllStud
 router.get("/get-by-type", isAuth, accessToRole(["admin", "superadmin"]), getStudentsByType);
 // search by name / email / phone (admin only)
 router.get("/search", isAuth, accessToRole(["admin", "superadmin"]), searchStudents);
+// overview (upcoming classes + activity)
+router.get("/:id/overview", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), getStudentOverview);
 // get by id
 router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, getStudentById);
 // update

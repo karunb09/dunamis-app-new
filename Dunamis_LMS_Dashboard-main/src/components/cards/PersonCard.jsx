@@ -138,7 +138,7 @@ const PersonCard = ({
                                 <FiMoreVertical size={20} />
                             </button>
                             {menuOpen && (
-                                <div className="absolute bottom-full mb-1 right-0 z-40 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+                                <div className="absolute bottom-full mb-1 right-0 z-40 w-52 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
                                     {menuItems.map((item, i) => (
                                         <button
                                             key={i}

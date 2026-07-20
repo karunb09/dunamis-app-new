@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { LuBookOpen, LuShoppingCart, LuPhoneCall, LuBriefcaseBusiness, LuSchool, LuUsers, LuInfo, LuStar, LuCircleHelp, LuHeadphones, LuFileText, LuRotateCcw, LuShieldCheck, LuHeart } from "react-icons/lu";
-import { FaFacebookF, FaInstagram, FaPhoneAlt, FaWhatsapp, FaYoutube } from "react-icons/fa";
+import { FaFacebookF, FaInstagram, FaPhoneAlt, FaUnderline, FaWhatsapp, FaYoutube } from "react-icons/fa";
 import { DASHBOARD_URL } from "@/lib/siteConfig";
 
 const featuredLinks = [
@@ -170,7 +170,7 @@ const Footer = () => {
                 href="https://karunb09.github.io/resume/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors"
+                className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors underline"
               >
                 KB
               </a>

@@ -5,8 +5,32 @@ on:
     branches: [main]
 
 jobs:
+  test:
+    name: Run test suites
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Dashboard tests
+        working-directory: Dunamis_LMS_Dashboard-main
+        run: |
+          npm ci
+          npm test
+
+      - name: Backend tests
+        working-directory: dunamis-lms-backend-main
+        run: |
+          npm ci
+          npm test
+
   deploy:
     name: SSH deploy to Hostinger VPC
+    needs: test
     runs-on: ubuntu-latest
 
     steps:

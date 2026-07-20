@@ -9,8 +9,17 @@ const welcomeEmailTemplate = require("../mail/welcomeEmail");
 const Student = require("../model/student.model");
 const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
+const Slot = require("../model/slot.model");
+const AttendanceHomework = require("../model/attendanceHomework.model");
 const { notifyEvent } = require("../utils/notificationService");
 const { getStudentSchedules } = require("../utils/classRoster");
+
+const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
+  ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
+  : "Contact IT support if this issue persists.";
+
+const FOLLOW_UP_KEYS = ["followUp1", "followUp2", "followUp3"];
+const FOLLOW_UP_STATUSES = ["pending", "contacted", "completed"];
 
 // Send OTP
 exports.sendOTP = asyncHandler(async (req, res) => {
@@ -232,11 +241,11 @@ exports.getStudentById = asyncHandler(async (req, res) => {
           path: "slotId",
           populate: [
             { path: "courseId", select: "name mode" },
-            { path: "branchId", select: "name location" },
+            { path: "branchId", select: "branchName location" },
           ],
         },
       })
-      .populate("branch", "name location");
+      .populate("branch", "branchName location");
 
     if (!student) {
       return res.status(404).json({
@@ -256,10 +265,15 @@ exports.getStudentById = asyncHandler(async (req, res) => {
       ...new Set(schedules.map((s) => String(s.teacherId)).filter(Boolean)),
     ];
     const teacherDocs = teacherIds.length
-      ? await Teacher.find({ _id: { $in: teacherIds } }).select("name")
+      ? await Teacher.find({ _id: { $in: teacherIds } })
+          .select("userId")
+          .populate("userId", "name")
       : [];
     const teacherNameById = new Map(
-      teacherDocs.map((teacher) => [String(teacher._id), teacher.name])
+      teacherDocs.map((teacher) => [
+        String(teacher._id),
+        `${teacher.userId?.name?.firstName || ""} ${teacher.userId?.name?.lastName || ""}`.trim() || null,
+      ])
     );
 
     const studentData = student.toObject();
@@ -290,19 +304,80 @@ exports.getStudentById = asyncHandler(async (req, res) => {
       student: studentData,
     });
 });
+// Overview: upcoming classes + recent activity + recent payments
+exports.getStudentOverview = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const student = await Student.findById(id)
+      .select("payments")
+      .populate("payments.courseId", "name code")
+      .lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [upcomingClasses, recentActivity] = await Promise.all([
+      Slot.find({
+        slotType: "enrolled",
+        students: student._id,
+        date: { $gte: todayStart },
+      })
+        .select("date startTime endTime sessionType courseId branchId createdBy")
+        .populate("courseId", "name code mode")
+        .populate("branchId", "branchName location")
+        .populate({
+          path: "createdBy",
+          select: "userId",
+          populate: { path: "userId", select: "name" },
+        })
+        .sort({ date: 1 })
+        .limit(10)
+        .lean(),
+      AttendanceHomework.find({ studentId: student._id })
+        .select("courseId attendanceStatus homework sessionType date")
+        .populate("courseId", "name code")
+        .sort({ date: -1 })
+        .limit(15)
+        .lean(),
+    ]);
+
+    const recentPayments = [...(student.payments || [])]
+      .sort(
+        (a, b) =>
+          new Date(b.paidAt || b.dueDate || 0) - new Date(a.paidAt || a.dueDate || 0)
+      )
+      .slice(0, 5)
+      .map((p) => ({
+        _id: p._id,
+        courseName: p.courseId?.name || null,
+        amount: p.amount,
+        PaymentStatus: p.PaymentStatus,
+        feeStatus: p.feeStatus,
+        paymentType: p.paymentType,
+        installmentNo: p.installmentNo,
+        installmentTotal: p.installmentTotal,
+        dueDate: p.dueDate,
+        paidAt: p.paidAt,
+      }));
+
+    res.status(200).json({
+      success: true,
+      overview: { upcomingClasses, recentActivity, recentPayments },
+    });
+});
 // Update Stud.
 exports.updateStudent = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    // const { assignment, course, demoCourse, mode, branch } = req.body;
-    const {
-      mode,
-      branch,
-      enrolledCourses,
-      demoCourse,
-      followUps,
-      adminActions,
-      age,
-    } = req.body;
+    const { mode, branch, enrolledCourses, demoCourse, age } = req.body;
+    const isStaff = ["admin", "superadmin"].includes(req.user?.accountType);
+    const followUps = isStaff ? req.body.followUps : undefined;
+    const adminActions = isStaff ? req.body.adminActions : undefined;
     const student = await Student.findById(id);
     if (!student) {
       return res.status(404).json({
@@ -318,12 +393,28 @@ exports.updateStudent = asyncHandler(async (req, res) => {
     if (branch) student.branch = branch;
     if (age) student.age = age;
 
-    // Follow-up updates (dropdown: pending/complete)
     if (followUps) {
-      student.followUps = {
-        ...student.followUps,
-        ...followUps,
-      };
+      for (const key of FOLLOW_UP_KEYS) {
+        const value = followUps[key];
+        if (value === undefined) continue;
+        if (!FOLLOW_UP_STATUSES.includes(value)) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid follow-up status "${value}".`,
+          });
+        }
+        if (student.followUps?.[key] === "completed" && value !== "completed") {
+          return res.status(400).json({
+            success: false,
+            message: `Follow-up ${key.slice(-1)} is completed and locked.`,
+            hint: `Completed follow-ups cannot be reopened. ${IT_SUPPORT_HINT}`,
+          });
+        }
+        student.followUps[key] = value;
+      }
+      if (typeof followUps.response === "string") {
+        student.followUps.response = followUps.response;
+      }
     }
 
     // Admin action updates
@@ -406,7 +497,10 @@ exports.getStudentsByType = asyncHandler(async (req, res) => {
         match: { accountType: "student" },
         select: "-password",
       })
-      .populate("enrolledCourses.courseId")
+      .populate({
+        path: "enrolledCourses.courseId",
+        populate: { path: "category", select: "name" },
+      })
       .populate({
         path: "demoCourse",
         populate: [

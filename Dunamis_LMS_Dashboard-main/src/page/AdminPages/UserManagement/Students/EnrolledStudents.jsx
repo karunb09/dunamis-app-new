@@ -1,13 +1,47 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaFilter, FaSearch, FaSortAmountDown } from "react-icons/fa";
-import { FiClipboard } from "react-icons/fi";
+import { FaFilter, FaList, FaSearch, FaSortAmountDown, FaTh } from "react-icons/fa";
+import { FiClipboard, FiEye, FiX } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
-import { FiX } from "react-icons/fi";
+import dayjs from "dayjs";
 import { useStudentsByType } from "../../../../hooks/useStudents";
 import DataCards from "../../../../components/DataCards";
+import DataTable from "../../../../components/Table";
 import PersonCard from "../../../../components/cards/PersonCard";
-import SlideOver from "../../../../components/SlideOver";
+import RowActionsMenu from "../../../../components/RowActionsMenu";
+import ExportMenu from "../../../../components/ExportMenu";
+import usePersistedState from "../../../../hooks/usePersistedState";
+import { exportToExcel } from "../../../../utils/exportToExcel";
+import { getFeeStatus, getJoinDate } from "../../../../utils/feeStatus";
+import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+
+const SORT_OPTIONS = [
+    { value: "name", label: "Name" },
+    { value: "courseName", label: "Course Name" },
+    { value: "progress", label: "Progress" },
+    { value: "feeStatus", label: "Fee Status" },
+];
+
+const FEE_STATUS_ORDER = { Overdue: 0, Due: 1, Paid: 2 };
+const FEE_BADGES = {
+    Paid: { label: "Paid", className: "bg-emerald-50 text-emerald-600", dot: true, dotClass: "bg-emerald-500" },
+    Due: { label: "Due", className: "bg-amber-50 text-amber-600", dot: true, dotClass: "bg-amber-500" },
+    Overdue: { label: "Overdue", className: "bg-rose-50 text-rose-600", dot: true, dotClass: "bg-rose-500" },
+};
+const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
+
+const formatDate = (date) => (date ? dayjs(date).format("DD MMM YYYY") : "—");
+
+const modeBadge = (mode) =>
+    mode ? (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
+            mode === "online" ? "bg-emerald-50 text-emerald-600" : "bg-sky-50 text-sky-600"
+        }`}>
+            {mode}
+        </span>
+    ) : (
+        "N/A"
+    );
 
 const EnrolledStudents = () => {
     const navigate = useNavigate();
@@ -15,21 +49,14 @@ const EnrolledStudents = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filters, setFilters] = useState({ status: "", subcategory: "" });
-    const [selectedCategory, setSelectedCategory] = useState("");
+    const [filters, setFilters] = useState({ category: "", feeStatus: "", mode: "", joinFrom: "", joinTo: "" });
+    const [view, setView] = usePersistedState("enrolledStudentsView", "cards");
+    const [pageSize, setPageSize] = usePersistedState("enrolledStudentsPageSize", 12);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [exporting, setExporting] = useState(false);
     const sortRef = useRef();
-    const [slideOver, setSlideOver] = useState({ open: false, student: null });
 
-    const { data: studentsByType } = useStudentsByType();
-
-    const SORT_OPTIONS = [
-        { value: "name", label: "Name" },
-        { value: "courseName", label: "Course Name" },
-        { value: "progress", label: "Progress" },
-        { value: "feeStatus", label: "Fee Status" },
-    ];
-
-    const allCategories = ["Music", "Dance", "Language"];
+    const { data: studentsByType, isLoading, error } = useStudentsByType();
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -39,34 +66,69 @@ const EnrolledStudents = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const enrolledStudents = studentsByType?.enrolled || [];
+    const rows = (studentsByType?.enrolled || []).map((s, index) => {
+        const courses = (s.enrolledCourses || []).map((c) => ({
+            name: c.courseId?.name || "Unknown Course",
+            code: c.courseId?.code || "",
+            category: c.courseId?.category?.name || "",
+            mode: c.courseId?.mode || "",
+            progress: c.progress ?? null,
+        }));
+        const progressValues = courses.map((c) => c.progress).filter((p) => p != null);
+        return {
+            _id: s._id,
+            raw: s,
+            mockId: `#ERD-${1000 + index}`,
+            name: `${s.userId?.name?.firstName || ""} ${s.userId?.name?.lastName || ""}`.trim() || "Unknown",
+            email: s.userId?.email || "",
+            phone: s.userId?.mobileNo != null ? String(s.userId.mobileNo) : "",
+            avatar: resolveImageUrl(s.userId?.image, "/profile-photo.png"),
+            courses,
+            categories: [...new Set(courses.map((c) => c.category).filter(Boolean))],
+            avgProgress: progressValues.length
+                ? Math.round(progressValues.reduce((sum, p) => sum + p, 0) / progressValues.length)
+                : null,
+            mode: s.mode || courses[0]?.mode || "",
+            feeStatus: getFeeStatus(s),
+            joinedAt: getJoinDate(s),
+        };
+    });
 
-    const handleCopyDetails = (students) => {
-        const studentArray = Array.isArray(students) ? students : [students];
-        if (!studentArray.length) return toast.error("No student data to copy!");
-        const details = studentArray
-            .map((s) => {
-                const courses = s.enrolledCourses?.map((c) => {
-                    const course = c.courseId;
-                    const paid = c.payments?.some((p) => p.PaymentStatus === "completed");
-                    return `Course Name: ${course?.name || "N/A"}
-Course Code: ${course?.code || "N/A"}
-Progress: ${c.progress || "N/A"}
-Mode: ${course?.mode || "N/A"}
-Fee Status: ${paid ? "Paid" : "Pending"}`;
-                }).join("\n---\n");
-                return `Name: ${s.userId?.name?.firstName || "N/A"} ${s.userId?.name?.lastName || ""}
-ID: ${s.studentId || "N/A"}
-${courses || "No courses enrolled"}`;
-            })
-            .join("\n\n====================\n\n");
-        navigator.clipboard.writeText(details).then(() => toast.success("Details copied!"));
-    };
+    const categoryOptions = [...new Set(rows.flatMap((r) => r.categories))].sort();
 
-    const clearFilters = () => {
-        setFilters({ status: "", subcategory: "" });
-        setSelectedCategory("");
-    };
+    let displayed = rows;
+    if (filters.category) displayed = displayed.filter((r) => r.categories.includes(filters.category));
+    if (filters.feeStatus) displayed = displayed.filter((r) => r.feeStatus === filters.feeStatus);
+    if (filters.mode) displayed = displayed.filter((r) => r.mode === filters.mode);
+    if (filters.joinFrom) {
+        const from = new Date(filters.joinFrom);
+        displayed = displayed.filter((r) => r.joinedAt && r.joinedAt >= from);
+    }
+    if (filters.joinTo) {
+        const to = new Date(`${filters.joinTo}T23:59:59`);
+        displayed = displayed.filter((r) => r.joinedAt && r.joinedAt <= to);
+    }
+
+    const query = searchTerm.trim().toLowerCase();
+    if (query) {
+        displayed = displayed.filter((r) =>
+            [r.name, r.email, r.phone, ...r.courses.map((c) => c.name)].some((v) =>
+                v.toLowerCase().includes(query)
+            )
+        );
+    }
+
+    if (sortOption) {
+        displayed = [...displayed].sort((a, b) => {
+            switch (sortOption) {
+                case "name": return a.name.localeCompare(b.name);
+                case "courseName": return (a.courses[0]?.name || "").localeCompare(b.courses[0]?.name || "");
+                case "progress": return (b.avgProgress ?? -1) - (a.avgProgress ?? -1);
+                case "feeStatus": return FEE_STATUS_ORDER[a.feeStatus] - FEE_STATUS_ORDER[b.feeStatus];
+                default: return 0;
+            }
+        });
+    }
 
     const handleRowClick = (student) => {
         const studentId = student?._id;
@@ -80,208 +142,229 @@ ${courses || "No courses enrolled"}`;
         );
     };
 
-    let displayedStudents = enrolledStudents;
+    const handleCopyDetails = (selectedRows) => {
+        const list = Array.isArray(selectedRows) ? selectedRows : [selectedRows];
+        if (!list.length) return toast.error("No student data to copy!");
+        const details = list
+            .map((r) => {
+                const courses = r.courses
+                    .map((c) => `- ${c.name}${c.code ? ` (${c.code})` : ""} — Progress: ${c.progress != null ? `${c.progress}%` : "N/A"}${c.mode ? `, ${c.mode}` : ""}`)
+                    .join("\n");
+                return `Name: ${r.name}
+Email: ${r.email}
+Mobile: ${r.phone || "N/A"}
+Fee Status: ${r.feeStatus}
+Joined: ${formatDate(r.joinedAt)}
+Courses:
+${courses || "No courses enrolled"}`;
+            })
+            .join("\n\n====================\n\n");
+        navigator.clipboard.writeText(details)
+            .then(() => toast.success("Details copied!"))
+            .catch(() => toast.error("Failed to copy!"));
+    };
 
-    if (searchTerm) {
-        displayedStudents = displayedStudents.filter((s) => {
-            const fullName = `${s.userId?.name?.firstName || ""} ${s.userId?.name?.lastName || ""}`.toLowerCase();
-            return fullName.includes(searchTerm.toLowerCase());
-        });
-    }
+    const EXPORT_COLUMNS = [
+        { header: "Name", value: (r) => r.name, width: 24 },
+        { header: "Email", value: (r) => r.email, width: 30 },
+        { header: "Phone", value: (r) => r.phone, width: 16 },
+        { header: "Courses", value: (r) => r.courses.map((c) => c.name).join("; "), width: 36 },
+        { header: "Category", value: (r) => r.categories.join("; "), width: 18 },
+        { header: "Avg Progress", value: (r) => (r.avgProgress != null ? `${r.avgProgress}%` : "") },
+        { header: "Mode", value: (r) => r.mode },
+        { header: "Fee Status", value: (r) => r.feeStatus },
+        { header: "Joined", value: (r) => formatDate(r.joinedAt), width: 14 },
+    ];
 
-    if (filters.status)
-        displayedStudents = displayedStudents.filter((s) =>
-            s.enrolledCourses?.some(
-                (c) =>
-                    (filters.status === "Paid" && c.payments?.some((p) => p.PaymentStatus === "completed")) ||
-                    (filters.status === "Pending" && !c.payments?.some((p) => p.PaymentStatus === "completed"))
-            )
-        );
+    const runExport = async (list) => {
+        if (!list.length) return toast.error("Nothing to export");
+        setExporting(true);
+        try {
+            await exportToExcel({
+                fileName: `enrolled-students-${dayjs().format("YYYY-MM-DD")}`,
+                sheetName: "Enrolled Students",
+                columns: EXPORT_COLUMNS,
+                rows: list,
+            });
+            toast.success(`Exported ${list.length} student${list.length === 1 ? "" : "s"}`);
+        } catch {
+            toast.error("Export failed");
+        } finally {
+            setExporting(false);
+        }
+    };
 
-    if (filters.subcategory)
-        displayedStudents = displayedStudents.filter((s) =>
-            s.enrolledCourses?.some((c) => c.courseId?.category === filters.subcategory)
-        );
+    const buildMenuItems = (row) => [
+        {
+            label: "View Profile",
+            icon: <FiEye size={14} />,
+            onClick: () => handleRowClick(row.raw),
+        },
+        {
+            label: "Copy Details",
+            icon: <FiClipboard size={14} />,
+            onClick: () => handleCopyDetails([row]),
+        },
+    ];
 
-    if (sortOption) {
-        displayedStudents = [...displayedStudents].sort((a, b) => {
-            if (sortOption === "name") {
-                const nameA = `${a.userId?.name?.firstName || ""} ${a.userId?.name?.lastName || ""}`;
-                const nameB = `${b.userId?.name?.firstName || ""} ${b.userId?.name?.lastName || ""}`;
-                return nameA.localeCompare(nameB);
-            }
-            return 0;
-        });
-    }
-
-    const displayedStudentsWithId = displayedStudents.map((student, index) => ({
-        ...student,
-        mockId: `#ERD-${1000 + index}`,
-    }));
-
-    const closeSlideOver = () => setSlideOver((prev) => ({ ...prev, open: false }));
-
-    const renderStudentSlide = () => {
-        const s = slideOver.student;
-        if (!s) return null;
-
-        const firstName = s.userId?.name?.firstName || "";
-        const lastName = s.userId?.name?.lastName || "";
-        const fullName = `${firstName} ${lastName}`.trim() || "Unknown";
-        const email = s.userId?.email || "—";
-        const phone = s.userId?.mobileNo;
-        const avatar = s.userId?.image;
-        const courses = s.enrolledCourses || [];
-        const paidCount = courses.filter((c) => c.payments?.some((p) => p.PaymentStatus === "completed")).length;
-        const avgProgress =
-            courses.length > 0
-                ? Math.round(courses.reduce((sum, c) => sum + (c.progress || 0), 0) / courses.length)
-                : 0;
-
-        return (
-            <>
-                <div className="bg-gradient-to-b from-orange-50 to-white px-6 pb-6 pt-14">
-                    <div className="flex items-start gap-4">
-                        {avatar ? (
-                            <img
-                                src={avatar}
-                                alt={fullName}
-                                className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-4 ring-white shadow-md"
-                                onError={(e) => { e.currentTarget.style.display = "none"; }}
-                            />
-                        ) : (
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-xl font-bold text-[#FF6B35] ring-4 ring-white shadow-md">
-                                {(firstName[0] || "?").toUpperCase()}
-                            </div>
-                        )}
-                        <div className="min-w-0 flex-1 pt-1">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Student Profile</p>
-                            <h2 className="mt-0.5 truncate text-xl font-bold text-slate-900">{fullName}</h2>
-                            <p className="truncate text-sm text-slate-500">{email}</p>
-                        </div>
+    const tableColumns = [
+        {
+            key: "student",
+            header: "Student",
+            minWidth: "220px",
+            render: (_, row) => (
+                <div className="flex items-center gap-3">
+                    <img
+                        src={row.avatar}
+                        alt={row.name}
+                        className="h-9 w-9 shrink-0 rounded-xl object-cover object-top"
+                        onError={(e) => { e.target.onerror = null; e.target.src = "/profile-photo.png"; }}
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">{row.name}</p>
+                        <p className="truncate text-xs text-slate-500">{row.email}</p>
                     </div>
                 </div>
-
-                <div className="grid grid-cols-3 divide-x divide-slate-100 border-y border-slate-100">
-                    {[
-                        { label: "Enrolled", value: courses.length },
-                        { label: "Avg Progress", value: `${avgProgress}%` },
-                        { label: "Paid", value: paidCount },
-                    ].map((stat) => (
-                        <div key={stat.label} className="py-4 text-center">
-                            <p className="text-xl font-bold text-slate-900">{stat.value}</p>
-                            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{stat.label}</p>
-                        </div>
-                    ))}
+            ),
+        },
+        {
+            key: "course",
+            header: "Course",
+            minWidth: "170px",
+            render: (_, row) => (
+                <div className="min-w-0">
+                    <p className="truncate text-sm text-slate-700">{row.courses[0]?.name || "—"}</p>
+                    {row.courses.length > 1 && (
+                        <p className="text-xs text-slate-400">+{row.courses.length - 1} more</p>
+                    )}
                 </div>
+            ),
+        },
+        {
+            key: "category",
+            header: "Category",
+            minWidth: "120px",
+            render: (_, row) => row.categories.join(", ") || "—",
+        },
+        {
+            key: "progress",
+            header: "Progress",
+            minWidth: "100px",
+            nowrap: true,
+            render: (_, row) => (row.avgProgress != null ? `${row.avgProgress}%` : "—"),
+        },
+        {
+            key: "mode",
+            header: "Mode",
+            minWidth: "100px",
+            nowrap: true,
+            render: (_, row) => modeBadge(row.mode),
+        },
+        {
+            key: "feeStatus",
+            header: "Fee Status",
+            minWidth: "110px",
+            nowrap: true,
+            render: (_, row) => {
+                const badge = FEE_BADGES[row.feeStatus];
+                return (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${badge.className}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${badge.dotClass}`} />
+                        {badge.label}
+                    </span>
+                );
+            },
+        },
+        {
+            key: "joinedAt",
+            header: "Joined",
+            minWidth: "120px",
+            nowrap: true,
+            render: (_, row) => formatDate(row.joinedAt),
+        },
+        {
+            key: "actions",
+            header: "",
+            minWidth: "70px",
+            render: (_, row) => <RowActionsMenu items={buildMenuItems(row)} />,
+        },
+    ];
 
-                <div className="px-6 py-5">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Details</p>
-                    <div className="space-y-2.5">
-                        {[
-                            { label: "ID", value: s.mockId || s.studentId || "—" },
-                            { label: "Email", value: email },
-                            phone ? { label: "Phone", value: phone } : null,
-                        ].filter(Boolean).map(({ label, value }) => (
-                            <div key={label} className="flex items-baseline gap-3 text-sm">
-                                <span className="w-12 shrink-0 text-slate-400">{label}</span>
-                                <span className="break-all font-medium text-slate-900">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+    const selectedRows = displayed.filter((r) => selectedIds.includes(r._id));
+    const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
-                {courses.length > 0 && (
-                    <div className="border-t border-slate-100 px-6 py-5">
-                        <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            Enrolled Courses ({courses.length})
-                        </p>
-                        <div className="space-y-3">
-                            {courses.map((enrollment, i) => {
-                                const course = enrollment.courseId;
-                                const paid = enrollment.payments?.some((p) => p.PaymentStatus === "completed");
-                                const prog = enrollment.progress;
-                                return (
-                                    <div key={i} className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div className="min-w-0">
-                                                <p className="truncate text-sm font-semibold text-slate-900">{course?.name || "Unknown Course"}</p>
-                                                {course?.code && <p className="text-xs text-slate-500">{course.code}</p>}
-                                            </div>
-                                            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
-                                                paid ? "bg-emerald-50 text-emerald-700" : "bg-orange-50 text-orange-700"
-                                            }`}>
-                                                {paid ? "Paid" : "Pending"}
-                                            </span>
-                                        </div>
-                                        {prog != null && (
-                                            <div className="mt-3">
-                                                <div className="mb-1 flex items-center justify-between">
-                                                    <span className="text-[10px] text-slate-400">Progress</span>
-                                                    <span className="text-[10px] font-semibold text-slate-700">{prog}%</span>
-                                                </div>
-                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-                                                    <div
-                                                        className="h-full rounded-full bg-[#FF6B35] transition-all"
-                                                        style={{ width: `${Math.min(prog, 100)}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                        {course?.mode && (
-                                            <span className={`mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
-                                                course.mode === "online" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
-                                            }`}>
-                                                {course.mode}
-                                            </span>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-            </>
-        );
+    const sharedListProps = {
+        data: displayed,
+        itemsPerPage: pageSize,
+        itemsPerPageOptions: PAGE_SIZE_OPTIONS,
+        onItemsPerPageChange: setPageSize,
+        onSelectionChange: setSelectedIds,
+        emptyMessage: "No enrolled students found.",
+        onCopyDetails: handleCopyDetails,
     };
 
     return (
         <>
+            {isLoading && <p className="mb-4 text-sm text-slate-500">Loading students…</p>}
+            {error && <p className="mb-4 text-sm text-rose-500">Error: {error.message}</p>}
+
             {/* Toolbar */}
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:w-72">
+            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="relative w-full lg:w-72">
                     <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
                         placeholder="Search students…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm shadow-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center rounded-2xl border border-slate-200 bg-white p-1">
+                        <button
+                            type="button"
+                            onClick={() => setView("cards")}
+                            aria-label="Card view"
+                            className={`rounded-xl px-3 py-1.5 transition-colors ${
+                                view === "cards" ? "bg-orange-50 text-orange-600" : "text-slate-400 hover:text-slate-600"
+                            }`}
+                        >
+                            <FaTh size={13} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setView("list")}
+                            aria-label="List view"
+                            className={`rounded-xl px-3 py-1.5 transition-colors ${
+                                view === "list" ? "bg-orange-50 text-orange-600" : "text-slate-400 hover:text-slate-600"
+                            }`}
+                        >
+                            <FaList size={13} />
+                        </button>
+                    </div>
                     <div className="relative" ref={sortRef}>
                         <button
                             type="button"
                             onClick={() => setSortOpen(!sortOpen)}
                             className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
                                 sortOption
-                                    ? "border-orange-300 bg-orange-50 text-orange-700"
-                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                    ? "border-orange-200 bg-orange-50 text-orange-600"
+                                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                             }`}
                         >
                             <FaSortAmountDown size={13} /> Sort
                         </button>
                         {sortOpen && (
-                            <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/60">
+                            <div className="absolute right-0 z-40 mt-2 w-48 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
                                 {SORT_OPTIONS.map(({ value, label }) => (
                                     <button
                                         key={value}
                                         type="button"
                                         onClick={() => { setSortOption(value); setSortOpen(false); }}
-                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition-colors hover:bg-slate-50 ${
                                             sortOption === value
-                                                ? "bg-orange-50 font-semibold text-orange-700"
+                                                ? "bg-orange-50 font-semibold text-orange-600"
                                                 : "text-slate-700"
                                         }`}
                                     >
@@ -295,20 +378,33 @@ ${courses || "No courses enrolled"}`;
                         type="button"
                         onClick={() => setFilterOpen(true)}
                         className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                            filters.status || filters.subcategory
-                                ? "border-orange-300 bg-orange-50 text-orange-700"
-                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            activeFilterCount
+                                ? "border-orange-200 bg-orange-50 text-orange-600"
+                                : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                         }`}
                     >
-                        <FaFilter size={13} /> Filter
+                        <FaFilter size={13} />
+                        Filter
+                        {activeFilterCount > 0 && (
+                            <span className="rounded-full bg-[#FF6B35] px-2 py-0.5 text-xs font-semibold text-white">
+                                {activeFilterCount}
+                            </span>
+                        )}
                     </button>
+                    <ExportMenu
+                        onExportAll={() => runExport(displayed)}
+                        onExportSelected={() => runExport(selectedRows)}
+                        totalCount={displayed.length}
+                        selectedCount={selectedRows.length}
+                        exporting={exporting}
+                    />
                 </div>
             </div>
 
             {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4">
+                    <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-3xl">
                         <button
                             type="button"
                             onClick={() => setFilterOpen(false)}
@@ -323,22 +419,65 @@ ${courses || "No courses enrolled"}`;
                             <div>
                                 <label className="mb-1.5 block text-sm font-medium text-slate-700">Category</label>
                                 <select
-                                    value={selectedCategory}
-                                    onChange={(e) => setSelectedCategory(e.target.value)}
+                                    value={filters.category}
+                                    onChange={(e) => setFilters((f) => ({ ...f, category: e.target.value }))}
                                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                                 >
                                     <option value="">All categories</option>
-                                    {allCategories.map((sub, idx) => (
-                                        <option key={idx} value={sub}>{sub}</option>
+                                    {categoryOptions.map((cat) => (
+                                        <option key={cat} value={cat}>{cat}</option>
                                     ))}
                                 </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Fee Status</label>
+                                <select
+                                    value={filters.feeStatus}
+                                    onChange={(e) => setFilters((f) => ({ ...f, feeStatus: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    <option value="Paid">Paid</option>
+                                    <option value="Due">Due</option>
+                                    <option value="Overdue">Overdue</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Enrollment Mode</label>
+                                <select
+                                    value={filters.mode}
+                                    onChange={(e) => setFilters((f) => ({ ...f, mode: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    <option value="online">Online</option>
+                                    <option value="offline">Offline</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Joined From</label>
+                                <input
+                                    type="date"
+                                    value={filters.joinFrom}
+                                    onChange={(e) => setFilters((f) => ({ ...f, joinFrom: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                />
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Joined To</label>
+                                <input
+                                    type="date"
+                                    value={filters.joinTo}
+                                    onChange={(e) => setFilters((f) => ({ ...f, joinTo: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                />
                             </div>
                         </div>
 
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
-                                onClick={clearFilters}
+                                onClick={() => setFilters({ category: "", feeStatus: "", mode: "", joinFrom: "", joinTo: "" })}
                                 className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
@@ -355,92 +494,36 @@ ${courses || "No courses enrolled"}`;
                 </div>
             )}
 
-            <DataCards
-                data={displayedStudentsWithId}
-                itemsPerPage={12}
-                emptyMessage="No enrolled students found."
-                onCopyDetails={handleCopyDetails}
-                onDeleteSelected={(selectedIds) => console.log("Delete these students:", selectedIds)}
-                renderCard={(row, { selected, onSelect }) => {
-                    const firstName = row.userId?.name?.firstName || "";
-                    const lastName = row.userId?.name?.lastName || "";
-                    const fullName = `${firstName} ${lastName}`.trim() || "Unknown";
-                    const course = row.enrolledCourses?.[0]?.courseId;
-                    const paid = row.enrolledCourses?.[0]?.payments?.some((p) => p.PaymentStatus === "completed");
-                    const mode = course?.mode;
-                    const progress = row.enrolledCourses?.[0]?.progress;
-
-                    return (
+            {view === "cards" ? (
+                <DataCards
+                    {...sharedListProps}
+                    renderCard={(row, { selected, onSelect }) => (
                         <PersonCard
-                            avatarSrc={row.userId?.image || undefined}
-                            name={fullName}
-                            subtitle={course?.name || "No course"}
-                            statusBadge={
-                                paid
-                                    ? { label: "Paid", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: true, dotClass: "bg-emerald-500" }
-                                    : { label: "Pending", className: "bg-orange-50 text-orange-700 ring-1 ring-orange-200", dot: true, dotClass: "bg-orange-500" }
-                            }
+                            avatarSrc={row.avatar || undefined}
+                            name={row.name}
+                            subtitle={row.courses[0]?.name || "No course"}
+                            statusBadge={FEE_BADGES[row.feeStatus]}
                             meta={[
                                 { label: "Student ID", value: row.mockId },
-                                { label: "Course Code", value: course?.code || "N/A" },
-                                { label: "Progress", value: progress != null ? `${progress}%` : "N/A" },
-                                {
-                                    label: "Mode",
-                                    value: mode,
-                                    render: (v) => v ? (
-                                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                            v === "online" ? "bg-emerald-50 text-emerald-700" : "bg-blue-50 text-blue-700"
-                                        }`}>
-                                            {v.charAt(0).toUpperCase() + v.slice(1)}
-                                        </span>
-                                    ) : "N/A",
-                                },
+                                { label: "Course Code", value: row.courses[0]?.code || "N/A" },
+                                { label: "Progress", value: row.avgProgress != null ? `${row.avgProgress}%` : "N/A" },
+                                { label: "Mode", value: row.mode, render: modeBadge },
                             ]}
-                            onView={() => setSlideOver({ open: true, student: row })}
+                            onView={() => handleRowClick(row.raw)}
                             primaryLabel="View Student"
-                            menuItems={[
-                                {
-                                    label: "Copy Details",
-                                    icon: <FiClipboard size={14} />,
-                                    onClick: () => handleCopyDetails([row]),
-                                },
-                            ]}
+                            menuItems={buildMenuItems(row)}
                             selected={selected}
                             onSelect={onSelect}
                         />
-                    );
-                }}
-            />
-
-            <SlideOver
-                open={slideOver.open}
-                onClose={closeSlideOver}
-                footer={
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={closeSlideOver}
-                            className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Close
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const id = slideOver.student?._id;
-                                if (!id) return;
-                                closeSlideOver();
-                                navigate(`/admin/student-management/students/${encodeURIComponent(id)}`, { state: { student: slideOver.student } });
-                            }}
-                            className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
-                        >
-                            View Full Profile →
-                        </button>
-                    </div>
-                }
-            >
-                {renderStudentSlide()}
-            </SlideOver>
+                    )}
+                />
+            ) : (
+                <DataTable
+                    {...sharedListProps}
+                    columns={tableColumns}
+                    onRowClick={(row) => handleRowClick(row.raw)}
+                />
+            )}
         </>
     );
 };

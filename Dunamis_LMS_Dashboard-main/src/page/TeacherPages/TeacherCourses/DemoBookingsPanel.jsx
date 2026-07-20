@@ -88,12 +88,16 @@ const isNewBooking = (booking) => {
   return Date.now() - createdDate.getTime() <= 48 * 60 * 60 * 1000;
 };
 
+const DEMO_STATUS_OPTIONS = ["Booked", "Attended", "Missed", "Rescheduled"];
+
 const DemoBookingsPanel = ({
   bookings = [],
   teacherId = "",
   loading = false,
   error = null,
   onRefresh,
+  onUpdateStatus,
+  updatingId = null,
 }) => {
   const now = new Date();
   const normalizedTeacherId = normalizeId(teacherId);
@@ -118,14 +122,15 @@ const DemoBookingsPanel = ({
         })
         .filter((booking) => {
           const status = (booking?.demoStatus || "").toString().toLowerCase();
-          if (status === "cancelled" || status === "missed") return false;
+          if (status === "cancelled") return false;
 
           const bookingDate = getBookingDate(booking);
           if (!bookingDate) return true;
 
-          const startOfToday = new Date(now);
-          startOfToday.setHours(0, 0, 0, 0);
-          return bookingDate >= startOfToday;
+          const windowStart = new Date(now);
+          windowStart.setHours(0, 0, 0, 0);
+          windowStart.setDate(windowStart.getDate() - 7);
+          return bookingDate >= windowStart;
         })
         .sort((a, b) => {
           const aDate = getBookingDate(a)?.getTime() || Number.MAX_SAFE_INTEGER;
@@ -153,11 +158,11 @@ const DemoBookingsPanel = ({
             Teacher Visibility
           </p>
           <h2 className="mt-1 text-xl font-semibold text-slate-900">
-            Upcoming Demo Bookings
+            Demo Bookings
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            These requests are already assigned to you when a learner books one
-            of your demo slots.
+            Bookings assigned to you — update the demo status after each
+            session.
           </p>
         </div>
 
@@ -214,10 +219,14 @@ const DemoBookingsPanel = ({
         </div>
       ) : (
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
-          {visibleBookings.slice(0, 4).map((booking) => {
+          {visibleBookings.slice(0, 8).map((booking) => {
             const student = getStudentMeta(booking);
             const bookingDate = getBookingDate(booking);
             const mode = getBookingMode(booking);
+            const startOfToday = new Date(now);
+            startOfToday.setHours(0, 0, 0, 0);
+            const isPast = Boolean(bookingDate && bookingDate < startOfToday);
+            const bookingId = booking?._id || booking?.id;
             const branchName =
               booking?.slotId?.branchId?.branchName ||
               booking?.branch?.branchName ||
@@ -249,11 +258,13 @@ const DemoBookingsPanel = ({
                     <p className="text-sm font-semibold text-slate-900">
                       {courseName}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {booking?.demoStatus || "Booked"}
-                    </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-2">
+                    {isPast ? (
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+                        Past
+                      </span>
+                    ) : null}
                     {isNewBooking(booking) ? (
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                         New
@@ -301,6 +312,26 @@ const DemoBookingsPanel = ({
                     </div>
                   ) : null}
                 </div>
+
+                {onUpdateStatus ? (
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Demo Status
+                    </p>
+                    <select
+                      value={booking?.demoStatus || "Booked"}
+                      disabled={updatingId === bookingId}
+                      onChange={(e) => onUpdateStatus(bookingId, e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 outline-none transition-colors focus:border-orange-400 disabled:opacity-50"
+                    >
+                      {DEMO_STATUS_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
               </article>
             );
           })}

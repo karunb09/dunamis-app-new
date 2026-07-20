@@ -517,7 +517,8 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         .json({ success: false, message: "Booking not found" });
     }
 
-    if (req.user?.accountType === "teacher") {
+    const isTeacher = req.user?.accountType === "teacher";
+    if (isTeacher) {
       const teacherRoleId = toIdString(req.user.roleId);
       const assignedTeacherId = toIdString(booking.teacherId);
       const slotTeacherId = toIdString(booking.slotId?.createdBy);
@@ -533,16 +534,26 @@ exports.updateBooking = asyncHandler(async (req, res) => {
       }
     }
 
+    // Teachers may only set the demo status; the rest is admin-managed
     const updateFields = {};
     if (demoStatus) updateFields.demoStatus = demoStatus;
-    if (enrollmentStatus) updateFields.enrollmentStatus = enrollmentStatus;
-    if (followUp) updateFields.followUp = followUp;
-    if (response !== undefined) updateFields.response = response;
+    if (!isTeacher) {
+      if (enrollmentStatus) updateFields.enrollmentStatus = enrollmentStatus;
+      if (followUp) updateFields.followUp = followUp;
+      if (response !== undefined) updateFields.response = response;
+    }
+
+    if (!Object.keys(updateFields).length) {
+      return res.status(400).json({
+        success: false,
+        message: "No updatable fields provided",
+      });
+    }
 
     const updatedBooking = await DemoBooking.findByIdAndUpdate(
       req.params.id,
       updateFields,
-      { returnDocument: "after" }
+      { returnDocument: "after", runValidators: true }
     );
 
     return res.status(200).json({
