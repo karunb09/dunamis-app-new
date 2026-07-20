@@ -123,7 +123,7 @@ jobs:
 
       - name: Notify failure (email)
         if: failure()
-        uses: dawidd6/action-send-mail@v4
+        uses: dawidd6/action-send-mail@v18
         with:
           server_address: ${{ secrets.MAIL_HOST }}
           server_port: ${{ secrets.MAIL_PORT }}
