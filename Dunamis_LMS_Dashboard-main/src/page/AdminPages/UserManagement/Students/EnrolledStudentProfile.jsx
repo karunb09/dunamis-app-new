@@ -1,7 +1,9 @@
 import { useParams, useLocation } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { FiBook, FiCheckCircle, FiAward } from "react-icons/fi";
+import { FiBook, FiCheckCircle, FiAward, FiGrid, FiClipboard, FiEdit3, FiCalendar, FiCreditCard } from "react-icons/fi";
 import { useStudentById } from "../../../../hooks/useStudents";
+import IconTabBar from "../../../../components/IconTabBar";
+import PageTabBar from "../../../../components/PageTabBar";
 
 import OverviewTab from "./EnrolledStudentsDetailTabs/OverviewTab";
 import CoursesTab from "./EnrolledStudentsDetailTabs/CourseTab";
@@ -17,7 +19,15 @@ const StudentProfile = () => {
 
   const [activeTab, setActiveTab] = useState("Overview");
   const tabs = useMemo(
-    () => ["Overview", "Courses", "Assessments", "Assignments", "Schedules", "Certifications", "Payments"],
+    () => [
+      { id: "Overview", label: "Overview", icon: FiGrid },
+      { id: "Courses", label: "Courses", icon: FiBook },
+      { id: "Assessments", label: "Assessments", icon: FiClipboard },
+      { id: "Assignments", label: "Assignments", icon: FiEdit3 },
+      { id: "Schedules", label: "Schedules", icon: FiCalendar },
+      { id: "Certifications", label: "Certifications", icon: FiAward },
+      { id: "Payments", label: "Payments", icon: FiCreditCard },
+    ],
     []
   );
 
@@ -78,52 +88,44 @@ const StudentProfile = () => {
       </div>
 
       {/* Stats */}
-      <div className="flex gap-4 flex-col md:flex-row">
-        <div className="flex-1 bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
-          <FiBook className="text-blue-500 text-xl" />
-          <div>
-            <p className="text-sm text-gray-500">Courses Enrolled</p>
-            <p className="text-xl font-bold">{enrolledCount}</p>
-          </div>
-        </div>
-        <div className="flex-1 bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
-          <FiCheckCircle className="text-green-500 text-xl" />
-          <div>
-            <p className="text-sm text-gray-500">Courses Completed</p>
-            <p className="text-xl font-bold">{completedCoursesCount}</p>
-          </div>
-        </div>
-        <div className="flex-1 bg-white p-4 rounded-xl shadow-sm flex items-center gap-3">
-          <FiAward className="text-yellow-500 text-xl" />
-          <div>
-            <p className="text-sm text-gray-500">Assignments</p>
-            <p className="text-xl font-bold">{assignmentsCount}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex border-b mb-4 space-x-6 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`pb-2 text-sm whitespace-nowrap ${activeTab === tab ? "border-b-2 border-black font-semibold" : "text-gray-500 hover:text-black"
-              }`}
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        {[
+          { icon: <FiBook className="shrink-0 text-lg text-blue-500 sm:text-xl" />, label: "Courses Enrolled", value: enrolledCount },
+          { icon: <FiCheckCircle className="shrink-0 text-lg text-green-500 sm:text-xl" />, label: "Courses Completed", value: completedCoursesCount },
+          { icon: <FiAward className="shrink-0 text-lg text-yellow-500 sm:text-xl" />, label: "Assignments", value: assignmentsCount },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex flex-col items-center gap-1 rounded-xl border border-slate-100 bg-white p-3 text-center shadow-sm sm:flex-row sm:gap-3 sm:p-4 sm:text-left"
           >
-            {tab}
-          </button>
+            {stat.icon}
+            <div className="min-w-0">
+              <p className="text-lg font-bold text-slate-900 sm:text-xl">{stat.value}</p>
+              <p className="text-[11px] leading-tight text-gray-500 sm:text-sm">{stat.label}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "Overview" && <OverviewTab studentId={id} />}
-      {activeTab === "Courses" && <CoursesTab student={student} />}
-      {activeTab === "Assessments" && <AssessmentsTab student={student} />}
-      {activeTab === "Assignments" && <AssignmentsTab student={student} />}
-      {activeTab === "Schedules" && <SchedulesTab student={student} />}
-      {activeTab === "Certifications" && <CertificationsTab student={student} />}
-      {activeTab === "Payments" && <PaymentsTab student={student} />}
+      {/* Tabs */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="md:hidden">
+          <PageTabBar tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+        </div>
+        <div className="hidden md:block md:shrink-0">
+          <IconTabBar orientation="vertical" tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {activeTab === "Overview" && <OverviewTab studentId={id} />}
+          {activeTab === "Courses" && <CoursesTab student={student} />}
+          {activeTab === "Assessments" && <AssessmentsTab student={student} />}
+          {activeTab === "Assignments" && <AssignmentsTab student={student} />}
+          {activeTab === "Schedules" && <SchedulesTab student={student} />}
+          {activeTab === "Certifications" && <CertificationsTab student={student} />}
+          {activeTab === "Payments" && <PaymentsTab student={student} />}
+        </div>
+      </div>
     </div>
   );
 };

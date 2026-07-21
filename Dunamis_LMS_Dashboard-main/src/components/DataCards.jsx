@@ -65,7 +65,7 @@ const DataCards = ({
 
     return (
         <div className="w-full">
-            <div className="mb-4 flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-3.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:rounded-[28px] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3.5">
                 <div>
                     <p className="text-sm font-semibold text-slate-900">
                         {data.length}{" "}
@@ -158,7 +158,7 @@ const DataCards = ({
                     })}
                 </div>
             ) : (
-                <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-16 text-center shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)]">
+                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)] sm:rounded-[30px] sm:py-16">
                     <div className="mx-auto max-w-sm">
                         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                             <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

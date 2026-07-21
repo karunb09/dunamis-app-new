@@ -13,7 +13,6 @@ import ActionProgressBar from '../../../../components/ActionProgressBar';
 import IconActionButton from '../../../../components/IconActionButton';
 import DataCards from '../../../../components/DataCards';
 import PersonCard from '../../../../components/cards/PersonCard';
-import SlideOver from '../../../../components/SlideOver';
 import EditInstructorModal from './EditInstructorModal';
 
 const SORT_OPTIONS = [
@@ -53,7 +52,6 @@ const Instructor = () => {
     const [filterOpen, setFilterOpen] = useState(false);
     const [filters, setFilters] = useState({ accountStatus: '', salaryStatus: '', mode: '' });
     const [processingAction, setProcessingAction] = useState(null);
-    const [slideOver, setSlideOver] = useState({ open: false, instructor: null });
     const [editModal, setEditModal] = useState({ open: false, instructor: null });
     const dropdownRef = useRef(null);
 
@@ -131,7 +129,10 @@ const Instructor = () => {
         }
     };
 
-    const closeSlideOver = () => setSlideOver((prev) => ({ ...prev, open: false }));
+    const goToInstructorProfile = (row) => {
+        if (!row?.id) return;
+        navigate(`/admin/instructor-management/instructors/${row.id}`, { state: { instructor: row } });
+    };
 
     const closeEditModal = () => {
         if (!processingAction) setEditModal((prev) => ({ ...prev, open: false }));
@@ -168,85 +169,6 @@ const Instructor = () => {
         })
             .then(() => setEditModal({ open: false, instructor: null }))
             .catch(() => {});
-    };
-
-    const renderInstructorSlide = () => {
-        const r = slideOver.instructor;
-        if (!r) return null;
-
-        const avatarSrc = r.avatar || r.userImage;
-
-        return (
-            <>
-                <div className="bg-gradient-to-b from-orange-50 to-white px-6 pb-6 pt-14">
-                    <div className="flex items-start gap-4">
-                        {avatarSrc ? (
-                            <img
-                                src={resolveImageUrl(avatarSrc, DEFAULT_AVATAR)}
-                                alt={r.name}
-                                className="h-16 w-16 shrink-0 rounded-2xl object-cover ring-4 ring-white shadow-md"
-                                onError={(e) => { e.currentTarget.style.display = "none"; }}
-                            />
-                        ) : (
-                            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-xl font-bold text-[#FF6B35] ring-4 ring-white shadow-md">
-                                {(r.name[0] || "?").toUpperCase()}
-                            </div>
-                        )}
-                        <div className="min-w-0 flex-1 pt-1">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Instructor Profile</p>
-                            <h2 className="mt-0.5 truncate text-xl font-bold text-slate-900">{r.name}</h2>
-                            {r.courseCategory !== '—' && (
-                                <p className="truncate text-sm text-slate-500">{r.courseCategory}</p>
-                            )}
-                        </div>
-                        <span className={`mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            r.accountStatus === 'active'
-                                ? 'bg-emerald-50 text-emerald-700'
-                                : 'bg-rose-50 text-rose-700'
-                        }`}>
-                            {r.accountStatus === 'active' ? 'Active' : 'Inactive'}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-2 divide-x divide-slate-100 border-y border-slate-100">
-                    {[
-                        { label: 'Students', value: r.studentCount || 0 },
-                        { label: 'Mode', value: r.mode !== '—' ? r.mode.charAt(0).toUpperCase() + r.mode.slice(1) : '—' },
-                    ].map((stat) => (
-                        <div key={stat.label} className="py-4 text-center">
-                            <p className="text-xl font-bold text-slate-900">{stat.value}</p>
-                            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{stat.label}</p>
-                        </div>
-                    ))}
-                </div>
-
-                <div className="px-6 py-5">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Details</p>
-                    <div className="space-y-2.5">
-                        {[
-                            { label: 'ID', value: r.instructorId },
-                            r.email ? { label: 'Email', value: r.email } : null,
-                            {
-                                label: 'Joined',
-                                value: r.joiningDate
-                                    ? new Date(r.joiningDate).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
-                                    : '—',
-                            },
-                            {
-                                label: 'Salary',
-                                value: r.salaryStatus === 'paid' ? 'Paid ✓' : 'Due',
-                            },
-                        ].filter(Boolean).map(({ label, value }) => (
-                            <div key={label} className="flex items-baseline gap-3 text-sm">
-                                <span className="w-12 shrink-0 text-slate-400">{label}</span>
-                                <span className="break-all font-medium text-slate-900">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </>
-        );
     };
 
     if (loading) return <p className="py-10 text-center text-slate-500">Loading instructors…</p>;
@@ -399,7 +321,7 @@ const Instructor = () => {
                                     : '—'
                             },
                         ]}
-                        onView={() => setSlideOver({ open: true, instructor: row })}
+                        onView={() => goToInstructorProfile(row)}
                         primaryLabel="View Instructor"
                         menuItems={[
                             {
@@ -490,36 +412,6 @@ const Instructor = () => {
                     </PersonCard>
                 )}
             />
-
-            <SlideOver
-                open={slideOver.open}
-                onClose={closeSlideOver}
-                footer={
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={closeSlideOver}
-                            className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Close
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const id = slideOver.instructor?.id;
-                                if (!id) return;
-                                closeSlideOver();
-                                navigate(`/admin/instructor-management/instructors/${id}`, { state: { instructor: slideOver.instructor } });
-                            }}
-                            className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
-                        >
-                            View Full Profile →
-                        </button>
-                    </div>
-                }
-            >
-                {renderInstructorSlide()}
-            </SlideOver>
 
             <EditInstructorModal
                 open={editModal.open}

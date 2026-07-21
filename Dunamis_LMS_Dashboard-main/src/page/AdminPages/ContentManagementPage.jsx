@@ -6,7 +6,12 @@ import toast from "react-hot-toast";
 import { deleteContent, fetchAllContent } from "../../redux/Content/ContentSlice";
 import Swal from "sweetalert2";
 import { FiX } from "react-icons/fi";
+import IconTabBar from "../../components/IconTabBar";
 
+const TABS = [
+  { id: "Active", label: "Active", icon: FaStream },
+  { id: "Drafts", label: "Drafts", icon: FaRegClock },
+];
 const SORT_OPTIONS = [
   { value: "title-asc", label: "Name A-Z" },
   { value: "title-desc", label: "Name Z-A" },
@@ -314,19 +319,8 @@ const ContentManagementPage = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-4 border-b border-gray-300 mb-4">
-        <button
-          className={`pb-2 ${activeTab === "Active" ? "text-black border-b-2 border-black" : "text-gray-500"}`}
-          onClick={() => setActiveTab("Active")}
-        >
-          Active
-        </button>
-        <button
-          className={`pb-2 ${activeTab === "Drafts" ? "text-black border-b-2 border-black" : "text-gray-500"}`}
-          onClick={() => setActiveTab("Drafts")}
-        >
-          Drafts
-        </button>
+      <div className="mb-4">
+        <IconTabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
       </div>
 
       {/* Content Grid */}

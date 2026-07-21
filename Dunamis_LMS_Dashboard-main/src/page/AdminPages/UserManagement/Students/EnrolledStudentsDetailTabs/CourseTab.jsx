@@ -21,7 +21,7 @@ const CoursesTab = ({ student }) => {
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {enrolledCourses.map((item) => {
                 const course = item.courseId;
 
@@ -58,19 +58,19 @@ const CoursesTab = ({ student }) => {
                 return (
                     <div
                         key={item._id}
-                        className="flex bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
+                        className="flex bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200"
                     >
                         <img
                             src={resolveImageUrl(course.image, "/placeholder.png")}
                             alt={course.name}
-                            className="h-full w-44 object-cover"
+                            className="h-full w-24 shrink-0 object-cover sm:w-28"
                         />
-                        <div className="p-4 flex flex-col justify-between flex-1">
+                        <div className="p-3 flex flex-col justify-between flex-1 min-w-0">
                             <div>
-                                <div className="flex gap-2 mb-2 flex-wrap">
+                                <div className="flex gap-1.5 mb-1.5 flex-wrap">
                                     {/* Category badge with dynamic color */}
                                     <span
-                                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full"
                                         style={{
                                             backgroundColor: categoryBgColor,
                                             color: categoryColor
@@ -81,13 +81,13 @@ const CoursesTab = ({ student }) => {
                                     </span>
 
                                     {/* Level badge */}
-                                    <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded-full capitalize">
+                                    <span className="text-[11px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full capitalize">
                                         {course.level}
                                     </span>
 
                                     {/* Status badge */}
                                     <span
-                                        className={`text-xs px-2 py-1 rounded-full capitalize ${status === 'completed'
+                                        className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${status === 'completed'
                                                 ? 'bg-green-100 text-green-700'
                                                 : status === 'in-progress'
                                                     ? 'bg-blue-100 text-blue-700'
@@ -99,12 +99,12 @@ const CoursesTab = ({ student }) => {
                                 </div>
 
                                 {/* Course name */}
-                                <h3 className="text-md font-semibold text-gray-900">
+                                <h3 className="text-sm font-semibold text-gray-900 break-words">
                                     {course.name}
                                 </h3>
 
                                 {/* Course code */}
-                                <p className="text-sm text-gray-500">
+                                <p className="text-xs text-gray-500">
                                     Code: {course.code}
                                 </p>
 
@@ -120,7 +120,7 @@ const CoursesTab = ({ student }) => {
                             </div>
 
                             {/* Progress bar */}
-                            <div className="mt-4">
+                            <div className="mt-3">
                                 <div className="flex items-center gap-2">
                                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                                         <div

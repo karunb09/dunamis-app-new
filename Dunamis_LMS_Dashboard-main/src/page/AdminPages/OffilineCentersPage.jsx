@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useRef } from "react";
-import { FaSearch, FaFilter, FaSortAmountDown, FaPlus, FaMapMarkerAlt, FaTrash, FaEllipsisV, FaClock, FaUsers, FaCity } from "react-icons/fa";
+import React, { useEffect, useRef, useState } from "react";
+import { FaFilter, FaSearch, FaSortAmountDown, FaMapMarkerAlt, FaClock, FaUsers, FaCity } from "react-icons/fa";
+import { FiEdit2, FiTrash2, FiX, FiMoreVertical } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchAllBranches, deleteBranch } from "../../redux/Branch/branchSlice";
-import { PiX } from "react-icons/pi";
 import Swal from "sweetalert2";
 import toast from "react-hot-toast";
-import { Menu } from "@headlessui/react";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
+import PageTabBar from "../../components/PageTabBar";
+import DataCards from "../../components/DataCards";
 
 const TABS = ["Active", "Drafts"];
 const SORT_OPTIONS = [
@@ -17,6 +18,135 @@ const SORT_OPTIONS = [
     { value: "createdAt-desc", label: "Created At Desc" },
 ];
 
+const slugify = (text) => (text || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
+const getBranchFallbackImage = (branchName = "Branch") =>
+    `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(branchName)}`;
+
+const getBranchCityName = (branch) =>
+    branch?.city?.cityName || branch?.city?.name || "City not assigned";
+
+const getBranchTimings = (branch) =>
+    Array.isArray(branch?.branchTimings) && branch.branchTimings.length === 2
+        ? branch.branchTimings.join(" - ")
+        : "Hours not set";
+
+const BranchCard = ({ branch, selected, onSelect, onView, onEdit, onDelete }) => {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef(null);
+
+    useEffect(() => {
+        const handleOutside = (e) => {
+            if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+        };
+        document.addEventListener("mousedown", handleOutside);
+        return () => document.removeEventListener("mousedown", handleOutside);
+    }, []);
+
+    return (
+        <div
+            className={`group flex flex-col overflow-hidden rounded-[24px] border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] ${
+                selected ? "border-orange-300 ring-1 ring-orange-200" : "border-slate-200"
+            }`}
+        >
+            <div className="relative h-40 bg-slate-100">
+                <img
+                    src={resolveImageUrl(branch.branchImage, getBranchFallbackImage(branch.branchName || "Branch"))}
+                    alt={branch.branchName || "Branch"}
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+
+                <input
+                    type="checkbox"
+                    checked={selected}
+                    onChange={onSelect}
+                    className="absolute left-4 top-4 z-10 h-4 w-4 cursor-pointer rounded border-white/60 accent-orange-500"
+                    aria-label={`Select ${branch.branchName || "branch"}`}
+                />
+
+                <div className="absolute right-3 top-3 z-10" ref={menuRef}>
+                    <button
+                        type="button"
+                        onClick={() => setMenuOpen((o) => !o)}
+                        aria-label="More actions"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm transition hover:bg-white hover:text-slate-900"
+                    >
+                        <FiMoreVertical size={16} />
+                    </button>
+                    {menuOpen && (
+                        <div className="absolute right-0 mt-2 w-40 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
+                            <button
+                                type="button"
+                                onClick={() => { setMenuOpen(false); onEdit(); }}
+                                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                            >
+                                <FiEdit2 size={13} /> Edit
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { setMenuOpen(false); onDelete(); }}
+                                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50"
+                            >
+                                <FiTrash2 size={13} /> Delete
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <span
+                    className={`absolute bottom-3 left-4 z-10 rounded-full px-2.5 py-1 text-xs font-medium capitalize ring-1 ${
+                        branch.status === "active"
+                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                            : "bg-amber-50 text-amber-700 ring-amber-200"
+                    }`}
+                >
+                    {branch.status || "draft"}
+                </span>
+            </div>
+
+            <div className="flex flex-1 flex-col p-5">
+                <h3 className="truncate text-base font-semibold text-slate-900">
+                    {branch.branchName || "Unnamed Branch"}
+                </h3>
+                <p className="mt-1 flex items-start gap-2 text-sm text-slate-500">
+                    <FaMapMarkerAlt className="mt-0.5 shrink-0 text-slate-400" size={12} />
+                    <span className="line-clamp-2">{branch.location || "Location not available"}</span>
+                </p>
+
+                <div className="mt-4 grid grid-cols-2 gap-2.5">
+                    <div className="rounded-2xl bg-slate-50/70 px-3 py-2.5">
+                        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            <FaCity size={11} /> City
+                        </p>
+                        <p className="mt-0.5 truncate text-xs font-medium text-slate-700">{getBranchCityName(branch)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-slate-50/70 px-3 py-2.5">
+                        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            <FaUsers size={11} /> Capacity
+                        </p>
+                        <p className="mt-0.5 truncate text-xs font-medium text-slate-700">{branch.branchCapacity || "N/A"}</p>
+                    </div>
+                    <div className="col-span-2 rounded-2xl bg-slate-50/70 px-3 py-2.5">
+                        <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            <FaClock size={11} /> Timings
+                        </p>
+                        <p className="mt-0.5 truncate text-xs font-medium text-slate-700">{getBranchTimings(branch)}</p>
+                    </div>
+                </div>
+
+                <button
+                    type="button"
+                    onClick={onView}
+                    className="mt-5 w-full rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                >
+                    View Details
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const OfflineCentersPage = () => {
     const [activeTab, setActiveTab] = useState("Active");
     const [searchTerm, setSearchTerm] = useState("");
@@ -24,7 +154,6 @@ const OfflineCentersPage = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
     const [filters, setFilters] = useState({ city: "", zone: "" });
-    const [selectedBranches, setSelectedBranches] = useState([]);
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -46,94 +175,50 @@ const OfflineCentersPage = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const handleTabChange = (tab) => {
-        setActiveTab(tab);
-        setSelectedBranches([]);
-    };
-
-    // Single delete
     const handleDeleteSingle = (id) => {
         Swal.fire({
             title: "Are you sure?",
-            text: `You won't be able to revert this!`,
+            text: "You won't be able to revert this!",
             icon: "warning",
             showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!"
+            confirmButtonColor: "#FF6B35",
+            cancelButtonColor: "#dc2626",
+            confirmButtonText: "Yes, delete it!",
         }).then((result) => {
             if (result.isConfirmed) {
                 dispatch(deleteBranch(id))
                     .unwrap()
                     .then(() => {
-                        Swal.fire({
-                            title: "Deleted!",
-                            text: "Branch has been deleted.",
-                            icon: "success"
-                        });
                         toast.success("Branch deleted successfully");
                         dispatch(fetchAllBranches());
                     })
-                    .catch((error) => toast.error("Failed to delete branch: " + error));
+                    .catch((err) => toast.error("Failed to delete branch: " + err));
             }
         });
     };
 
-    // Multiple delete
-    const handleDeleteMultiple = () => {
-        if (selectedBranches.length === 0) {
-            toast.error("Please select at least one branch");
-            return;
-        }
-
+    const handleDeleteMultiple = (selectedIds) => {
+        if (!selectedIds.length) return;
         Swal.fire({
             title: "Are you sure?",
-            text: `You won't be able to revert this!`,
+            text: "You won't be able to revert this!",
             icon: "warning",
             showCancelButton: true,
-            confirmButtonColor: "#3085d6",
-            cancelButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!"
+            confirmButtonColor: "#FF6B35",
+            cancelButtonColor: "#dc2626",
+            confirmButtonText: "Yes, delete it!",
         }).then((result) => {
             if (result.isConfirmed) {
-                const deletePromises = selectedBranches.map(id =>
-                    dispatch(deleteBranch(id)).unwrap()
-                );
-
-                Promise.all(deletePromises)
+                Promise.all(selectedIds.map((id) => dispatch(deleteBranch(id)).unwrap()))
                     .then(() => {
-                        Swal.fire({
-                            title: "Deleted!",
-                            text: `${selectedBranches.length} branch(es) have been deleted.`,
-                            icon: "success"
-                        });
-                        toast.success(`${selectedBranches.length} branch(es) deleted successfully`);
-                        setSelectedBranches([]);
+                        toast.success(`${selectedIds.length} branch(es) deleted successfully`);
                         dispatch(fetchAllBranches());
                     })
-                    .catch((error) => {
-                        toast.error("Failed to delete some branches: " + error);
-                    });
+                    .catch((err) => toast.error("Failed to delete some branches: " + err));
             }
         });
     };
 
-
-    const handleSelectBranch = (id) => {
-        setSelectedBranches(prev =>
-            prev.includes(id) ? prev.filter(b => b !== id) : [...prev, id]
-        );
-    };
-
-    const handleSelectAll = () => {
-        if (selectedBranches.length === filteredBranches.length) {
-            setSelectedBranches([]);
-        } else {
-            setSelectedBranches(filteredBranches.map(b => b._id));
-        }
-    };
-
-    // Filter & Sort logic
     let filteredBranches = branches
         .filter((branch) => {
             if (activeTab === "Active") return branch.status === "active";
@@ -166,150 +251,127 @@ const OfflineCentersPage = () => {
         }
     }
 
-    const slugify = (text) =>
-        (text || "").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-
-    const getBranchFallbackImage = (branchName = "Branch") =>
-        `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(branchName)}`;
-
-    const getBranchCityName = (branch) =>
-        branch?.city?.cityName || branch?.city?.name || "City not assigned";
-
-    const getBranchTimings = (branch) =>
-        Array.isArray(branch?.branchTimings) && branch.branchTimings.length === 2
-            ? branch.branchTimings.join(" - ")
-            : "Hours not set";
-
     const uniqueCities = [
         ...new Map(branches.map((b) => b.city).filter(Boolean).map((c) => [c._id, c])).values(),
     ];
 
     return (
-        <div className="p-6 bg-white min-h-screen">
-            {/* Tabs */}
-            <div className="flex gap-6 border-b border-gray-300 mb-4">
-                {TABS.map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => handleTabChange(tab)}
-                        className={`pb-2 text-sm font-medium ${activeTab === tab ? "border-b-2 border-black text-black" : "text-gray-500 hover:text-black"}`}
-                    >
-                        {tab}
-                    </button>
-                ))}
+        <div>
+            {/* Header */}
+            <div className="mb-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Offline Centers</p>
+                <h1 className="mt-1 text-2xl font-bold text-slate-900">Branches</h1>
+                <p className="mt-1 text-sm text-slate-500">Manage physical centers, their timings, capacity and location.</p>
             </div>
 
-            {/* Search + Actions */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <div className="relative w-full md:w-1/3">
+            {/* Tabs */}
+            <div className="mb-5">
+                <PageTabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+            </div>
+
+            {/* Toolbar */}
+            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:w-72">
+                    <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
-                        placeholder="Search branches..."
+                        placeholder="Search branches…"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 rounded-2xl border focus:outline-none focus:ring-2 focus:ring-black"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                    {/* Select All */}
-                    {filteredBranches.length > 0 && (
-                        <button
-                            onClick={handleSelectAll}
-                            className="px-4 py-2 rounded-2xl border border-gray-300 text-sm bg-white hover:bg-gray-50"
-                        >
-                            {selectedBranches.length === filteredBranches.length ? "Deselect All" : "Select All"}
-                        </button>
-                    )}
-
-                    {/* Delete Selected */}
-                    {selectedBranches.length > 0 && (
-                        <button
-                            onClick={handleDeleteMultiple}
-                            className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gray-800 text-white hover:bg-gray-900 transition"
-                        >
-                            <FaTrash size={14} /> Delete ({selectedBranches.length})
-                        </button>
-                    )}
-
-                    {/* Sort */}
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/admin/centers/add-branch")}
+                        className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                    >
+                        Add Branch
+                    </button>
                     <div className="relative" ref={dropdownRef}>
                         <button
-                            className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                            type="button"
                             onClick={() => setSortOpen(!sortOpen)}
+                            className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                                sortOption
+                                    ? "border-orange-300 bg-orange-50 text-orange-700"
+                                    : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                            }`}
                         >
-                            <FaSortAmountDown /> Sort
+                            <FaSortAmountDown size={13} /> Sort
                         </button>
                         {sortOpen && (
-                            <ul className="absolute z-40 mt-2 w-48 bg-white border border-gray-200 rounded-md shadow-lg text-sm">
+                            <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
                                 {SORT_OPTIONS.map(({ value, label }) => (
-                                    <li
+                                    <button
                                         key={value}
-                                        className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${sortOption === value ? "bg-gray-200 font-semibold" : ""}`}
-                                        onClick={() => {
-                                            setSortOption(value);
-                                            setSortOpen(false);
-                                        }}
+                                        type="button"
+                                        onClick={() => { setSortOption(value); setSortOpen(false); }}
+                                        className={`flex w-full items-center px-4 py-2.5 text-left text-sm transition hover:bg-slate-50 ${
+                                            sortOption === value ? "bg-orange-50 font-semibold text-orange-700" : "text-slate-700"
+                                        }`}
                                     >
                                         {label}
-                                    </li>
+                                    </button>
                                 ))}
-                            </ul>
+                            </div>
                         )}
                     </div>
-
                     <button
-                        className="flex items-center gap-1 px-4 py-2 rounded-2xl border border-black text-sm bg-white hover:bg-gray-100"
+                        type="button"
                         onClick={() => setFilterOpen(true)}
+                        className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                            Object.values(filters).some(Boolean)
+                                ? "border-orange-300 bg-orange-50 text-orange-700"
+                                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                        }`}
                     >
-                        <FaFilter /> Filter
-                    </button>
-
-                    <button
-                        onClick={() => navigate("/admin/centers/add-branch")}
-                        className="flex items-center bg-black text-white gap-2 px-4 py-2 rounded-2xl hover:bg-gray-800"
-                    >
-                        <FaPlus /> Add Branch
+                        <FaFilter size={13} /> Filter
                     </button>
                 </div>
             </div>
 
-            {/* Filter Modal */}
+            {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-                    <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
                         <button
+                            type="button"
                             onClick={() => setFilterOpen(false)}
-                            className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+                            className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                         >
-                            <PiX size={24} />
+                            <FiX size={18} />
                         </button>
-                        <h2 className="text-xl font-semibold mb-4">Filter Branches</h2>
+                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Filter</p>
+                        <h2 className="mt-1 text-lg font-bold text-slate-900">Filter Branches</h2>
 
-                        <label className="block mb-2 font-medium">City</label>
-                        <select
-                            value={filters.city}
-                            onChange={(e) => setFilters({ ...filters, city: e.target.value })}
-                            className="w-full mb-4 border rounded px-3 py-2"
-                        >
-                            <option value="">All Cities</option>
-                            {uniqueCities.map((city) => (
-                                <option key={city._id} value={city.cityName}>
-                                    {city.cityName}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="mt-5">
+                            <label className="mb-1.5 block text-sm font-medium text-slate-700">City</label>
+                            <select
+                                value={filters.city}
+                                onChange={(e) => setFilters({ ...filters, city: e.target.value })}
+                                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                            >
+                                <option value="">All Cities</option>
+                                {uniqueCities.map((city) => (
+                                    <option key={city._id} value={city.cityName}>{city.cityName}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                        <div className="flex justify-between mt-6">
+                        <div className="mt-6 flex gap-3">
                             <button
-                                className="px-4 py-2 rounded-lg border bg-gray-100 hover:bg-gray-200"
+                                type="button"
                                 onClick={() => setFilters({ city: "", zone: "" })}
+                                className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
                             </button>
                             <button
-                                className="px-4 py-2 rounded-lg bg-black text-white hover:bg-gray-800"
+                                type="button"
                                 onClick={() => setFilterOpen(false)}
+                                className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
                             >
                                 Apply
                             </button>
@@ -318,123 +380,28 @@ const OfflineCentersPage = () => {
                 </div>
             )}
 
-            {loading && <p className="text-gray-500">Loading branches...</p>}
-            {error && <p className="text-red-500">{error}</p>}
+            {loading && <p className="py-10 text-center text-slate-500">Loading branches…</p>}
+            {error && <p className="py-10 text-center text-rose-600">{error}</p>}
 
-            {/* Branches Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {!loading && filteredBranches.length === 0 && (
-                    <p className="text-gray-500 col-span-full">No branches found.</p>
-                )}
-                {!loading &&
-                    filteredBranches.map((branch) => (
-                        <div
-                            key={branch._id}
-                            className={`group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition duration-200 hover:-translate-y-1 hover:shadow-xl relative ${selectedBranches.includes(branch._id) ? "ring-2 ring-black" : ""
-                                }`}
-                        >
-                            {/* Checkbox */}
-                            <input
-                                type="checkbox"
-                                checked={selectedBranches.includes(branch._id)}
-                                onChange={() => handleSelectBranch(branch._id)}
-                                className="absolute top-4 left-4 z-20 cursor-pointer w-4 h-4 accent-black"
-                                aria-label={`Select ${branch.branchName || "branch"}`}
-                            />
-
-                            {/* Three-dot menu */}
-                            <Menu as="div" className="absolute top-4 right-4 z-20">
-                                <Menu.Button className="p-2 bg-white/90 hover:bg-white rounded-full transition shadow-sm">
-                                    <FaEllipsisV className="text-gray-700" />
-                                </Menu.Button>
-                                <Menu.Items className="absolute right-0 mt-2 w-36 bg-white border rounded-2xl shadow-xl z-30 overflow-hidden">
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                onClick={() => navigate(`/admin/centers/edit-branch/${branch._id}`)}
-                                                className={`w-full text-left px-4 py-2 text-sm ${active ? "bg-gray-100" : ""}`}
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                onClick={() => handleDeleteSingle(branch._id, branch.branchName)}
-                                                className={`w-full text-left px-4 py-2 text-sm text-gray-700 ${active ? "bg-gray-100" : ""}`}
-                                            >
-                                                Delete
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                </Menu.Items>
-                            </Menu>
-
-                            <div className="relative h-44 bg-gray-100">
-                                <img
-                                    src={resolveImageUrl(
-                                        branch.branchImage,
-                                        getBranchFallbackImage(branch.branchName || "Branch")
-                                    )}
-                                    alt={branch.branchName || "Branch"}
-                                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-                                <span className={`absolute bottom-4 left-4 rounded-full px-3 py-1 text-xs font-semibold capitalize ${branch.status === "active"
-                                    ? "bg-emerald-100 text-emerald-800"
-                                    : "bg-amber-100 text-amber-800"
-                                    }`}>
-                                    {branch.status || "draft"}
-                                </span>
-                            </div>
-
-                            <div className="p-5">
-                                <div className="mb-4">
-                                    <h3 className="text-lg font-semibold text-gray-950">
-                                        {branch.branchName || "Unnamed Branch"}
-                                    </h3>
-                                    <p className="mt-2 text-gray-600 text-sm flex items-start gap-2">
-                                        <FaMapMarkerAlt className="mt-1 shrink-0 text-gray-400" />
-                                        <span>{branch.location || "Location not available"}</span>
-                                    </p>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
-                                    <div className="rounded-2xl bg-gray-50 p-3">
-                                        <p className="flex items-center gap-2 font-medium text-gray-900">
-                                            <FaCity className="text-gray-400" /> City
-                                        </p>
-                                        <p className="mt-1 truncate">{getBranchCityName(branch)}</p>
-                                    </div>
-                                    <div className="rounded-2xl bg-gray-50 p-3">
-                                        <p className="flex items-center gap-2 font-medium text-gray-900">
-                                            <FaUsers className="text-gray-400" /> Capacity
-                                        </p>
-                                        <p className="mt-1">{branch.branchCapacity || "N/A"}</p>
-                                    </div>
-                                    <div className="col-span-2 rounded-2xl bg-gray-50 p-3">
-                                        <p className="flex items-center gap-2 font-medium text-gray-900">
-                                            <FaClock className="text-gray-400" /> Timings
-                                        </p>
-                                        <p className="mt-1">{getBranchTimings(branch)}</p>
-                                    </div>
-                                </div>
-
-                                <button
-                                    onClick={() =>
-                                        navigate(`/admin/centers/${slugify(branch._id)}`, {
-                                            state: { branch },
-                                        })
-                                    }
-                                    className="mt-5 w-full rounded-2xl bg-black px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
-                                >
-                                    View Details
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-            </div>
+            {!loading && (
+                <DataCards
+                    data={filteredBranches}
+                    itemsPerPage={12}
+                    emptyMessage="No branches found."
+                    onDeleteSelected={(selectedIds) => handleDeleteMultiple(selectedIds)}
+                    bulkDeleteLabel="Delete branches"
+                    renderCard={(branch, { selected, onSelect }) => (
+                        <BranchCard
+                            branch={branch}
+                            selected={selected}
+                            onSelect={onSelect}
+                            onView={() => navigate(`/admin/centers/${slugify(branch._id)}`, { state: { branch } })}
+                            onEdit={() => navigate(`/admin/centers/edit-branch/${branch._id}`)}
+                            onDelete={() => handleDeleteSingle(branch._id)}
+                        />
+                    )}
+                />
+            )}
         </div>
     );
 };

@@ -35,12 +35,12 @@ const PersonCard = ({
     return (
         <div
             onClick={onView || undefined}
-            className={`flex flex-col rounded-[24px] border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] ${
+            className={`flex flex-col rounded-2xl border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] sm:rounded-[24px] ${
                 selected ? "border-orange-300 ring-1 ring-orange-200" : "border-slate-200"
             } ${onView ? "cursor-pointer" : ""}`}
         >
             {/* Header */}
-            <div className="flex items-start gap-3 p-5 pb-3">
+            <div className="flex items-start gap-3 p-4 pb-3 sm:p-5 sm:pb-3">
                 {onSelect && (
                     <input
                         type="checkbox"
@@ -91,7 +91,7 @@ const PersonCard = ({
 
             {/* Meta grid */}
             {meta.length > 0 && (
-                <div className="mx-5 grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-2xl bg-slate-50/70 px-4 py-3">
+                <div className="mx-4 grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-2xl bg-slate-50/70 px-4 py-3 sm:mx-5">
                     {meta.map((item, i) => (
                         <div key={i} className="min-w-0">
                             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
@@ -109,11 +109,11 @@ const PersonCard = ({
             )}
 
             {/* Custom children */}
-            {children && <div className="px-5 pt-3">{children}</div>}
+            {children && <div className="px-4 pt-3 sm:px-5">{children}</div>}
 
             {/* Footer */}
             {hasFooter && (
-                <div className="mt-auto flex items-center gap-2 p-5 pt-4">
+                <div className="mt-auto flex items-center gap-2 p-4 pt-3 sm:p-5 sm:pt-4">
                     {onView && (
                         <button
                             type="button"

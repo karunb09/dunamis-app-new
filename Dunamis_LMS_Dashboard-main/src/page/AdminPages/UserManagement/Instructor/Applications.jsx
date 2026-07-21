@@ -13,7 +13,6 @@ import { FaFilter, FaSearch, FaSortAmountDown, FaTrash } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
 import DataCards from "../../../../components/DataCards";
 import PersonCard from "../../../../components/cards/PersonCard";
-import SlideOver from "../../../../components/SlideOver";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -65,7 +64,6 @@ const Applications = () => {
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
     const [deletingApplicationId, setDeletingApplicationId] = useState("");
-    const [slideOver, setSlideOver] = useState({ open: false, application: null });
     const dropdownRef = useRef(null);
     const activeFilterCount = [filters.status, filters.mode].filter(Boolean).length;
 
@@ -180,80 +178,6 @@ const Applications = () => {
         }
     };
 
-    const closeSlideOver = () => setSlideOver((prev) => ({ ...prev, open: false }));
-
-    const renderApplicationSlide = () => {
-        const snap = slideOver.application;
-        if (!snap) return null;
-        const r = allApplications.find((a) => a._id === snap._id) || snap;
-        const fullName = getFullName(r?.name);
-        const initials = fullName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) || "?";
-
-        return (
-            <>
-                <div className="bg-gradient-to-b from-orange-50 to-white px-6 pb-6 pt-14">
-                    <div className="flex items-start gap-4">
-                        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-xl font-bold text-[#FF6B35] ring-4 ring-white shadow-md">
-                            {initials}
-                        </div>
-                        <div className="min-w-0 flex-1 pt-1">
-                            <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Instructor Application</p>
-                            <h2 className="mt-0.5 truncate text-xl font-bold text-slate-900">{fullName}</h2>
-                            <p className="truncate text-sm text-slate-500">{r.email}</p>
-                        </div>
-                        {r.status && (
-                            <span className={`mt-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
-                                statusBadgeClasses[r.status] || "bg-slate-100 text-slate-600"
-                            }`}>
-                                {r.status}
-                            </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className="px-6 py-5">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Application Details</p>
-                    <div className="space-y-2.5">
-                        {[
-                            { label: "App ID", value: snap.mockId || r._id?.slice(-6)?.toUpperCase() || "—" },
-                            { label: "Experience", value: r.yearOfExperience ? `${r.yearOfExperience} years` : "—" },
-                            { label: "Expertise", value: r.areaOfExpertise || "—" },
-                            { label: "Mode", value: r.mode || "—" },
-                            { label: "Applied", value: r.createdAt ? new Date(r.createdAt).toLocaleDateString() : "—" },
-                        ].map(({ label, value }) => (
-                            <div key={label} className="flex items-baseline gap-3 text-sm">
-                                <span className="w-20 shrink-0 text-slate-400">{label}</span>
-                                <span className="break-all font-medium capitalize text-slate-900">{value}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="border-t border-slate-100 px-6 py-5">
-                    <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Update Status</p>
-                    <select
-                        value={r.status}
-                        disabled={r.status === "selected"}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => handleStatusChange(r._id, e.target.value)}
-                        className={`w-full rounded-2xl border px-4 py-2.5 text-sm font-medium capitalize outline-none transition focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed ${
-                            statusSelectClasses[r.status] || "border-slate-200 bg-white text-slate-700"
-                        }`}
-                    >
-                        {STATUS_OPTIONS.map((status) => (
-                            <option key={status} value={status}>{status}</option>
-                        ))}
-                    </select>
-                    {r.status === "selected" && (
-                        <p className="mt-2 text-xs text-emerald-700">
-                            Instructor selected and credentials issued — status is locked.
-                        </p>
-                    )}
-                </div>
-            </>
-        );
-    };
-
     const stats = [
         { label: "Total Applications", value: allApplications.length, tone: "from-slate-900 to-slate-700 text-white" },
         { label: "New", value: allApplications.filter((app) => app.status === "new").length, tone: "from-sky-100 to-white text-slate-900" },
@@ -268,20 +192,20 @@ const Applications = () => {
             ) : (
                 <div className="space-y-6">
                     {/* Stats */}
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 sm:gap-4">
                         {stats.map((item) => (
                             <div
                                 key={item.label}
-                                className={`rounded-[28px] border border-slate-200 bg-gradient-to-br ${item.tone} px-5 py-5 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.45)]`}
+                                className={`rounded-2xl border border-slate-200 bg-gradient-to-br ${item.tone} px-4 py-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.45)] sm:rounded-[28px] sm:px-5 sm:py-5`}
                             >
-                                <p className="text-sm font-medium opacity-80">{item.label}</p>
-                                <p className="mt-3 text-3xl font-semibold">{item.value}</p>
+                                <p className="text-xs font-medium opacity-80 sm:text-sm">{item.label}</p>
+                                <p className="mt-2 text-2xl font-semibold sm:mt-3 sm:text-3xl">{item.value}</p>
                             </div>
                         ))}
                     </div>
 
                     {/* Toolbar */}
-                    <div className="rounded-[30px] border border-slate-200 bg-white p-4 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.45)]">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_40px_-32px_rgba(15,23,42,0.45)] sm:rounded-[30px] sm:p-4">
                         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                             <div className="relative w-full xl:max-w-md">
                                 <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -446,7 +370,7 @@ const Applications = () => {
                                             ) : "N/A",
                                         },
                                     ]}
-                                    onView={() => setSlideOver({ open: true, application: row })}
+                                    onView={() => navigate(`/applications/${row._id}`)}
                                     primaryLabel="Review"
                                     menuItems={[
                                         {
@@ -493,36 +417,6 @@ const Applications = () => {
                     onClose={() => { setSelectedInstructor(null); setAssignedEmployeeId(""); }}
                 />
             )}
-
-            <SlideOver
-                open={slideOver.open}
-                onClose={closeSlideOver}
-                footer={
-                    <div className="flex gap-3">
-                        <button
-                            type="button"
-                            onClick={closeSlideOver}
-                            className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                        >
-                            Close
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const id = slideOver.application?._id;
-                                if (!id) return;
-                                closeSlideOver();
-                                navigate(`/applications/${id}`);
-                            }}
-                            className="flex-1 rounded-2xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
-                        >
-                            Review Full Application →
-                        </button>
-                    </div>
-                }
-            >
-                {renderApplicationSlide()}
-            </SlideOver>
         </div>
     );
 };

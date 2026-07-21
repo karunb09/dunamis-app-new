@@ -13,12 +13,20 @@ import {
   FiWifi,
   FiMoreHorizontal,
   FiFileText,
+  FiClock,
+  FiMessageSquare,
+  FiCompass,
+  FiDollarSign,
+  FiTrendingUp,
+  FiFolder,
 } from "react-icons/fi";
 import { FaMusic, FaLanguage, FaPersonBooth } from "react-icons/fa";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
 import DataTable from "../../../../components/Table";
+import IconTabBar from "../../../../components/IconTabBar";
+import PageTabBar from "../../../../components/PageTabBar";
 import EditInstructorModal from "./EditInstructorModal";
 import CoursesTab from "./TabContent/CoursesTab";
 import ScheduleTab from "./TabContent/ScheduleTab";
@@ -100,7 +108,16 @@ const InstructorProfile = () => {
     Language: { icon: <FaLanguage className="text-2xl" />, bg: "bg-green-100 text-green-700" },
   };
 
-  const tabs = ["Courses", "Schedule", "Students", "Reviews", "Orientations", "Remuneration", "Financial History", "Documents"];
+  const tabs = [
+    { id: "Courses", label: "Courses", icon: FiBookOpen },
+    { id: "Schedule", label: "Schedule", icon: FiClock },
+    { id: "Students", label: "Students", icon: FiUsers },
+    { id: "Reviews", label: "Reviews", icon: FiMessageSquare },
+    { id: "Orientations", label: "Orientations", icon: FiCompass },
+    { id: "Remuneration", label: "Remuneration", icon: FiDollarSign },
+    { id: "Financial History", label: "Financial History", icon: FiTrendingUp },
+    { id: "Documents", label: "Documents", icon: FiFolder },
+  ];
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -219,63 +236,63 @@ const InstructorProfile = () => {
   return (
     <div className="p-4 sm:p-6 space-y-6">
       {/* Header */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center">
-        <div className="flex flex-col sm:flex-row items-start gap-4 w-full">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm flex flex-col md:flex-row gap-4 sm:gap-6 items-start md:items-center">
+        <div className="flex flex-row items-start gap-3 sm:gap-4 w-full">
           <img
             src={instructorAvatar}
             alt={instructor.name?.firstName}
-            className="w-20 h-20 sm:w-28 sm:h-28 rounded-full object-cover object-top flex-shrink-0"
+            className="w-16 h-16 sm:w-28 sm:h-28 rounded-full object-cover object-top flex-shrink-0"
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <h1 className="text-2xl font-bold leading-tight">{`${instructor.name?.firstName} ${instructor.name?.lastName}`}</h1>
-                <p className="text-sm text-gray-600 mt-1">{instructor.areaOfExpertise || "Instructor"}</p>
+                <h1 className="text-xl sm:text-2xl font-bold leading-tight">{`${instructor.name?.firstName} ${instructor.name?.lastName}`}</h1>
+                <p className="text-sm text-gray-600 mt-0.5">{instructor.areaOfExpertise || "Instructor"}</p>
 
-                <div className="flex flex-wrap gap-3 text-sm text-gray-600 mt-3">
-                  <span className="flex items-center gap-2">
-                    <FiMapPin className="text-xl text-gray-500" />
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs sm:text-sm text-gray-600 mt-2 sm:mt-3">
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiMapPin className="text-base sm:text-xl text-gray-500" />
                     <span>{instructor.currentAddress || "—"}</span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <FiMail className="shrink-0 text-xl text-gray-500" />
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiMail className="shrink-0 text-base sm:text-xl text-gray-500" />
                     <span className="break-all">{selectedTeacher.user?.email || "—"}</span>
                   </span>
-                  <span className="flex items-center gap-2">
-                    <FiPhone className="text-xl text-gray-500" />
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiPhone className="text-base sm:text-xl text-gray-500" />
                     <span>{selectedTeacher.user?.mobileNo || "—"}</span>
                   </span>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2 items-center">
+                <div className="mt-2 sm:mt-3 flex flex-wrap gap-1.5 sm:gap-2 items-center">
                   {selectedTeacher.user?.employeeId && (
-                    <span className="px-2 py-1 bg-slate-100 text-slate-700 text-sm rounded-full font-mono">
+                    <span className="px-2 py-0.5 sm:py-1 bg-slate-100 text-slate-700 text-xs sm:text-sm rounded-full font-mono">
                       {selectedTeacher.user.employeeId}
                     </span>
                   )}
-                  <span className="px-2 py-1 bg-blue-100 text-blue-600 text-sm rounded-full">
+                  <span className="px-2 py-0.5 sm:py-1 bg-blue-100 text-blue-600 text-xs sm:text-sm rounded-full">
                     {instructor.areaOfExpertise}
                   </span>
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-600 text-sm rounded-full flex items-center gap-1">
-                    <FiWifi className="text-lg" /> {instructor.mode}
+                  <span className="px-2 py-0.5 sm:py-1 bg-yellow-100 text-yellow-600 text-xs sm:text-sm rounded-full flex items-center gap-1">
+                    <FiWifi className="text-sm sm:text-lg" /> {instructor.mode}
                   </span>
-                  <span className="px-2 py-1 bg-orange-100 text-orange-600 text-sm rounded-full flex items-center gap-1">
-                    <FiStar className="text-lg text-orange-400" /> {selectedTeacher.averageRating || 0}
+                  <span className="px-2 py-0.5 sm:py-1 bg-orange-100 text-orange-600 text-xs sm:text-sm rounded-full flex items-center gap-1">
+                    <FiStar className="text-sm sm:text-lg text-orange-400" /> {selectedTeacher.averageRating || 0}
                   </span>
                 </div>
 
-                {instructor.bio && <p className="mt-3 text-sm text-gray-600 max-w-xl">{instructor.bio}</p>}
+                {instructor.bio && <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-600 max-w-xl line-clamp-2 sm:line-clamp-none">{instructor.bio}</p>}
 
-                <div className="mt-3 flex flex-wrap gap-4 text-xs text-gray-500">
-                  <span className="flex items-center gap-2">
-                    <FiBriefcase className="text-lg" /> {selectedTeacher.teacherDetails?.yearOfExperience} years of experience
+                <div className="mt-2 sm:mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiBriefcase className="text-sm sm:text-lg" /> {selectedTeacher.teacherDetails?.yearOfExperience} years of experience
                   </span>
 
-                  <span className="flex items-center gap-2">
-                    <FiCalendar className="text-lg" /> Joined: {formattedDate}
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiCalendar className="text-sm sm:text-lg" /> Joined: {formattedDate}
                   </span>
-                  <span className="flex items-center gap-2">
-                    <FiBookOpen className="text-lg" /> {selectedTeacher.courses?.length} active courses
+                  <span className="flex items-center gap-1.5 sm:gap-2">
+                    <FiBookOpen className="text-sm sm:text-lg" /> {selectedTeacher.courses?.length} active courses
                   </span>
                 </div>
               </div>
@@ -331,59 +348,47 @@ const InstructorProfile = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-cyan-50 border border-cyan-200 p-6 rounded-xl shadow-sm text-center flex flex-col items-center gap-2">
-          <FiUsers className="text-3xl text-cyan-600" />
-          <p className="text-2xl font-bold">{selectedTeacher.studentCount}</p>
-          <p className="text-gray-500">Total Students</p>
-        </div>
-
-        <div className="bg-cyan-50 border border-cyan-200 p-6 rounded-xl shadow-sm text-center flex flex-col items-center gap-2">
-          <FiBookOpen className="text-3xl text-cyan-600" />
-          <p className="text-2xl font-bold">{selectedTeacher.courses?.length}</p>
-          <p className="text-gray-500">Active Courses</p>
-        </div>
-
-        <div className="bg-cyan-50 border border-cyan-200 p-6 rounded-xl shadow-sm text-center flex flex-col items-center gap-2">
-          <FiBriefcase className="text-3xl text-cyan-600" />
-          <p className="text-2xl font-bold">{selectedTeacher.teacherDetails?.yearOfExperience}</p>
-          <p className="text-gray-500">Experience (yrs)</p>
-        </div>
-
-        <div className="bg-cyan-50 border border-cyan-200 p-6 rounded-xl shadow-sm text-center flex flex-col items-center gap-2">
-          <FiCalendar className="text-3xl text-cyan-600" />
-          <p className="text-2xl font-bold">{formattedDate}</p>
-          <p className="text-gray-500">Joining Date</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 sm:gap-4">
+        {[
+          { icon: <FiUsers className="text-2xl text-cyan-600 sm:text-3xl" />, value: selectedTeacher.studentCount, label: "Total Students" },
+          { icon: <FiBookOpen className="text-2xl text-cyan-600 sm:text-3xl" />, value: selectedTeacher.courses?.length, label: "Active Courses" },
+          { icon: <FiBriefcase className="text-2xl text-cyan-600 sm:text-3xl" />, value: selectedTeacher.teacherDetails?.yearOfExperience, label: "Experience (yrs)" },
+          { icon: <FiCalendar className="text-2xl text-cyan-600 sm:text-3xl" />, value: formattedDate, label: "Joining Date" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-cyan-200 bg-cyan-50 p-4 text-center shadow-sm sm:p-6 sm:gap-2"
+          >
+            {stat.icon}
+            <p className="text-lg font-bold sm:text-2xl">{stat.value}</p>
+            <p className="text-xs text-gray-500 sm:text-base">{stat.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* Tabs */}
-      <div className="border-t pt-4">
-        <div className="flex border-b mb-4 space-x-6 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => handleTabChange(tab)}
-              className={`pb-2 text-sm whitespace-nowrap ${activeTab === tab ? "border-b-2 border-black font-semibold" : "text-gray-500 hover:text-black"
-                }`}
-            >
-              {tab}
-            </button>
-          ))}
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="md:hidden">
+          <PageTabBar tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
+        </div>
+        <div className="hidden md:block md:shrink-0">
+          <IconTabBar orientation="vertical" tabs={tabs} activeTab={activeTab} onChange={handleTabChange} />
         </div>
 
-        {activeTab === "Courses" && <CoursesTab instructor={selectedTeacher} categoryConfig={categoryConfig} />}
-        {activeTab === "Schedule" && <ScheduleTab teacher={selectedTeacher} />}
-        {activeTab === "Students" && <StudentsTab instructor={selectedTeacher} />}
-        {activeTab === "Reviews" && <ReviewsTab instructor={selectedTeacher} />}
-        {activeTab === "Orientations" && <OrientationsTab />}
-        {activeTab === "Remuneration" && <RemunerationTab remunerations={selectedTeacher.remunerations} employeeId={selectedTeacher.user?.employeeId} />}
-        {activeTab === "Financial History" && (
-          <DataTable columns={columns} data={filteredFinancialData} selectable={false} />
-        )}
-        {activeTab === "Documents" && (
-          <DocumentsTab docs={instructorDocs} courseDocs={courseDocs} loading={docsLoading} />
-        )}
+        <div className="min-w-0 flex-1">
+          {activeTab === "Courses" && <CoursesTab instructor={selectedTeacher} categoryConfig={categoryConfig} />}
+          {activeTab === "Schedule" && <ScheduleTab teacher={selectedTeacher} />}
+          {activeTab === "Students" && <StudentsTab instructor={selectedTeacher} />}
+          {activeTab === "Reviews" && <ReviewsTab instructor={selectedTeacher} />}
+          {activeTab === "Orientations" && <OrientationsTab />}
+          {activeTab === "Remuneration" && <RemunerationTab remunerations={selectedTeacher.remunerations} employeeId={selectedTeacher.user?.employeeId} />}
+          {activeTab === "Financial History" && (
+            <DataTable columns={columns} data={filteredFinancialData} selectable={false} />
+          )}
+          {activeTab === "Documents" && (
+            <DocumentsTab docs={instructorDocs} courseDocs={courseDocs} loading={docsLoading} />
+          )}
+        </div>
       </div>
     </div>
   );

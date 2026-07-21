@@ -17,7 +17,7 @@ export default function CoursesTab({ instructor, categoryConfig }) {
     const instructorName = `${instructor.teacherDetails.name.firstName} ${instructor.teacherDetails.name.lastName}`;
 
     return (
-        <div className="mt-4 bg-white rounded-xl shadow-sm p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="mt-4 bg-white rounded-xl shadow-sm p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {instructor.courses?.map((course) => {
                 const mainContent = course.content?.[0] || {};
                 const description = mainContent.courseDescription || "";
@@ -30,33 +30,31 @@ export default function CoursesTab({ instructor, categoryConfig }) {
                 return (
                     <div
                         key={course._id}
-                        className="flex flex-col sm:flex-row w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-200"
+                        className="flex w-full bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200"
                     >
-                        <div className="shrink-0">
-                            <img
-                                src={resolveImageUrl(course.image, course.category?.icon || "")}
-                                alt={course.name}
-                                className="h-40 w-full object-cover sm:h-full sm:w-48"
-                            />
-                        </div>
+                        <img
+                            src={resolveImageUrl(course.image, course.category?.icon || "")}
+                            alt={course.name}
+                            className="h-full w-24 shrink-0 object-cover sm:w-28"
+                        />
 
-                        <div className="p-4 flex flex-col justify-between grow min-w-0">
+                        <div className="p-3 flex flex-col justify-between grow min-w-0">
                             <div>
-                                <div className="flex flex-wrap gap-2 mb-2 items-center">
+                                <div className="flex flex-wrap gap-1.5 mb-1.5 items-center">
                                     <span
-                                        className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full"
+                                        className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full"
                                         style={{ backgroundColor: bgColor, color: categoryColor }}
                                     >
                                         {course.category?.name || "General"}
                                     </span>
-                                    <span className="text-xs font-medium text-gray-700 bg-gray-200 px-2 py-1 rounded-full">
+                                    <span className="text-[11px] font-medium text-gray-700 bg-gray-200 px-2 py-0.5 rounded-full">
                                         {level}
                                     </span>
                                 </div>
 
-                                <h3 className="text-md font-semibold text-gray-900 break-words">{course.name}</h3>
-                                <p className="text-sm text-gray-500 mb-3">by {instructorName}</p>
-                                <p className="text-sm text-gray-600 line-clamp-3">{description}</p>
+                                <h3 className="text-sm font-semibold text-gray-900 break-words">{course.name}</h3>
+                                <p className="text-xs text-gray-500 mb-1.5">by {instructorName}</p>
+                                <p className="text-xs text-gray-600 line-clamp-2">{description}</p>
                             </div>
                         </div>
                     </div>

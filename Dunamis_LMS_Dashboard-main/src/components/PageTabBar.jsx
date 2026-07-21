@@ -1,7 +1,7 @@
 import React from "react";
 
 const PageTabBar = ({ tabs, activeTab, onChange }) => (
-    <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-2xl bg-slate-100 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex w-fit max-w-full gap-1 overflow-x-auto rounded-full bg-white p-1.5 shadow-sm ring-1 ring-slate-200/70 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((tab) => {
             const key = typeof tab === "string" ? tab : tab.id;
             const label = typeof tab === "string" ? tab : tab.label;
@@ -11,10 +11,10 @@ const PageTabBar = ({ tabs, activeTab, onChange }) => (
                     key={key}
                     type="button"
                     onClick={() => onChange(key)}
-                    className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+                    className={`shrink-0 whitespace-nowrap rounded-full px-5 py-2.5 text-sm transition-all ${
                         isActive
-                            ? "bg-white text-orange-600 shadow-sm ring-1 ring-orange-100"
-                            : "text-slate-500 hover:text-slate-800"
+                            ? "bg-slate-900 font-semibold text-white shadow-sm"
+                            : "font-medium text-slate-500 hover:text-slate-900"
                     }`}
                 >
                     {label}

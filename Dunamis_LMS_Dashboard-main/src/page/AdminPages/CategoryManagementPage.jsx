@@ -5,7 +5,12 @@ import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { FiX } from "react-icons/fi";
+import IconTabBar from "../../components/IconTabBar";
 
+const TABS = [
+  { id: "Active", label: "Active", icon: FaTags },
+  { id: "Drafts", label: "Drafts", icon: FaRegClock },
+];
 const SORT_OPTIONS = [
   { value: "name-asc", label: "Name A-Z" },
   { value: "name-desc", label: "Name Z-A" },
@@ -312,19 +317,8 @@ const CategoryManagement = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-4 mb-4 mt-4 border-b border-gray-300">
-        <button
-          className={`pb-2 ${activeTab === "Active" ? "text-black border-b-2 border-black" : "text-gray-500"}`}
-          onClick={() => handleTabChange("Active")}
-        >
-          Active
-        </button>
-        <button
-          className={`pb-2 ${activeTab === "Drafts" ? "text-black border-b-2 border-black" : "text-gray-500"}`}
-          onClick={() => handleTabChange("Drafts")}
-        >
-          Drafts
-        </button>
+      <div className="mb-4 mt-4">
+        <IconTabBar tabs={TABS} activeTab={activeTab} onChange={handleTabChange} />
       </div>
 
       {/* Category Cards */}

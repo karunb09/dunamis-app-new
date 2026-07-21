@@ -8,9 +8,13 @@ import { useCoursesQuery, useUpdateCourse, useDeleteCourse } from '../../hooks/u
 import Swal from 'sweetalert2';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../utils/resolveImageUrl';
 import IconActionButton from '../../components/IconActionButton';
+import IconTabBar from '../../components/IconTabBar';
 import { PiX } from 'react-icons/pi';
 
-const TABS = ['Active Courses', 'Draft Courses'];
+const TABS = [
+    { id: 'Active Courses', label: 'Active Courses', icon: FaCloudUploadAlt },
+    { id: 'Draft Courses', label: 'Draft Courses', icon: FaRegClock },
+];
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
     { value: 'name-desc', label: 'Name Z-A' },
@@ -279,17 +283,8 @@ const CourseManagement = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b border-gray-300 mb-4">
-                {TABS.map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => handleTabChange(tab)}
-                        className={`pb-2 text-sm font-medium ${activeTab === tab ? 'border-b-2 border-black text-black' : 'text-gray-500 hover:text-black'
-                            }`}
-                    >
-                        {tab}
-                    </button>
-                ))}
+            <div className="mb-4">
+                <IconTabBar tabs={TABS} activeTab={activeTab} onChange={handleTabChange} />
             </div>
 
             {/* Header */}
