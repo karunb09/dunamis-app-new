@@ -14,7 +14,7 @@
     "axios": "^1.18.1",
     "country-state-city": "^3.2.1",
     "framer-motion": "^12.42.2",
-    "next": "^15.5.12",
+    "next": "^16.2.10",
     "postcss": "^8.5.20",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
