@@ -9,11 +9,17 @@ import { formatScheduleLabel, formatSessionType } from "../../../utils/formatSch
 const StudentDetail = ({ onBack }) => {
   const dispatch = useDispatch();
   const { selectedTeacher } = useSelector((state) => state.teachers);
+  const { assignments, loading, error } = useSelector((state) => state.assignment);
 
   const [activeTab, setActiveTab] = useState("Courses");
   const [menuOpen, setMenuOpen] = useState(false);
 
   const studentId = localStorage.getItem("selectedStudentId");
+
+  // Fetch all assignments without status filter
+  useEffect(() => {
+    dispatch(getAssignmentsByStatus());
+  }, [dispatch]);
 
   const teacherData = selectedTeacher || {};
   const courses = teacherData?.courses || [];
@@ -54,13 +60,6 @@ const StudentDetail = ({ onBack }) => {
 
   const enrolledCourseIds = fullStudentData.courses?.map((c) => c.id || c._id) || [];
   const enrolledCourses = courses.filter((course) => enrolledCourseIds.includes(course._id));
-
-  const { assignments, loading, error } = useSelector((state) => state.assignment);
-
-  // Fetch all assignments without status filter
-  useEffect(() => {
-    dispatch(getAssignmentsByStatus());
-  }, [dispatch]);
 
   // Filter assignments for this specific student from all assignments
   const studentAssignments = Array.isArray(assignments)
