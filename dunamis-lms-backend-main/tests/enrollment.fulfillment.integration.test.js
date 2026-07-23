@@ -45,7 +45,7 @@ async function seedPaidScenario() {
     endTime: "11:00",
     createdBy: teacherId,
     slotType: "enrolled",
-    sessionType: "standard", // maxStudents -> 4
+    sessionType: "standard", // online group -> maxStudents 5
   });
 
   const txn = await PaymentTransaction.create({

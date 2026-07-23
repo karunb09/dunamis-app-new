@@ -6,6 +6,7 @@ const {
   getAllStudents,
   getStudentById,
   getStudentOverview,
+  getStudentAttendanceHomework,
   updateStudent,
   deleteStudent,
   getStudentsByType,
@@ -48,6 +49,8 @@ router.get("/get-by-type", isAuth, accessToRole(["admin", "superadmin"]), getStu
 router.get("/search", isAuth, accessToRole(["admin", "superadmin"]), searchStudents);
 // overview (upcoming classes + activity)
 router.get("/:id/overview", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), getStudentOverview);
+// attendance & homework (admin view of full history)
+router.get("/:id/attendance-homework", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), getStudentAttendanceHomework);
 // get by id
 router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, getStudentById);
 // update

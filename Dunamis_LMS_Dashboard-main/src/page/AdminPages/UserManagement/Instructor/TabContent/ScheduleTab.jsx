@@ -159,7 +159,7 @@ export default function ScheduleTab({ teacher }) {
                           </span>
                           <span className="inline-flex items-center gap-1 text-xs text-slate-400">
                             <FiUsers className="h-3.5 w-3.5" />
-                            {slot.maxStudents}
+                            {Number(slot.maxStudents) >= 9999 ? "Unlimited" : slot.maxStudents}
                           </span>
                         </div>
                       ))}

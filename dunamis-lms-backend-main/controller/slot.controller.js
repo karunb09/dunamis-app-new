@@ -5,6 +5,7 @@ const Branch = require("../model/branch.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
+const { getMaxStudents, isUnlimited } = require("../utils/slotCapacity");
 
 const SLOT_DURATION_RULES = {
   enrolled: {
@@ -28,11 +29,6 @@ const ALLOWED_DAY_PAIRS = DAY_PAIR_OPTIONS.map((option) => option.days);
 
 const getExpectedDurationMinutes = (slot = {}) =>
   SLOT_DURATION_RULES[slot.slotType]?.[slot.sessionType] || null;
-
-const getMaxStudentsForScheduleSlot = (slot = {}) => {
-  if (slot.slotType === "demo") return 1;
-  return slot.sessionType === "premium" ? 1 : 4;
-};
 
 const isAllowedDayPair = (days = []) => {
   const normalizedDays = days.map((day) => String(day).toLowerCase()).sort();
@@ -60,6 +56,9 @@ const getDayPairLabel = (days = []) => {
 
 const getGroupSlotTag = (slot = {}) => {
   if (slot.slotType !== "enrolled" || slot.sessionType !== "standard") {
+    return null;
+  }
+  if (slot.branchId) {
     return null;
   }
 
@@ -544,7 +543,9 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
         availabilityDays,
         dayPairLabel: getDayPairLabel(availabilityDays),
         studentCount,
-        availableSeats: Math.max(maxStudents - studentCount, 0),
+        availableSeats: isUnlimited(maxStudents)
+          ? null
+          : Math.max(maxStudents - studentCount, 0),
         bookingTag: getGroupSlotTag(plainSlot),
       };
     });
@@ -836,14 +837,14 @@ exports.setWeeklyAvailability = asyncHandler(async (req, res) => {
       teacher.weeklyAvailability = availability.map((slot) => ({
         ...slot,
         days: slot.days.map((day) => day.toLowerCase()),
-        maxStudents: getMaxStudentsForScheduleSlot(slot),
+        maxStudents: getMaxStudents(slot),
       }));
     } else {
       teacher.weeklyAvailability.push(
         ...availability.map((slot) => ({
           ...slot,
           days: slot.days.map((day) => day.toLowerCase()),
-          maxStudents: getMaxStudentsForScheduleSlot(slot),
+          maxStudents: getMaxStudents(slot),
         }))
       );
     }

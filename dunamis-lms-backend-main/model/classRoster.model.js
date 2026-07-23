@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { getMaxStudents } = require("../utils/slotCapacity");
 
 // Durable membership of a student in a recurring class. Keyed by the teacher's
 // weeklyAvailability template (`parentAvailabilityId`), which is the stable
@@ -46,7 +47,16 @@ const classRosterSchema = new mongoose.Schema(
     recurringDays: [{ type: String }],
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
-    maxStudents: { type: Number, default: 4 },
+    maxStudents: {
+      type: Number,
+      default: function () {
+        return getMaxStudents({
+          slotType: "enrolled",
+          sessionType: this.sessionType,
+          branchId: this.branchId,
+        });
+      },
+    },
     students: [rosterMemberSchema],
     status: { type: String, enum: ["active", "archived"], default: "active" },
   },

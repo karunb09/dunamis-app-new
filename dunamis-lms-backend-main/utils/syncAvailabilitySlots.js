@@ -3,6 +3,7 @@ const Teacher = require("../model/teacher.model");
 const DemoBooking = require("../model/demoBooking.model");
 const ClassRoster = require("../model/classRoster.model");
 const { applyRostersToSlots } = require("./classRoster");
+const { getMaxStudents } = require("./slotCapacity");
 
 const DAY_NAMES = [
   "sunday",
@@ -15,11 +16,6 @@ const DAY_NAMES = [
 ];
 
 const ACTIVE_DEMO_STATUSES = ["Booked", "Rescheduled"];
-
-const getMaxStudentsForSlot = (slot = {}) => {
-  if (slot.slotType === "demo") return 1;
-  return slot.sessionType === "premium" ? 1 : 4;
-};
 
 const startOfDay = (value) => {
   const date = new Date(value || new Date());
@@ -65,7 +61,7 @@ const normalizeAvailabilityEntry = (slot) => ({
   endTime: slot?.endTime || "",
   sessionType: slot?.sessionType || "",
   slotType: slot?.slotType || "",
-  maxStudents: getMaxStudentsForSlot(slot),
+  maxStudents: getMaxStudents(slot),
   courseId: toIdString(slot?.courseId),
   branchId: toIdString(slot?.branchId) || null,
 });

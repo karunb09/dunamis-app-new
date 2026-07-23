@@ -104,10 +104,21 @@ const SLOT_DURATION_MINUTES = {
 };
 
 const SLOT_MAX_STUDENTS = {
-  group: 4,
+  group: 5,
   individual: 1,
   demo: 1,
 };
+
+const UNLIMITED_STUDENTS = 9999;
+
+// Online group classes cap at 5; offline (branch-bound) group classes are unlimited.
+const maxStudentsFor = (sectionId, branchId) =>
+  sectionId === "group" && branchId
+    ? UNLIMITED_STUDENTS
+    : SLOT_MAX_STUDENTS[sectionId] || SLOT_MAX_STUDENTS.group;
+
+const formatMaxStudents = (value) =>
+  Number(value) >= UNLIMITED_STUDENTS ? "Unlimited" : value;
 
 const createLocalId = () =>
   `slot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -129,7 +140,7 @@ const emptySlot = (courseId = "", sectionId = "group") => {
     endTime,
     sessionType,
     slotType: section.slotType,
-    maxStudents: SLOT_MAX_STUDENTS[sectionId] || 4,
+    maxStudents: maxStudentsFor(sectionId, ""),
     courseId,
     branchId: "",
     isActive: true,
@@ -286,7 +297,13 @@ const normalizeAvailabilitySlots = (sourceSlots = []) =>
     slotType: slot?.slotType || "demo",
     maxStudents:
       Number(slot?.maxStudents) ||
-      (slot?.slotType === "demo" ? 1 : slot?.sessionType === "premium" ? 1 : 4),
+      (slot?.slotType === "demo"
+        ? 1
+        : slot?.sessionType === "premium"
+          ? 1
+          : slot?.branchId
+            ? UNLIMITED_STUDENTS
+            : 5),
     courseId: String(slot?.courseId?._id || slot?.courseId || "").trim(),
     branchId: String(slot?.branchId?._id || slot?.branchId || "").trim(),
     isActive:
@@ -471,7 +488,7 @@ const Availability = ({
       branchId: nextSlot.branchId || "",
       startTime,
       endTime: addMinutesToTime(startTime, duration),
-      maxStudents: SLOT_MAX_STUDENTS[nextSectionId] || 4,
+      maxStudents: maxStudentsFor(nextSectionId, nextSlot.branchId),
       slotType: nextSectionId === "demo" ? "demo" : "enrolled",
       sessionType:
         nextSectionId === "group"
@@ -498,15 +515,15 @@ const Availability = ({
       if (activeSectionId === "group") {
         next.slotType = "enrolled";
         next.sessionType = "standard";
-        next.maxStudents = SLOT_MAX_STUDENTS.group;
+        next.maxStudents = maxStudentsFor("group", next.branchId);
       } else if (activeSectionId === "individual") {
         next.slotType = "enrolled";
         next.sessionType = "premium";
-        next.maxStudents = SLOT_MAX_STUDENTS.individual;
+        next.maxStudents = maxStudentsFor("individual", next.branchId);
       } else if (activeSectionId === "demo") {
         next.slotType = "demo";
         next.sessionType = "standard";
-        next.maxStudents = SLOT_MAX_STUDENTS.demo;
+        next.maxStudents = maxStudentsFor("demo", next.branchId);
       }
 
       if (Object.prototype.hasOwnProperty.call(patch, "startTime")) {
@@ -641,7 +658,7 @@ const Availability = ({
         localId: editingSlotId,
         slotType: activeSectionId === "demo" ? "demo" : "enrolled",
         sessionType: activeSectionId === "individual" ? "premium" : "standard",
-        maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
+        maxStudents: maxStudentsFor(activeSectionId, draftSlot.branchId),
         branchId: draftSlot.branchId || "",
         isActive: draftSlot.isActive !== false,
       };
@@ -685,7 +702,7 @@ const Availability = ({
         localId: createLocalId(),
         slotType: activeSectionId === "demo" ? "demo" : "enrolled",
         sessionType: activeSectionId === "individual" ? "premium" : "standard",
-        maxStudents: SLOT_MAX_STUDENTS[activeSectionId] || 4,
+        maxStudents: maxStudentsFor(activeSectionId, draftSlot.branchId),
         branchId: draftSlot.branchId || "",
         isActive: true,
       });
@@ -753,7 +770,7 @@ const Availability = ({
           ? SLOT_MAX_STUDENTS.demo
           : slot.sessionType === "premium"
             ? SLOT_MAX_STUDENTS.individual
-            : SLOT_MAX_STUDENTS.group,
+            : maxStudentsFor("group", slot.branchId),
       ...(slot.courseId ? { courseId: slot.courseId } : {}),
       ...(slot.branchId ? { branchId: slot.branchId } : {}),
     }));
@@ -854,7 +871,9 @@ const Availability = ({
                 {timeOptions.length} daily slots
               </span>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                Max {SLOT_MAX_STUDENTS[activeSectionId]}
+                Max {activeSectionId === "group" && isOfflineCourse
+                  ? "Unlimited"
+                  : SLOT_MAX_STUDENTS[activeSectionId]}
               </span>
             </div>
           </div>
@@ -1250,7 +1269,7 @@ const Availability = ({
                             {courseLabelById[slot.courseId] || "Assigned course"}
                           </span>
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600">
-                            Max {slot.maxStudents}
+                            Max {formatMaxStudents(slot.maxStudents)}
                           </span>
                           <span
                             className={`rounded-full border px-3 py-1 text-xs font-medium ${

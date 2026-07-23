@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Slot = require("../model/slot.model");
 const ClassRoster = require("../model/classRoster.model");
+const { getMaxStudents } = require("./slotCapacity");
 
 // How many weeks of dated slots to keep generated ahead of today.
 const ROLLING_WEEKS = 3;
@@ -47,8 +48,6 @@ const rollingRange = (from = new Date()) => ({
   rangeEnd: endOfDay(new Date(startOfDay(from).getTime() + ROLLING_WEEKS * 7 * 86400000)),
 });
 
-const maxStudentsFor = (sessionType) => (sessionType === "premium" ? 1 : 4);
-
 // Upserts the recurring-class roster for a fulfilled transaction and adds the
 // student as an active member. Throws if the class is at capacity so the caller
 // can route the payment to manual fulfillment. Returns null when the enrollment
@@ -62,7 +61,10 @@ const registerRosterMembership = async (transaction) => {
   );
 
   const sessionType = transaction.sessionType || slot?.sessionType || "standard";
-  const maxStudents = slot?.maxStudents || maxStudentsFor(sessionType);
+  const branchId = transaction.branchId || slot?.branchId || null;
+  const maxStudents =
+    slot?.maxStudents ||
+    getMaxStudents({ slotType: "enrolled", sessionType, branchId });
 
   const roster = await ClassRoster.findOneAndUpdate(
     { parentAvailabilityId },

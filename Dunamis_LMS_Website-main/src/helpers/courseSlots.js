@@ -153,10 +153,18 @@ const buildNormalizedSlot = (slot, branchLookup) => {
     : Number(slot?.studentCount) || 0;
   const maxStudents =
     Number(slot?.maxStudents) ||
-    (slot?.slotType === "demo" ? 1 : slot?.sessionType === "premium" ? 1 : 4);
+    (slot?.slotType === "demo"
+      ? 1
+      : slot?.sessionType === "premium"
+        ? 1
+        : deliveryMode === "offline"
+          ? 9999
+          : 5);
   const bookingTag =
     slot?.bookingTag ||
-    (slot?.slotType === "enrolled" && slot?.sessionType === "standard"
+    (slot?.slotType === "enrolled" &&
+    slot?.sessionType === "standard" &&
+    deliveryMode !== "offline"
       ? studentCount >= 3
         ? "Filling fast"
         : studentCount >= 1
@@ -180,7 +188,8 @@ const buildNormalizedSlot = (slot, branchLookup) => {
     studentCount,
     maxStudents,
     availableSeats:
-      Number(slot?.availableSeats) || Math.max(maxStudents - studentCount, 0),
+      slot?.availableSeats ??
+      (maxStudents >= 9999 ? null : Math.max(maxStudents - studentCount, 0)),
     bookingTag,
     recurringDays,
     availabilityDays,

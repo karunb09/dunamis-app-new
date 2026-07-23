@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { getMaxStudents } = require("../utils/slotCapacity");
 
 const slotSchema = new mongoose.Schema(
   {
@@ -58,8 +59,7 @@ const slotSchema = new mongoose.Schema(
     maxStudents: {
       type: Number,
       default: function () {
-        if (this.slotType === "demo") return 1;
-        return this.sessionType === "standard" ? 4 : 1;
+        return getMaxStudents(this);
       },
     },
     currentStudentsCount: {

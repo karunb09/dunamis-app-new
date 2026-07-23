@@ -42,6 +42,19 @@ export async function fetchStudentOverview(id) {
   }
 }
 
+export async function fetchStudentAttendanceHomework(id, params = {}) {
+  try {
+    const { data } = await axios.get(`/student/${id}/attendance-homework`, { params });
+    return {
+      summary: data?.summary ?? { total: 0, present: 0, absent: 0, attendancePct: 0 },
+      courses: data?.courses ?? [],
+      records: data?.records ?? [],
+    };
+  } catch (err) {
+    throw toError(err, "Failed to load attendance & homework");
+  }
+}
+
 export async function updateStudent(id, payload) {
   try {
     const { data } = await axios.put(`/student/${id}`, payload);

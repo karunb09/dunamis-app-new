@@ -13,6 +13,7 @@ const Slot = require("../model/slot.model");
 const AttendanceHomework = require("../model/attendanceHomework.model");
 const { notifyEvent } = require("../utils/notificationService");
 const { getStudentSchedules } = require("../utils/classRoster");
+const { buildContentTitleMaps } = require("../utils/contentTitles");
 
 const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
   ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
@@ -369,6 +370,82 @@ exports.getStudentOverview = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       overview: { upcomingClasses, recentActivity, recentPayments },
+    });
+});
+// Attendance & Homework (admin view of a student's full attendance history)
+exports.getStudentAttendanceHomework = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { courseId } = req.query;
+
+    const student = await Student.findById(id).select("_id").lean();
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found",
+      });
+    }
+
+    const records = await AttendanceHomework.find({ studentId: student._id })
+      .populate("courseId", "name code")
+      .populate({
+        path: "teacherId",
+        select: "userId",
+        populate: { path: "userId", select: "name" },
+      })
+      .sort({ date: -1 })
+      .lean();
+
+    const { moduleTitles, lessonTitles, topicTitles } =
+      await buildContentTitleMaps(records);
+
+    const summary = records.reduce(
+      (acc, r) => {
+        acc.total += 1;
+        if (r.attendanceStatus === "Present") acc.present += 1;
+        else if (r.attendanceStatus === "Absent") acc.absent += 1;
+        return acc;
+      },
+      { total: 0, present: 0, absent: 0 }
+    );
+    summary.attendancePct = summary.total
+      ? Math.round((summary.present / summary.total) * 100)
+      : 0;
+
+    const courses = [];
+    const seenCourses = new Set();
+    for (const r of records) {
+      const cid = r.courseId?._id ? String(r.courseId._id) : null;
+      if (cid && !seenCourses.has(cid)) {
+        seenCourses.add(cid);
+        courses.push({ _id: cid, name: r.courseId?.name || "" });
+      }
+    }
+
+    const filtered = courseId
+      ? records.filter((r) => String(r.courseId?._id) === String(courseId))
+      : records;
+
+    const formatted = filtered.map((r) => ({
+      _id: r._id,
+      courseName: r.courseId?.name || "",
+      courseId: r.courseId?._id || null,
+      teacherName: [r.teacherId?.userId?.name?.firstName, r.teacherId?.userId?.name?.lastName]
+        .filter(Boolean)
+        .join(" "),
+      attendanceStatus: r.attendanceStatus,
+      sessionType: r.sessionType,
+      homework: r.homework || "",
+      module: moduleTitles[r.moduleId?.toString()] || "",
+      lesson: lessonTitles[r.lessonId?.toString()] || "",
+      topic: topicTitles[r.topicId?.toString()] || "",
+      date: r.date,
+    }));
+
+    res.status(200).json({
+      success: true,
+      summary,
+      courses,
+      records: formatted,
     });
 });
 // Update Stud.

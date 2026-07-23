@@ -7,6 +7,7 @@ export const studentKeys = {
   byType: (type) => [...studentKeys.all, "byType", type ?? "all"],
   detail: (id) => [...studentKeys.all, "detail", id],
   overview: (id) => [...studentKeys.all, "overview", id],
+  attendanceHomework: (id, courseId) => [...studentKeys.all, "attendanceHomework", id, courseId ?? "all"],
 };
 
 export function useStudentsByType(type, options = {}) {
@@ -30,6 +31,16 @@ export function useStudentOverview(id, options = {}) {
   return useQuery({
     queryKey: studentKeys.overview(id),
     queryFn: () => studentApi.fetchStudentOverview(id),
+    enabled: Boolean(id),
+    ...options,
+  });
+}
+
+export function useStudentAttendanceHomework(id, courseId, options = {}) {
+  return useQuery({
+    queryKey: studentKeys.attendanceHomework(id, courseId),
+    queryFn: () =>
+      studentApi.fetchStudentAttendanceHomework(id, courseId ? { courseId } : {}),
     enabled: Boolean(id),
     ...options,
   });

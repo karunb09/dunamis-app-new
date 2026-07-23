@@ -1,6 +1,6 @@
 import { useParams, useLocation } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { FiBook, FiCheckCircle, FiAward, FiGrid, FiClipboard, FiEdit3, FiCalendar, FiCreditCard } from "react-icons/fi";
+import { FiBook, FiCheckCircle, FiAward, FiGrid, FiClipboard, FiEdit3, FiCalendar, FiCreditCard, FiCheckSquare } from "react-icons/fi";
 import { useStudentById } from "../../../../hooks/useStudents";
 import IconTabBar from "../../../../components/IconTabBar";
 import PageTabBar from "../../../../components/PageTabBar";
@@ -12,6 +12,7 @@ import AssignmentsTab from "./EnrolledStudentsDetailTabs/AssignmentsTab";
 import SchedulesTab from "./EnrolledStudentsDetailTabs/SchedulesTab";
 import CertificationsTab from "./EnrolledStudentsDetailTabs/CertificationsTab";
 import PaymentsTab from "./EnrolledStudentsDetailTabs/PaymentsTab";
+import AttendanceHomeworkTab from "./EnrolledStudentsDetailTabs/AttendanceHomeworkTab";
 
 const StudentProfile = () => {
   const { id } = useParams();
@@ -25,6 +26,7 @@ const StudentProfile = () => {
       { id: "Assessments", label: "Assessments", icon: FiClipboard },
       { id: "Assignments", label: "Assignments", icon: FiEdit3 },
       { id: "Schedules", label: "Schedules", icon: FiCalendar },
+      { id: "AttendanceHomework", label: "Attendance & Homework", icon: FiCheckSquare },
       { id: "Certifications", label: "Certifications", icon: FiAward },
       { id: "Payments", label: "Payments", icon: FiCreditCard },
     ],
@@ -122,6 +124,7 @@ const StudentProfile = () => {
           {activeTab === "Assessments" && <AssessmentsTab student={student} />}
           {activeTab === "Assignments" && <AssignmentsTab student={student} />}
           {activeTab === "Schedules" && <SchedulesTab student={student} />}
+          {activeTab === "AttendanceHomework" && <AttendanceHomeworkTab studentId={id} />}
           {activeTab === "Certifications" && <CertificationsTab student={student} />}
           {activeTab === "Payments" && <PaymentsTab student={student} />}
         </div>
