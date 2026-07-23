@@ -1,4 +1,4 @@
-import { FiClock, FiUsers } from "react-icons/fi";
+import { FiUsers } from "react-icons/fi";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -50,6 +50,26 @@ const toMinutes = (value) => {
   return hour * 60 + m;
 };
 
+const formatRange = (start, end) => {
+  const from = convertTo12Hour(start);
+  const to = convertTo12Hour(end);
+  if (!from || !to) return `${from}${from && to ? "–" : ""}${to}`;
+  const fromMeridiem = from.slice(-2);
+  const toMeridiem = to.slice(-2);
+  return fromMeridiem === toMeridiem
+    ? `${from.slice(0, -3)}–${to}`
+    : `${from}–${to}`;
+};
+
+const capacityLabel = (slots) => {
+  const caps = [...new Set(slots.map((s) => Number(s.maxStudents) || 0))];
+  if (caps.length !== 1) return null;
+  const cap = caps[0];
+  if (cap >= 9999) return "Unlimited seats";
+  if (cap === 1) return "1 student";
+  return `Up to ${cap} students`;
+};
+
 function hexToRgba(hex, alpha = 1) {
   if (!hex) return `rgba(0,0,0,${alpha})`;
   let c = hex.replace("#", "");
@@ -59,6 +79,24 @@ function hexToRgba(hex, alpha = 1) {
   const b = parseInt(c.substring(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+const groupByDayPair = (slots) => {
+  const pairs = new Map();
+  slots.forEach((slot) => {
+    const days = sortDays(Array.isArray(slot.days) ? slot.days : []);
+    const label = days.map((d) => DAY_SHORT[d] || d).join(" • ") || "—";
+    if (!pairs.has(label)) {
+      pairs.set(label, { label, order: days.map((d) => DAYS.indexOf(d)), slots: [] });
+    }
+    pairs.get(label).slots.push(slot);
+  });
+  return [...pairs.values()]
+    .sort((a, b) => (a.order[0] ?? 99) - (b.order[0] ?? 99) || (a.order[1] ?? 99) - (b.order[1] ?? 99))
+    .map((pair) => ({
+      ...pair,
+      slots: pair.slots.sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)),
+    }));
+};
 
 export default function ScheduleTab({ teacher }) {
   const slots = Array.isArray(teacher?.weeklyAvailability) ? teacher.weeklyAvailability : [];
@@ -99,11 +137,6 @@ export default function ScheduleTab({ teacher }) {
   });
 
   const cards = [...groups.values()];
-  cards.forEach((card) => {
-    SECTION_ORDER.forEach((sec) => {
-      card.sections[sec].sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
-    });
-  });
 
   return (
     <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
@@ -133,9 +166,11 @@ export default function ScheduleTab({ teacher }) {
                 const sectionSlots = card.sections[sec];
                 if (!sectionSlots.length) return null;
                 const config = SECTION_CONFIG[sec];
+                const capacity = capacityLabel(sectionSlots);
+                const dayPairs = groupByDayPair(sectionSlots);
                 return (
                   <div key={sec} className="px-4 py-3">
-                    <div className="mb-2 flex items-center gap-2">
+                    <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className={`h-2 w-2 rounded-full ${config.dot}`} />
                       <span className={`text-xs font-semibold uppercase tracking-wide ${config.accent}`}>
                         {config.title}
@@ -143,24 +178,40 @@ export default function ScheduleTab({ teacher }) {
                       <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">
                         {sectionSlots.length}
                       </span>
+                      {capacity && (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                          <FiUsers className="h-3.5 w-3.5" />
+                          {capacity}
+                        </span>
+                      )}
                     </div>
 
-                    <div className="space-y-1.5">
-                      {sectionSlots.map((slot, i) => (
-                        <div key={slot._id || i} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                          <span className="font-medium text-slate-700">
-                            {sortDays(Array.isArray(slot.days) ? slot.days : [])
-                              .map((d) => DAY_SHORT[d] || d)
-                              .join(" • ") || "—"}
+                    <div className="space-y-2">
+                      {dayPairs.map((pair) => (
+                        <div key={pair.label} className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
+                          <span className="w-20 shrink-0 text-xs font-semibold text-slate-700">
+                            {pair.label}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-slate-500">
-                            <FiClock className="h-3.5 w-3.5" />
-                            {convertTo12Hour(slot.startTime)}–{convertTo12Hour(slot.endTime)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                            <FiUsers className="h-3.5 w-3.5" />
-                            {Number(slot.maxStudents) >= 9999 ? "Unlimited" : slot.maxStudents}
-                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {pair.slots.map((slot, i) => (
+                              <span
+                                key={slot._id || i}
+                                title={
+                                  capacity
+                                    ? undefined
+                                    : `${Number(slot.maxStudents) >= 9999 ? "Unlimited" : slot.maxStudents} student(s)`
+                                }
+                                className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-xs text-slate-600"
+                              >
+                                {formatRange(slot.startTime, slot.endTime)}
+                                {!capacity && (
+                                  <span className="ml-1 text-slate-400">
+                                    · {Number(slot.maxStudents) >= 9999 ? "∞" : slot.maxStudents}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       ))}
                     </div>

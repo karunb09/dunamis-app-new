@@ -13,7 +13,7 @@ function hexToRgba(hex, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-export default function CoursesTab({ instructor, categoryConfig }) {
+export default function CoursesTab({ instructor }) {
     const instructorName = `${instructor.teacherDetails.name.firstName} ${instructor.teacherDetails.name.lastName}`;
 
     return (
@@ -50,6 +50,17 @@ export default function CoursesTab({ instructor, categoryConfig }) {
                                     <span className="text-[11px] font-medium text-gray-700 bg-gray-200 px-2 py-0.5 rounded-full">
                                         {level}
                                     </span>
+                                    {course.mode && (
+                                        <span
+                                            className={`px-2 py-0.5 text-[11px] font-medium capitalize rounded-full ${
+                                                course.mode === "offline"
+                                                    ? "bg-sky-50 text-sky-600"
+                                                    : "bg-emerald-50 text-emerald-600"
+                                            }`}
+                                        >
+                                            {course.mode}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <h3 className="text-sm font-semibold text-gray-900 break-words">{course.name}</h3>
