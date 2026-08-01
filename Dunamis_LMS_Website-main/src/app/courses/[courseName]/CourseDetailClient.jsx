@@ -3,11 +3,12 @@
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { LuClock, LuUsers, LuStar, LuChevronDown, LuChevronLeft, LuCircleCheck, LuMapPin, LuWifi, LuBookOpen, LuAward, LuPlay, LuPhone, LuPhoneCall } from "react-icons/lu";
+import { LuClock, LuUsers, LuStar, LuChevronDown, LuChevronLeft, LuCircleCheck, LuMapPin, LuWifi, LuBookOpen, LuAward, LuPlay } from "react-icons/lu";
 import BookDemoModal from "@/components/PopupModals/BookDemoModal";
 import EnrollTerm from "@/components/PopupModals/EnrollTerms";
 import LoginModal from "@/components/PopupModals/LoginModal";
 import CallbackRequestModal from "@/components/PopupModals/CallbackRequestModal";
+import ContactActionsMenu from "@/components/ContactActionsMenu";
 import { IoMdStar } from "react-icons/io";
 import toast from "react-hot-toast";
 import { fetchCourses } from "@/store/courseSlice";
@@ -350,21 +351,12 @@ export default function CourseDetailClient({ initialCourse = null }) {
             <div className="lg:hidden mb-5 rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
               <p className="text-2xl font-extrabold text-[#FF6B35]">{course.price}</p>
               {course.branchCount > 0 && <p className="text-xs text-gray-400 mt-0.5">{course.branchCount} branch{course.branchCount > 1 ? "es" : ""} · <span className="capitalize">{course.mode}</span></p>}
-              <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="flex items-stretch gap-3 mt-4">
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => openEnrollmentFlow()}
-                  className="rounded-xl bg-[#FF6B35] py-2.5 text-sm font-bold text-white hover:bg-[#fd5a1f] transition">Enroll Now</motion.button>
+                  className="flex-1 rounded-xl bg-[#FF6B35] py-2.5 text-sm font-bold text-white hover:bg-[#fd5a1f] transition">Enroll Now</motion.button>
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => openDemoFlow()}
-                  className="rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Book Demo</motion.button>
-              </div>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <a href="tel:+919398246083"
-                  className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition">
-                  <LuPhone className="w-3.5 h-3.5" /> Call Us
-                </a>
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => setCallbackOpen(true)}
-                  className="flex items-center justify-center gap-1.5 rounded-xl border-2 border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition">
-                  <LuPhoneCall className="w-3.5 h-3.5" /> Callback
-                </motion.button>
+                  className="flex-1 rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Book Demo</motion.button>
+                <ContactActionsMenu onRequestCallback={() => setCallbackOpen(true)} />
               </div>
             </div>
 
@@ -574,19 +566,12 @@ export default function CourseDetailClient({ initialCourse = null }) {
                   className="w-full rounded-xl bg-[#FF6B35] py-3 text-sm font-bold text-white hover:bg-[#fd5a1f] transition shadow-md shadow-orange-100">
                   Enroll Now
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={() => openDemoFlow()}
-                  className="w-full rounded-xl border-2 border-gray-200 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
-                  Book a Free Demo
-                </motion.button>
-                <div className="grid grid-cols-2 gap-3">
-                  <a href="tel:+919398246083"
-                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
-                    <LuPhone className="w-4 h-4" /> Call Us
-                  </a>
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => setCallbackOpen(true)}
-                    className="flex items-center justify-center gap-2 rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
-                    <LuPhoneCall className="w-4 h-4" /> Request Callback
+                <div className="flex items-stretch gap-3">
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={() => openDemoFlow()}
+                    className="flex-1 rounded-xl border-2 border-gray-200 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
+                    Book a Free Demo
                   </motion.button>
+                  <ContactActionsMenu onRequestCallback={() => setCallbackOpen(true)} />
                 </div>
                 <ul className="mt-2 space-y-2.5 pt-3 border-t border-gray-100">
                   {[
