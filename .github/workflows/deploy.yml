@@ -113,16 +113,21 @@ jobs:
               echo "No app changes detected. PM2 not restarted."
             fi
 
+  notify-failure:
+    name: Notify failure
+    needs: [test, deploy]
+    if: failure()
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Notify failure (ntfy)
-        if: failure()
         continue-on-error: true
         run: |
           curl -sf -H "Title: Dunamis deploy FAILED" -H "Priority: high" -H "Tags: rotating_light" \
-            -d "Deploy of ${{ github.sha }} failed. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            -d "Pipeline for ${{ github.sha }} failed (tests: ${{ needs.test.result }}, deploy: ${{ needs.deploy.result }}). ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
             "${{ secrets.NTFY_TOPIC_URL }}"
 
       - name: Notify failure (email)
-        if: failure()
         uses: dawidd6/action-send-mail@v18
         with:
           server_address: ${{ secrets.MAIL_HOST }}
@@ -133,5 +138,5 @@ jobs:
           to: ${{ secrets.ALERT_EMAIL }}
           from: Dunamis Deploy <${{ secrets.MAIL_USER }}>
           body: |
-            Deploy of ${{ github.sha }} to the VPS failed.
+            Pipeline for ${{ github.sha }} failed (tests: ${{ needs.test.result }}, deploy: ${{ needs.deploy.result }}).
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

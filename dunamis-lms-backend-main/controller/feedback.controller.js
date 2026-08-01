@@ -94,13 +94,26 @@ exports.getFeedbackByTeacher = asyncHandler(async (req, res) => {
 // Delete Feedback
 exports.deleteFeedback = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const feedback = await Feedback.findByIdAndDelete(id);
+    const feedback = await Feedback.findById(id);
 
     if (!feedback) {
       return res
         .status(404)
         .json({ success: false, message: "Feedback not found" });
     }
+
+    const isStaff = ["admin", "superadmin"].includes(req.user?.accountType);
+    if (!isStaff) {
+      const student = await Student.findOne({ userId: req.user.userId });
+      if (!student || !feedback.studentId.equals(student._id)) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not authorized to delete this feedback",
+        });
+      }
+    }
+
+    await feedback.deleteOne();
 
     res.status(200).json({
       success: true,

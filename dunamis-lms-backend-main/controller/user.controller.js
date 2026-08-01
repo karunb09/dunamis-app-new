@@ -280,7 +280,6 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
             return res.status(200).json({
               success: true,
               message: "OTP sent to your email successfully",
-              otp: otp,
             });
         } catch (error) {
             console.error("Error sending OTP email:", error);
@@ -572,11 +571,17 @@ exports.updateUser = asyncHandler(async (req, res) => {
         
         if (mobileNo !== undefined) user.mobileNo = mobileNo;
         if (email !== undefined) user.email = email;
-        if (accountType !== undefined) user.accountType = accountType;
-        if (accountStatus !== undefined) user.accountStatus = accountStatus;
-        if (roleModel !== undefined) user.roleModel = roleModel;
         if (location !== undefined) user.location = location;
         if (bio !== undefined) user.bio = bio;
+
+        // accountType/accountStatus/roleModel change privilege — only staff
+        // may grant them, never the account being updated itself.
+        const isStaffCaller = ["admin", "superadmin"].includes(req.user?.accountType);
+        if (isStaffCaller) {
+          if (accountType !== undefined) user.accountType = accountType;
+          if (accountStatus !== undefined) user.accountStatus = accountStatus;
+          if (roleModel !== undefined) user.roleModel = roleModel;
+        }
         
         // Update image
         user.image = imagePath;

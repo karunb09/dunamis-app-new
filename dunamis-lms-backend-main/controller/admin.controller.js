@@ -50,8 +50,6 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       specialChars: true,
     });
 
-    console.log("password generated: ", password);
-
     const employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMA"));
 
     const user = await User.create({
@@ -80,6 +78,8 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       `Your ${role} Account created`,
       sendPasswordTemplate(user, role, password)
     );
+
+    user.password = undefined;
 
     return res.status(200).json({
       success: true,

@@ -989,9 +989,17 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
       teacher.course = courses;
     }
 
-    // 4. user info
+    // 4. user info — allowlist so a teacher can't escalate their own linked
+    // account (accountType/roleModel/etc.) via an arbitrary nested `user` object.
     if (user && teacher.userId) {
-      await User.findByIdAndUpdate(teacher.userId, user, { returnDocument: "after" });
+      const allowedUserFields = ["name", "mobileNo", "email", "location", "bio", "image"];
+      const safeUserUpdate = {};
+      for (const key of allowedUserFields) {
+        if (user[key] !== undefined) safeUserUpdate[key] = user[key];
+      }
+      if (Object.keys(safeUserUpdate).length > 0) {
+        await User.findByIdAndUpdate(teacher.userId, safeUserUpdate, { returnDocument: "after" });
+      }
     }
 
     const teacherDetailsUpdate = teacherDetails ? { ...teacherDetails } : {};

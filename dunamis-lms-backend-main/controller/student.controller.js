@@ -46,7 +46,6 @@ exports.sendOTP = asyncHandler(async (req, res) => {
       lowerCaseAlphabets: false,
       specialChars: false,
     });
-    console.log("otp-generated:", otp);
 
     //check unique otp or not
     let result = await OTP.findOne({ otp: otp });
@@ -69,9 +68,7 @@ exports.sendOTP = asyncHandler(async (req, res) => {
     };
     // TODO: Enable this later
     await mailSender(email, "email verification", otpTemplate(otp));
-    const otpBody = await OTP.create(otpPayload);
-
-    console.log(otpBody);
+    await OTP.create(otpPayload);
 
     // //return respnose successfully
     res.status(200).json({
@@ -194,6 +191,8 @@ exports.createStudent = asyncHandler(async (req, res) => {
       "Welcome to Duanamis Institute – Thank You for Trusting Us!",
       welcomeEmailTemplate(email, firstName)
     );
+
+    user.password = undefined;
 
     return res.status(200).json({
       success: true,
@@ -451,10 +450,14 @@ exports.getStudentAttendanceHomework = asyncHandler(async (req, res) => {
 // Update Stud.
 exports.updateStudent = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { mode, branch, enrolledCourses, demoCourse, age } = req.body;
+    const { mode, branch, enrolledCourses: enrolledCoursesInput, demoCourse, age } = req.body;
     const isStaff = ["admin", "superadmin"].includes(req.user?.accountType);
     const followUps = isStaff ? req.body.followUps : undefined;
     const adminActions = isStaff ? req.body.adminActions : undefined;
+    // Enrollment is only ever granted by fulfillPaidTransaction() (or the
+    // admin cash-enrollment path) — a student must never be able to add
+    // themselves to a course via this endpoint.
+    const enrolledCourses = isStaff ? enrolledCoursesInput : undefined;
     const student = await Student.findById(id);
     if (!student) {
       return res.status(404).json({

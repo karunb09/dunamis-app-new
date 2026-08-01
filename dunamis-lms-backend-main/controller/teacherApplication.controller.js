@@ -543,7 +543,6 @@ exports.sendInstructorEmailOTP = asyncHandler(async (req, res) => {
   } else {
     await OTP.create({ email: normalizedEmail, otp });
   }
-  console.log(`Generated OTP for ${normalizedEmail}: ${otp}`);
 
   const body = `<p>Your Dunamis instructor application verification code is:</p>
 <h2 style="letter-spacing:4px;font-size:32px;">${otp}</h2>
