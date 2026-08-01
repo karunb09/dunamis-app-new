@@ -6,10 +6,15 @@ import {
     getAllEnquiries,
     respondEnquiry,
 } from "../../redux/Enquiry/EnquirySlice";
+import {
+    getAllCallbackRequests,
+    updateCallbackRequestStatus,
+} from "../../redux/CallbackRequest/CallbackRequestSlice";
 import { fetchAdmins } from "../../redux/Admin/AdminSlice";
 import { FiX } from "react-icons/fi";
 import DataCards from "../../components/DataCards";
 import PersonCard from "../../components/cards/PersonCard";
+import PageTabBar from "../../components/PageTabBar";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -31,11 +36,25 @@ const statusBadgeClasses = {
     archived: "bg-slate-100 text-slate-600",
 };
 
+const callbackStatusBadgeClasses = {
+    new: "bg-sky-50 text-sky-700 ring-1 ring-sky-200",
+    contacted: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+    closed: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+};
+
+const TABS = ["General Enquiries", "Callback Requests"];
+
 const EnquiriesPage = () => {
     const dispatch = useDispatch();
     const { enquiries, loading, error } = useSelector((state) => state.enquiry);
     const { admins } = useSelector((state) => state.admin);
+    const {
+        callbackRequests,
+        loading: callbackLoading,
+        error: callbackError,
+    } = useSelector((state) => state.callbackRequest);
 
+    const [activeTab, setActiveTab] = useState("General Enquiries");
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
     const [filterOpen, setFilterOpen] = useState(false);
@@ -52,6 +71,7 @@ const EnquiriesPage = () => {
     useEffect(() => {
         dispatch(getAllEnquiries());
         dispatch(fetchAdmins());
+        dispatch(getAllCallbackRequests());
     }, [dispatch]);
 
     useEffect(() => {
@@ -112,6 +132,12 @@ const EnquiriesPage = () => {
                 <p className="mt-0.5 text-sm text-slate-500">Manage and respond to incoming enquiries.</p>
             </div>
 
+            <div className="mb-5">
+                <PageTabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+            </div>
+
+            {activeTab === "General Enquiries" && (
+            <>
             {/* Toolbar */}
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative w-full sm:w-72">
@@ -271,6 +297,56 @@ const EnquiriesPage = () => {
                         );
                     }}
                 />
+            )}
+            </>
+            )}
+
+            {activeTab === "Callback Requests" && (
+                callbackLoading ? (
+                    <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-16 text-center">
+                        <p className="text-sm text-slate-500">Loading callback requests…</p>
+                    </div>
+                ) : callbackError ? (
+                    <div className="rounded-[30px] border border-rose-200 bg-rose-50 px-6 py-8 text-center">
+                        <p className="text-sm text-rose-600">Error: {callbackError}</p>
+                    </div>
+                ) : (
+                    <DataCards
+                        data={callbackRequests}
+                        selectable={false}
+                        itemsPerPage={12}
+                        emptyMessage="No callback requests yet."
+                        renderCard={(row) => (
+                            <PersonCard
+                                name={row.name || "Unknown"}
+                                subtitle={row.phone}
+                                statusBadge={{
+                                    label: row.status.charAt(0).toUpperCase() + row.status.slice(1),
+                                    className: callbackStatusBadgeClasses[row.status] || "bg-slate-100 text-slate-600",
+                                    dot: true,
+                                    dotClass: "bg-current",
+                                }}
+                                meta={[
+                                    { label: "Course", value: row.courseId?.name || "N/A" },
+                                    { label: "Preferred Time", value: row.preferredTime || "Any" },
+                                    { label: "Requested", value: new Date(row.createdAt).toLocaleDateString() },
+                                ]}
+                                menuItems={[
+                                    {
+                                        label: "Mark Contacted",
+                                        disabled: row.status === "contacted",
+                                        onClick: () => dispatch(updateCallbackRequestStatus({ id: row._id, status: "contacted" })),
+                                    },
+                                    {
+                                        label: "Mark Closed",
+                                        disabled: row.status === "closed",
+                                        onClick: () => dispatch(updateCallbackRequestStatus({ id: row._id, status: "closed" })),
+                                    },
+                                ]}
+                            />
+                        )}
+                    />
+                )
             )}
 
             {/* Assign & Respond Modal */}

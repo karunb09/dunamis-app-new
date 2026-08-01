@@ -12,6 +12,7 @@ import userReducer from "./User/UserSlice";
 import authReducer from "./authSlice";
 import demoBookingReducer from "./DemoBooking/DemoBookingSlice";
 import enquiryReducer from "./Enquiry/EnquirySlice";
+import callbackRequestReducer from "./CallbackRequest/CallbackRequestSlice";
 import noticeReducer from "./AdminNotice/AdminNoticeSlice";
 import remunerationReducer from "./Remuneration/RemunerationSlice";
 import feedbackReducer from "./Feedback/FeedbackSlice";
@@ -56,6 +57,7 @@ export const store = configureStore({
     user: userReducer,
     demoBookings: demoBookingReducer,
     enquiry: enquiryReducer,
+    callbackRequest: callbackRequestReducer,
     notice: noticeReducer,
     remuneration: remunerationReducer,
     feedback: feedbackReducer,

@@ -7,6 +7,7 @@ import RouteProgress from "@/components/RouteProgress";
 import ScrollProgressBar from "@/components/ScrollProgressBar";
 import Footer from "@/components/Footer";
 import CustomCursor from "@/components/CustomCursor";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
 import { readServerAuth } from "@/lib/serverAuth";
@@ -125,6 +126,7 @@ export default async function RootLayout({ children }) {
         </Providers>
 
         <Footer />
+        <WhatsAppButton />
       </body>
     </html>
   );

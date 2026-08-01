@@ -26,7 +26,7 @@ import {
   normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
-import { getActiveTenurePlans, pickDefaultTenure, pickShortestTenure, findTenure } from '@/helpers/tenurePlans';
+import { getActiveTenurePlans, pickDefaultTenure, findTenure } from '@/helpers/tenurePlans';
 import StepNav from './EnrollTermsParts/StepNav';
 import StepDelivery from './EnrollTermsParts/StepDelivery';
 import StepInstructor from './EnrollTermsParts/StepInstructor';
@@ -78,6 +78,14 @@ const toMoney = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return `₹${amount.toLocaleString('en-IN')}`;
+};
+
+const computeMrpAndSavings = (fullPayment, discountPct) => {
+  const full = Number(fullPayment) || 0;
+  const pct = Number(discountPct) || 0;
+  if (!full || !pct) return { mrp: null, savings: null };
+  const mrp = Math.round(full / (1 - pct / 100));
+  return { mrp, savings: mrp - full };
 };
 
 const getPricedSessionTypes = (course) => {
@@ -372,6 +380,7 @@ export default function EnrollTerm({
     setSelectedSlotId(current.slot?.slotId || current.slot?.id || '');
     setSelectedSessionType('');
     setSelectedPlanType('');
+    setSelectedMonths(null);
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
     setIsNavigating(false);
@@ -510,12 +519,6 @@ export default function EnrollTerm({
     setSelectedSlotId(group.slots[0].id || '');
   }, [selectedGroupId, slotGroups, selectedSlotId]);
 
-  // Default to the shortest (3-month) plan on open and whenever the tenure plans change.
-  useEffect(() => {
-    if (!isOpen) return;
-    setSelectedMonths(pickShortestTenure(tenurePlans)?.months ?? null);
-  }, [tenurePlans, isOpen]);
-
   // Reset session/plan choice when user navigates back before step 3.
   useEffect(() => {
     if (step < 3) {
@@ -555,12 +558,23 @@ export default function EnrollTerm({
     (Number(activePriceObj?.installments) > 1
       ? Number(activePriceObj?.installments)
       : null);
-  const planMrpFull =
-    planFullFee && planDiscountPct
-      ? Math.round(planFullFee / (1 - planDiscountPct / 100))
-      : null;
-  const planSavings =
-    planMrpFull && planFullFee ? planMrpFull - planFullFee : null;
+
+  // Plan cards shown directly in step 4 — no separate duration-selection step.
+  const primaryTenure =
+    tenurePlans.length > 0 ? pickDefaultTenure(tenurePlans) || tenurePlans[0] : null;
+  const monthlyCardMonths = primaryTenure?.months ?? null;
+  const monthlyCardFee =
+    primaryTenure?.monthlyFee || Number(activePriceObj?.monthlyFee) || null;
+  const fullPaymentCards =
+    tenurePlans.length > 0
+      ? tenurePlans
+      : [
+          {
+            months: null,
+            fullPayment: Number(activePriceObj?.fullPayment) || 0,
+            discount: Number(activePriceObj?.discount) || 0,
+          },
+        ];
 
   const canContinue =
     step === 0
@@ -935,142 +949,111 @@ export default function EnrollTerm({
               {courseTitle}
             </p>
 
-            {tenurePlans.length > 0 ? (
-              <div>
-                <p className="mb-2 text-sm font-medium text-gray-700">Select duration</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {tenurePlans.map((plan) => {
-                    const isSelected = plan.months === selectedMonths;
-                    return (
-                      <button
-                        key={plan.months}
-                        type="button"
-                        onClick={() => {
-                          setSelectedMonths(plan.months);
-                          setSelectedPlanType('');
-                        }}
-                        className={`rounded-2xl border px-3 py-3 text-center transition ${
-                          isSelected
-                            ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
-                            : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/20'
-                        }`}
-                      >
-                        <span className="block text-base font-semibold text-gray-900">
-                          {plan.months} mo
-                        </span>
-                        <span className="block text-[11px] font-medium text-gray-700">
-                          {plan.monthlyFee ? `${toMoney(plan.monthlyFee)}/mo` : '—'}
-                        </span>
-                        <span className="block text-[10px] text-gray-400">
-                          {plan.fullPayment ? `${toMoney(plan.fullPayment)} total` : ''}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedMonths === null ? (
-                  <p className="mt-3 text-xs text-gray-400">
-                    Choose a duration above to see payment options.
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {/* Payment plan cards — shown after duration is chosen (or no tenure plans) */}
-            {(tenurePlans.length === 0 || selectedMonths !== null) ? (
-            <>
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedPlanType('monthly')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPlanType('monthly'); } }}
-              className={`cursor-pointer rounded-3xl border p-5 transition ${
-                selectedPlanType === 'monthly'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-gray-900">Monthly plan</p>
-                  <span className="mt-1 inline-block rounded-full bg-purple-100 px-3 py-0.5 text-xs font-medium text-purple-700">
-                    Flexible
-                  </span>
-                </div>
-                {selectedPlanType === 'monthly' ? (
-                  <HiCheckCircle className="text-xl text-orange-500" />
-                ) : null}
-              </div>
-              <p className="mt-3 text-2xl font-bold text-gray-900">
-                {toMoney(planMonthlyFee) || '—'}
-                <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
-              </p>
-              <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
-                <HiCheckCircle className="text-green-500" />
-                <span>
-                  {planDurationMonths
-                    ? `Paid over ${planDurationMonths} months`
-                    : 'Pay as you go · cancel anytime'}
-                </span>
-              </div>
-            </div>
-
-            {/* Full payment plan */}
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedPlanType('full')}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPlanType('full'); } }}
-              className={`cursor-pointer rounded-3xl border p-5 transition ${
-                selectedPlanType === 'full'
-                  ? 'border-orange-500 bg-orange-50'
-                  : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {planDurationMonths ? `${planDurationMonths}-month plan` : 'Full course plan'}
-                  </p>
-                  <span className="mt-1 inline-block rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-700">
-                    Best value
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {planDiscountPct ? (
-                    <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                      Save {planDiscountPct}%
-                    </span>
-                  ) : null}
-                  {selectedPlanType === 'full' ? (
+            <div className="grid gap-4 sm:grid-cols-3">
+              {/* Monthly card — tied to the primary (6-month, or first active) tenure */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setSelectedMonths(monthlyCardMonths);
+                  setSelectedPlanType('monthly');
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedMonths(monthlyCardMonths);
+                    setSelectedPlanType('monthly');
+                  }
+                }}
+                className={`cursor-pointer rounded-3xl border p-5 transition ${
+                  selectedPlanType === 'monthly' && selectedMonths === monthlyCardMonths
+                    ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                    : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-lg font-semibold text-gray-900">Monthly</p>
+                  {selectedPlanType === 'monthly' && selectedMonths === monthlyCardMonths ? (
                     <HiCheckCircle className="text-xl text-orange-500" />
                   ) : null}
                 </div>
+                <span className="mt-1 inline-block rounded-full bg-purple-100 px-3 py-0.5 text-xs font-medium text-purple-700">
+                  Flexible
+                </span>
+                <p className="mt-3 text-2xl font-bold text-gray-900">
+                  {toMoney(monthlyCardFee) || '—'}
+                  <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
+                </p>
+                <p className="mt-2 text-sm text-gray-600">
+                  {monthlyCardMonths ? `Paid over ${monthlyCardMonths} months` : 'Pay as you go'}
+                </p>
               </div>
-              <p className="mt-3 text-2xl font-bold text-gray-900">
-                {toMoney(planFullFee) || '—'}
-                <span className="ml-1 text-sm font-medium text-gray-500">one-time</span>
-              </p>
-              {planMrpFull ? (
-                <p className="mt-0.5 text-sm text-gray-400 line-through">{toMoney(planMrpFull)}</p>
-              ) : null}
-              {planSavings ? (
-                <p className="text-sm font-medium text-green-600">Save {toMoney(planSavings)}</p>
-              ) : null}
-              <div className="mt-3 space-y-1">
-                {[
-                  'Best overall price',
-                  'Priority support',
-                  'Certificate on completion',
-                ].map((feat) => (
-                  <div key={feat} className="flex items-center gap-2 text-sm text-gray-600">
-                    <HiCheckCircle className="shrink-0 text-green-500" />
-                    <span>{feat}</span>
+
+              {/* One full-payment card per active tenure plan (dynamic — falls back to legacy fields) */}
+              {fullPaymentCards.map((plan) => {
+                const isSelected =
+                  selectedPlanType === 'full' && selectedMonths === plan.months;
+                const isPrimary =
+                  tenurePlans.length > 0 &&
+                  primaryTenure &&
+                  plan.months === primaryTenure.months;
+                const { mrp, savings } = computeMrpAndSavings(plan.fullPayment, plan.discount);
+                return (
+                  <div
+                    key={plan.months ?? 'full'}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setSelectedMonths(plan.months);
+                      setSelectedPlanType('full');
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedMonths(plan.months);
+                        setSelectedPlanType('full');
+                      }
+                    }}
+                    className={`relative cursor-pointer rounded-3xl border p-5 transition ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                        : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                    }`}
+                  >
+                    {isPrimary ? (
+                      <span className="absolute -top-2.5 left-4 rounded-full bg-[#FF6B35] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                        Best Value
+                      </span>
+                    ) : null}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-lg font-semibold text-gray-900">
+                        {plan.months ? `${plan.months}-Month` : 'Full course'}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        {plan.discount ? (
+                          <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                            Save {plan.discount}%
+                          </span>
+                        ) : null}
+                        {isSelected ? <HiCheckCircle className="text-xl text-orange-500" /> : null}
+                      </div>
+                    </div>
+                    <span className="mt-1 inline-block rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-700">
+                      One-time
+                    </span>
+                    <p className="mt-3 text-2xl font-bold text-gray-900">
+                      {toMoney(plan.fullPayment) || '—'}
+                    </p>
+                    {mrp ? (
+                      <p className="mt-0.5 text-sm text-gray-400 line-through">{toMoney(mrp)}</p>
+                    ) : null}
+                    {savings ? (
+                      <p className="text-sm font-medium text-green-600">Save {toMoney(savings)}</p>
+                    ) : null}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-            </>) : null}
           </div>
         ) : null}
 

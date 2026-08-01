@@ -90,6 +90,7 @@ const teacherRoutes = require("./routes/teachers.routes");
 const demoBookingRoutes = require("./routes/demoBooking.route")
 const slotRoutes = require("./routes/slot.routes")
 const enquiryRoutes = require("./routes/enquiry.routes")
+const callbackRequestRoutes = require("./routes/callbackRequest.routes")
 const adminNoticeRoutes = require("./routes/adminNotice.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
 const remunerationRoutes = require("./routes/remuneration.routes");
@@ -210,6 +211,7 @@ app.use("/api/v1/enrollment", paymentLimiter, enrollmentRoutes);
 app.use("/api/v1/slots", slotRoutes);
 app.use("/api/v1/demoBookings", demoBookingRoutes);
 app.use("/api/v1/enquiry", enquiryRoutes);
+app.use("/api/v1/callback-request", callbackRequestRoutes);
 app.use("/api/v1/adminNotice", adminNoticeRoutes);
 app.use("/api/v1/feedback", feedbackRoutes);
 app.use("/api/v1/remuneration", remunerationRoutes);
