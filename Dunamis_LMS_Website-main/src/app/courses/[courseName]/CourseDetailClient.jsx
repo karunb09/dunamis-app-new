@@ -277,7 +277,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
   if ((loading || detailLoading) && !course) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#FF6B35] border-t-transparent" />
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#CC3700] border-t-transparent" />
         <p className="text-sm text-gray-500">Loading course details…</p>
       </div>
     );
@@ -288,7 +288,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
         <div className="text-5xl">🎵</div>
         <h2 className="text-xl font-bold text-gray-900">{error ? "Something went wrong" : "Course not found"}</h2>
         <p className="text-sm text-gray-500 max-w-xs">{error ? "Please try again later." : "This course doesn't exist or has been removed."}</p>
-        <Link href="/courses" className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#FF6B35] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#fd5a1f] transition">
+        <Link href="/courses" className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#CC3700] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#B83100] transition">
           <LuChevronLeft className="w-4 h-4" /> Back to Courses
         </Link>
       </div>
@@ -314,7 +314,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
         <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
           <div className="max-w-4xl">
             <div className="flex flex-wrap gap-2 mb-3">
-              <span className="rounded-full bg-[#FF6B35]/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-white">{course.category}</span>
+              <span className="rounded-full bg-[#CC3700]/90 backdrop-blur-sm px-3 py-1 text-xs font-semibold text-white">{course.category}</span>
               {course.code && <span className="rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1 text-xs font-medium text-white/80">{course.code}</span>}
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white leading-tight">{course.title}</h1>
@@ -349,11 +349,11 @@ export default function CourseDetailClient({ initialCourse = null }) {
 
             {/* Mobile price + CTA */}
             <div className="lg:hidden mb-5 rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
-              <p className="text-2xl font-extrabold text-[#FF6B35]">{course.price}</p>
+              <p className="text-2xl font-extrabold text-[#CC3700]">{course.price}</p>
               {course.branchCount > 0 && <p className="text-xs text-gray-400 mt-0.5">{course.branchCount} branch{course.branchCount > 1 ? "es" : ""} · <span className="capitalize">{course.mode}</span></p>}
               <div className="flex items-stretch gap-3 mt-4">
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => openEnrollmentFlow()}
-                  className="flex-1 rounded-xl bg-[#FF6B35] py-2.5 text-sm font-bold text-white hover:bg-[#fd5a1f] transition">Enroll Now</motion.button>
+                  className="flex-1 rounded-xl bg-[#CC3700] py-2.5 text-sm font-bold text-white hover:bg-[#B83100] transition">Enroll Now</motion.button>
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => openDemoFlow()}
                   className="flex-1 rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Book Demo</motion.button>
                 <ContactActionsMenu onRequestCallback={() => setCallbackOpen(true)} />
@@ -368,14 +368,14 @@ export default function CourseDetailClient({ initialCourse = null }) {
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`relative shrink-0 px-4 sm:px-5 py-3.5 text-sm font-medium transition-colors duration-200 ${
-                      activeTab === tab ? "text-[#FF6B35]" : "text-gray-500 hover:text-gray-800"
+                      activeTab === tab ? "text-[#CC3700]" : "text-gray-500 hover:text-gray-800"
                     }`}
                   >
                     {tab}
                     {activeTab === tab && (
                       <motion.span
                         layoutId="tab-underline"
-                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FF6B35] rounded-full"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#CC3700] rounded-full"
                         transition={{ type: "spring", stiffness: 400, damping: 32 }}
                       />
                     )}
@@ -424,7 +424,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                             className="w-full flex items-center justify-between p-4 sm:p-5 text-left hover:bg-gray-50 transition-colors"
                           >
                             <div className="flex items-center gap-3 min-w-0">
-                              <span className="shrink-0 w-7 h-7 rounded-full bg-orange-100 text-[#FF6B35] text-xs font-bold flex items-center justify-center">{idx + 1}</span>
+                              <span className="shrink-0 w-7 h-7 rounded-full bg-orange-100 text-[#CC3700] text-xs font-bold flex items-center justify-center">{idx + 1}</span>
                               <div className="min-w-0">
                                 <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{module.module}</p>
                                 {module.duration && <p className="text-xs text-gray-400 mt-0.5">{module.duration}</p>}
@@ -487,7 +487,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                               <span className="mt-2 inline-block rounded-full bg-orange-50 border border-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-600">{instructor.yearsExperience}</span>
                             )}
                           </div>
-                          <span className="shrink-0 text-xs text-[#FF6B35] font-semibold opacity-0 group-hover:opacity-100 transition-opacity self-start pt-0.5">View →</span>
+                          <span className="shrink-0 text-xs text-[#CC3700] font-semibold opacity-0 group-hover:opacity-100 transition-opacity self-start pt-0.5">View →</span>
                         </motion.button>
                       ))}
                     </div>
@@ -504,12 +504,12 @@ export default function CourseDetailClient({ initialCourse = null }) {
                         <div className="grid sm:grid-cols-2 gap-4">
                           {course.feeStructure.monthly.map((plan, i) => (
                             <motion.div key={i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                              className={`rounded-2xl border p-5 sm:p-6 shadow-sm ${plan.sessionType === "premium" ? "border-[#FF6B35]/30 bg-gradient-to-br from-orange-50 to-white" : "border-gray-100 bg-white"}`}>
+                              className={`rounded-2xl border p-5 sm:p-6 shadow-sm ${plan.sessionType === "premium" ? "border-[#CC3700]/30 bg-gradient-to-br from-orange-50 to-white" : "border-gray-100 bg-white"}`}>
                               <div className="flex items-start justify-between gap-3 mb-1">
                                 <h3 className="font-bold text-gray-900 text-sm sm:text-base">{plan.plan}</h3>
-                                {plan.sessionType === "premium" && <span className="rounded-full bg-[#FF6B35] px-2.5 py-0.5 text-[11px] font-semibold text-white shrink-0">Premium</span>}
+                                {plan.sessionType === "premium" && <span className="rounded-full bg-[#CC3700] px-2.5 py-0.5 text-[11px] font-semibold text-white shrink-0">Premium</span>}
                               </div>
-                              <p className="text-2xl font-extrabold text-[#FF6B35]">{plan.price}</p>
+                              <p className="text-2xl font-extrabold text-[#CC3700]">{plan.price}</p>
                               <ul className="mt-4 space-y-2">
                                 {plan.features.map((f, fi) => (
                                   <li key={fi} className="flex items-center gap-2 text-sm text-gray-600">
@@ -518,7 +518,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                                 ))}
                               </ul>
                               <motion.button whileTap={{ scale: 0.97 }} onClick={() => openEnrollmentFlow()}
-                                className={`mt-5 w-full rounded-xl py-2.5 text-sm font-bold transition ${plan.sessionType === "premium" ? "bg-[#FF6B35] text-white hover:bg-[#fd5a1f]" : "border border-[#FF6B35] text-[#FF6B35] hover:bg-orange-50"}`}>
+                                className={`mt-5 w-full rounded-xl py-2.5 text-sm font-bold transition ${plan.sessionType === "premium" ? "bg-[#CC3700] text-white hover:bg-[#B83100]" : "border border-[#CC3700] text-[#CC3700] hover:bg-orange-50"}`}>
                                 Enroll Now
                               </motion.button>
                             </motion.div>
@@ -563,7 +563,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
               </div>
               <div className="p-6 space-y-3">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => openEnrollmentFlow()}
-                  className="w-full rounded-xl bg-[#FF6B35] py-3 text-sm font-bold text-white hover:bg-[#fd5a1f] transition shadow-md shadow-orange-100">
+                  className="w-full rounded-xl bg-[#CC3700] py-3 text-sm font-bold text-white hover:bg-[#B83100] transition shadow-md shadow-orange-100">
                   Enroll Now
                 </motion.button>
                 <div className="flex items-stretch gap-3">
@@ -581,7 +581,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                     { icon: course.mode === "online" ? LuWifi : LuMapPin, text: `${course.mode === "online" ? "Online" : "Offline"} learning` },
                   ].map(({ icon: Icon, text }) => (
                     <li key={text} className="flex items-center gap-2.5 text-sm text-gray-600">
-                      <Icon className="w-4 h-4 text-[#FF6B35] shrink-0" />{text}
+                      <Icon className="w-4 h-4 text-[#CC3700] shrink-0" />{text}
                     </li>
                   ))}
                 </ul>
@@ -682,7 +682,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                     </motion.button>
                     <motion.button type="button" whileTap={{ scale: 0.97 }}
                       onClick={() => { const id = activeInstructor.id || ""; setActiveInstructor(null); openEnrollmentFlow(id); }}
-                      className="flex-1 rounded-xl bg-[#FF6B35] px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-200 hover:bg-[#fd5a1f] transition">
+                      className="flex-1 rounded-xl bg-[#CC3700] px-4 py-3 text-sm font-bold text-white shadow-md shadow-orange-200 hover:bg-[#B83100] transition">
                       Enroll With This Instructor
                     </motion.button>
                   </div>

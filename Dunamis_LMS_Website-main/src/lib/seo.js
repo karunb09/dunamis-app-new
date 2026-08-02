@@ -46,6 +46,11 @@ export function buildMetadata({
     image = DEFAULT_OG_IMAGE,
 } = {}) {
     const url = `${SITE_URL}${path}`;
+    // Self-contained: the root layout does NOT define title.template, because
+    // Next only propagates a template one segment deep — it doesn't reach
+    // routes nested under a layout that resolves its own plain-string title
+    // (e.g. /courses/[courseName] under courses/layout.js). Appending the
+    // site name here once is the only approach that's correct at every depth.
     const fullTitle = title ? `${title} | ${SITE_NAME}` : DEFAULT_TITLE;
 
     return {

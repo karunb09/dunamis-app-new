@@ -90,7 +90,7 @@ export default function CourseCard({
 
         {branchName && (
           <p className="mt-2 flex min-h-[20px] items-center gap-1 text-sm text-gray-600">
-            <LuMapPin className="h-4 w-4 shrink-0 text-[#FF6B35]" />
+            <LuMapPin className="h-4 w-4 shrink-0 text-[#CC3700]" />
             <span className="line-clamp-1 font-medium">{branchName}</span>
           </p>
         )}
@@ -126,7 +126,7 @@ export default function CourseCard({
             onClick={(e) => { e.stopPropagation(); onViewDetails?.(); }}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="cursor-pointer w-full bg-[#FF6B35] hover:bg-[#fd5a1f] text-white font-medium py-2 px-4 rounded-2xl transition-colors duration-200"
+            className="cursor-pointer w-full bg-[#CC3700] hover:bg-[#B83100] text-white font-medium py-2 px-4 rounded-2xl transition-colors duration-200"
           >
             View Details
           </motion.button>
@@ -135,7 +135,7 @@ export default function CourseCard({
               onClick={(e) => { e.stopPropagation(); onBookDemo(); }}
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="cursor-pointer w-full border border-[#FF6B35] bg-white text-[#FF6B35] font-medium py-2 px-4 rounded-2xl hover:bg-[#fff3ed] transition-colors duration-200"
+              className="cursor-pointer w-full border border-[#CC3700] bg-white text-[#CC3700] font-medium py-2 px-4 rounded-2xl hover:bg-[#fff3ed] transition-colors duration-200"
             >
               Book Demo
             </motion.button>

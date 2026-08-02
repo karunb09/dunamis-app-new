@@ -57,35 +57,29 @@ export default function SuccessStories() {
         <div className="orb absolute top-0 right-0 w-80 h-80 bg-purple-600/12" style={{ "--dur": "19s", animationDelay: "6s" }} />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             <LuSparkles className="w-4 h-4" /> Celebrating Journeys
-          </motion.span>
+          </span>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          <h1
+            className="fade-in-up mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+            style={{ "--fade-y": "24px", "--fade-dur": "0.7s", "--fade-delay": "0.1s" }}
           >
             Success{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               Stories
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-5 text-base text-white/60 max-w-2xl mx-auto"
+          <p
+            className="fade-in-up mt-5 text-base text-white/60 max-w-2xl mx-auto"
+            style={{ "--fade-y": "16px", "--fade-dur": "0.7s", "--fade-delay": "0.2s" }}
           >
             Inspiring journeys of students who have achieved meaningful milestones with DUNAMIS.
-          </motion.p>
+          </p>
         </div>
 
       </div>
@@ -196,7 +190,7 @@ export default function SuccessStories() {
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <button
               onClick={() => router.push("/courses")}
-              className="rounded-full bg-[#FF6B35] px-7 py-3 text-sm font-semibold text-white hover:bg-[#ff4400] transition-colors"
+              className="rounded-full bg-[#CC3700] px-7 py-3 text-sm font-semibold text-white hover:bg-[#B83100] transition-colors"
             >
               Start Your Journey
             </button>

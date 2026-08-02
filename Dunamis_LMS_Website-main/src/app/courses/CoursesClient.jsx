@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuWifi, LuMapPin } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -13,7 +14,10 @@ import {
 import { buildTeacherName } from "@/helpers/courseSlots";
 
 /* ─── Card ─────────────────────────────────────────────────────── */
-function CourseCard({ course, courseFallbackImage, onView, onDemo }) {
+function CourseCard({ course, courseFallbackImage }) {
+  const href = `/courses/${course.id}`;
+  const demoHref = `/courses/${course.id}?action=demo`;
+
   return (
     <motion.article
       layout
@@ -22,8 +26,7 @@ function CourseCard({ course, courseFallbackImage, onView, onDemo }) {
       exit={{ opacity: 0, scale: 0.96 }}
       transition={{ duration: 0.35, ease: "easeOut" }}
       whileHover={{ y: -6, boxShadow: "0 20px 48px -12px rgba(0,0,0,0.14)" }}
-      onClick={onView}
-      className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm transition-shadow duration-300"
+      className="group relative flex flex-col overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm transition-shadow duration-300"
     >
       {/* Image */}
       <div className="relative h-48 sm:h-52 overflow-hidden">
@@ -97,22 +100,27 @@ function CourseCard({ course, courseFallbackImage, onView, onDemo }) {
 
         {/* Actions */}
         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={(e) => { e.stopPropagation(); onView(); }}
-            className="rounded-xl bg-[#FF6B35] py-2 px-3 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] active:bg-[#e04d1c]"
+          <Link
+            href={href}
+            className="relative z-10 rounded-xl bg-[#CC3700] py-2 px-3 text-center text-sm font-semibold text-white transition hover:bg-[#B83100] active:bg-[#e04d1c]"
           >
             View Details
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={(e) => { e.stopPropagation(); onDemo(); }}
-            className="rounded-xl border border-[#FF6B35] py-2 px-3 text-sm font-semibold text-[#FF6B35] transition hover:bg-orange-50"
+          </Link>
+          <Link
+            href={demoHref}
+            className="relative z-10 rounded-xl border border-[#CC3700] py-2 px-3 text-center text-sm font-semibold text-[#CC3700] transition hover:bg-orange-50"
           >
             Book Demo
-          </motion.button>
+          </Link>
         </div>
       </div>
+
+      {/* Stretched link — placed last so it paints above the image/badges
+          (no explicit z-index of their own) and makes the whole card a
+          real, right-click/new-tab-able link. The two actions above have
+          an explicit z-10 so they stay independently clickable regardless
+          of DOM order. */}
+      <Link href={href} className="absolute inset-0 z-0" tabIndex={-1} aria-hidden="true" />
     </motion.article>
   );
 }
@@ -132,7 +140,7 @@ function EmptyState({ onClear }) {
       </p>
       <button
         onClick={onClear}
-        className="mt-6 rounded-full bg-[#FF6B35] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#fd5a1f] transition"
+        className="mt-6 rounded-full bg-[#CC3700] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#B83100] transition"
       >
         Clear all filters
       </button>
@@ -274,48 +282,41 @@ function CoursesPageContent({ initialCourses = [] }) {
 
   return (
     <>
-      {/* ── Hero ──────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#09090f] py-28 px-4 sm:px-6 rounded-b-[52px]">
+      {/* ── Hero — compact: this is a listing page, courses are the
+          content the visitor came for, not the hero copy. ─────── */}
+      <section className="relative overflow-hidden bg-[#09090f] py-10 md:py-12 px-4 sm:px-6 rounded-b-[40px]">
         {/* Orbs */}
         <div className="orb absolute -top-32 -left-32 w-[400px] h-[400px] bg-orange-500/18" style={{ "--dur": "16s" }} />
         <div className="orb absolute top-0 right-0 w-80 h-80 bg-purple-600/12" style={{ "--dur": "20s", animationDelay: "4s" }} />
         <div className="orb absolute bottom-0 left-1/3 w-72 h-72 bg-teal-500/10" style={{ "--dur": "18s", animationDelay: "8s" }} />
 
         <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             Explore Courses
-          </motion.span>
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          </span>
+          <h1
+            className="fade-in-up mt-3 text-3xl md:text-4xl font-extrabold text-white leading-tight"
+            style={{ "--fade-y": "20px", "--fade-dur": "0.6s", "--fade-delay": "0.1s" }}
           >
             Find Your{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               Creative Path
             </span>
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-5 text-base text-white/60 max-w-2xl mx-auto"
+          </h1>
+          <p
+            className="fade-in-up mt-3 text-sm text-white/60 max-w-2xl mx-auto"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s", "--fade-delay": "0.15s" }}
           >
             Music · Dance · Languages — find the path that lights you up
-          </motion.p>
+          </p>
 
           {/* Search bar */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
-            className="mt-8 flex items-center gap-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 px-4 py-3 shadow-lg"
+          <div
+            className="fade-in-up mt-5 flex items-center gap-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 px-4 py-2.5 shadow-lg transition focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-200"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.5s", "--fade-delay": "0.2s" }}
           >
             <LuSearch className="w-4 h-4 text-white/50 shrink-0" />
             <input
@@ -330,7 +331,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                 <LuX className="w-4 h-4" />
               </button>
             )}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -347,7 +348,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                   onClick={() => updateCategoryFilter(cat)}
                   className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
                     isActive
-                      ? "bg-[#FF6B35] text-white shadow-sm"
+                      ? "bg-[#CC3700] text-white shadow-sm"
                       : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                   }`}
                 >
@@ -379,14 +380,14 @@ function CoursesPageContent({ initialCourses = [] }) {
             onClick={() => setShowFilter(true)}
             className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold border transition ${
               hasActiveFilters
-                ? "border-[#FF6B35] bg-orange-50 text-[#FF6B35]"
+                ? "border-[#CC3700] bg-orange-50 text-[#CC3700]"
                 : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
             }`}
           >
             <LuSlidersHorizontal className="w-3.5 h-3.5" />
             Filter
             {hasActiveFilters && (
-              <span className="w-4 h-4 rounded-full bg-[#FF6B35] text-white text-[10px] flex items-center justify-center">
+              <span className="w-4 h-4 rounded-full bg-[#CC3700] text-white text-[10px] flex items-center justify-center">
                 !
               </span>
             )}
@@ -475,7 +476,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                         onClick={() => updateCategoryFilter(cat)}
                         className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
                           selectedCategory === cat
-                            ? "bg-[#FF6B35] text-white"
+                            ? "bg-[#CC3700] text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
@@ -494,7 +495,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                         onClick={() => updateModeFilter(m)}
                         className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
                           selectedMode === m
-                            ? "bg-[#FF6B35] text-white"
+                            ? "bg-[#CC3700] text-white"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >
@@ -507,7 +508,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Max Price / Month</p>
-                    <span className="text-sm font-bold text-[#FF6B35]">₹{maxPrice.toLocaleString("en-IN")}</span>
+                    <span className="text-sm font-bold text-[#CC3700]">₹{maxPrice.toLocaleString("en-IN")}</span>
                   </div>
                   <input
                     type="range" min="0" max="10000" step="500"
@@ -530,7 +531,7 @@ function CoursesPageContent({ initialCourses = [] }) {
                 </button>
                 <button
                   onClick={() => setShowFilter(false)}
-                  className="flex-1 rounded-xl bg-[#FF6B35] py-2.5 text-sm font-semibold text-white hover:bg-[#fd5a1f] transition"
+                  className="flex-1 rounded-xl bg-[#CC3700] py-2.5 text-sm font-semibold text-white hover:bg-[#B83100] transition"
                 >
                   Apply
                 </button>
@@ -541,7 +542,7 @@ function CoursesPageContent({ initialCourses = [] }) {
       </AnimatePresence>
 
       {/* ── Grid ─────────────────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-10">
         {loading && transformedCourses.length === 0 ? (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(8)].map((_, i) => <CardSkeleton key={i} />)}
@@ -569,8 +570,6 @@ function CoursesPageContent({ initialCourses = [] }) {
                       key={course.id}
                       course={course}
                       courseFallbackImage={courseFallbackImage}
-                      onView={() => router.push(`/courses/${course.id}`)}
-                      onDemo={() => router.push(`/courses/${course.id}?action=demo`)}
                     />
                   ))
                 )}

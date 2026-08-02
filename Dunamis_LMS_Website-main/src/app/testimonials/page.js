@@ -67,43 +67,35 @@ export default function Testimonials() {
         <div className="orb absolute top-10 right-0 w-80 h-80 bg-purple-600/12" style={{ "--dur": "18s", animationDelay: "5s" }} />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             <LuMessageCircle className="w-4 h-4" /> Hear From Our Students
-          </motion.span>
+          </span>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          <h1
+            className="fade-in-up mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+            style={{ "--fade-y": "24px", "--fade-dur": "0.7s", "--fade-delay": "0.1s" }}
           >
             Student{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               Reviews
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-5 text-base text-white/60 max-w-2xl mx-auto"
+          <p
+            className="fade-in-up mt-5 text-base text-white/60 max-w-2xl mx-auto"
+            style={{ "--fade-y": "16px", "--fade-dur": "0.7s", "--fade-delay": "0.2s" }}
           >
             Discover what our students have to say about their learning journey at DUNAMIS.
-          </motion.p>
+          </p>
 
           {/* Stats pills — only when data loaded */}
           {!loading && testimonials.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.35 }}
-              className="mt-10 flex flex-wrap justify-center gap-4"
+            <div
+              className="fade-in-up mt-10 flex flex-wrap justify-center gap-4"
+              style={{ "--fade-y": "16px", "--fade-dur": "0.7s", "--fade-delay": "0.35s" }}
             >
               <div className="flex flex-col items-center gap-1 rounded-2xl border border-white/10 bg-white/8 backdrop-blur-sm px-8 py-5">
                 <span className="text-3xl font-extrabold text-orange-400">{testimonials.length}</span>
@@ -113,7 +105,7 @@ export default function Testimonials() {
                 <span className="text-3xl font-extrabold text-orange-400">{averageRating} ★</span>
                 <span className="text-sm text-white/60">Average Rating</span>
               </div>
-            </motion.div>
+            </div>
           )}
         </div>
 

@@ -15,7 +15,7 @@ export default function About() {
       <div className="relative z-10 max-w-7xl mx-auto pt-14">
         {/* Tagline */}
         <motion.p
-          className="text-[10px] sm:text-xs text-[#FF6B35] mb-2 uppercase tracking-wide text-center sm:text-left"
+          className="text-[10px] sm:text-xs text-[#CC3700] mb-2 uppercase tracking-wide text-center sm:text-left"
           initial={{ opacity: 0, y: -30 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}

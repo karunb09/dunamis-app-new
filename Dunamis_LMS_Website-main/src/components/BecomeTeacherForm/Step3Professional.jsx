@@ -202,6 +202,7 @@ export default function Step3Professional({
 
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <FileUploadField
+          id="profile-picture"
           label="Profile Picture"
           accept=".jpg,.jpeg,.png,image/jpeg,image/png"
           helperText="JPG or PNG only. Crop your face after selecting the image."
@@ -222,6 +223,7 @@ export default function Step3Professional({
         />
 
         <FileUploadField
+          id="cv"
           label="CV"
           accept=".pdf,application/pdf"
           helperText="PDF only"
@@ -233,6 +235,7 @@ export default function Step3Professional({
         />
 
         <FileUploadField
+          id="profile-video"
           label="Profile Video"
           accept=".mp4,.mpeg,.avi,.mov,video/mp4,video/mpeg,video/avi,video/quicktime"
           helperText="MP4, MPEG, AVI, or MOV"
@@ -245,6 +248,7 @@ export default function Step3Professional({
 
         {hasCertificate === "Yes" ? (
           <FileUploadField
+            id="relevant-certificate"
             label="Relevant Certificate"
             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
             helperText="PDF, JPG, or PNG"

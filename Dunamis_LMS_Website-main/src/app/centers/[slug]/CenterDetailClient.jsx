@@ -178,7 +178,7 @@ export default function CenterDetailClient({ initialCenters = [] }) {
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={() => dispatch(fetchOfflineCenters())}
-            className="bg-[#FF6B35] text-white px-6 py-2 rounded-2xl hover:bg-[#ff4400] transition-colors"
+            className="bg-[#CC3700] text-white px-6 py-2 rounded-2xl hover:bg-[#B83100] transition-colors"
           >
             Retry
           </button>
@@ -359,7 +359,7 @@ export default function CenterDetailClient({ initialCenters = [] }) {
                     {course.id && (
                       <Link
                         href={`/courses/${course.id}`}
-                        className="shrink-0 rounded-full bg-[#FF6B35] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#ff4400] transition-colors"
+                        className="shrink-0 rounded-full bg-[#CC3700] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#B83100] transition-colors"
                       >
                         View Course
                       </Link>

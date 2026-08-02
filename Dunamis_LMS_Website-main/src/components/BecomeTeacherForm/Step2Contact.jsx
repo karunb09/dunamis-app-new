@@ -114,6 +114,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
             id="teacher-email"
             label="Email Address"
             type="email"
+            autoComplete="email"
             placeholder="Enter your email address"
             value={formData.email}
             onChange={(e) => {
@@ -176,7 +177,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
                   )}
                 </div>
               )}
-              {otpError && <p className="mt-1 text-xs text-red-500">{otpError}</p>}
+              {otpError && <p role="alert" className="mt-1 text-xs text-red-500">{otpError}</p>}
             </div>
           )}
         </div>
@@ -184,7 +185,9 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
         <TextInput
           id="teacher-mobile"
           label="Mobile Number"
+          type="tel"
           inputMode="numeric"
+          autoComplete="tel-national"
           placeholder="Enter your mobile number"
           value={formData.mobileNo}
           onChange={(e) =>
@@ -201,6 +204,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
       <SelectInput
         id="teacher-country"
         label="Country"
+        autoComplete="country"
         value={selectedCountry}
         onChange={(e) => {
           setSelectedCountry(e.target.value);
@@ -223,6 +227,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
       <SelectInput
         id="teacher-state"
         label="State"
+        autoComplete="address-level1"
         value={selectedStateCode}
         onChange={(e) => {
           const stateCode = e.target.value;
@@ -248,6 +253,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
       <SelectInput
         id="teacher-city"
         label="City"
+        autoComplete="address-level2"
         value={formData.currentCity}
         onChange={(e) =>
           setFormData({ ...formData, currentCity: e.target.value })
@@ -268,6 +274,7 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
         id="teacher-address"
         label="Current Address"
         placeholder="Enter your full current address"
+        autoComplete="street-address"
         rows={4}
         value={formData.currentAddress}
         onChange={(e) =>

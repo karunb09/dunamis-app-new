@@ -78,7 +78,7 @@ export default function StepDelivery({
                   setSelectedInstructorId('');
                   setSelectedSlotId('');
                 }}
-                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
               >
                 <option value="all">All cities</option>
                 {branchCityOptions.map((city) => (
@@ -101,7 +101,7 @@ export default function StepDelivery({
               setSelectedInstructorId('');
               setSelectedSlotId('');
             }}
-            className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+            className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
           >
             <option value="">Choose a branch</option>
             {filteredBranchOptions.map((branch) => (

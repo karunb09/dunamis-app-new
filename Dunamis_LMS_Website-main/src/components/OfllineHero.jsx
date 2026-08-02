@@ -79,7 +79,7 @@ const OfflineHero = ({ stats = defaultStats }) => {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 viewport={{ once: true }}
-                className="text-[#FF6B35] font-medium mb-2"
+                className="text-[#CC3700] font-medium mb-2"
             >
                 Experience Learning in Person
             </motion.p>
@@ -120,7 +120,7 @@ const OfflineHero = ({ stats = defaultStats }) => {
                         viewport={{ once: true }}
                         className="text-center"
                     >
-                        <h3 className="text-3xl font-bold text-[#FF6B35]">
+                        <h3 className="text-3xl font-bold text-[#CC3700]">
                             <Counter value={item.value} suffix={item.suffix || ""} />
                         </h3>
                         <p className="text-gray-600">{item.label}</p>

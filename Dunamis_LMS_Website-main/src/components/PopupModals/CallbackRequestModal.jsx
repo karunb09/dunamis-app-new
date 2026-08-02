@@ -87,7 +87,7 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
             <button
               type="button"
               onClick={onClose}
-              className="mt-6 w-full rounded-2xl bg-[#FF6B35] py-3 text-sm font-bold text-white transition hover:bg-[#fd5a1f]"
+              className="mt-6 w-full rounded-2xl bg-[#CC3700] py-3 text-sm font-bold text-white transition hover:bg-[#B83100]"
             >
               Close
             </button>
@@ -109,7 +109,7 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                   placeholder="Your name"
                   required
                 />
@@ -122,7 +122,7 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, phone: e.target.value.replace(/[^\d+]/g, '') }))
                   }
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                   placeholder="+91 93982 46083"
                   required
                 />
@@ -132,7 +132,7 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
                 <select
                   value={form.preferredTime}
                   onChange={(e) => setForm((prev) => ({ ...prev, preferredTime: e.target.value }))}
-                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                 >
                   {PREFERRED_TIME_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -142,12 +142,12 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
                 </select>
               </div>
 
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              {error ? <p role="alert" className="text-sm text-red-500">{error}</p> : null}
 
               <button
                 type="submit"
                 disabled={!canSubmit}
-                className="mt-2 w-full rounded-2xl bg-[#FF6B35] py-3 text-sm font-bold text-white transition hover:bg-[#fd5a1f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-2 w-full rounded-2xl bg-[#CC3700] py-3 text-sm font-bold text-white transition hover:bg-[#B83100] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {phase === 'submitting' ? 'Submitting…' : 'Request Callback'}
               </button>

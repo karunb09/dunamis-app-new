@@ -80,10 +80,14 @@ export function FieldLabel({ children, htmlFor, required = false }) {
   );
 }
 
-export function FieldError({ error }) {
+export function FieldError({ error, id }) {
   if (!error) return null;
 
-  return <p className="text-sm text-red-600">{error}</p>;
+  return (
+    <p id={id} role="alert" className="text-sm text-red-600">
+      {error}
+    </p>
+  );
 }
 
 export function TextInput({
@@ -94,6 +98,7 @@ export function TextInput({
   className = "",
   ...props
 }) {
+  const errorId = `${id}-error`;
   return (
     <FieldGroup className={className}>
       <FieldLabel htmlFor={id} required={required}>
@@ -101,10 +106,12 @@ export function TextInput({
       </FieldLabel>
       <input
         id={id}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? errorId : undefined}
         className={`${baseInputClassName} ${error ? "border-red-300 ring-1 ring-red-200" : ""}`}
         {...props}
       />
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </FieldGroup>
   );
 }
@@ -118,6 +125,7 @@ export function SelectInput({
   className = "",
   ...props
 }) {
+  const errorId = `${id}-error`;
   return (
     <FieldGroup className={className}>
       <FieldLabel htmlFor={id} required={required}>
@@ -125,12 +133,14 @@ export function SelectInput({
       </FieldLabel>
       <select
         id={id}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? errorId : undefined}
         className={`${baseInputClassName} ${error ? "border-red-300 ring-1 ring-red-200" : ""}`}
         {...props}
       >
         {children}
       </select>
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </FieldGroup>
   );
 }
@@ -143,6 +153,7 @@ export function TextareaInput({
   className = "",
   ...props
 }) {
+  const errorId = `${id}-error`;
   return (
     <FieldGroup className={className}>
       <FieldLabel htmlFor={id} required={required}>
@@ -150,15 +161,18 @@ export function TextareaInput({
       </FieldLabel>
       <textarea
         id={id}
+        aria-invalid={error ? "true" : undefined}
+        aria-describedby={error ? errorId : undefined}
         className={`${baseInputClassName} min-h-28 resize-y rounded-2xl ${error ? "border-red-300 ring-1 ring-red-200" : ""}`}
         {...props}
       />
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </FieldGroup>
   );
 }
 
 export function FileUploadField({
+  id,
   label,
   accept,
   helperText,
@@ -170,10 +184,11 @@ export function FileUploadField({
 }) {
   const readProgress = useFileReadProgress(file);
   const attached = file && readProgress?.status === "done";
+  const errorId = id ? `${id}-error` : undefined;
 
   return (
     <FieldGroup>
-      <FieldLabel required={required}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id} required={required}>{label}</FieldLabel>
       <div
         className={`border-2 border-dashed rounded-2xl p-4 text-center transition ${
           error
@@ -184,9 +199,12 @@ export function FileUploadField({
         }`}
       >
         <input
+          id={id}
           type="file"
           accept={accept}
           ref={inputRef}
+          aria-invalid={error ? "true" : undefined}
+          aria-describedby={error ? errorId : undefined}
           className="hidden"
           onChange={(event) => setFile(event.target.files?.[0] || null)}
         />
@@ -255,7 +273,7 @@ export function FileUploadField({
           </div>
         )}
       </div>
-      <FieldError error={error} />
+      <FieldError error={error} id={errorId} />
     </FieldGroup>
   );
 }

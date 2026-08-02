@@ -43,13 +43,13 @@ const socials = [
 function LinkGroup({ title, links }) {
   return (
     <div>
-      <h4 className="text-[11px] sm:text-sm lg:text-base font-semibold text-[#FF6B35] mb-2 sm:mb-4 uppercase tracking-wide">
+      <h4 className="text-[11px] sm:text-sm lg:text-base font-semibold text-[#CC3700] mb-2 sm:mb-4 uppercase tracking-wide">
         {title}
       </h4>
       <ul className="space-y-1.5 sm:space-y-2.5">
         {links.map((item, i) => {
           const cls =
-            "flex items-center gap-1.5 text-[11px] sm:text-sm text-gray-600 hover:text-[#FF6B35] transition-colors duration-200 leading-snug";
+            "flex items-center gap-1.5 text-[11px] sm:text-sm text-gray-600 hover:text-[#CC3700] transition-colors duration-200 leading-snug";
           const content = (
             <>
               <item.icon className="hidden sm:inline w-3.5 h-3.5 text-gray-400 shrink-0" />
@@ -160,7 +160,7 @@ const Footer = () => {
               href="https://dunamisindia.co.in"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors"
+              className="font-medium text-[#CC3700] hover:text-[#B83100] transition-colors"
             >
               Dunamis Music Private Limited. All rights reserved.
             </a>
@@ -170,7 +170,7 @@ const Footer = () => {
                 href="https://karunb09.github.io/resume/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-medium text-[#FF6B35] hover:text-[#ff4400] transition-colors underline"
+                className="font-medium text-[#CC3700] hover:text-[#B83100] transition-colors underline"
               >
                 KB
               </a>

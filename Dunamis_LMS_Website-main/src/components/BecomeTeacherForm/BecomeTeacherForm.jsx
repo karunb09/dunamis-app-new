@@ -202,6 +202,23 @@ export default function MultiStepForm() {
         dispatch(submitApplication(form));
     };
 
+    // Wrapping the steps in a real <form> gets Enter-to-advance/submit and
+    // better autofill heuristics; a single submit handler does double duty
+    // as "Next" on steps 1-3 and the real submit on step 4.
+    const handleFormSubmit = (e) => {
+        e.preventDefault();
+        if (isSubmitting) return;
+
+        if (step < 4) {
+            if (validateCurrentStep(step)) {
+                setStep(step + 1);
+            }
+            return;
+        }
+
+        handleSubmit();
+    };
+
 
     const steps = [
         <Step1Personal formData={formData} setFormData={setFormData} errors={fieldErrors} />,
@@ -247,6 +264,7 @@ export default function MultiStepForm() {
     return (
         <div className="min-h-screen flex items-center justify-center p-4 md:p-6 lg:p-8">
             <div className="w-full max-w-3xl md:max-w-4xl rounded-3xl border border-gray-100 bg-white p-6 md:p-8 shadow-xl overflow-hidden">
+              <form onSubmit={handleFormSubmit}>
                 {/* Render step Progress bar */}
                 <div className="flex flex-wrap justify-center mb-6 gap-2 md:gap-4">
                     {[1, 2, 3, 4].map((s) => (
@@ -353,6 +371,7 @@ export default function MultiStepForm() {
                 <div className="mt-6 flex justify-between items-center">
                     {step > 1 ? (
                         <button
+                            type="button"
                             className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-6 rounded-2xl"
                             onClick={() => setStep(step - 1)}
                             disabled={isSubmitting}
@@ -365,27 +384,24 @@ export default function MultiStepForm() {
 
                     {step < 4 ? (
                         <button
+                            type="submit"
                             className="bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-2xl"
-                            onClick={() => {
-                                if (validateCurrentStep(step)) {
-                                    setStep(step + 1);
-                                }
-                            }}
                             disabled={isSubmitting}
                         >
                             Next
                         </button>
                     ) : (
                         <button
+                            type="submit"
                             className={`bg-orange-500 hover:bg-orange-600 text-white font-semibold py-2 px-6 rounded-2xl ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                                 }`}
-                            onClick={handleSubmit}
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? "Submitting..." : "Submit"}
                         </button>
                     )}
                 </div>
+              </form>
             </div>
         </div>
     );

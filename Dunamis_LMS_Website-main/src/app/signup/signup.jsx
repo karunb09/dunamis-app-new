@@ -52,7 +52,7 @@ export default function PersonalInfoPage() {
         {/* Right Section - Carousel */}
         <div className="relative hidden flex-1 items-center justify-center overflow-hidden bg-gradient-to-br from-[#fff1e8] via-[#fffaf4] to-[#e9fbfa] px-10 md:flex">
           <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-orange-200/50 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-20 -left-12 h-72 w-72 rounded-full bg-[#47c9c4]/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-12 h-72 w-72 rounded-full bg-[#237673]/20 blur-3xl" />
 
           <div className="relative h-80 w-full max-w-xs">
             <AnimatePresence mode="wait" custom={direction}>

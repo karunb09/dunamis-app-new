@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, logoutSession } from '@/store/authSlice';
 import {
@@ -12,6 +12,7 @@ import {
 } from '@/lib/roleRouting';
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
 import FloatingInput from '@/components/FloatingInput';
+import { useModalA11y } from '@/hooks/useModalA11y';
 
 export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const dispatch = useDispatch();
@@ -19,6 +20,18 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const { loading, error } = useSelector((s) => s.auth);
     const [showPassword, setShowPassword] = useState(false);
     const [staffPortalNotice, setStaffPortalNotice] = useState(null);
+    const panelRef = useRef(null);
+    useModalA11y(open, onClose, panelRef);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [open]);
+
     if (!open) return null;
 
     const signupHref = nextHref
@@ -63,7 +76,13 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
 
             <div className="relative my-auto w-full max-w-3xl">
                 <div className="pointer-events-none absolute -inset-0.5 rounded-3xl bg-gradient-to-r from-orange-500/35 to-orange-600/35 blur-2xl opacity-80" />
-                <div className="relative max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl ring-1 ring-black/5">
+                <div
+                    ref={panelRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Student sign in"
+                    tabIndex={-1}
+                    className="relative max-h-[calc(100vh-2rem)] overflow-y-auto rounded-3xl bg-white shadow-2xl outline-none ring-1 ring-black/5">
                     <div className="grid grid-cols-1 md:grid-cols-2">
                         <div className="relative hidden md:flex flex-col justify-between p-8 text-white bg-gradient-to-b from-orange-500 to-orange-600">
                             <div className="space-y-4">
@@ -174,7 +193,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                                     {loading ? 'Signing in…' : 'Sign in as Student'}
                                 </button>
 
-                                {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
+                                {error ? <p role="alert" className="text-center text-sm text-red-600">{error}</p> : null}
 
                                 <p className="text-center text-sm text-gray-600">
                                     Don’t have an account?{' '}

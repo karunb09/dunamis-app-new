@@ -44,21 +44,11 @@ const nextConfig = {
     imageSizes: [32, 48, 64, 96, 128, 256],
   },
   async headers() {
-    return [
+    const rules = [
       // Security headers on every route
       {
         source: "/:path*",
         headers: securityHeaders,
-      },
-      // Immutable cache for hashed static assets — browsers won't re-request these
-      {
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
       },
       // API routes must never be served stale
       {
@@ -71,6 +61,25 @@ const nextConfig = {
         ],
       },
     ];
+
+    // Immutable cache for hashed static assets — safe in production because
+    // `next build` content-hashes every filename. In `next dev` (Turbopack),
+    // a chunk's URL can stay stable across an edit while its content changes,
+    // so `immutable` pins browsers to stale JS/CSS after every code change
+    // and defeats Fast Refresh. Only apply it to real builds.
+    if (process.env.NODE_ENV === "production") {
+      rules.push({
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      });
+    }
+
+    return rules;
   },
 };
 

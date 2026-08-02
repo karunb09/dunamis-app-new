@@ -173,7 +173,7 @@ function CenterCard({ center }) {
         <Link
           href={`/centers/${center.slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="mt-auto flex items-center justify-center gap-2 rounded-xl bg-[#FF6B35] hover:bg-[#ff4400] text-white text-sm font-semibold py-2.5 transition-colors"
+          className="mt-auto flex items-center justify-center gap-2 rounded-xl bg-[#CC3700] hover:bg-[#B83100] text-white text-sm font-semibold py-2.5 transition-colors"
         >
           View Centre <LuChevronRight className="w-4 h-4" />
         </Link>
@@ -344,49 +344,41 @@ export default function CentersClient({ initialCenters = [] }) {
 
         <div className="relative z-10 mx-auto max-w-4xl px-6 py-24 text-center">
           {/* Pill label */}
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             <LuBuilding2 className="w-4 h-4" /> Experience Learning in Person
-          </motion.span>
+          </span>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-6 text-4xl font-extrabold leading-tight text-white md:text-6xl"
+          <h1
+            className="fade-in-up mt-6 text-4xl font-extrabold leading-tight text-white md:text-6xl"
+            style={{ "--fade-y": "24px", "--fade-dur": "0.7s", "--fade-delay": "0.1s" }}
           >
             Our Offline{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               Centres
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-4 text-base text-white/60 max-w-2xl mx-auto"
+          <p
+            className="fade-in-up mt-4 text-base text-white/60 max-w-2xl mx-auto"
+            style={{ "--fade-y": "20px", "--fade-dur": "0.7s", "--fade-delay": "0.2s" }}
           >
             Visit our physical locations for hands-on learning, personalised
             instruction, and community engagement. Each centre is equipped with
             professional-grade instruments and facilities.
-          </motion.p>
+          </p>
 
           {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.35 }}
-            className="mt-10 flex flex-wrap justify-center gap-4"
+          <div
+            className="fade-in-up mt-10 flex flex-wrap justify-center gap-4"
+            style={{ "--fade-y": "20px", "--fade-dur": "0.7s", "--fade-delay": "0.35s" }}
           >
             <StatPill value={heroStats.cities} label="Cities" />
             <StatPill value={heroStats.students} label="Students" />
             <StatPill value={heroStats.instructors} label="Instructors" />
-          </motion.div>
+          </div>
         </div>
 
       </div>
@@ -503,9 +495,9 @@ export default function CentersClient({ initialCenters = [] }) {
               value={notifyCity}
               onChange={(e) => setNotifyCity(e.target.value)}
               placeholder="Enter your city"
-              className="flex-1 max-w-xs rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-white placeholder-white/40 text-sm backdrop-blur-sm focus:outline-none focus:border-orange-400"
+              className="flex-1 max-w-xs rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-white placeholder-white/40 text-sm backdrop-blur-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
             />
-            <button className="rounded-xl bg-[#FF6B35] hover:bg-[#ff4400] text-white px-6 py-2.5 text-sm font-semibold transition-colors">
+            <button className="rounded-xl bg-[#CC3700] hover:bg-[#B83100] text-white px-6 py-2.5 text-sm font-semibold transition-colors">
               Notify Me
             </button>
           </motion.div>

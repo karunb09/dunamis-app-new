@@ -169,7 +169,7 @@ export default function LoginPageClient() {
               {loading ? "Signing in..." : "Sign in as Student"}
             </button>
 
-            {error ? <p className="text-center text-sm text-red-600">{error}</p> : null}
+            {error ? <p role="alert" className="text-center text-sm text-red-600">{error}</p> : null}
 
             <p className="text-center text-sm text-slate-600">
               New student?{" "}

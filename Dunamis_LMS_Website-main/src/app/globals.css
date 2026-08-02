@@ -94,6 +94,22 @@ svg {
   background-clip: text;
 }
 
+/* ─── Fade-up entrance (above-the-fold content) ──── */
+/*
+  Pure-CSS so it plays without waiting on JS hydration — unlike a
+  Framer Motion initial={{opacity:0}} mount animation, which injects
+  opacity:0 into the server-rendered HTML and leaves content invisible
+  until React hydrates (or forever, if a script fails to load).
+*/
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(var(--fade-y, 24px)); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-up {
+  animation: fade-in-up var(--fade-dur, 0.8s) var(--fade-delay, 0s) ease-out both;
+}
+
 /* ─── CTA glow pulse ─────────────────────────────── */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 106, 50, 0.45); }
@@ -157,15 +173,22 @@ svg {
 
 /* ─── Custom JS cursor (CustomCursor.jsx) ──────── */
 /*
-  Hide the native cursor globally so the JS music-note cursor takes over.
-  Touch/mobile browsers safely ignore cursor declarations, so no media
-  query guard is needed — cursor: none is a no-op on those devices.
+  Hide the native cursor so the JS music-note cursor takes over — but only
+  where CustomCursor.jsx actually runs (it checks pointer: fine itself and
+  bails otherwise). Without this guard, a hybrid device with a coarse
+  primary pointer (touchscreen laptop, tablet + trackpad) hides the native
+  cursor while the JS replacement never renders, leaving no cursor at all.
 */
-*:not(input):not(textarea):not(select):not([contenteditable="true"]) {
-  cursor: none !important;
-}
-input, textarea, select, [contenteditable="true"] {
-  cursor: text !important;
+@media (pointer: fine) {
+  *:not(input):not(textarea):not(select):not([contenteditable="true"]) {
+    cursor: none !important;
+  }
+  input, textarea, [contenteditable="true"] {
+    cursor: text !important;
+  }
+  select {
+    cursor: default !important;
+  }
 }
 
 /* ─── Touch tap feedback ─────────────────────────── */

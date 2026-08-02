@@ -24,6 +24,17 @@ const asMoney = (n) => {
   return `₹${v.toLocaleString('en-IN')}`;
 };
 
+const formatEndDate = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
 export default function PaymentConfirmation() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,6 +134,8 @@ export default function PaymentConfirmation() {
   const fullPayment = sel?.fullPayment ?? null;
   const discount = sel?.discount ?? 0;
   const courseId = sel?.courseId || null;
+  const courseType = sel?.courseType || null;
+  const courseEndDate = sel?.courseEndDate || null;
 
   const uiSessionLabel = selectedSessionType === 'premium' ? 'Individual Sessions' : selectedSessionType === 'standard' ? 'Group Sessions' : null;
   const uiDeliveryLabel = deliveryMode ? deliveryMode.charAt(0).toUpperCase() + deliveryMode.slice(1) : null;
@@ -131,17 +144,21 @@ export default function PaymentConfirmation() {
     if (!selectedSessionType) return { error: 'Missing or invalid sessionType.' };
     if (!planType) return { error: 'Missing or invalid planType.' };
 
+    // "fixed" courses end on a set date; "running" courses continue until the
+    // student cancels, so no fixed term may be shown for them.
+    const isFixedCourse = courseType === 'fixed';
+    const endDateLabel = formatEndDate(courseEndDate);
+    const fixedDuration = isFixedCourse && endDateLabel ? `Until ${endDateLabel}` : null;
+
     if (planType === 'monthly') {
       if (!monthlyFee && monthlyFee !== 0) return { error: 'Missing monthlyFee for monthly plan.' };
       const fee = Number(monthlyFee);
       if (!Number.isFinite(fee) || fee <= 0) return { error: 'Invalid monthlyFee amount.' };
       return {
         courseFee: fee,
-        planName: planMonths ? `${planMonths}-Month Plan` : 'Monthly Plan',
-        planDuration: planMonths ? `${planMonths} months` : '1 month',
-        billingText: planMonths
-          ? `Paid monthly over ${planMonths} months`
-          : 'Billed monthly • Cancel anytime',
+        planName: 'Monthly Plan',
+        planDuration: fixedDuration || 'Month to month',
+        billingText: isFixedCourse ? 'Billed monthly' : 'Billed monthly • Cancel anytime',
       };
     }
 
@@ -155,13 +172,17 @@ export default function PaymentConfirmation() {
     return {
       courseFee: fee,
       planName: planMonths ? `${planMonths}-Month Plan` : 'Full Course Plan',
-      planDuration: planMonths ? `${planMonths} months` : 'Full course',
+      planDuration: fixedDuration || 'Running',
       billingText: hasPct ? `One-time payment • Save ${pct}%` : 'One-time payment',
+      planNote:
+        !isFixedCourse && planMonths
+          ? `After ${planMonths} months you'll switch to month-to-month billing. Questions? Reach out to your instructor.`
+          : null,
       mrp,
       savings,
       pct: hasPct ? pct : 0,
     };
-  }, [selectedSessionType, planType, monthlyFee, fullPayment, discount]);
+  }, [selectedSessionType, planType, monthlyFee, fullPayment, discount, courseType, courseEndDate]);
 
   // Preview of the server-side first-payment discount. Mirrors the backend math
   // in utils/referral.js applyReferralDiscount so the shown total matches the charge.
@@ -500,6 +521,11 @@ export default function PaymentConfirmation() {
                 <span className="text-gray-600">Duration</span>
                 <span className="font-semibold text-gray-900">{priceBlock?.planDuration || 'Duration unavailable'}</span>
               </div>
+              {priceBlock?.planNote && (
+                <p className="-mt-3 rounded-xl bg-orange-50 px-4 py-3 text-sm leading-relaxed text-gray-600">
+                  {priceBlock.planNote}
+                </p>
+              )}
             </div>
 
             <div>

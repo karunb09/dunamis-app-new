@@ -10,6 +10,7 @@ export default function Step1Personal({ formData, setFormData, errors = {} }) {
         id="teacher-first-name"
         label="First Name"
         placeholder="Enter your first name"
+        autoComplete="given-name"
         value={formData.firstName}
         onChange={(e) =>
           setFormData({ ...formData, firstName: e.target.value })
@@ -22,6 +23,7 @@ export default function Step1Personal({ formData, setFormData, errors = {} }) {
         id="teacher-last-name"
         label="Last Name"
         placeholder="Enter your last name"
+        autoComplete="family-name"
         value={formData.lastName}
         onChange={(e) =>
           setFormData({ ...formData, lastName: e.target.value })
@@ -50,6 +52,7 @@ export default function Step1Personal({ formData, setFormData, errors = {} }) {
         id="teacher-dob"
         label="Date of Birth"
         type="date"
+        autoComplete="bday"
         value={formData.dob}
         onChange={(e) =>
           setFormData({ ...formData, dob: e.target.value })

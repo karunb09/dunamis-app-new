@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
+import { useModalA11y } from '@/hooks/useModalA11y';
 import {
   HiOutlineLocationMarker,
   HiOutlineCalendar,
@@ -191,6 +192,9 @@ export default function EnrollTerm({
   const courseId = course?._id || course?.id || null;
   const normalizedPreferredInstructorId = normalizeEntityId(preferredInstructorId);
   const courseTitle = course?.name || course?.title || 'Course';
+  // Only "fixed" courses run between a start and end date; "running" courses
+  // bill until the student cancels, so a fixed duration must not be claimed.
+  const isFixedDurationCourse = course?.courseType === 'fixed';
   const modeOptions = useMemo(
     () => buildModeOptions(course, availableSlots),
     [availableSlots, course]
@@ -219,6 +223,17 @@ export default function EnrollTerm({
   );
   const pricedSessionTypes = useMemo(() => getPricedSessionTypes(course), [course]);
   const shouldLimitByPricing = pricedSessionTypes.size > 0;
+  const panelRef = useRef(null);
+  useModalA11y(isOpen, onClose, panelRef);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   const [step, setStep] = useState(0);
   const [selectedDeliveryMode, setSelectedDeliveryMode] = useState('online');
@@ -226,6 +241,18 @@ export default function EnrollTerm({
   const [selectedInstructorId, setSelectedInstructorId] = useState('');
   const [selectedSlotId, setSelectedSlotId] = useState('');
   const [videoPreview, setVideoPreview] = useState(null);
+
+  useEffect(() => {
+    if (!videoPreview) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setVideoPreview(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [videoPreview]);
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
   const [selectedBranchCity, setSelectedBranchCity] = useState('all');
@@ -610,6 +637,8 @@ export default function EnrollTerm({
       priceId: activePriceObj?.id || null,
       code: course?.code || '',
       category: courseCategory,
+      courseType: course?.courseType || null,
+      courseEndDate: course?.endDate || null,
       courseImage: course?.image || '',
       monthlyFee: planMonthlyFee,
       fullPayment: planFullFee,
@@ -632,7 +661,13 @@ export default function EnrollTerm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl sm:p-6 lg:p-8">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="enroll-terms-heading"
+        tabIndex={-1}
+        className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-4 shadow-2xl outline-none sm:p-6 lg:p-8">
         <button
           type="button"
           onClick={onClose}
@@ -646,7 +681,7 @@ export default function EnrollTerm({
           <p className="text-sm font-semibold uppercase tracking-[0.24em] text-orange-500">
             Enrollment setup
           </p>
-          <h2 className="mt-2 text-2xl font-bold text-gray-900">
+          <h2 id="enroll-terms-heading" className="mt-2 text-2xl font-bold text-gray-900">
             Choose your instructor and class schedule
           </h2>
           <p className="mt-1 text-sm text-gray-500">Course: {courseTitle}</p>
@@ -984,9 +1019,11 @@ export default function EnrollTerm({
                   {toMoney(monthlyCardFee) || '—'}
                   <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
                 </p>
-                <p className="mt-2 text-sm text-gray-600">
-                  {monthlyCardMonths ? `Paid over ${monthlyCardMonths} months` : 'Pay as you go'}
-                </p>
+                {isFixedDurationCourse && monthlyCardMonths ? (
+                  <p className="mt-2 text-sm text-gray-600">
+                    Paid over {monthlyCardMonths} months
+                  </p>
+                ) : null}
               </div>
 
               {/* One full-payment card per active tenure plan (dynamic — falls back to legacy fields) */}
@@ -1021,7 +1058,7 @@ export default function EnrollTerm({
                     }`}
                   >
                     {isPrimary ? (
-                      <span className="absolute -top-2.5 left-4 rounded-full bg-[#FF6B35] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      <span className="absolute -top-2.5 left-4 rounded-full bg-[#CC3700] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
                         Best Value
                       </span>
                     ) : null}
@@ -1058,7 +1095,7 @@ export default function EnrollTerm({
         ) : null}
 
         {slotsErrorMessage ? (
-          <p className="mt-5 text-sm text-red-500">{slotsErrorMessage}</p>
+          <p role="alert" className="mt-5 text-sm text-red-500">{slotsErrorMessage}</p>
         ) : null}
 
         <div className="mt-8 flex items-center justify-between gap-3">
@@ -1082,7 +1119,7 @@ export default function EnrollTerm({
             disabled={!canContinue || isNavigating}
             className={`inline-flex items-center gap-2 rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${
               canContinue && !isNavigating
-                ? 'bg-[#FF6B35] hover:bg-[#fd5a1f]'
+                ? 'bg-[#CC3700] hover:bg-[#B83100]'
                 : 'cursor-not-allowed bg-gray-300'
             }`}
           >
@@ -1106,6 +1143,9 @@ export default function EnrollTerm({
           onClick={() => setVideoPreview(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={videoPreview.title || 'Instructor video preview'}
             className="relative my-auto w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >

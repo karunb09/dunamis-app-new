@@ -64,35 +64,29 @@ const FAQPage = () => {
         <div className="orb absolute top-10 right-0 w-80 h-80 bg-teal-500/12" style={{ "--dur": "18s", animationDelay: "5s" }} />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             <LuCircleHelp className="w-4 h-4" /> Get Answers
-          </motion.span>
+          </span>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          <h1
+            className="fade-in-up mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+            style={{ "--fade-y": "24px", "--fade-dur": "0.7s", "--fade-delay": "0.1s" }}
           >
             Frequently Asked{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               Questions
             </span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-5 text-base text-white/60 max-w-2xl mx-auto"
+          <p
+            className="fade-in-up mt-5 text-base text-white/60 max-w-2xl mx-auto"
+            style={{ "--fade-y": "16px", "--fade-dur": "0.7s", "--fade-delay": "0.2s" }}
           >
             Find answers to the most common questions about DUNAMIS courses, pricing, scheduling, and more.
-          </motion.p>
+          </p>
         </div>
 
       </div>
@@ -124,7 +118,7 @@ const FAQPage = () => {
           !error &&
           Object.entries(groupedFaqs).map(([category, items], secIndex) => (
             <div key={category} className="mb-12">
-              <h3 className="text-2xl font-semibold mb-6 text-gray-800 border-l-4 border-[#47c9c4] pl-3">
+              <h3 className="text-2xl font-semibold mb-6 text-gray-800 border-l-4 border-[#237673] pl-3">
                 {category}
               </h3>
               <div className="space-y-4">
@@ -146,7 +140,7 @@ const FAQPage = () => {
                           initial={false}
                           animate={{ rotate: isOpen ? 45 : 0 }}
                           transition={{ duration: 0.3, ease: "easeInOut" }}
-                          className="ml-4 flex-shrink-0 text-[#47c9c4] text-2xl"
+                          className="ml-4 flex-shrink-0 text-[#237673] text-2xl"
                         >
                           +
                         </motion.span>

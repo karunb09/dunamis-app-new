@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LuX } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchCategories } from "@/store/categorySlice";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 const modeQuestion = {
     id: "mode",
@@ -23,6 +24,17 @@ const FilterQuestionsModal = ({ isOpen, onClose }) => {
   const [answers, setAnswers] = useState({});
   const dispatch = useDispatch();
   const router = useRouter();
+  const panelRef = useRef(null);
+  useModalA11y(isOpen, onClose, panelRef);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
   const { categories = [] } = useSelector((state) => state.category || {});
   const categoryOptions = Array.from(
     new Set(
@@ -93,11 +105,16 @@ const FilterQuestionsModal = ({ isOpen, onClose }) => {
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-3 sm:items-center sm:p-4"
         >
           <motion.div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="filter-questions-heading"
+            tabIndex={-1}
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 shadow-xl sm:p-6"
+            className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-4 shadow-xl outline-none sm:p-6"
           >
             <button
               onClick={onClose}
@@ -125,7 +142,7 @@ const FilterQuestionsModal = ({ isOpen, onClose }) => {
             </div>
 
             <div className="mt-6">
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 id="filter-questions-heading" className="text-2xl font-bold text-gray-900">
                 {currentQuestion.question}
               </h2>
               <p className="mt-2 text-sm leading-6 text-gray-500">

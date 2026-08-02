@@ -5,11 +5,13 @@ import { fetchCourses } from "@/store/courseSlice";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
+import { LuRotateCw } from "react-icons/lu";
 import {
   getCoursePlaceholderImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
 import { buildTeacherName } from "@/helpers/courseSlots";
+import { CardGridSkeleton } from "../Skeletons";
 
 export default function PopularCourses() {
   const dispatch = useDispatch();
@@ -178,7 +180,26 @@ export default function PopularCourses() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
   };
 
-  if (loading || error || !transformedCourses.length) return null;
+  if (loading) return <CardGridSkeleton />;
+
+  if (error) {
+    return (
+      <section className="py-16 px-6 max-w-7xl mx-auto text-center">
+        <p className="text-[#CC3700] font-medium mb-2">Student Favorites</p>
+        <h2 className="text-3xl font-bold text-[#2D2D2D] mb-4">Popular Courses</h2>
+        <p className="text-gray-500 mb-4">Couldn&apos;t load courses right now.</p>
+        <button
+          type="button"
+          onClick={() => dispatch(fetchCourses())}
+          className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#CC3700] hover:text-[#CC3700]"
+        >
+          <LuRotateCw className="h-4 w-4" /> Retry
+        </button>
+      </section>
+    );
+  }
+
+  if (!transformedCourses.length) return null;
 
   return (
     <motion.section
@@ -195,7 +216,7 @@ export default function PopularCourses() {
         transition={{ duration: 0.7 }}
         viewport={{ once: true, amount: 0.05 }}
       >
-        <p className="text-[#FF6B35] font-medium mb-2">Student Favorites</p>
+        <p className="text-[#CC3700] font-medium mb-2">Student Favorites</p>
         <h2 className="text-3xl font-bold text-[#2D2D2D]">Popular Courses</h2>
       </motion.div>
 
@@ -251,7 +272,7 @@ export default function PopularCourses() {
           whileHover={{ scale: 1.05, boxShadow: "0 12px 28px -8px rgba(255,107,53,0.45)" }}
           whileTap={{ scale: 0.96 }}
           onClick={() => router.push("/courses")}
-          className="rounded-full bg-[#FF6B35] px-8 py-3 text-sm font-semibold text-white transition-all duration-200"
+          className="rounded-full bg-[#CC3700] px-8 py-3 text-sm font-semibold text-white transition-all duration-200"
         >
           Explore All Courses
         </motion.button>

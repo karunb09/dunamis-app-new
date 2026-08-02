@@ -43,7 +43,7 @@ export default function LegalPolicyPage({
             <a
               href={downloadHref}
               download
-              className="mt-6 inline-flex items-center justify-center rounded-full bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#fd5a1f]"
+              className="mt-6 inline-flex items-center justify-center rounded-full bg-[#CC3700] px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/20 transition hover:bg-[#B83100]"
             >
               {downloadLabel}
             </a>

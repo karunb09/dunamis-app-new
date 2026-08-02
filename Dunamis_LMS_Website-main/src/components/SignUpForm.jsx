@@ -474,6 +474,7 @@ export default function SignUpForm() {
             id="signup-first-name"
             label="First name"
             type="text"
+            autoComplete="given-name"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             required
@@ -484,6 +485,7 @@ export default function SignUpForm() {
             id="signup-last-name"
             label="Last name"
             type="text"
+            autoComplete="family-name"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             required
@@ -535,6 +537,7 @@ export default function SignUpForm() {
               id="signup-mobile"
               label="Mobile number"
               type="tel"
+              autoComplete="tel-national"
               className="w-3/4"
               value={mobile}
               onChange={(e) => {
@@ -591,6 +594,7 @@ export default function SignUpForm() {
               id="signup-email"
               label="Email address"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -628,6 +632,7 @@ export default function SignUpForm() {
                 id="signup-otp"
                 label="Verification code (OTP)"
                 type="text"
+                autoComplete="one-time-code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                 required
@@ -644,6 +649,7 @@ export default function SignUpForm() {
                 id="signup-password"
                 label="Password"
                 type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -670,6 +676,7 @@ export default function SignUpForm() {
               id="signup-confirm-password"
               label="Confirm password"
               type={showConfirmPassword ? "text" : "password"}
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               onPaste={(e) => {
@@ -711,7 +718,7 @@ export default function SignUpForm() {
                   type="button"
                   onClick={() => setTermsOpen(true)}
                   disabled={isStep2Busy}
-                  className="font-medium text-[#47c9c4] underline underline-offset-2 hover:text-teal-600"
+                  className="font-medium text-[#237673] underline underline-offset-2 hover:text-teal-600"
                 >
                   Terms & Conditions
                 </button>

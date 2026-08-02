@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { AnimatePresence, motion } from "framer-motion";
-import { LuBookOpen, LuChevronDown, LuHouse, LuLogIn, LuMapPin, LuMenu, LuEllipsis, LuCircleUser, LuX } from "react-icons/lu";
+import { LuChevronDown, LuMenu, LuX } from "react-icons/lu";
 import { logout, logoutSession } from "@/store/authSlice";
 import { isStudentAccount } from "@/lib/roleRouting";
 
@@ -143,8 +143,8 @@ const Navigation = () => {
             href="/login"
             onClick={closeMenus}
             className={mobile
-              ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
-              : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"}
+              ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#CC3700] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B83100]"
+              : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#CC3700] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B83100]"}
           >
             Login
           </Link>
@@ -160,8 +160,8 @@ const Navigation = () => {
             closeMenus();
           }}
           className={mobile
-            ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"
-            : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#ef6a32] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#d95b27]"}
+            ? "inline-flex flex-1 items-center justify-center rounded-full bg-[#CC3700] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B83100]"
+            : "inline-flex min-w-[168px] items-center justify-center rounded-full bg-[#CC3700] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#B83100]"}
         >
           Student Portal
         </Link>
@@ -192,7 +192,7 @@ const Navigation = () => {
             ? "block rounded-2xl px-4 py-3 text-base font-medium"
             : "rounded-full px-4 py-2 text-sm font-medium",
           active
-            ? "bg-[#fff1eb] text-[#d9480f]"
+            ? "bg-[#fff1eb] text-[#CC3700]"
             : "text-slate-700 hover:bg-stone-100 hover:text-slate-950",
         ].join(" ")}
       >
@@ -216,7 +216,7 @@ const Navigation = () => {
               ? "block rounded-2xl px-4 py-3 text-sm font-medium"
               : "block px-4 py-2.5 text-sm",
             active
-              ? "bg-[#fff1eb] text-[#d9480f]"
+              ? "bg-[#fff1eb] text-[#CC3700]"
               : "text-slate-600 hover:bg-stone-50 hover:text-slate-950",
           ].join(" ")}
         >
@@ -237,7 +237,7 @@ const Navigation = () => {
           className={[
             "block rounded-2xl px-4 py-3 text-sm font-medium transition-colors duration-200",
             active
-              ? "bg-[#fff1eb] text-[#d9480f]"
+              ? "bg-[#fff1eb] text-[#CC3700]"
               : "text-slate-700 hover:bg-stone-50 hover:text-slate-950",
           ].join(" ")}
         >
@@ -286,7 +286,7 @@ const Navigation = () => {
                     secondaryLinks.some((link) =>
                       isActivePath(pathname, link.href),
                     ) || isMoreDropdownOpen
-                      ? "bg-[#fff1eb] text-[#d9480f]"
+                      ? "bg-[#fff1eb] text-[#CC3700]"
                       : "text-slate-700 hover:bg-stone-100 hover:text-slate-950",
                   ].join(" ")}
                   aria-expanded={isMoreDropdownOpen}
@@ -326,7 +326,7 @@ const Navigation = () => {
             <Link
               href={isStudentSession ? "/student" : "/login"}
               onClick={closeMenus}
-              className="hidden items-center justify-center rounded-full bg-[#ef6a32] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#d95b27] sm:inline-flex"
+              className="hidden items-center justify-center rounded-full bg-[#CC3700] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#B83100] sm:inline-flex"
             >
               {isStudentSession ? "Student Portal" : "Login"}
             </Link>
@@ -343,50 +343,15 @@ const Navigation = () => {
         </div>
       </header>
 
-      {/* Bottom nav — tablet only (sm → lg) */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 hidden border-t border-stone-200 bg-white/95 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.12)] backdrop-blur-xl sm:flex lg:hidden">
-        <div className="mx-auto flex w-full max-w-7xl items-stretch justify-around">
-          {[
-            { href: "/", icon: <LuHouse className="h-5 w-5" />, label: "Home" },
-            { href: "/courses", icon: <LuBookOpen className="h-5 w-5" />, label: "Courses" },
-            { href: "/centers", icon: <LuMapPin className="h-5 w-5" />, label: "Centres" },
-          ].map(({ href, icon, label }) => {
-            const active = isActivePath(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                onClick={closeMenus}
-                className={`flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold transition-colors ${
-                  active ? "text-[#ef6a32]" : "text-slate-500 hover:text-slate-900"
-                }`}
-              >
-                <span className={active ? "text-[#ef6a32]" : ""}>{icon}</span>
-                {label}
-              </Link>
-            );
-          })}
-
-          <Link
-            href={isStudentSession ? "/student" : "/login"}
-            onClick={closeMenus}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
-          >
-            {isStudentSession ? <LuCircleUser className="h-5 w-5" /> : <LuLogIn className="h-5 w-5" />}
-            {isStudentSession ? "Portal" : "Login"}
-          </Link>
-
-          <button
-            type="button"
-            onClick={() => setIsMobileMenuOpen(true)}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-semibold text-slate-500 transition-colors hover:text-slate-900"
-            aria-label="More pages"
-          >
-            <LuEllipsis className="h-5 w-5" />
-            More
-          </button>
-        </div>
-      </nav>
+      {/*
+        No tablet-range bottom nav here — MobileBottomNav (0–767px) and the
+        full header nav (lg:flex, 1024px+) used to leave a 640–1023px gap
+        that this component also tried to fill, producing two stacked fixed
+        bottom bars at 640–767px and unpadded content under this bar at
+        768–1023px. Tablet users keep full parity via the header's
+        Login/Student Portal button (sm:inline-flex, 640px+) and the
+        hamburger menu below, which already lists every link this bar had.
+      */}
 
       <AnimatePresence>
         {isMobileMenuOpen && (

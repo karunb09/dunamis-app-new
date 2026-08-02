@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import {
   FaClock,
@@ -152,17 +151,19 @@ export default function ContactPage() {
       return null;
     }
 
-    return <p className="mt-2 text-sm text-red-600">{fieldErrors[field]}</p>;
+    return (
+      <p id={`contact-${field}-error`} role="alert" className="mt-2 text-sm text-red-600">
+        {fieldErrors[field]}
+      </p>
+    );
   };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(249,115,22,0.14),_transparent_35%),linear-gradient(180deg,#fff7ed_0%,#ffffff_38%,#fff1e6_100%)] px-4 pb-10 pt-28 md:px-6 md:pt-32 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: "easeOut" }}
-          className="relative overflow-hidden rounded-[2rem] border border-orange-100 bg-white p-8 shadow-[0_24px_80px_-36px_rgba(234,88,12,0.45)] md:p-10"
+        <section
+          className="fade-in-up relative overflow-hidden rounded-[2rem] border border-orange-100 bg-white p-8 shadow-[0_24px_80px_-36px_rgba(234,88,12,0.45)] md:p-10"
+          style={{ "--fade-y": "24px", "--fade-dur": "0.45s" }}
         >
           <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-orange-200/40 blur-3xl" />
           <div className="pointer-events-none absolute bottom-0 left-0 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
@@ -236,13 +237,11 @@ export default function ContactPage() {
               ))}
             </div>
           </div>
-        </motion.section>
+        </section>
 
-        <motion.section
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, delay: 0.08, ease: "easeOut" }}
-          className="relative overflow-hidden rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5"
+        <section
+          className="fade-in-up relative overflow-hidden rounded-[2rem] bg-white shadow-2xl ring-1 ring-black/5"
+          style={{ "--fade-y": "24px", "--fade-dur": "0.45s", "--fade-delay": "0.08s" }}
         >
           <div className="grid h-full grid-cols-1 md:grid-cols-[0.8fr_1.2fr]">
             <div className="relative hidden overflow-hidden bg-gradient-to-b from-orange-500 to-orange-600 p-8 text-white md:flex md:flex-col md:justify-between">
@@ -283,7 +282,7 @@ export default function ContactPage() {
 
                 <form onSubmit={handleSubmit} className="mt-8 space-y-5">
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="contact-name" className="mb-2 block text-sm font-medium text-gray-700">
                       Full name <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -291,11 +290,15 @@ export default function ContactPage() {
                         <HiUser className="h-5 w-5" />
                       </span>
                       <input
+                        id="contact-name"
                         name="name"
                         value={form.name}
                         onChange={handleChange}
                         placeholder="Enter your full name"
                         required
+                        autoComplete="name"
+                        aria-invalid={fieldErrors.name ? "true" : undefined}
+                        aria-describedby={fieldErrors.name ? "contact-name-error" : undefined}
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.name
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -307,7 +310,7 @@ export default function ContactPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="contact-email" className="mb-2 block text-sm font-medium text-gray-700">
                       Email address <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -315,12 +318,16 @@ export default function ContactPage() {
                         <HiMail className="h-5 w-5" />
                       </span>
                       <input
+                        id="contact-email"
                         name="email"
                         type="email"
                         value={form.email}
                         onChange={handleChange}
                         placeholder="you@example.com"
                         required
+                        autoComplete="email"
+                        aria-invalid={fieldErrors.email ? "true" : undefined}
+                        aria-describedby={fieldErrors.email ? "contact-email-error" : undefined}
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.email
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -332,7 +339,7 @@ export default function ContactPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="contact-subject" className="mb-2 block text-sm font-medium text-gray-700">
                       Subject <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -340,12 +347,15 @@ export default function ContactPage() {
                         <HiPencilAlt className="h-5 w-5" />
                       </span>
                       <input
+                        id="contact-subject"
                         name="subject"
                         value={form.subject}
                         onChange={handleChange}
                         placeholder="How can we help you?"
                         required
                         minLength={3}
+                        aria-invalid={fieldErrors.subject ? "true" : undefined}
+                        aria-describedby={fieldErrors.subject ? "contact-subject-error" : undefined}
                         className={`w-full rounded-full border bg-white px-12 py-3 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.subject
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -357,7 +367,7 @@ export default function ContactPage() {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
+                    <label htmlFor="contact-message" className="mb-2 block text-sm font-medium text-gray-700">
                       Message <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
@@ -365,6 +375,7 @@ export default function ContactPage() {
                         <HiChatAlt2 className="h-5 w-5" />
                       </span>
                       <textarea
+                        id="contact-message"
                         name="message"
                         rows={6}
                         value={form.message}
@@ -372,6 +383,8 @@ export default function ContactPage() {
                         placeholder="Share the details so the team can respond clearly."
                         required
                         minLength={10}
+                        aria-invalid={fieldErrors.message ? "true" : undefined}
+                        aria-describedby={fieldErrors.message ? "contact-message-error" : undefined}
                         className={`w-full rounded-[1.75rem] border bg-white px-12 py-4 text-gray-900 outline-none transition focus:ring-2 ${
                           fieldErrors.message
                             ? "border-red-300 focus:border-red-400 focus:ring-red-100"
@@ -407,7 +420,7 @@ export default function ContactPage() {
               </div>
             </div>
           </div>
-        </motion.section>
+        </section>
       </div>
     </div>
   );

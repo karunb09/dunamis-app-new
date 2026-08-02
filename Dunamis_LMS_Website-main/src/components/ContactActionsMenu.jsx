@@ -37,7 +37,7 @@ export default function ContactActionsMenu({ onRequestCallback, className = "" }
         aria-expanded={open}
         className={`flex h-full w-11 items-center justify-center rounded-xl border-2 transition ${
           open
-            ? "border-[#FF6B35] bg-orange-50 text-[#FF6B35]"
+            ? "border-[#CC3700] bg-orange-50 text-[#CC3700]"
             : "border-gray-200 text-gray-700 hover:bg-gray-50"
         }`}
       >
@@ -60,7 +60,7 @@ export default function ContactActionsMenu({ onRequestCallback, className = "" }
               onClick={() => setOpen(false)}
               className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
-              <LuPhone className="h-4 w-4 shrink-0 text-[#FF6B35]" />
+              <LuPhone className="h-4 w-4 shrink-0 text-[#CC3700]" />
               Call Us
             </a>
             <button
@@ -72,7 +72,7 @@ export default function ContactActionsMenu({ onRequestCallback, className = "" }
               }}
               className="flex w-full items-center gap-2.5 border-t border-gray-100 px-4 py-3 text-left text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
-              <LuPhoneCall className="h-4 w-4 shrink-0 text-[#FF6B35]" />
+              <LuPhoneCall className="h-4 w-4 shrink-0 text-[#CC3700]" />
               Request a Callback
             </button>
           </motion.div>

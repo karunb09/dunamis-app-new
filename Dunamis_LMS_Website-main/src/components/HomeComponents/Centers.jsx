@@ -1,11 +1,12 @@
 "use client";
 import { motion } from "framer-motion";
-import { LuMapPin } from "react-icons/lu";
+import { LuMapPin, LuRotateCw } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
 import { fetchOfflineCenters } from "@/store/centerSlice";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
+import { CardGridSkeleton } from "../Skeletons";
 
 export default function Centers() {
   const router = useRouter();
@@ -41,13 +42,32 @@ export default function Centers() {
 
   const allCenters = Array.isArray(centersData) ? centersData.slice(0, 3) : [];
 
-  if (loading || error || allCenters.length === 0) return null;
+  if (loading) return <CardGridSkeleton />;
+
+  if (error) {
+    return (
+      <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 text-center bg-gray-50">
+        <p className="text-[#CC3700] font-medium mb-2 text-sm sm:text-base">Experience Learning in Person</p>
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#2D2D2D] mb-4 px-2">Find Your Nearest Centre</h2>
+        <p className="text-gray-500 mb-4">Couldn&apos;t load centres right now.</p>
+        <button
+          type="button"
+          onClick={() => dispatch(fetchOfflineCenters())}
+          className="inline-flex items-center gap-2 rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:border-[#CC3700] hover:text-[#CC3700]"
+        >
+          <LuRotateCw className="h-4 w-4" /> Retry
+        </button>
+      </section>
+    );
+  }
+
+  if (allCenters.length === 0) return null;
 
   return (
     <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 text-center bg-gray-50">
       {/* Section Title */}
       <motion.p
-        className="text-[#FF6B35] font-medium mb-2 text-sm sm:text-base"
+        className="text-[#CC3700] font-medium mb-2 text-sm sm:text-base"
         initial={{ opacity: 0, y: -20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.05 }}
@@ -142,7 +162,7 @@ export default function Centers() {
 
                 {/* Location */}
                 <p className="mb-3 flex min-h-[40px] items-start gap-1 text-xs text-gray-600 sm:text-sm">
-                  <LuMapPin className="w-4 h-4 text-[#FF6B35] flex-shrink-0 mt-0.5" />
+                  <LuMapPin className="w-4 h-4 text-[#CC3700] flex-shrink-0 mt-0.5" />
                   <span title={center.location} className="line-clamp-2">
                     {center.location || "Location not available"}
                   </span>
@@ -167,7 +187,7 @@ export default function Centers() {
                         .map((facility, i) => (
                           <span
                             key={i}
-                            className="text-xs px-2.5 py-1 bg-orange-50 text-[#FF6B35] border border-[#FF6B35]/20 rounded-full font-medium"
+                            className="text-xs px-2.5 py-1 bg-orange-50 text-[#CC3700] border border-[#CC3700]/20 rounded-full font-medium"
                           >
                             {facility.trim()}
                           </span>
@@ -215,7 +235,7 @@ export default function Centers() {
                       <span className="font-semibold text-gray-700">Email:</span>{" "}
                       <a
                         href={`mailto:${center.branchAdminEmail}`}
-                        className="text-[#FF6B35] hover:underline"
+                        className="text-[#CC3700] hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {center.branchAdminEmail}
@@ -227,7 +247,7 @@ export default function Centers() {
                       <span className="font-semibold text-gray-700">Contact:</span>{" "}
                       <a
                         href={`tel:${center.branchAdminContact}`}
-                        className="text-[#FF6B35] hover:underline"
+                        className="text-[#CC3700] hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {center.branchAdminContact}
@@ -247,7 +267,7 @@ export default function Centers() {
 
       {/* View All Button */}
       <motion.button
-        className="cursor-pointer mt-8 sm:mt-12 px-5 sm:px-6 py-2.5 sm:py-3 border border-[#FF6B35] text-[#FF6B35] rounded-full hover:bg-[#FF6B35] hover:text-white transition text-xs sm:text-sm font-medium"
+        className="cursor-pointer mt-8 sm:mt-12 px-5 sm:px-6 py-2.5 sm:py-3 border border-[#CC3700] text-[#CC3700] rounded-full hover:bg-[#CC3700] hover:text-white transition text-xs sm:text-sm font-medium"
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => router.push("/centers")}

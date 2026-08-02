@@ -1,8 +1,9 @@
 'use client';
 
 import axios from 'axios';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSelector } from 'react-redux';
+import { useModalA11y } from '@/hooks/useModalA11y';
 import {
   HiOutlineLocationMarker,
   HiOutlineCalendar,
@@ -109,6 +110,17 @@ export default function BookDemoModal({
   const [slotFeed, setSlotFeed] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState('');
+  const panelRef = useRef(null);
+  useModalA11y(isOpen, onClose, panelRef);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
 
   const branchOptions = useMemo(
     () => buildSlotBranchOptions(course, slotFeed),
@@ -154,6 +166,18 @@ export default function BookDemoModal({
   const [submitted, setSubmitted] = useState(null);
   const [hydrated, setHydrated] = useState(false);
   const [videoPreview, setVideoPreview] = useState(null);
+
+  useEffect(() => {
+    if (!videoPreview) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setVideoPreview(null);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [videoPreview]);
   const [appliedPreferredInstructorId, setAppliedPreferredInstructorId] =
     useState('');
   const [selectedBranchCity, setSelectedBranchCity] = useState('all');
@@ -621,7 +645,13 @@ export default function BookDemoModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="book-demo-heading"
+        tabIndex={-1}
+        className="relative max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white shadow-2xl outline-none">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 cursor-pointer rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
@@ -641,7 +671,7 @@ export default function BookDemoModal({
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-orange-300">
                 Demo booking
               </p>
-              <h2 className="mt-3 text-3xl font-bold leading-tight">
+              <h2 id="book-demo-heading" className="mt-3 text-3xl font-bold leading-tight">
                 Book your free demo class
               </h2>
               <p className="mt-4 max-w-xl text-sm leading-6 text-white/80">
@@ -774,7 +804,7 @@ export default function BookDemoModal({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-2xl bg-[#FF6B35] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                    className="rounded-2xl bg-[#CC3700] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#B83100]"
                   >
                     Close
                   </button>
@@ -798,7 +828,7 @@ export default function BookDemoModal({
 
                 <div className="mt-4 h-2 w-full rounded-full bg-gray-100">
                   <div
-                    className="h-2 rounded-full bg-[#FF6B35] transition-all duration-300"
+                    className="h-2 rounded-full bg-[#CC3700] transition-all duration-300"
                     style={{ width: `${((step + 1) / stepCount) * 100}%` }}
                   />
                 </div>
@@ -807,30 +837,34 @@ export default function BookDemoModal({
                   <div className="mt-6 grid gap-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label htmlFor="demo-first-name" className="mb-2 block text-sm font-medium text-gray-700">
                           First name
                         </label>
                         <input
+                          id="demo-first-name"
                           type="text"
+                          autoComplete="given-name"
                           value={form.firstName}
                           onChange={(e) =>
                             updateForm({ firstName: e.target.value })
                           }
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                           placeholder="First name"
                         />
                       </div>
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label htmlFor="demo-last-name" className="mb-2 block text-sm font-medium text-gray-700">
                           Last name
                         </label>
                         <input
+                          id="demo-last-name"
                           type="text"
+                          autoComplete="family-name"
                           value={form.lastName}
                           onChange={(e) =>
                             updateForm({ lastName: e.target.value })
                           }
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                           placeholder="Last name"
                         />
                       </div>
@@ -838,32 +872,36 @@ export default function BookDemoModal({
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label htmlFor="demo-phone" className="mb-2 block text-sm font-medium text-gray-700">
                           Phone number
                         </label>
                         <input
+                          id="demo-phone"
                           type="tel"
+                          autoComplete="tel"
                           value={form.phone}
                           onChange={(e) =>
                             updateForm({
                               phone: e.target.value.replace(/[^\d+]/g, ''),
                             })
                           }
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                           placeholder="+91 93982 46083"
                         />
                       </div>
                       <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
+                        <label htmlFor="demo-email" className="mb-2 block text-sm font-medium text-gray-700">
                           Email address
                         </label>
                         <input
+                          id="demo-email"
                           type="email"
+                          autoComplete="email"
                           value={form.email}
                           onChange={(e) =>
                             updateForm({ email: e.target.value })
                           }
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                           placeholder="you@example.com"
                         />
                       </div>
@@ -935,7 +973,7 @@ export default function BookDemoModal({
                                   slotId: '',
                                 });
                               }}
-                              className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                              className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                             >
                               <option value="all">All cities</option>
                               {branchCityOptions.map((city) => (
@@ -960,7 +998,7 @@ export default function BookDemoModal({
                               slotId: '',
                             })
                           }
-                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500"
+                          className="w-full rounded-2xl border border-gray-200 px-4 py-3 outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
                         >
                           <option value="">Choose a branch</option>
                           {filteredBranchOptions.map((branch) => (
@@ -1058,7 +1096,7 @@ export default function BookDemoModal({
                                     }}
                                     className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
                                       isSelected
-                                        ? 'bg-[#FF6B35] text-white'
+                                        ? 'bg-[#CC3700] text-white'
                                         : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                                     }`}
                                   >
@@ -1349,7 +1387,7 @@ export default function BookDemoModal({
                       className={`rounded-2xl px-6 py-3 text-sm font-semibold text-white transition ${
                         !validateStep(step) || phase === 'submitting'
                           ? 'cursor-not-allowed bg-gray-300'
-                          : 'bg-[#FF6B35] hover:bg-[#fd5a1f]'
+                          : 'bg-[#CC3700] hover:bg-[#B83100]'
                       }`}
                     >
                       {phase === 'submitting'
@@ -1362,7 +1400,7 @@ export default function BookDemoModal({
                 </div>
 
                 {error ? (
-                  <p className="mt-4 text-sm text-red-500">{error}</p>
+                  <p role="alert" className="mt-4 text-sm text-red-500">{error}</p>
                 ) : null}
               </>
             )}
@@ -1376,6 +1414,9 @@ export default function BookDemoModal({
           onClick={() => setVideoPreview(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={videoPreview.title || 'Instructor video preview'}
             className="relative my-auto w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >

@@ -61,35 +61,29 @@ export default function About() {
         <div className="orb absolute bottom-0 left-1/3 w-72 h-72 bg-teal-500/10" style={{ "--dur": "22s", animationDelay: "8s" }} />
 
         <div className="relative z-10 mx-auto max-w-3xl text-center">
-          <motion.span
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-block rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+          <span
+            className="fade-in-up inline-block rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1.5 text-sm font-medium text-orange-400"
+            style={{ "--fade-y": "12px", "--fade-dur": "0.6s" }}
           >
             Our Story
-          </motion.span>
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+          </span>
+          <h1
+            className="fade-in-up mt-5 text-4xl md:text-6xl font-extrabold text-white leading-tight"
+            style={{ "--fade-y": "24px", "--fade-dur": "0.7s", "--fade-delay": "0.1s" }}
           >
             About{" "}
             <span className="bg-gradient-to-r from-orange-400 to-orange-600 bg-clip-text text-transparent">
               DUNAMIS
             </span>
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="mt-5 text-base text-white/60 max-w-2xl mx-auto leading-relaxed"
+          </h1>
+          <p
+            className="fade-in-up mt-5 text-base text-white/60 max-w-2xl mx-auto leading-relaxed"
+            style={{ "--fade-y": "16px", "--fade-dur": "0.7s", "--fade-delay": "0.2s" }}
           >
             More than just an institute — Dunamis is a vibrant learning community
             where creativity is nurtured, confidence is built, and every individual
             is encouraged to express, explore, and grow.
-          </motion.p>
+          </p>
         </div>
 
       </div>

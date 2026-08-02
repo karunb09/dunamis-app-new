@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useModalA11y } from '@/hooks/useModalA11y';
 
 const CASHFREE_SDK_URL = 'https://sdk.cashfree.com/js/v3/cashfree.js';
 
@@ -14,6 +15,17 @@ export default function PaymentModal({
     const [loadingSdk, setLoadingSdk] = useState(false);
     const [sdkError, setSdkError] = useState(false);
     const checkoutStarted = useRef(false);
+    const panelRef = useRef(null);
+    useModalA11y(open, onClose, panelRef);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [open]);
     const canPay = useMemo(
         () => open && !!order?.paymentSessionId && !!order?.amount && !!order?.currency,
         [open, order]
@@ -97,10 +109,16 @@ export default function PaymentModal({
             <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} aria-hidden="true" />
             <div className="relative my-auto w-full max-w-md">
                 <div className="pointer-events-none absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-orange-500/35 to-orange-700/35 blur-2xl opacity-80" />
-                <div className="relative max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-black/5">
+                <div
+                    ref={panelRef}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="payment-modal-heading"
+                    tabIndex={-1}
+                    className="relative max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl bg-white shadow-2xl outline-none ring-1 ring-black/5">
                     <div className="bg-gradient-to-b from-orange-500 to-orange-700 px-6 py-4 text-white">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-base font-semibold">Payment</h3>
+                            <h3 id="payment-modal-heading" className="text-base font-semibold">Payment</h3>
                             <button
                                 onClick={onClose}
                                 aria-label="Close"

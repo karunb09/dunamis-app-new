@@ -19,12 +19,12 @@ function TestimonialCard({ item, index }) {
       }}
     >
       {/* Large quote mark */}
-      <span className="text-4xl font-serif leading-none text-[#ef6a32]/70 select-none">"</span>
+      <span className="text-4xl font-serif leading-none text-[#CC3700]/70 select-none">"</span>
 
       {/* Stars */}
       <div className="flex gap-0.5">
         {[...Array(stars)].map((_, i) => (
-          <LuStar key={i} className="h-3.5 w-3.5 fill-[#ef6a32] text-[#ef6a32]" />
+          <LuStar key={i} className="h-3.5 w-3.5 fill-[#ef6a32] text-[#CC3700]" />
         ))}
       </div>
 
@@ -152,8 +152,8 @@ export default function Testimonials() {
       >
         {/* Glow accents */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/4 top-0 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ef6a32]/20 blur-3xl" />
-          <div className="absolute right-1/4 bottom-0 h-48 w-48 translate-x-1/2 translate-y-1/2 rounded-full bg-[#47c9c4]/20 blur-3xl" />
+          <div className="absolute left-1/4 top-0 h-48 w-48 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#CC3700]/20 blur-3xl" />
+          <div className="absolute right-1/4 bottom-0 h-48 w-48 translate-x-1/2 translate-y-1/2 rounded-full bg-[#237673]/20 blur-3xl" />
         </div>
 
         <div className="relative z-10 max-w-2xl mx-auto">
@@ -172,7 +172,7 @@ export default function Testimonials() {
               whileHover={{ scale: 1.06, boxShadow: "0 16px 36px -10px rgba(239,106,50,0.6)" }}
               whileTap={{ scale: 0.96 }}
               onClick={() => router.push("/courses")}
-              className="cursor-pointer rounded-full bg-[#ef6a32] border border-[#ef6a32] px-7 py-2.5 text-sm font-semibold text-white transition-all duration-200"
+              className="cursor-pointer rounded-full bg-[#CC3700] border border-[#CC3700] px-7 py-2.5 text-sm font-semibold text-white transition-all duration-200"
             >
               Explore All Courses
             </motion.button>
@@ -180,7 +180,7 @@ export default function Testimonials() {
               whileHover={{ scale: 1.06 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => setInterestModalOpen(true)}
-              className="cursor-pointer rounded-full border border-[#47c9c4]/60 px-7 py-2.5 text-sm font-semibold text-[#47c9c4] backdrop-blur-sm transition-all duration-200 hover:bg-[#47c9c4]/10"
+              className="cursor-pointer rounded-full border border-[#237673]/60 px-7 py-2.5 text-sm font-semibold text-[#237673] backdrop-blur-sm transition-all duration-200 hover:bg-[#237673]/10"
             >
               Book a Demo
             </motion.button>

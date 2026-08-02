@@ -29,10 +29,10 @@ const poppins = Poppins({
 
 export const metadata = {
   metadataBase: new URL(SITE_URL),
-  title: {
-    default: DEFAULT_TITLE,
-    template: `%s | ${SITE_NAME}`,
-  },
+  // Plain string, not { default, template } — buildMetadata() already
+  // appends `| ${SITE_NAME}` itself (see lib/seo.js), and a template here
+  // would double up on routes where it does propagate.
+  title: DEFAULT_TITLE,
   description: DEFAULT_DESCRIPTION,
   keywords: DEFAULT_KEYWORDS,
   applicationName: SITE_NAME,

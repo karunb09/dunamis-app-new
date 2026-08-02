@@ -121,32 +121,26 @@ export default function HeroSection() {
         </div>
 
         <div className="relative z-10 flex min-h-screen max-w-5xl flex-col items-start justify-center px-6">
-          <motion.h1
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="mt-8 text-4xl font-bold leading-tight md:mt-10 md:text-6xl"
+          <h1
+            className="fade-in-up mt-8 text-4xl font-bold leading-tight md:mt-10 md:text-6xl"
+            style={{ "--fade-y": "-50px", "--fade-dur": "0.8s" }}
           >
             <span className="gradient-text-animate">Discover Your</span>
             <br />
             <span className="text-white">Creative Potential</span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.3 }}
-            className="mb-6 max-w-2xl text-left text-lg text-white/80 md:text-2xl"
+          <p
+            className="fade-in-up mb-6 max-w-2xl text-left text-lg text-white/80 md:text-2xl"
+            style={{ "--fade-y": "30px", "--fade-dur": "1s", "--fade-delay": "0.3s" }}
           >
             From vocals and instruments to dance and strategy games. <br />
             Dunamis is your space to learn, grow, and express.
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.2, delay: 0.6 }}
-            className="mt-6 flex flex-wrap items-center justify-start gap-4"
+          <div
+            className="fade-in-up mt-6 flex flex-wrap items-center justify-start gap-4"
+            style={{ "--fade-y": "0px", "--fade-dur": "1.2s", "--fade-delay": "0.6s" }}
           >
             <motion.button
               whileHover={{ scale: 1.06, boxShadow: "0 20px 40px -14px rgba(239,106,50,0.7)" }}
@@ -161,11 +155,11 @@ export default function HeroSection() {
               whileHover={{ scale: 1.06 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => setInterestModalOpen(true)}
-              className="cursor-pointer rounded-full border border-white/70 bg-white/14 px-6 py-2 text-white backdrop-blur-md transition-all duration-300 ease-in-out hover:border-[#47c9c4] hover:bg-[#47c9c4] hover:text-white"
+              className="cursor-pointer rounded-full border border-white/70 bg-white/14 px-6 py-2 text-white backdrop-blur-md transition-all duration-300 ease-in-out hover:border-[#237673] hover:bg-[#237673] hover:text-white"
             >
               Book a Demo
             </motion.button>
-          </motion.div>
+          </div>
         </div>
       </section>
       {/* Scrolling word loop with unique colors (seamless) */}

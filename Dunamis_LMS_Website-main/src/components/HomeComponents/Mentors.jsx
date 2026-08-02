@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
-import { LuChevronLeft, LuChevronRight } from "react-icons/lu";
+import { LuChevronLeft, LuChevronRight, LuRotateCw } from "react-icons/lu";
 import { GoArrowUpRight } from "react-icons/go";
 import { IoMdStar } from "react-icons/io";
 import { fetchMentors } from "@/store/mentorSlice";
@@ -133,8 +133,38 @@ export default function Mentors() {
         return () => clearInterval(interval);
     }, [totalSlides, isHovered]);
 
-    // Loading and error states
-    if (loading || error || transformedMentors.length === 0) return null;
+    if (loading) {
+        return (
+            <section className="relative overflow-hidden bg-[#060A18] py-16 px-6">
+                <div className="max-w-7xl mx-auto text-center space-y-3">
+                    <div className="h-3 rounded-full w-28 mx-auto shimmer" />
+                    <div className="h-7 rounded-full w-56 mx-auto shimmer" />
+                    <div className="h-3 rounded-full w-80 mx-auto shimmer" />
+                </div>
+            </section>
+        );
+    }
+
+    if (error) {
+        return (
+            <section className="relative overflow-hidden bg-[#060A18] py-16 px-6 text-center">
+                <span className="inline-block mb-3 rounded-full bg-white/10 border border-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/60 backdrop-blur-sm">
+                    Learn from the Best
+                </span>
+                <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Meet Your Mentors</h2>
+                <p className="text-white/50 mb-4">Couldn&apos;t load mentors right now.</p>
+                <button
+                    type="button"
+                    onClick={() => dispatch(fetchMentors())}
+                    className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+                >
+                    <LuRotateCw className="h-4 w-4" /> Retry
+                </button>
+            </section>
+        );
+    }
+
+    if (transformedMentors.length === 0) return null;
 
     const nextSlide = () => {
         setDirection(1);
@@ -277,7 +307,7 @@ export default function Mentors() {
                                                                 }
                                                             />
                                                         ) : (
-                                                            <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#ef6a32]">
+                                                            <div className="flex h-full w-full items-center justify-center text-4xl font-semibold text-[#CC3700]">
                                                                 {getInitials(mentor.name)}
                                                             </div>
                                                         )}
@@ -291,7 +321,7 @@ export default function Mentors() {
                                                         {mentor.tags.map((t, i) => (
                                                             <span
                                                                 key={i}
-                                                                className="bg-[#ef6a32]/20 text-[#ef6a32] border border-[#ef6a32]/30 text-xs px-3 py-1 rounded-full font-medium"
+                                                                className="bg-[#CC3700]/20 text-[#CC3700] border border-[#CC3700]/30 text-xs px-3 py-1 rounded-full font-medium"
                                                             >
                                                                 {t}
                                                             </span>
@@ -330,20 +360,20 @@ export default function Mentors() {
                                                         <div className="space-y-2 text-left text-xs">
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Gender</h4>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Gender</h4>
                                                                     <p className="text-xs text-white/65 capitalize">{mentor.gender}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Students</h4>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Students</h4>
                                                                     <p className="text-xs text-white/65">{mentor.studentCount}</p>
                                                                 </div>
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Qualification</h4>
+                                                                <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Qualification</h4>
                                                                 <p className="text-xs text-white/65">{mentor.highestQualification}</p>
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Languages</h4>
+                                                                <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Languages</h4>
                                                                 <p className="text-xs text-white/65">
                                                                     Speak: {mentor.languages.speak.join(", ") || "N/A"}
                                                                     <br />
@@ -351,20 +381,20 @@ export default function Mentors() {
                                                                 </p>
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Course Category</h4>
+                                                                <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Course Category</h4>
                                                                 <p className="text-xs text-white/65">{mentor.courseCategory}</p>
                                                             </div>
                                                             <div>
-                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Available Slot</h4>
+                                                                <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Available Slot</h4>
                                                                 <p className="text-xs text-white/65">{mentor.slot}</p>
                                                             </div>
                                                             <div className="grid grid-cols-2 gap-2">
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Mode</h4>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Mode</h4>
                                                                     <p className="text-xs text-white/65 capitalize">{mentor.sessionType}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Rating</h4>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Rating</h4>
                                                                     <p className="text-xs text-white/65 flex items-center gap-1">
                                                                         <IoMdStar className="text-amber-400" />
                                                                         {mentor.rating > 0 ? mentor.rating.toFixed(1) : "0"}
@@ -373,12 +403,12 @@ export default function Mentors() {
                                                             </div>
                                                             {mentor.courses.length > 0 && (
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Courses</h4>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Courses</h4>
                                                                     <div className="flex flex-wrap gap-1">
                                                                         {mentor.courses.map((course, i) => (
                                                                             <span
                                                                                 key={i}
-                                                                                className="bg-[#ef6a32]/15 text-[#ef6a32] px-2 py-1 rounded-full text-xs font-medium"
+                                                                                className="bg-[#CC3700]/15 text-[#CC3700] px-2 py-1 rounded-full text-xs font-medium"
                                                                             >
                                                                                 {course.name}
                                                                             </span>
@@ -387,7 +417,7 @@ export default function Mentors() {
                                                                 </div>
                                                             )}
                                                             <div>
-                                                                <h4 className="font-semibold text-[#ef6a32] text-xs mb-1">Availability</h4>
+                                                                <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Availability</h4>
                                                                 <p className="text-xs text-white/65">{mentor.availability}</p>
                                                             </div>
                                                         </div>
@@ -396,7 +426,7 @@ export default function Mentors() {
 
                                                 {/* Hover icon */}
                                                 <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                                    <div className="bg-[#ef6a32] text-white rounded-full p-1">
+                                                    <div className="bg-[#CC3700] text-white rounded-full p-1">
                                                         <GoArrowUpRight className="w-3 h-3" />
                                                     </div>
                                                 </div>
@@ -440,7 +470,7 @@ export default function Mentors() {
                                     <button
                                         key={i}
                                         onClick={() => goToSlide(i)}
-                                        className={`rounded-full transition-all duration-300 ${currentSlide === i ? "bg-[#ef6a32] w-6 h-3" : "bg-white/20 w-3 h-3"}`}
+                                        className={`rounded-full transition-all duration-300 ${currentSlide === i ? "bg-[#CC3700] w-6 h-3" : "bg-white/20 w-3 h-3"}`}
                                         aria-label={`Go to slide ${i + 1}`}
                                     />
                                 ))}
@@ -475,7 +505,7 @@ export default function Mentors() {
                     <p className="text-xl md:text-2xl font-semibold leading-relaxed text-white/80">
                         "Every expert was once a beginner. Every professional was once an amateur. Every icon was once an unknown."
                     </p>
-                    <p className="text-[#ef6a32] mt-5 font-medium">— Robin Sharma</p>
+                    <p className="text-[#CC3700] mt-5 font-medium">— Robin Sharma</p>
                 </div>
             </motion.section>
         </div>
