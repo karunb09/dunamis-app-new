@@ -23,7 +23,8 @@ import {
   getInitialsImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
-import { buildTeacherName } from "@/helpers/courseSlots";
+import { buildTeacherName, formatTimeLabel } from "@/helpers/courseSlots";
+import { slugifyBranch } from "@/lib/serverCenters";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
 const TABS = ["Overview", "Curriculum", "Instructors", "Fee Structure"];
@@ -111,6 +112,30 @@ const mapFeeStructure = (price, type = "monthly") => {
   return [{ plan: sessionLabel, price: pct > 0 ? `Save ${pct}%` : "One-time", features: ["Full course access", "All materials", pct > 0 ? `₹${price?.fullPayment || 0} one-time (${pct}% off)` : `₹${price?.fullPayment || 0} one-time`, "Lifetime access", sessionType === "premium" ? "Priority support" : "Standard support", "Certificate on completion"], sessionType }];
 };
 
+// Offline courses run at branches; group them by city so a 13-branch course
+// reads as three places rather than one long list.
+const buildBranchGroups = (branches) => {
+  const groups = new Map();
+
+  (Array.isArray(branches) ? branches : []).forEach((branch) => {
+    if (!branch?.branchName) return;
+    const city = branch.city?.cityName || "Other locations";
+    if (!groups.has(city)) groups.set(city, []);
+    groups.get(city).push({
+      id: branch._id,
+      name: branch.branchName,
+      slug: slugifyBranch(branch.branchName),
+      address: branch.location || "",
+      hours: branch.branchTimings?.length >= 2
+        ? `${formatTimeLabel(branch.branchTimings[0])} – ${formatTimeLabel(branch.branchTimings[1])}`
+        : "",
+      days: branch.branchOpenDays?.join(", ") || "",
+    });
+  });
+
+  return Array.from(groups, ([city, items]) => ({ city, items }));
+};
+
 const transformCourseData = (courseRecord, courseFallbackImage) => {
   const selectedPrice = courseRecord?.price?.find((p) => p?.isSelected) || courseRecord?.price?.find((p) => p?.isActive !== false) || courseRecord?.price?.[0];
   return {
@@ -134,7 +159,7 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
       monthly: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "monthly")) || [],
       full: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "full")) || [],
     },
-    branches: courseRecord?.branches || [],
+    branchGroups: buildBranchGroups(courseRecord?.branches),
     branchCount: courseRecord?.branchCount || 0,
     code: courseRecord?.code || "",
   };
@@ -408,6 +433,52 @@ export default function CourseDetailClient({ initialCourse = null }) {
                         </ul>
                       ) : <p className="text-sm text-gray-400">No objectives added yet.</p>}
                     </div>
+
+                    {course.mode !== "online" && course.branchGroups.length > 0 && (
+                      <div>
+                        <SectionTitle>Where You&apos;ll Learn</SectionTitle>
+                        <p className="-mt-2 mb-4 text-sm text-gray-500">
+                          This course runs at {course.branchCount} {course.branchCount === 1 ? "centre" : "centres"}
+                          {course.branchGroups.length > 1 ? ` across ${course.branchGroups.length} cities` : ""}. Pick your centre when you enrol.
+                        </p>
+                        <div className="space-y-5">
+                          {course.branchGroups.map((group) => (
+                            <div key={group.city}>
+                              <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#CC3700]">
+                                {group.city}
+                                <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-orange-600">
+                                  {group.items.length}
+                                </span>
+                              </p>
+                              <ul className="grid gap-3 sm:grid-cols-2">
+                                {group.items.map((branch) => (
+                                  <li key={branch.id}>
+                                    <Link
+                                      href={`/centers/${branch.slug}`}
+                                      className="flex h-full gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-orange-200 hover:shadow-md"
+                                    >
+                                      <LuMapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#CC3700]" />
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900">{branch.name}</p>
+                                        {branch.address && (
+                                          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500">{branch.address}</p>
+                                        )}
+                                        {(branch.days || branch.hours) && (
+                                          <p className="mt-1.5 flex items-center gap-1.5 text-xs text-gray-400">
+                                            <LuClock className="h-3 w-3 shrink-0" />
+                                            {[branch.days, branch.hours].filter(Boolean).join(" · ")}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </TabPane>
               )}
