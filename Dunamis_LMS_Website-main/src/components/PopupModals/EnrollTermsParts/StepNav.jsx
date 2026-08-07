@@ -1,15 +1,19 @@
 // Step-progress header for the EnrollTerms wizard. Leaf component — pure
 // presentation, no wizard state beyond the current step + setter.
+
+// Spelled out so Tailwind keeps both classes — an interpolated name is purged.
+const COLUMN_CLASS = { 4: 'sm:grid-cols-4', 5: 'sm:grid-cols-5' };
+
 export default function StepNav({ steps, step, setStep }) {
   return (
-    <div className="mt-6 grid gap-3 sm:grid-cols-5">
-      {steps.map((label, index) => {
+    <div className={`mt-6 grid gap-3 ${COLUMN_CLASS[steps.length] || 'sm:grid-cols-5'}`}>
+      {steps.map(({ id, label }, index) => {
         const active = step === index;
         const completed = step > index;
 
         return (
           <button
-            key={label}
+            key={id}
             type="button"
             disabled={index > step}
             onClick={() => setStep(index)}

@@ -10,7 +10,7 @@ import {
   getCoursePlaceholderImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
-import { buildTeacherName } from "@/helpers/courseSlots";
+import { buildBranchSummary, buildTeacherName } from "@/helpers/courseSlots";
 import { CardGridSkeleton } from "../Skeletons";
 
 export default function PopularCourses() {
@@ -88,21 +88,8 @@ export default function PopularCourses() {
         return `${teacherNames[0]} +${teacherNames.length - 1} more`;
       };
 
-      // Get branch names
-      const getBranchNames = () => {
-        if (!Array.isArray(course.branches) || course.branches.length === 0) {
-          return "No branches available";
-        }
-
-        const branchNames = course.branches
-          .map(branch => branch.branchName)
-          .filter(Boolean);
-
-        if (branchNames.length === 0) return "No branches available";
-        if (branchNames.length === 1) return branchNames[0];
-        if (branchNames.length === 2) return branchNames.join(" & ");
-        return `${branchNames[0]} +${branchNames.length - 1} more`;
-      };
+      const getBranchNames = () =>
+        buildBranchSummary(course.branches) || "No branches available";
 
       const courseRating = calculateCourseRating();
       const enrolledStudents = calculateTotalStudents();

@@ -250,6 +250,17 @@ export const buildBranchOptions = (course, slots = []) => {
   return Array.from(map.values());
 };
 
+export const buildBranchSummary = (branches = [], max = 2) => {
+  const names = (Array.isArray(branches) ? branches : [])
+    .map((branch) => toDisplayText(branch?.branchName) || toDisplayText(branch?.name))
+    .filter(Boolean);
+
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  if (names.length <= max) return names.join(" & ");
+  return `${names.slice(0, max).join(", ")} +${names.length - max} more`;
+};
+
 export const buildInstructorOptions = (
   course,
   slots = [],

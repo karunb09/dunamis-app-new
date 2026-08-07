@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuWifi, LuMapPin } from "react-icons/lu";
+import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuMapPin } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -11,7 +11,7 @@ import {
   getCoursePlaceholderImage,
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
-import { buildTeacherName } from "@/helpers/courseSlots";
+import { buildBranchSummary, buildTeacherName } from "@/helpers/courseSlots";
 
 /* ─── Card ─────────────────────────────────────────────────────── */
 function CourseCard({ course, courseFallbackImage }) {
@@ -84,6 +84,13 @@ function CourseCard({ course, courseFallbackImage }) {
         <p className="mt-1.5 text-sm text-gray-500 line-clamp-1">
           by <span className="font-medium text-gray-700">{course.mentor}</span>
         </p>
+
+        {course.mode !== "online" && course.branchSummary && (
+          <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
+            <LuMapPin className="w-3 h-3 shrink-0 text-[#CC3700]" />
+            <span className="line-clamp-1">{course.branchSummary}</span>
+          </p>
+        )}
 
         {course.totalStudents > 0 && (
           <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
@@ -247,6 +254,7 @@ function CoursesPageContent({ initialCourses = [] }) {
           rating: course.rating || 0,
           mentor: course.teacher?.[0] ? buildTeacherName(course.teacher[0]) : "Expert Instructor",
           totalStudents: course.totalStudents || 0,
+          branchSummary: buildBranchSummary(course.branches),
         };
       });
   };

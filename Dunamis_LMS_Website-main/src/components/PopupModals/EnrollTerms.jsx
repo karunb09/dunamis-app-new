@@ -10,7 +10,6 @@ import {
   HiUser,
   HiX,
   HiUsers,
-  HiClock,
   HiCheckCircle,
 } from 'react-icons/hi';
 import { FaUser } from 'react-icons/fa';
@@ -64,7 +63,15 @@ const getNextStartDate = (days = []) => {
   return next;
 };
 
-const STEPS = ['Delivery', 'Instructor', 'Schedule', 'Session type', 'Plan'];
+// The "session" step is inserted only when the course genuinely offers both
+// formats — otherwise the type is implied by the slot the student picks.
+const BASE_STEPS = [
+  { id: 'delivery', label: 'Delivery' },
+  { id: 'instructor', label: 'Instructor' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'plan', label: 'Plan' },
+];
+const SESSION_STEP = { id: 'session', label: 'Session type' };
 
 const hasPositivePrice = (price) => {
   const monthly = Number(price?.monthlyFee);
@@ -79,6 +86,18 @@ const toMoney = (value) => {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return `₹${amount.toLocaleString('en-IN')}`;
+};
+
+const PriceHeadline = ({ price }) => {
+  const monthly = toMoney(price?.monthlyFee);
+  return (
+    <p className="text-2xl font-bold text-gray-900">
+      {monthly || toMoney(price?.fullPayment) || '—'}
+      {monthly ? (
+        <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
+      ) : null}
+    </p>
+  );
 };
 
 const computeMrpAndSavings = (fullPayment, discountPct) => {
@@ -287,61 +306,6 @@ export default function EnrollTerm({
     );
   }, [branchCityOptions.length, branchOptions, selectedBranchCity]);
 
-  const filterPricedSlots = (slots = []) =>
-    slots.filter(
-      (slot) =>
-        !shouldLimitByPricing ||
-        pricedSessionTypes.has(slot.sessionType || 'standard')
-    );
-
-  const getVisibleSlotsForInstructor = (instructor) =>
-    filterPricedSlots(
-      filterSlotsForSelection(instructor?.slots || [], {
-        deliveryMode: selectedDeliveryMode,
-        branchId: selectedBranchId,
-      })
-    );
-
-  const visibleInstructors = useMemo(
-    () =>
-      instructors.filter(
-        (instructor) => getVisibleSlotsForInstructor(instructor).length > 0
-      ),
-    [
-      instructors,
-      pricedSessionTypes,
-      selectedBranchId,
-      selectedDeliveryMode,
-      shouldLimitByPricing,
-    ]
-  );
-
-  const selectedInstructor = useMemo(
-    () =>
-      visibleInstructors.find(
-        (instructor) => instructor.id === selectedInstructorId
-      ) || null,
-    [selectedInstructorId, visibleInstructors]
-  );
-
-  const visibleSlots = useMemo(
-    () => getVisibleSlotsForInstructor(selectedInstructor),
-    [
-      pricedSessionTypes,
-      selectedBranchId,
-      selectedDeliveryMode,
-      selectedInstructor,
-      shouldLimitByPricing,
-    ]
-  );
-
-  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
-
-  const selectedSlot = useMemo(
-    () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
-    [selectedSlotId, visibleSlots]
-  );
-
   // Price memos
   const prices = useMemo(() => {
     const source = Array.isArray(course?.price)
@@ -375,15 +339,120 @@ export default function EnrollTerm({
     return items[0] || null;
   }, [prices]);
 
+  const filterPricedSlots = (slots = []) =>
+    slots.filter(
+      (slot) =>
+        !shouldLimitByPricing ||
+        pricedSessionTypes.has(slot.sessionType || 'standard')
+    );
+
+  const getBookableSlotsForInstructor = (instructor) =>
+    filterPricedSlots(
+      filterSlotsForSelection(instructor?.slots || [], {
+        deliveryMode: selectedDeliveryMode,
+        branchId: selectedBranchId,
+      })
+    );
+
+  // Session types the student can actually book right now — computed before any
+  // session-type filtering so choosing one can never lead to an empty schedule.
+  const availableSessionTypes = useMemo(() => {
+    const types = new Set();
+    instructors.forEach((instructor) =>
+      getBookableSlotsForInstructor(instructor).forEach((slot) =>
+        types.add(slot.sessionType || 'standard')
+      )
+    );
+    return Array.from(types);
+  }, [
+    instructors,
+    pricedSessionTypes,
+    selectedBranchId,
+    selectedDeliveryMode,
+    shouldLimitByPricing,
+  ]);
+
+  // Only worth asking when both formats are priced *and* bookable.
+  const needsSessionTypeChoice =
+    availableSessionTypes.length > 1 && Boolean(groupPrice) && Boolean(premiumPrice);
+
+  const getVisibleSlotsForInstructor = (instructor) => {
+    const slots = getBookableSlotsForInstructor(instructor);
+    if (!needsSessionTypeChoice || !selectedSessionType) return slots;
+    return slots.filter(
+      (slot) => (slot.sessionType || 'standard') === selectedSessionType
+    );
+  };
+
+  const visibleInstructors = useMemo(
+    () =>
+      instructors.filter(
+        (instructor) => getVisibleSlotsForInstructor(instructor).length > 0
+      ),
+    [
+      instructors,
+      needsSessionTypeChoice,
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      selectedSessionType,
+      shouldLimitByPricing,
+    ]
+  );
+
+  const selectedInstructor = useMemo(
+    () =>
+      visibleInstructors.find(
+        (instructor) => instructor.id === selectedInstructorId
+      ) || null,
+    [selectedInstructorId, visibleInstructors]
+  );
+
+  const visibleSlots = useMemo(
+    () => getVisibleSlotsForInstructor(selectedInstructor),
+    [
+      needsSessionTypeChoice,
+      pricedSessionTypes,
+      selectedBranchId,
+      selectedDeliveryMode,
+      selectedInstructor,
+      selectedSessionType,
+      shouldLimitByPricing,
+    ]
+  );
+
+  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
+
+  const selectedSlot = useMemo(
+    () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
+    [selectedSlotId, visibleSlots]
+  );
+
+  // The slot wins: it is what the server validates the order against, so the
+  // persisted sessionType can never drift from it.
+  const resolvedSessionType =
+    selectedSlot?.sessionType ||
+    selectedSessionType ||
+    (availableSessionTypes.length === 1 ? availableSessionTypes[0] : '');
+
   const activePriceObj = useMemo(
-    () => (selectedSessionType === 'premium' ? premiumPrice : (groupPrice || premiumPrice)),
-    [selectedSessionType, premiumPrice, groupPrice]
+    () => (resolvedSessionType === 'premium' ? premiumPrice : (groupPrice || premiumPrice)),
+    [resolvedSessionType, premiumPrice, groupPrice]
   );
 
   const tenurePlans = useMemo(
     () => getActiveTenurePlans(activePriceObj),
     [activePriceObj]
   );
+
+  const steps = useMemo(
+    () =>
+      needsSessionTypeChoice
+        ? [BASE_STEPS[0], SESSION_STEP, ...BASE_STEPS.slice(1)]
+        : BASE_STEPS,
+    [needsSessionTypeChoice]
+  );
+  const currentStepId = steps[step]?.id || steps[0].id;
 
   useEffect(() => {
     if (!isOpen || !courseId) return;
@@ -546,13 +615,25 @@ export default function EnrollTerm({
     setSelectedSlotId(group.slots[0].id || '');
   }, [selectedGroupId, slotGroups, selectedSlotId]);
 
-  // Reset session/plan choice when user navigates back before step 3.
+  // Keep the cursor in range when the session step appears or disappears.
   useEffect(() => {
-    if (step < 3) {
-      setSelectedSessionType('');
-      setSelectedPlanType('');
-    }
-  }, [step]);
+    setStep((current) => Math.min(current, steps.length - 1));
+  }, [steps.length]);
+
+  // Drop the session type if it is no longer bookable (delivery/branch change).
+  useEffect(() => {
+    if (!selectedSessionType) return;
+    if (availableSessionTypes.includes(selectedSessionType)) return;
+    setSelectedSessionType('');
+    setSelectedInstructorId('');
+    setSelectedSlotId('');
+  }, [availableSessionTypes, selectedSessionType]);
+
+  // Reset downstream choices when the user navigates back.
+  useEffect(() => {
+    if (currentStepId !== 'plan') setSelectedPlanType('');
+    if (currentStepId === 'delivery') setSelectedSessionType('');
+  }, [currentStepId]);
 
   if (!isOpen) return null;
 
@@ -565,11 +646,10 @@ export default function EnrollTerm({
       ? slotsError
       : slotsError?.message || slotsError?.error || '';
 
-  const slotSessionType = selectedSlot?.sessionType || null;
   const canChooseStandard =
-    Boolean(groupPrice) && (!slotSessionType || slotSessionType === 'standard');
+    Boolean(groupPrice) && availableSessionTypes.includes('standard');
   const canChoosePremium =
-    Boolean(premiumPrice) && (!slotSessionType || slotSessionType === 'premium');
+    Boolean(premiumPrice) && availableSessionTypes.includes('premium');
 
   const activeTenure =
     findTenure(tenurePlans, selectedMonths) || pickDefaultTenure(tenurePlans);
@@ -586,7 +666,7 @@ export default function EnrollTerm({
       ? Number(activePriceObj?.installments)
       : null);
 
-  // Plan cards shown directly in step 4 — no separate duration-selection step.
+  // Plan cards shown directly in the plan step — no separate duration-selection step.
   const primaryTenure =
     tenurePlans.length > 0 ? pickDefaultTenure(tenurePlans) || tenurePlans[0] : null;
   const monthlyCardMonths = primaryTenure?.months ?? null;
@@ -604,14 +684,14 @@ export default function EnrollTerm({
         ];
 
   const canContinue =
-    step === 0
+    currentStepId === 'delivery'
       ? Boolean(selectedDeliveryMode) && (!shouldPickBranch || Boolean(selectedBranchId))
-      : step === 1
-        ? Boolean(selectedInstructorId) && slotsStatus !== 'loading'
-        : step === 2
-          ? Boolean(selectedSlotId) && slotsStatus !== 'loading'
-          : step === 3
-            ? Boolean(selectedSessionType)
+      : currentStepId === 'session'
+        ? Boolean(selectedSessionType)
+        : currentStepId === 'instructor'
+          ? Boolean(selectedInstructorId) && slotsStatus !== 'loading'
+          : currentStepId === 'schedule'
+            ? Boolean(selectedSlotId) && slotsStatus !== 'loading'
             : Boolean(selectedPlanType);
 
   const persistAllAndGoToPayment = () => {
@@ -631,7 +711,7 @@ export default function EnrollTerm({
       instructorId: selectedInstructor?.id || null,
       instructorLabel: selectedInstructor?.name || null,
       slot: selectedSlot,
-      sessionType: selectedSessionType,
+      sessionType: resolvedSessionType,
       planType: selectedPlanType,
       planMonths: planDurationMonths,
       priceId: activePriceObj?.id || null,
@@ -652,7 +732,7 @@ export default function EnrollTerm({
 
   const handlePrimaryAction = () => {
     if (!canContinue) return;
-    if (step === STEPS.length - 1) {
+    if (step === steps.length - 1) {
       persistAllAndGoToPayment();
       return;
     }
@@ -687,9 +767,9 @@ export default function EnrollTerm({
           <p className="mt-1 text-sm text-gray-500">Course: {courseTitle}</p>
         </div>
 
-        <StepNav steps={STEPS} step={step} setStep={setStep} />
+        <StepNav steps={steps} step={step} setStep={setStep} />
 
-        {step === 0 ? (
+        {currentStepId === 'delivery' ? (
           <StepDelivery
             enrollmentModeOptions={enrollmentModeOptions}
             selectedDeliveryMode={selectedDeliveryMode}
@@ -706,7 +786,88 @@ export default function EnrollTerm({
           />
         ) : null}
 
-        {step === 1 ? (
+        {currentStepId === 'session' ? (
+          <div className="mt-7 space-y-4">
+            <p className="text-sm text-gray-500">
+              Select the type of session that best fits your learning preferences — we&apos;ll
+              then show only the instructors and schedules that offer it.
+            </p>
+
+            {canChooseStandard ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedSessionType('standard')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('standard'); } }}
+                className={`cursor-pointer rounded-3xl border p-5 transition ${
+                  selectedSessionType === 'standard'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">Group sessions</p>
+                    <p className="mt-0.5 text-sm text-gray-500">Learn together with peers</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
+                      Popular
+                    </span>
+                    {selectedSessionType === 'standard' ? (
+                      <HiCheckCircle className="text-xl text-orange-500" />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 text-sm text-gray-700">
+                  <PriceHeadline price={groupPrice} />
+                  <div className="flex items-center gap-2">
+                    <HiUsers className="shrink-0 text-gray-500" />
+                    <span>Small group · interactive sessions</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {canChoosePremium ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedSessionType('premium')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('premium'); } }}
+                className={`cursor-pointer rounded-3xl border p-5 transition ${
+                  selectedSessionType === 'premium'
+                    ? 'border-orange-500 bg-orange-50'
+                    : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">Individual sessions</p>
+                    <p className="mt-0.5 text-sm text-gray-500">1-on-1 personalized learning</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+                      Personalized
+                    </span>
+                    {selectedSessionType === 'premium' ? (
+                      <HiCheckCircle className="text-xl text-orange-500" />
+                    ) : null}
+                  </div>
+                </div>
+                <div className="mt-4 space-y-2 text-sm text-gray-700">
+                  <PriceHeadline price={premiumPrice} />
+                  <div className="flex items-center gap-2">
+                    <FaUser className="shrink-0 text-gray-500" />
+                    <span>One-on-one · customized pace</span>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {currentStepId === 'instructor' ? (
           <StepInstructor
             visibleInstructors={visibleInstructors}
             slotsStatus={slotsStatus}
@@ -719,7 +880,7 @@ export default function EnrollTerm({
           />
         ) : null}
 
-        {step === 2 ? (
+        {currentStepId === 'schedule' ? (
           <div className="mt-7 space-y-5">
             <div>
               <label className="mb-1 flex items-center gap-2 text-sm font-medium text-gray-700">
@@ -869,119 +1030,18 @@ export default function EnrollTerm({
           </div>
         ) : null}
 
-        {step === 3 ? (
-          <div className="mt-7 space-y-4">
-            <p className="text-sm text-gray-500">
-              Select the type of session that best fits your learning preferences.
-            </p>
-
-            {!canChooseStandard && !canChoosePremium ? (
-              <div className="rounded-3xl border border-dashed border-gray-300 p-6 text-sm text-gray-500">
-                No pricing is configured for this course yet. Please contact support.
-              </div>
-            ) : null}
-
-            {canChooseStandard ? (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedSessionType('standard')}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('standard'); } }}
-                className={`cursor-pointer rounded-3xl border p-5 transition ${
-                  selectedSessionType === 'standard'
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">Group sessions</p>
-                    <p className="mt-0.5 text-sm text-gray-500">Learn together with peers</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-purple-700">
-                      Popular
-                    </span>
-                    {selectedSessionType === 'standard' ? (
-                      <HiCheckCircle className="text-xl text-orange-500" />
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2 text-sm text-gray-700">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {toMoney(groupPrice?.monthlyFee) || toMoney(groupPrice?.fullPayment) || '—'}
-                    <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <HiUsers className="shrink-0 text-gray-500" />
-                    <span>Small group · interactive sessions</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <HiClock className="shrink-0 text-gray-500" />
-                    <span>
-                      {selectedSlot?.startTime && selectedSlot?.endTime
-                        ? `${formatTimeLabel(selectedSlot.startTime)} – ${formatTimeLabel(selectedSlot.endTime)}`
-                        : 'Your selected schedule'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {canChoosePremium ? (
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedSessionType('premium')}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSessionType('premium'); } }}
-                className={`cursor-pointer rounded-3xl border p-5 transition ${
-                  selectedSessionType === 'premium'
-                    ? 'border-orange-500 bg-orange-50'
-                    : 'border-gray-200 border-green-200 hover:border-orange-200 hover:bg-orange-50/30'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-lg font-semibold text-gray-900">Individual sessions</p>
-                    <p className="mt-0.5 text-sm text-gray-500">1-on-1 personalized learning</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
-                      Personalized
-                    </span>
-                    {selectedSessionType === 'premium' ? (
-                      <HiCheckCircle className="text-xl text-orange-500" />
-                    ) : null}
-                  </div>
-                </div>
-                <div className="mt-4 space-y-2 text-sm text-gray-700">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {toMoney(premiumPrice?.monthlyFee) || toMoney(premiumPrice?.fullPayment) || '—'}
-                    <span className="ml-1 text-sm font-medium text-gray-500">/month</span>
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <FaUser className="shrink-0 text-gray-500" />
-                    <span>One-on-one · customized pace</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <HiClock className="shrink-0 text-gray-500" />
-                    <span>
-                      {selectedSlot?.startTime && selectedSlot?.endTime
-                        ? `${formatTimeLabel(selectedSlot.startTime)} – ${formatTimeLabel(selectedSlot.endTime)}`
-                        : 'Your selected schedule'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {step === 4 ? (
+        {currentStepId === 'plan' ? (
           <div className="mt-7 space-y-5">
             <p className="text-sm text-gray-500">
-              {selectedSessionType === 'premium' ? 'Individual (1:1)' : 'Group'} sessions •{' '}
+              {resolvedSessionType === 'premium' ? 'Individual (1:1)' : 'Group'} sessions •{' '}
               {courseTitle}
+              {selectedSlot?.startTime && selectedSlot?.endTime ? (
+                <>
+                  {' • '}
+                  {formatTimeLabel(selectedSlot.startTime)} –{' '}
+                  {formatTimeLabel(selectedSlot.endTime)}
+                </>
+              ) : null}
             </p>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -1128,7 +1188,7 @@ export default function EnrollTerm({
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 Redirecting…
               </>
-            ) : step === STEPS.length - 1 ? (
+            ) : step === steps.length - 1 ? (
               'Proceed to payment'
             ) : (
               'Continue'

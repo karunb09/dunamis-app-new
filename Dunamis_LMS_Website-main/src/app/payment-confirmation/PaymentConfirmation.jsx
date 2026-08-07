@@ -477,7 +477,11 @@ export default function PaymentConfirmation() {
                   </div>
                   {uiDeliveryLabel && (
                     <div className="flex items-center gap-1">
-                      <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
+                      <span
+                        className={`inline-block h-2 w-2 rounded-full ${
+                          deliveryMode === 'online' ? 'bg-green-400' : 'bg-gray-400'
+                        }`}
+                      />
                       <span>{uiDeliveryLabel}</span>
                     </div>
                   )}
