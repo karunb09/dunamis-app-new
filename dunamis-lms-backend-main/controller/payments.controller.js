@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const mongoose = require("mongoose");
 const asyncHandler = require("../utils/asyncHandler");
 const PaymentTransaction = require("../model/paymentTransaction.model");
@@ -10,8 +11,17 @@ const {
   getSuccessfulPayment,
   confirmPaidCashfreeOrder,
   getCashfreeErrorMessage,
+  findActiveEnrollmentTransaction,
+  fulfillPaidTransaction,
+  amountMatches,
+  formatMoney,
+  recordTransactionEvent,
+  TRANSACTION_EVENTS,
 } = require("../services/paymentService");
-const { aggregateOutstandingInstallments } = require("../services/enrollmentService");
+const {
+  aggregateOutstandingInstallments,
+  getPayableInstallments,
+} = require("../services/enrollmentService");
 const { istDayStart, istDayEndExclusive } = require("../utils/istMonth");
 
 const PAID_GRACE_MS = 15 * 60 * 1000;
@@ -437,6 +447,227 @@ exports.reverifyPayment = asyncHandler(async (req, res) => {
     capturedAmount: updated.gatewayCapturedAmount ?? null,
     gatewayOfferDiscount: updated.gatewayOfferDiscount || 0,
     error: result.fulfillment?.error || null,
+  });
+});
+
+const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
+  ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
+  : "Contact IT support if this issue persists.";
+
+// Cash collected at a centre for an installment the student already owes.
+// Deliberately narrower than adminEnrollStudent, which only ever creates
+// installment 1 and cannot record a later collection.
+exports.recordCashInstallment = asyncHandler(async (req, res) => {
+  const { studentId, courseId, slotId, sessionType, amount, paymentDate, receiptRef, note } =
+    req.body;
+
+  const student = await Student.findById(studentId).populate("userId");
+  if (!student) {
+    return res.status(404).json({
+      success: false,
+      message: "Student not found.",
+      hint: IT_SUPPORT_HINT,
+    });
+  }
+
+  const payable = getPayableInstallments(student);
+  const matches = payable.filter((entry) => {
+    const entryCourseId = entry.payment.courseId?._id || entry.payment.courseId;
+    if (String(entryCourseId) !== String(courseId)) return false;
+    if (slotId && String(entry.payment.slotId) !== String(slotId)) return false;
+    if (sessionType && entry.payment.sessionType !== sessionType) return false;
+    return true;
+  });
+
+  if (matches.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message:
+        "This student has no installment outstanding for that course. Nothing is due to collect.",
+    });
+  }
+
+  if (matches.length > 1) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "This student has more than one enrollment for this course. Pass slotId and sessionType to say which one the cash is for.",
+      options: matches.map((entry) => ({
+        slotId: entry.payment.slotId,
+        sessionType: entry.payment.sessionType,
+        amount: entry.amountDue,
+        dueDate: entry.dueDate,
+        installmentNo: entry.nextInstallmentNo,
+      })),
+    });
+  }
+
+  const entry = matches[0];
+  const payment = entry.payment;
+  const resolvedCourseId = payment.courseId?._id || payment.courseId;
+
+  // teacherId/slotId are required on PaymentTransaction. Pre-tenure rows can be
+  // missing them, which would otherwise surface as an opaque 500.
+  if (!payment.teacherId || !payment.slotId) {
+    return res.status(409).json({
+      success: false,
+      message:
+        "This enrollment is missing its instructor or batch, so a payment cannot be attached to it.",
+      hint: IT_SUPPORT_HINT,
+    });
+  }
+
+  // Full installment only: a short cash collection must not silently close the
+  // installment and roll the due date forward.
+  if (!amountMatches(amount, entry.amountDue)) {
+    return res.status(400).json({
+      success: false,
+      message: `The amount due for installment ${entry.nextInstallmentNo} is ${formatMoney(
+        entry.amountDue
+      )}. Partial cash collections are not supported — record the full installment.`,
+      amountDue: entry.amountDue,
+    });
+  }
+
+  // A live gateway order for the same installment means the student may be
+  // paying online right now; collecting cash too would double-charge them.
+  const existing = await findActiveEnrollmentTransaction({
+    studentId: student._id,
+    courseId: resolvedCourseId,
+    slotId: payment.slotId,
+    sessionType: payment.sessionType,
+    paymentType: "Installment",
+    installmentNo: entry.nextInstallmentNo,
+  });
+
+  if (existing) {
+    const alreadyPaid = ["paid", "paid_pending_fulfillment", "fulfilled"].includes(
+      existing.status
+    );
+    return res.status(409).json({
+      success: false,
+      message: alreadyPaid
+        ? `Installment ${entry.nextInstallmentNo} is already recorded as paid (${existing.merchantOrderId}).`
+        : `The student has an online payment in progress for installment ${entry.nextInstallmentNo}. Wait for it to settle or cancel it before recording cash.`,
+      transactionStatus: existing.status,
+      merchantOrderId: existing.merchantOrderId,
+    });
+  }
+
+  const paidAt = paymentDate ? new Date(paymentDate) : new Date();
+  const merchantOrderId = `cash_${Date.now()}_${student._id
+    .toString()
+    .slice(-6)}_${String(resolvedCourseId).slice(-6)}_i${entry.nextInstallmentNo}_${crypto
+    .randomBytes(3)
+    .toString("hex")}`;
+
+  const transaction = await PaymentTransaction.create({
+    userId: student.userId._id || student.userId,
+    studentId: student._id,
+    courseId: resolvedCourseId,
+    teacherId: payment.teacherId,
+    slotId: payment.slotId,
+    parentAvailabilityId: payment.parentAvailabilityId || null,
+    branchId: payment.branchId || null,
+    deliveryMode: payment.deliveryMode || null,
+    sessionType: payment.sessionType,
+    planType: "monthly",
+    planMonths: entry.installmentTotal,
+    paymentType: "Installment",
+    installmentNo: entry.nextInstallmentNo,
+    installmentTotal: entry.installmentTotal,
+    installmentAmount: entry.amountDue,
+    dueDate: entry.dueDate,
+    amount,
+    currency: "INR",
+    gateway: "manual",
+    paymentMode: "Cash",
+    merchantOrderId,
+    bankReference: receiptRef || null,
+    collectedByUserId: req.user.userId,
+    recordNote: note || null,
+    status: "paid",
+    feeStatus: "Paid",
+    paidAt,
+    verifiedAt: new Date(),
+    events: [
+      {
+        type: TRANSACTION_EVENTS.CASH_RECORDED,
+        actor: "admin",
+        actorUserId: req.user.userId,
+        status: "paid",
+        amount,
+        detail: `Cash of ${formatMoney(amount)} collected at the centre for installment ${
+          entry.nextInstallmentNo
+        } of ${entry.installmentTotal}`,
+        meta: { receiptRef: receiptRef || null, note: note || null, paidAt },
+      },
+    ],
+  });
+
+  const fulfillment = await fulfillPaidTransaction(transaction._id);
+
+  if (!fulfillment.fulfilled) {
+    return res.status(202).json({
+      success: true,
+      message:
+        "Cash payment recorded, but the enrollment update needs review. The payment itself is safe.",
+      hint: IT_SUPPORT_HINT,
+      transactionId: transaction._id,
+      merchantOrderId,
+      courseAccessGranted: Boolean(fulfillment.coreFulfilled),
+      error: fulfillment.error,
+    });
+  }
+
+  return res.status(201).json({
+    success: true,
+    message: `Installment ${entry.nextInstallmentNo} of ${entry.installmentTotal} recorded as paid in cash.`,
+    transactionId: transaction._id,
+    merchantOrderId,
+    amount,
+    installmentNo: entry.nextInstallmentNo,
+    installmentTotal: entry.installmentTotal,
+  });
+});
+
+// Full audit view of one payment, including the lifecycle trail.
+exports.getPaymentDetail = asyncHandler(async (req, res) => {
+  const { id } = req.validated?.params || req.params;
+
+  const transaction = await PaymentTransaction.findById(id)
+    .populate("courseId", "name code")
+    .populate("branchId", "branchName")
+    .populate("collectedByUserId", "name email employeeId")
+    .lean();
+
+  if (!transaction) {
+    return res.status(404).json({ success: false, message: "Payment transaction not found." });
+  }
+
+  const student = await Student.findById(transaction.studentId)
+    .populate("userId", "name email mobileNo")
+    .select("userId")
+    .lean();
+
+  res.status(200).json({
+    success: true,
+    transaction: {
+      ...transaction,
+      // Raw gateway payloads are large and only ever needed for deep debugging.
+      gatewayResponse: undefined,
+      student: student
+        ? {
+            _id: student._id,
+            name: `${student.userId?.name?.firstName || ""} ${
+              student.userId?.name?.lastName || ""
+            }`.trim(),
+            email: student.userId?.email,
+            phone: student.userId?.mobileNo,
+          }
+        : null,
+      events: [...(transaction.events || [])].sort((a, b) => new Date(a.at) - new Date(b.at)),
+    },
   });
 });
 

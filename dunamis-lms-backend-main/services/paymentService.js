@@ -3,11 +3,9 @@ const PaymentTransaction = require("../model/paymentTransaction.model");
 const Course = require("../model/course.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
-const {
-  createCashfreeOrder,
-  getCashfreeOrder,
-  getCashfreePaymentsForOrder,
-} = require("../utils/cashfreeClient");
+// Module object, not destructured — tests patch these exports after load, which
+// only works if the lookup happens at call time.
+const cashfree = require("../utils/cashfreeClient");
 const {
   applyStudentFulfillment,
   addStudentToSlot,
@@ -89,16 +87,81 @@ const getTransactionExpiry = () => {
 const getCashfreeErrorMessage = (error) =>
   error.response?.data?.message || error.response?.data?.code || error.message;
 
+// ─── Lifecycle trail ──────────────────────────────────────────────────────────
+
+const TRANSACTION_EVENTS = {
+  ORDER_INITIATED: "order_initiated",
+  ORDER_CREATED: "order_created",
+  ORDER_REUSED: "order_reused",
+  ORDER_SUPERSEDED: "order_superseded",
+  CHECKOUT_OPENED: "checkout_opened",
+  CHECKOUT_DISMISSED: "checkout_dismissed",
+  WEBHOOK_RECEIVED: "webhook_received",
+  VERIFY_REQUESTED: "verify_requested",
+  GATEWAY_PAID: "gateway_paid",
+  GATEWAY_NOT_PAID: "gateway_not_paid",
+  CORE_FULFILLED: "core_fulfilled",
+  FULFILLED: "fulfilled",
+  FULFILLMENT_DEFERRED: "fulfillment_deferred",
+  FAILED: "failed",
+  EXPIRED: "expired",
+  RECONCILED: "reconciled",
+  CASH_RECORDED: "cash_recorded",
+};
+
+// Never throws: an audit write must not be able to fail a payment.
+const recordTransactionEvent = async (transactionId, event) => {
+  if (!transactionId || !event?.type) return;
+
+  try {
+    await PaymentTransaction.updateOne(
+      { _id: transactionId },
+      {
+        $push: {
+          events: {
+            type: event.type,
+            at: event.at || new Date(),
+            actor: event.actor || "system",
+            actorUserId: event.actorUserId || null,
+            status: event.status || null,
+            amount: event.amount ?? null,
+            detail: event.detail || null,
+            meta: event.meta || null,
+          },
+        },
+      }
+    );
+  } catch (error) {
+    console.error(`Failed to record ${event.type} event:`, error.message);
+  }
+};
+
 // ─── Transaction queries ──────────────────────────────────────────────────────
 
 const expireStaleTransactions = async (query) => {
-  await PaymentTransaction.updateMany(
-    {
-      ...query,
-      status: { $in: ["created", "pending"] },
-      expiresAt: { $lte: new Date() },
-    },
-    { $set: { status: "expired", lastError: "Payment session expired" } }
+  const staleQuery = {
+    ...query,
+    status: { $in: ["created", "pending"] },
+    expiresAt: { $lte: new Date() },
+  };
+
+  // Ids first: after the update they no longer match, so the trail would be
+  // impossible to attribute.
+  const stale = await PaymentTransaction.find(staleQuery).select("_id").lean();
+  if (!stale.length) return;
+
+  await PaymentTransaction.updateMany(staleQuery, {
+    $set: { status: "expired", lastError: "Payment session expired" },
+  });
+
+  await Promise.all(
+    stale.map((tx) =>
+      recordTransactionEvent(tx._id, {
+        type: TRANSACTION_EVENTS.EXPIRED,
+        status: "expired",
+        detail: "Payment session expired before completion",
+      })
+    )
   );
 };
 
@@ -153,6 +216,7 @@ const createCashfreeEnrollmentTransaction = async ({
   installmentNo = 1,
   dueDate = new Date(),
   referralCode = null,
+  initiatedBy = { actor: "student", actorUserId: null },
 }) => {
   const fingerprintPayload = {
     studentId: student._id.toString(),
@@ -197,16 +261,41 @@ const createCashfreeEnrollmentTransaction = async ({
     expiresAt: getTransactionExpiry(),
     gateway: "cashfree",
     status: "created",
+    events: [
+      {
+        type: TRANSACTION_EVENTS.ORDER_INITIATED,
+        actor: initiatedBy.actor || "student",
+        actorUserId: initiatedBy.actorUserId || null,
+        status: "created",
+        amount: pricing.amount,
+        detail:
+          pricing.paymentType === "Installment"
+            ? `Installment ${installmentNo} of ${pricing.installmentTotal} initiated`
+            : "Full payment initiated",
+        meta: { planType, planMonths: pricing.planMonths ?? null, referralCode },
+      },
+    ],
   });
 
-  const cashfreeOrder = await createCashfreeOrder(
-    buildCashfreeOrderPayload({
-      transaction,
-      user: student.userId,
-      course: context.course,
-    }),
-    transaction.idempotencyKey
-  );
+  let cashfreeOrder;
+  try {
+    cashfreeOrder = await cashfree.createCashfreeOrder(
+      buildCashfreeOrderPayload({
+        transaction,
+        user: student.userId,
+        course: context.course,
+      }),
+      transaction.idempotencyKey
+    );
+  } catch (error) {
+    await recordTransactionEvent(transaction._id, {
+      type: TRANSACTION_EVENTS.FAILED,
+      actor: "gateway",
+      status: "created",
+      detail: `Could not create the gateway order: ${getCashfreeErrorMessage(error)}`,
+    });
+    throw error;
+  }
 
   transaction.cashfreeCfOrderId = cashfreeOrder.cf_order_id?.toString() || null;
   transaction.paymentSessionId = cashfreeOrder.payment_session_id;
@@ -217,6 +306,19 @@ const createCashfreeEnrollmentTransaction = async ({
     ? new Date(cashfreeOrder.order_expiry_time)
     : transaction.expiresAt;
   await transaction.save();
+
+  await recordTransactionEvent(transaction._id, {
+    type: TRANSACTION_EVENTS.ORDER_CREATED,
+    actor: "gateway",
+    status: "pending",
+    amount: transaction.amount,
+    detail: "Gateway order created and checkout session issued",
+    meta: {
+      merchantOrderId: transaction.merchantOrderId,
+      cfOrderId: transaction.cashfreeCfOrderId,
+      expiresAt: transaction.expiresAt,
+    },
+  });
 
   return transaction;
 };
@@ -319,6 +421,27 @@ const markTransactionPaid = async ({ transaction, order, payment }) => {
     { $set: update },
     { returnDocument: "after" }
   );
+
+  if (updated) {
+    await recordTransactionEvent(transaction._id, {
+      type: TRANSACTION_EVENTS.GATEWAY_PAID,
+      actor: "gateway",
+      status: "paid",
+      amount: capturedAmount ?? transaction.amount,
+      detail:
+        gatewayOfferDiscount > 0
+          ? `Gateway captured ${formatMoney(capturedAmount)} of ${formatMoney(
+              transaction.amount
+            )} — a gateway offer covered ${formatMoney(gatewayOfferDiscount)}`
+          : `Gateway confirmed payment of ${formatMoney(transaction.amount)}`,
+      meta: {
+        paymentMode: update.paymentMode,
+        cashfreePaymentId: update.cashfreePaymentId,
+        bankReference: update.bankReference,
+        gatewayOfferDiscount,
+      },
+    });
+  }
 
   return updated || PaymentTransaction.findById(transaction._id);
 };
@@ -480,10 +603,17 @@ const fulfillPaidTransaction = async (transactionId) => {
   try {
     await applyStudentFulfillment(transaction);
     coreFulfilled = true;
-    await PaymentTransaction.updateOne(
+    const coreLock = await PaymentTransaction.updateOne(
       { _id: transaction._id, coreFulfilledAt: null },
       { $set: { coreFulfilledAt: new Date() } }
     );
+    if (coreLock.modifiedCount > 0) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.CORE_FULFILLED,
+        status: transaction.status,
+        detail: "Payment recorded on the student and course access granted",
+      });
+    }
     await addStudentToSlot(transaction);
 
     const fulfilledTransaction = await PaymentTransaction.findOneAndUpdate(
@@ -502,6 +632,12 @@ const fulfillPaidTransaction = async (transactionId) => {
     );
 
     if (fulfilledTransaction) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.FULFILLED,
+        status: "fulfilled",
+        amount: transaction.amount,
+        detail: "Class seat assigned — enrollment complete",
+      });
       sendEnrollmentSideEffects(fulfilledTransaction);
     }
 
@@ -520,6 +656,13 @@ const fulfillPaidTransaction = async (transactionId) => {
       },
       { returnDocument: "after" }
     );
+
+    await recordTransactionEvent(transaction._id, {
+      type: TRANSACTION_EVENTS.FULFILLMENT_DEFERRED,
+      status: "paid_pending_fulfillment",
+      detail: `Payment is safe but enrollment needs review: ${error.message}`,
+      meta: { coreFulfilled },
+    });
 
     if (pendingTransaction) {
       sendEnrollmentSideEffects(pendingTransaction);
@@ -551,6 +694,9 @@ const confirmPaidCashfreeOrder = async ({ transaction, order, payment }) => {
 module.exports = {
   ACTIVE_TRANSACTION_STATUSES,
   ENROLLMENT_RETURN_URL,
+  TRANSACTION_EVENTS,
+  recordTransactionEvent,
+  amountMatches,
   formatMoney,
   getDisplayName,
   normalizePhone,

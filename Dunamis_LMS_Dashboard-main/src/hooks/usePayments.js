@@ -7,6 +7,7 @@ export const paymentKeys = {
   dues: (params) => ["payments", "dues", params],
   needsAttention: (params) => ["payments", "needs-attention", params],
   needsAttentionCount: ["payments", "needs-attention", "count"],
+  detail: (id) => ["payments", "detail", id],
 };
 
 export function useDues(params) {
@@ -45,12 +46,31 @@ export function useNeedsAttentionCount() {
   });
 }
 
+export function usePaymentDetail(id) {
+  return useQuery({
+    queryKey: paymentKeys.detail(id),
+    queryFn: () => paymentsApi.fetchPaymentDetail(id),
+    enabled: Boolean(id),
+    staleTime: 30_000,
+  });
+}
+
 // A re-verify can change both the queue and its badge count, so invalidate the
 // whole namespace rather than patching two differently-shaped caches.
 export function useReverifyPayment() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id) => paymentsApi.reverifyPayment(id),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: paymentKeys.all }),
+  });
+}
+
+// Recording cash clears a due and adds a transaction, so both the dues list and
+// the ledger are stale afterwards.
+export function useRecordCashInstallment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => paymentsApi.recordCashInstallment(payload),
     onSettled: () => queryClient.invalidateQueries({ queryKey: paymentKeys.all }),
   });
 }

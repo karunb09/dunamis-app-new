@@ -6,6 +6,8 @@ const {
   confirmPaidCashfreeOrder,
   expireStaleTransactions,
   getCashfreeErrorMessage,
+  recordTransactionEvent,
+  TRANSACTION_EVENTS,
 } = require("./paymentService");
 const { sendOpsAlert } = require("../utils/opsAlert");
 const { getAdminUsers, createDashboardNotice } = require("../utils/notificationService");
@@ -62,13 +64,26 @@ async function reconcilePayments({ apiGapMs = API_GAP_MS } = {}) {
           order,
           payment: getSuccessfulPayment(payments),
         });
-        if (result.paid) recovered += 1;
+        if (result.paid) {
+          recovered += 1;
+          await recordTransactionEvent(transaction._id, {
+            type: TRANSACTION_EVENTS.RECONCILED,
+            detail: `Reconciler found this order PAID at the gateway and recovered it from "${transaction.status}"`,
+            status: result.transaction?.status || "paid",
+            meta: { previousStatus: transaction.status },
+          });
+        }
       } else if (["EXPIRED", "TERMINATED"].includes(orderStatus)) {
         if (["created", "pending"].includes(transaction.status)) {
           await PaymentTransaction.updateOne(
             { _id: transaction._id, status: { $in: ["created", "pending"] } },
             { $set: { status: "expired", lastError: "Payment session expired" } }
           );
+          await recordTransactionEvent(transaction._id, {
+            type: TRANSACTION_EVENTS.EXPIRED,
+            status: "expired",
+            detail: `Gateway reported the order as ${orderStatus}`,
+          });
           expired += 1;
         }
       }

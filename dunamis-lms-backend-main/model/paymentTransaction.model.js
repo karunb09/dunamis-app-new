@@ -11,6 +11,28 @@ const webhookEventSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Append-only lifecycle trail: one entry per thing that happened to this
+// payment, from the student's first intent through to fulfillment. Never
+// mutated or pruned — it is the audit record when money and access disagree.
+const transactionEventSchema = new mongoose.Schema(
+  {
+    type: { type: String, required: true },
+    at: { type: Date, default: Date.now },
+    actor: {
+      type: String,
+      enum: ["student", "admin", "system", "gateway"],
+      default: "system",
+    },
+    actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: "user", default: null },
+    // Transaction status immediately after the event.
+    status: { type: String, default: null },
+    amount: { type: Number, default: null },
+    detail: { type: String, default: null },
+    meta: { type: mongoose.Schema.Types.Mixed, default: null },
+  },
+  { _id: false }
+);
+
 const paymentTransactionSchema = new mongoose.Schema(
   {
     userId: {
@@ -100,6 +122,14 @@ const paymentTransactionSchema = new mongoose.Schema(
     cashfreePaymentStatus: { type: String, default: null },
     paymentMode: { type: String, default: null },
     bankReference: { type: String, default: null },
+    // Cash-at-centre collection: who took the money and what they wrote on the
+    // receipt book. Only set for gateway: "manual" rows.
+    collectedByUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      default: null,
+    },
+    recordNote: { type: String, default: null },
     status: {
       type: String,
       enum: [
@@ -121,6 +151,7 @@ const paymentTransactionSchema = new mongoose.Schema(
     requestFingerprint: { type: String, default: null },
     webhookEventKeys: [{ type: String }],
     webhookEvents: [webhookEventSchema],
+    events: [transactionEventSchema],
     gatewayResponse: { type: mongoose.Schema.Types.Mixed, default: null },
     lastError: { type: String, default: null },
     verifiedAt: { type: Date, default: null },

@@ -219,6 +219,7 @@ const studentSchema = new mongoose.Schema(
             "Debit Card",
             "Credit Card",
             "Net Banking",
+            "Cash",
             "Other",
             null,
           ],

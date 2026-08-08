@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { HiAcademicCap, HiBell, HiCalendar, HiCheck, HiClipboardList, HiHome, HiLogout, HiTrash, HiTrendingUp, HiUserCircle } from "react-icons/hi";
+import { HiAcademicCap, HiBell, HiCalendar, HiCheck, HiClipboardList, HiCreditCard, HiHome, HiLogout, HiTrash, HiTrendingUp, HiUserCircle } from "react-icons/hi";
 import {
   clearUserDashboardNotices,
   deleteUserDashboardNotice,
@@ -21,6 +21,7 @@ const navItems = [
   { label: "Assignments", href: "/student/assignments", icon: HiClipboardList },
   { label: "Attendance & Homework", href: "/student/attendance-homework", icon: HiCalendar },
   { label: "Performance", href: "/student/performance", icon: HiTrendingUp },
+  { label: "Fees & Payments", href: "/student/fees", icon: HiCreditCard },
   { label: "Profile", href: "/student/profile", icon: HiUserCircle },
 ];
 

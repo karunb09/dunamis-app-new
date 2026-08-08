@@ -18,7 +18,6 @@ const {
   buildPricingForPlan,
   loadValidatedEnrollmentContext,
   syncSlotStudentCount,
-  getOverdueInstallmentPayments,
   buildPaymentAccessStatus,
   normalizeMode,
 } = require("../services/enrollmentService");
@@ -34,6 +33,8 @@ const {
   getDisplayName,
   normalizePhone,
   createMerchantOrderId,
+  recordTransactionEvent,
+  TRANSACTION_EVENTS,
 } = require("../services/paymentService");
 const asyncHandler = require("../utils/asyncHandler");
 const { resolveReferralCode, normalizeCode, applyReferralDiscount } = require("../utils/referral");
@@ -149,6 +150,14 @@ exports.createOrder = async (req, res) => {
           activeTransaction.referralCode = resolvedReferralCode;
           await activeTransaction.save();
         }
+        await recordTransactionEvent(activeTransaction._id, {
+          type: TRANSACTION_EVENTS.ORDER_REUSED,
+          actor: "student",
+          actorUserId: req.user.userId,
+          status: activeTransaction.status,
+          amount: activeTransaction.amount,
+          detail: "Student re-opened checkout for this still-valid order",
+        });
         return res.status(200).json({
           success: true,
           message: "Existing pending order returned",
@@ -169,6 +178,16 @@ exports.createOrder = async (req, res) => {
       activeTransaction.status = "expired";
       activeTransaction.lastError = "Superseded by repriced order";
       await activeTransaction.save();
+
+      await recordTransactionEvent(activeTransaction._id, {
+        type: TRANSACTION_EVENTS.ORDER_SUPERSEDED,
+        actor: "student",
+        actorUserId: req.user.userId,
+        status: "expired",
+        detail: `Price changed from ${formatMoney(activeTransaction.amount)} to ${formatMoney(
+          pricing.amount
+        )} — a new order replaced this one`,
+      });
     }
 
     const transaction = await createCashfreeEnrollmentTransaction({
@@ -178,6 +197,7 @@ exports.createOrder = async (req, res) => {
       planType: resolvedPlanType,
       installmentNo: 1,
       referralCode: resolvedReferralCode,
+      initiatedBy: { actor: "student", actorUserId: req.user.userId },
     });
 
     return res.status(200).json({
@@ -234,6 +254,14 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
+    await recordTransactionEvent(transaction._id, {
+      type: TRANSACTION_EVENTS.VERIFY_REQUESTED,
+      actor: "student",
+      actorUserId: req.user.userId,
+      status: transaction.status,
+      detail: "Student returned from checkout and asked us to verify the payment",
+    });
+
     const order = await getCashfreeOrder(orderId);
     const payments = await getCashfreePaymentsForOrder(orderId).catch(() => []);
     const successfulPayment = getSuccessfulPayment(payments);
@@ -245,6 +273,14 @@ exports.verifyPayment = async (req, res) => {
     });
 
     if (!confirmed.paid) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.GATEWAY_NOT_PAID,
+        actor: "gateway",
+        status: confirmed.transaction?.status || transaction.status,
+        detail: `Gateway reported the order as ${order.order_status} — nothing captured`,
+        meta: { latestPaymentStatus: getLatestPayment(payments)?.payment_status || null },
+      });
+
       return res.status(400).json({
         success: false,
         message: "Payment is not completed yet",
@@ -354,6 +390,20 @@ exports.handleCashfreeWebhook = async (req, res) => {
       }
     );
 
+    if (webhookUpdate.modifiedCount > 0) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.WEBHOOK_RECEIVED,
+        actor: "gateway",
+        status: transaction.status,
+        detail: `Gateway webhook ${event.type} received`,
+        meta: {
+          webhookType: event.type,
+          paymentStatus: payment?.payment_status || null,
+          idempotencyKey: webhookKey,
+        },
+      });
+    }
+
     if (webhookUpdate.modifiedCount === 0) {
       // Already recorded this exact event. Still re-run SUCCESS fulfillment when
       // the order isn't fulfilled yet — a prior delivery may have failed after
@@ -376,7 +426,11 @@ exports.handleCashfreeWebhook = async (req, res) => {
         payment: successfulPayment,
       });
     } else if (event.type === "PAYMENT_FAILED_WEBHOOK") {
-      await PaymentTransaction.updateOne(
+      const failureReason =
+        event?.data?.error_details?.error_description ||
+        payment?.payment_message ||
+        "Payment failed";
+      const failed = await PaymentTransaction.updateOne(
         { _id: transaction._id, status: { $in: ["created", "pending"] } },
         {
           $set: {
@@ -385,15 +439,20 @@ exports.handleCashfreeWebhook = async (req, res) => {
             cashfreePaymentId: payment?.cf_payment_id?.toString() || null,
             cashfreePaymentStatus: payment?.payment_status || "FAILED",
             paymentMode: payment?.payment_group || transaction.paymentMode,
-            lastError:
-              event?.data?.error_details?.error_description ||
-              payment?.payment_message ||
-              "Payment failed",
+            lastError: failureReason,
           },
         }
       );
+      if (failed.modifiedCount > 0) {
+        await recordTransactionEvent(transaction._id, {
+          type: TRANSACTION_EVENTS.FAILED,
+          actor: "gateway",
+          status: "failed",
+          detail: failureReason,
+        });
+      }
     } else if (event.type === "PAYMENT_USER_DROPPED_WEBHOOK") {
-      await PaymentTransaction.updateOne(
+      const dropped = await PaymentTransaction.updateOne(
         { _id: transaction._id, status: { $in: ["created", "pending"] } },
         {
           $set: {
@@ -406,6 +465,14 @@ exports.handleCashfreeWebhook = async (req, res) => {
           },
         }
       );
+      if (dropped.modifiedCount > 0) {
+        await recordTransactionEvent(transaction._id, {
+          type: TRANSACTION_EVENTS.CHECKOUT_DISMISSED,
+          actor: "student",
+          status: "dropped",
+          detail: payment?.payment_message || "Student left the checkout without paying",
+        });
+      }
     }
 
     return res.status(200).json({ success: true });
@@ -469,112 +536,6 @@ exports.getPaymentAccessStatus = asyncHandler(async (req, res) => {
       ...buildPaymentAccessStatus(student),
     });
 });
-
-exports.createNextInstallmentOrder = async (req, res) => {
-  try {
-    if (!isStudentRequest(req)) return studentOnlyResponse(res);
-
-    const userId = new mongoose.Types.ObjectId(req.user.userId);
-    const { courseId, slotId, sessionType } = req.body || {};
-
-    const student = await Student.findOne({ userId }).populate("userId");
-    if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found" });
-    }
-
-    const overduePayments = getOverdueInstallmentPayments(student);
-    const overduePayment = overduePayments.find((payment) => {
-      if (courseId && String(payment.courseId) !== String(courseId)) return false;
-      if (slotId && String(payment.slotId) !== String(slotId)) return false;
-      if (sessionType && payment.sessionType !== sessionType) return false;
-      return true;
-    });
-
-    if (!overduePayment) {
-      return res.status(400).json({
-        success: false,
-        message: "No overdue installment was found for this student",
-      });
-    }
-
-    const nextInstallmentNo = Number(overduePayment.installmentNo || 0) + 1;
-    const installmentTotal = Number(overduePayment.installmentTotal || 1);
-    if (nextInstallmentNo > installmentTotal) {
-      return res.status(400).json({
-        success: false,
-        message: "All installments are already paid for this course",
-      });
-    }
-
-    const context = await loadValidatedEnrollmentContext({
-      courseId: overduePayment.courseId.toString(),
-      teacherId: overduePayment.teacherId.toString(),
-      slotId: overduePayment.slotId.toString(),
-      sessionType: overduePayment.sessionType,
-      deliveryMode: overduePayment.deliveryMode,
-      branchId: overduePayment.branchId?.toString(),
-      allowExistingStudentId: student._id,
-    });
-    if (context.error) {
-      return res
-        .status(context.error.status)
-        .json({ success: false, message: context.error.message });
-    }
-
-    const pricing = buildPricingForPlan(context.course, overduePayment.sessionType, "monthly");
-    if (pricing.error) {
-      return res.status(400).json({ success: false, message: pricing.error });
-    }
-
-    const existingTransaction = await findActiveEnrollmentTransaction({
-      studentId: student._id,
-      courseId: overduePayment.courseId,
-      slotId: overduePayment.slotId,
-      sessionType: overduePayment.sessionType,
-      paymentType: "Installment",
-      installmentNo: nextInstallmentNo,
-    });
-
-    if (existingTransaction?.status === "pending" && existingTransaction.paymentSessionId) {
-      return res.status(200).json({
-        success: true,
-        message: "Existing pending installment order returned",
-        transactionId: existingTransaction._id,
-        order: serializeOrderResponse(existingTransaction),
-      });
-    }
-
-    if (existingTransaction) {
-      return res.status(400).json({
-        success: false,
-        message: "An active installment payment already exists",
-      });
-    }
-
-    const transaction = await createCashfreeEnrollmentTransaction({
-      student,
-      context,
-      pricing,
-      planType: "monthly",
-      installmentNo: nextInstallmentNo,
-      dueDate: new Date(),
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Installment order created successfully",
-      transactionId: transaction._id,
-      order: serializeOrderResponse(transaction),
-    });
-  } catch (error) {
-    console.error("Error creating next installment order:", getCashfreeErrorMessage(error));
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create installment order",
-      error: getCashfreeErrorMessage(error),
-    });
-  }
-};
 
 exports.generateInstallmentOrders = async (req, res) => {
   try {

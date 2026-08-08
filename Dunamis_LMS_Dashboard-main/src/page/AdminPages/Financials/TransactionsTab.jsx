@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "react-hot-toast";
-import { FiCopy } from "react-icons/fi";
+import { FiClock, FiCopy } from "react-icons/fi";
 import { usePaymentsList } from "../../../hooks/usePayments";
+import TransactionTimeline from "./TransactionTimeline";
 import DataTable from "../../../components/Table";
 import Pagination from "../../../components/Pagination";
 import RowActionsMenu from "../../../components/RowActionsMenu";
@@ -41,6 +42,7 @@ const TransactionsTab = ({ initialFilters = {} }) => {
   const [dateField, setDateField] = useState(initialFilters.dateField || "createdAt");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [timelineId, setTimelineId] = useState(null);
 
   // Debounced so typing a name doesn't fire a person-lookup per keystroke.
   useEffect(() => {
@@ -138,6 +140,11 @@ const TransactionsTab = ({ initialFilters = {} }) => {
       render: (_value, row) => (
         <RowActionsMenu
           items={[
+            {
+              label: "View audit trail",
+              icon: <FiClock />,
+              onClick: () => setTimelineId(row._id),
+            },
             {
               label: "Copy order ID",
               icon: <FiCopy />,
@@ -243,6 +250,12 @@ const TransactionsTab = ({ initialFilters = {} }) => {
           )}
         </>
       )}
+
+      <TransactionTimeline
+        open={Boolean(timelineId)}
+        transactionId={timelineId}
+        onClose={() => setTimelineId(null)}
+      />
     </div>
   );
 };

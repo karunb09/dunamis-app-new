@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "react-hot-toast";
-import { FiCopy } from "react-icons/fi";
+import { FiCopy, FiDollarSign } from "react-icons/fi";
 import { useDues } from "../../../hooks/usePayments";
+import RecordCashModal from "./RecordCashModal";
 import DataTable from "../../../components/Table";
 import Pagination from "../../../components/Pagination";
 import RowActionsMenu from "../../../components/RowActionsMenu";
@@ -19,6 +20,7 @@ const inputClass =
 const DuesTab = () => {
   const [page, setPage] = useState(1);
   const [bucket, setBucket] = useState("");
+  const [cashRow, setCashRow] = useState(null);
 
   const { data, isLoading, isError, error, refetch } = useDues({
     page,
@@ -88,6 +90,11 @@ const DuesTab = () => {
       render: (_value, row) => (
         <RowActionsMenu
           items={[
+            {
+              label: "Record cash payment",
+              icon: <FiDollarSign />,
+              onClick: () => setCashRow(row),
+            },
             {
               label: "Copy student email",
               icon: <FiCopy />,
@@ -175,6 +182,13 @@ const DuesTab = () => {
           )}
         </>
       )}
+
+      <RecordCashModal
+        open={Boolean(cashRow)}
+        due={cashRow}
+        onClose={() => setCashRow(null)}
+        onRecorded={() => refetch()}
+      />
     </div>
   );
 };

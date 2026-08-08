@@ -232,6 +232,7 @@ const loadValidatedEnrollmentContext = async ({
 
 const mapStudentPaymentMode = (paymentGroup) => {
   const group = String(paymentGroup || "").toLowerCase();
+  if (group.includes("cash")) return "Cash";
   if (group.includes("upi")) return "UPI";
   if (group.includes("debit")) return "Debit Card";
   if (group.includes("credit")) return "Credit Card";
@@ -418,11 +419,45 @@ const getLatestInstallmentPerEnrollment = (student) => {
   return [...latestByEnrollment.values()];
 };
 
-const getOverdueInstallmentPayments = (student, asOf = new Date()) =>
-  getLatestInstallmentPerEnrollment(student).filter(
-    (payment) =>
-      payment.monthlyPaymentStatus === "pending" && new Date(payment.dueDate) < asOf
+const DAY_MS = 86400000;
+
+// Pending rows decorated with their timing. Deliberately does NOT cap on
+// installmentTotal: aggregateOutstandingInstallments doesn't either, and
+// tests/dues.aggregation.integration.test.js asserts the two agree exactly.
+const getPendingInstallmentEntries = (student, asOf = new Date()) =>
+  getLatestInstallmentPerEnrollment(student)
+    .filter((payment) => payment.monthlyPaymentStatus === "pending")
+    .map((payment) => {
+      const dueDate = new Date(payment.dueDate);
+      const dayDelta = Math.floor((asOf - dueDate) / DAY_MS);
+
+      return {
+        payment,
+        dueDate,
+        isOverdue: dueDate < asOf,
+        daysLate: dayDelta > 0 ? dayDelta : 0,
+        daysUntilDue: dayDelta < 0 ? Math.abs(dayDelta) : 0,
+        installmentNo: Number(payment.installmentNo || 0),
+        nextInstallmentNo: Number(payment.installmentNo || 0) + 1,
+        installmentTotal: Number(payment.installmentTotal || 1),
+        amountDue: payment.installmentAmount || payment.amount,
+      };
+    })
+    .sort((a, b) => a.dueDate - b.dueDate);
+
+// Every installment the student may pay right now. The previous one is settled,
+// so the next is payable whether or not its due date has passed — paying early
+// used to be impossible, which made the 7-day reminder email ask for something
+// the portal then refused to accept.
+const getPayableInstallments = (student, asOf = new Date()) =>
+  getPendingInstallmentEntries(student, asOf).filter(
+    (entry) => entry.nextInstallmentNo <= entry.installmentTotal
   );
+
+const getOverdueInstallmentPayments = (student, asOf = new Date()) =>
+  getPendingInstallmentEntries(student, asOf)
+    .filter((entry) => entry.isOverdue)
+    .map((entry) => entry.payment);
 
 // The Mongo mirror of getLatestInstallmentPerEnrollment + the overdue filter,
 // run across every student. Cross-checked against the JS version in
@@ -546,6 +581,7 @@ const aggregateOutstandingInstallments = async ({
                     _id: 0,
                     studentId: "$_id.studentId",
                     courseId: "$_id.courseId",
+                    slotId: "$_id.slotId",
                     paymentId: "$latest._id",
                     amountDue: 1,
                     daysLate: 1,
@@ -651,6 +687,8 @@ module.exports = {
   applyStudentFulfillment,
   addStudentToSlot,
   getLatestInstallmentPerEnrollment,
+  getPendingInstallmentEntries,
+  getPayableInstallments,
   getOverdueInstallmentPayments,
   aggregateOutstandingInstallments,
   buildPaymentAccessStatus,

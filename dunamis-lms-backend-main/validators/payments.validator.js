@@ -79,9 +79,27 @@ const duesQuerySchema = z.object({
   minDaysLate: z.coerce.number().int().min(0).nullish(),
 });
 
+const cashInstallmentSchema = z.object({
+  studentId: objectId("studentId"),
+  courseId: objectId("courseId"),
+  // Only needed to disambiguate a student enrolled twice in the same course.
+  slotId: objectId("slotId").nullish(),
+  sessionType: z.enum(["standard", "premium"]).nullish(),
+  // Floors at 1 to match PaymentTransaction.amount; the controller additionally
+  // requires it to equal the outstanding installment exactly.
+  amount: z.coerce.number().min(1, "Amount must be at least 1."),
+  paymentDate: z.coerce
+    .date()
+    .max(new Date(Date.now() + 24 * 60 * 60 * 1000), "The payment date cannot be in the future.")
+    .nullish(),
+  receiptRef: z.string().trim().max(120).nullish(),
+  note: z.string().trim().max(500).nullish(),
+});
+
 module.exports = {
   PAYMENT_STATUSES,
   needsAttentionQuerySchema,
   listPaymentsQuerySchema,
   duesQuerySchema,
+  cashInstallmentSchema,
 };

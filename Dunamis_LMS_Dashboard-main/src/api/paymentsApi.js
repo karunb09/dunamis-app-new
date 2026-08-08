@@ -64,3 +64,21 @@ export async function reverifyPayment(id) {
     throw toError(err, "Re-verification failed");
   }
 }
+
+export async function fetchPaymentDetail(id) {
+  try {
+    const { data } = await axios.get(`/payments/${id}`);
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to load the payment");
+  }
+}
+
+export async function recordCashInstallment(payload) {
+  try {
+    const { data } = await axios.post("/payments/cash-installment", clean(payload));
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to record the cash payment");
+  }
+}
