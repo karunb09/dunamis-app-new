@@ -32,10 +32,16 @@ const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
 const formatDate = (date) => (date ? dayjs(date).format("DD MMM YYYY") : "—");
 
+const MODE_BADGE_CLASS = {
+    online: "bg-emerald-50 text-emerald-600",
+    offline: "bg-sky-50 text-sky-600",
+    hybrid: "bg-purple-50 text-purple-600",
+};
+
 const modeBadge = (mode) =>
     mode ? (
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
-            mode === "online" ? "bg-emerald-50 text-emerald-600" : "bg-sky-50 text-sky-600"
+            MODE_BADGE_CLASS[mode] || "bg-slate-50 text-slate-600"
         }`}>
             {mode}
         </span>
@@ -67,7 +73,9 @@ const EnrolledStudents = () => {
     }, []);
 
     const rows = (studentsByType?.enrolled || []).map((s, index) => {
-        const courses = (s.enrolledCourses || []).map((c) => ({
+        const courses = (s.enrolledCourses || [])
+            .filter((c) => c.active !== false)
+            .map((c) => ({
             name: c.courseId?.name || "Unknown Course",
             code: c.courseId?.code || "",
             category: c.courseId?.category?.name || "",
@@ -452,6 +460,7 @@ ${courses || "No courses enrolled"}`;
                                     <option value="">All</option>
                                     <option value="online">Online</option>
                                     <option value="offline">Offline</option>
+                                    <option value="hybrid">Hybrid</option>
                                 </select>
                             </div>
                             <div>

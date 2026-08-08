@@ -117,6 +117,28 @@ const registerRosterMembership = async (transaction) => {
   return ClassRoster.findById(roster._id);
 };
 
+// Soft-removes a student's active membership from one teacher's roster for a
+// course, so a later reassignment can move them elsewhere. Returns the roster
+// doc found, or null when the enrollment predates ClassRoster (caller must
+// fall back to a direct Slot.students pull).
+const removeRosterMembership = async ({ studentId, courseId, teacherId }) => {
+  const roster = await ClassRoster.findOne({
+    teacherId,
+    courseId,
+    status: "active",
+    "students.studentId": studentId,
+    "students.status": "active",
+  });
+  if (!roster) return null;
+
+  await ClassRoster.updateOne(
+    { _id: roster._id, "students.studentId": studentId },
+    { $set: { "students.$.status": "removed" } }
+  );
+
+  return roster;
+};
+
 // Sets each enrolled slot's students from the roster for its recurring class.
 // Only touches current/future slots (date >= today) so past attendance is never
 // rewritten. The roster is authoritative for enrolled-class membership.
@@ -200,7 +222,10 @@ module.exports = {
   ROLLING_WEEKS,
   rollingRange,
   hasSlotStarted,
+  startOfDay,
+  endOfDay,
   registerRosterMembership,
+  removeRosterMembership,
   applyRostersToSlots,
   getStudentSchedules,
 };

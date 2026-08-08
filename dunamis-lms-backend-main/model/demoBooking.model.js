@@ -70,6 +70,16 @@ const demoBookingSchema = new mongoose.Schema(
       enum: ["Enrolled", "Not Enrolled"],
       default: "Not Enrolled",
     },
+    // Stamped when demoStatus first becomes "Attended" / enrollmentStatus
+    // first becomes "Enrolled" — used for monthly insights conversion rates.
+    attendedAt: {
+      type: Date,
+      default: null,
+    },
+    convertedAt: {
+      type: Date,
+      default: null,
+    },
     followUp: {
       type: String,
       enum: ["Pending", "Contacted", "Closed"],

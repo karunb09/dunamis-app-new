@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useDispatch, useSelector } from "react-redux";
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock, FaPhone, FaTimes, FaUser } from "react-icons/fa";
+import Link from "next/link";
 import StudentShell from "@/components/student/StudentShell";
-import PaymentModal from "@/components/PopupModals/PaymentModal";
 import { getWebsiteToken, getWebsiteUser } from "@/lib/authSession";
 import { resolveImageUrl } from "@/lib/resolveImageUrl";
 import { updateAuthUser } from "@/store/authSlice";
@@ -129,9 +129,6 @@ export default function StudentProfilePage() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [userRecord, setUserRecord] = useState(null);
   const [accessStatus, setAccessStatus] = useState(null);
-  const [paymentOrder, setPaymentOrder] = useState(null);
-  const [payOpen, setPayOpen] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
   const [fields, setFields] = useState({ fullName: "", email: "", mobile: "", image: "" });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -197,58 +194,6 @@ export default function StudentProfilePage() {
   useEffect(() => {
     loadAccessStatus();
   }, [session.token]);
-
-  const createOverduePaymentOrder = async () => {
-    setPaymentLoading(true);
-    try {
-      const overduePayment = accessStatus?.overduePayments?.[0];
-      const response = await fetch(`${BASE_URL}/v1/enrollment/next-installment-order`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
-        },
-        body: JSON.stringify({
-          courseId: overduePayment?.courseId,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok || data.success === false) throw new Error(data.message || "Failed to create payment order");
-
-      setPaymentOrder(data.order);
-      setPayOpen(true);
-    } catch (error) {
-      toast.error(error.message || "Failed to create payment order");
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const verifyOverduePayment = async (paymentDetails) => {
-    try {
-      const orderId = paymentDetails.cashfree_order_id || paymentOrder?.orderId || paymentOrder?.id;
-      const response = await fetch(`${BASE_URL}/v1/enrollment/verify-payment`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(session.token ? { Authorization: `Bearer ${session.token}` } : {}),
-        },
-        body: JSON.stringify({ cashfree_order_id: orderId }),
-      });
-      const data = await response.json();
-      if (!response.ok || data.success === false) throw new Error(data.message || "Payment verification failed");
-
-      toast.success(data.message || "Payment verified");
-      setPayOpen(false);
-      setPaymentOrder(null);
-      await loadAccessStatus();
-    } catch (error) {
-      toast.error(error.message || "Payment verification failed");
-      setPayOpen(false);
-    }
-  };
 
   const saveDetails = async () => {
     if (!userId) return toast.error("User ID not found. Please login again.");
@@ -447,28 +392,21 @@ export default function StudentProfilePage() {
                 <p className="mt-2 text-sm text-red-700">
                   {accessStatus.message || "Please clear your overdue installment to restore course access."}
                 </p>
-                {(accessStatus.overduePayments || []).map((payment) => (
-                  <div key={`${payment.courseId}-${payment.dueDate}`} className="mt-4 rounded-xl bg-white p-4 text-sm text-gray-700">
-                    <p className="font-semibold text-gray-900">{payment.courseName || "Course"}</p>
-                    <p className="mt-1">Amount: ₹{Number(payment.amount || 0).toLocaleString("en-IN")}</p>
-                    <p className="mt-1">Due date: {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString("en-IN") : "N/A"}</p>
-                    <p className="mt-1">Installment: {payment.installmentNo + 1} of {payment.installmentTotal}</p>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={createOverduePaymentOrder}
-                  disabled={paymentLoading}
-                  className="mt-5 rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {paymentLoading ? "Creating order..." : "Pay overdue installment"}
-                </button>
               </div>
             ) : (
               <p className="mt-3 max-w-xl text-sm text-gray-500">
-                Your course payment access is active. Detailed payment history will be connected after full payment parity is completed.
+                Your course payment access is active.
               </p>
             )}
+            <Link
+              href="/student/fees"
+              className="mt-5 inline-flex rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700"
+            >
+              Go to Fees &amp; Payments
+            </Link>
+            <p className="mt-3 text-xs text-gray-500">
+              Dues, receipts and installment history all live on the Fees &amp; Payments page.
+            </p>
           </div>
         ) : (
           <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
@@ -481,18 +419,6 @@ export default function StudentProfilePage() {
       </main>
 
       <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} onSubmit={changePassword} loading={saving} />
-      {payOpen && paymentOrder ? (
-        <PaymentModal
-          open={payOpen}
-          onClose={() => setPayOpen(false)}
-          order={paymentOrder}
-          onSuccess={verifyOverduePayment}
-          onFailure={(error) => {
-            toast.error(error?.description || "Payment failed. Please try again.");
-            setPayOpen(false);
-          }}
-        />
-      ) : null}
     </StudentShell>
   );
 }

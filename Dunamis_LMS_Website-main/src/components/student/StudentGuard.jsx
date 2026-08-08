@@ -9,7 +9,9 @@ import { API_BASE } from "@/lib/apiBase";
 
 // Authenticated access-status check goes through the BFF proxy.
 const BASE_URL = API_BASE;
-const PAYMENT_ALLOWED_PATHS = new Set(["/student/profile"]);
+// Reachable while access is paused — otherwise the student cannot get to the
+// page that clears the overdue fee.
+const PAYMENT_ALLOWED_PATHS = new Set(["/student/profile", "/student/fees"]);
 
 export default function StudentGuard({ children }) {
   const router = useRouter();
@@ -116,10 +118,10 @@ export default function StudentGuard({ children }) {
           ) : null}
           <button
             type="button"
-            onClick={() => router.replace("/student/profile")}
+            onClick={() => router.replace("/student/fees")}
             className="mt-6 rounded-full bg-orange-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-700"
           >
-            Go to Payment Details
+            Pay now and restore access
           </button>
         </div>
       </div>

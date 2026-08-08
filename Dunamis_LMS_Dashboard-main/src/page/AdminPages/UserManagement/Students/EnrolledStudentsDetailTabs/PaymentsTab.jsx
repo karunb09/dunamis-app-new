@@ -1,7 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { FaSearch, FaSortAmountDown, FaFilter } from "react-icons/fa";
-import { FiX } from "react-icons/fi";
+import { FiClock, FiX } from "react-icons/fi";
 import DataTable from "../../../../../components/Table";
+import RecordCashModal from "../../../Financials/RecordCashModal";
+import TransactionTimeline from "../../../Financials/TransactionTimeline";
+import { getPendingInstallments } from "../../../../../utils/feeStatus";
 
 const SORT_OPTIONS = [
     { value: "dateDesc", label: "Date (Newest First)" },
@@ -13,15 +16,24 @@ const SORT_OPTIONS = [
 const STATUS_OPTIONS = ["Paid", "Pending", "Failed"];
 const PAYMENT_TYPE_OPTIONS = ["Full Payment", "Installment"];
 
-const PaymentsTab = ({ student }) => {
+const formatInr = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+
+const PaymentsTab = ({ student, onRefresh }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("dateDesc");
     const [filterOpen, setFilterOpen] = useState(false);
     const [statusFilter, setStatusFilter] = useState("");
     const [paymentTypeFilter, setPaymentTypeFilter] = useState("");
+    const [cashDue, setCashDue] = useState(null);
+    const [timelineId, setTimelineId] = useState(null);
 
     const sortRef = useRef(null);
+
+    const studentName = `${student?.userId?.name?.firstName || ""} ${student?.userId?.name?.lastName || ""}`.trim();
+
+    // Everything this student still owes — the source for cash recording.
+    const pendingInstallments = useMemo(() => getPendingInstallments(student), [student]);
 
     // Close sort dropdown when clicking outside
     useEffect(() => {
@@ -58,6 +70,8 @@ const PaymentsTab = ({ student }) => {
 
         return {
             _id: payment._id,
+            // PaymentTransaction id — opens the full lifecycle trail.
+            transactionRef: payment.transactionRef?._id || payment.transactionRef || null,
             course: courseName,
             sessionType: payment.sessionType || "-",
             amount: `₹${payment.amount?.toLocaleString('en-IN') || 0}`,
@@ -135,6 +149,23 @@ const PaymentsTab = ({ student }) => {
                 </span>
             ),
         },
+        {
+            Header: "",
+            accessor: "transactionRef",
+            render: (value) =>
+                value ? (
+                    <button
+                        type="button"
+                        onClick={() => setTimelineId(value)}
+                        title="View audit trail"
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50"
+                    >
+                        <FiClock /> Trail
+                    </button>
+                ) : (
+                    <span className="text-xs text-slate-400">—</span>
+                ),
+        },
     ];
 
     const exportPaymentsToCSV = () => {
@@ -192,6 +223,64 @@ const PaymentsTab = ({ student }) => {
 
     return (
         <div className="space-y-4">
+            {pendingInstallments.length > 0 && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-semibold text-amber-900">
+                            Outstanding fees ({pendingInstallments.length})
+                        </h3>
+                        <p className="text-xs text-amber-700">
+                            Total {formatInr(pendingInstallments.reduce((sum, d) => sum + Number(d.amountDue || 0), 0))}
+                        </p>
+                    </div>
+                    <div className="space-y-2">
+                        {pendingInstallments.map((due) => (
+                            <div
+                                key={`${due.courseId}-${due.slotId}-${due.installmentNo}`}
+                                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-3"
+                            >
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-slate-800">
+                                        {due.course?.name || "Course"}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        Installment {due.installmentNo + 1} of {due.installmentTotal} ·{" "}
+                                        {due.isOverdue ? (
+                                            <span className="font-medium text-rose-600">
+                                                overdue since {new Date(due.dueDate).toLocaleDateString("en-IN")}
+                                            </span>
+                                        ) : (
+                                            `due ${new Date(due.dueDate).toLocaleDateString("en-IN")}`
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                        {formatInr(due.amountDue)}
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setCashDue({
+                                                ...due,
+                                                studentId: student?._id,
+                                                student: {
+                                                    name: studentName,
+                                                    email: student?.userId?.email,
+                                                },
+                                            })
+                                        }
+                                        className="rounded-2xl bg-[#FF6B35] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#fd5a1f]"
+                                    >
+                                        Record cash
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Top bar */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="relative w-full md:w-1/3">
@@ -315,6 +404,19 @@ const PaymentsTab = ({ student }) => {
                 </div>
                 <DataTable columns={paymentColumns} data={filteredPayments || []} selectable={false} />
             </div>
+
+            <RecordCashModal
+                open={Boolean(cashDue)}
+                due={cashDue}
+                onClose={() => setCashDue(null)}
+                onRecorded={() => onRefresh?.()}
+            />
+
+            <TransactionTimeline
+                open={Boolean(timelineId)}
+                transactionId={timelineId}
+                onClose={() => setTimelineId(null)}
+            />
         </div>
     );
 };

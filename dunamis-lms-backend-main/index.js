@@ -102,6 +102,9 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const courseRequestRoutes = require("./routes/courseRequest.routes");
 const referralRoutes = require("./routes/referral.routes");
 const opsRoutes = require("./routes/ops.routes");
+const insightsRoutes = require("./routes/insights.routes");
+const paymentsRoutes = require("./routes/payments.routes");
+const studentPaymentsRoutes = require("./routes/studentPayments.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -149,6 +152,8 @@ require("./cronJobs/assignment.cron")
 require("./cronJobs/attendanceDigest.cron");
 require("./cronJobs/missedAttendanceReminder.cron");
 require("./cronJobs/classReminder.cron");
+require("./cronJobs/monthlyInsights.cron");
+require("./cronJobs/paymentReconciler.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -223,6 +228,13 @@ app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course-requests", courseRequestRoutes);
 app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/ops", opsRoutes);
+app.use("/api/v1/insights", insightsRoutes);
+app.use("/api/v1/payments", paymentsRoutes);
+// Only order creation is throttled. The fees page polls /summary and posts
+// checkout lifecycle pings, which would otherwise burn the 20-request budget
+// and leave the student unable to start the payment itself.
+app.use("/api/v1/student-payments/order", paymentLimiter);
+app.use("/api/v1/student-payments", studentPaymentsRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

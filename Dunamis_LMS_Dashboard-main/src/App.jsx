@@ -36,6 +36,7 @@ const EnrolledStudents = lazy(() => import("./page/AdminPages/UserManagement/Stu
 const CourseRequestsPage = lazy(() => import("./page/AdminPages/CourseRequests/CourseRequestsPage"));
 const ReferralManagementPage = lazy(() => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"));
 const SystemStatus = lazy(() => import("./page/AdminPages/SystemStatus"));
+const MonthlyReportPage = lazy(() => import("./page/AdminPages/MonthlyReportPage"));
 
 const Dashboard = lazy(() => import("./page/TeacherPages/TeacherCourses/Home"));
 const MyCourses = lazy(() => import("./page/TeacherPages/TeacherCourses/MyCourses"));
@@ -43,7 +44,6 @@ const MyStudent = lazy(() => import("./page/TeacherPages/TeacherCourses/MyStuden
 const Assignment = lazy(() => import("./page/TeacherPages/Assignment"));
 const MySchedule = lazy(() => import("./page/TeacherPages/MySchedule"));
 const Attendance = lazy(() => import("./page/TeacherPages/TeacherCourses/Attendance"));
-const Report = lazy(() => import("./page/TeacherPages/Report"));
 const Assessment = lazy(() => import("./page/TeacherPages/Assessment"));
 const StudentDetail = lazy(() => import("./page/TeacherPages/TeacherCourses/StudentDetail"));
 const Profile = lazy(() => import("./page/TeacherPages/profile"));
@@ -208,6 +208,7 @@ const App = () => {
                 element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><CenterDetailsPage /></RequireAuth>}
               />
               <Route path="/admin/financials" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="financials"><FinancialPage /></RequireAuth>} />
+              <Route path="/admin/reports" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><MonthlyReportPage /></RequireAuth>} />
               <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="enquiries"><EnquiriesPage /></RequireAuth>} />
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
@@ -224,7 +225,6 @@ const App = () => {
               <Route path="/teacher/students" element={<RequireAuth allowedRoles={["teacher"]}><MyStudent /></RequireAuth>} />
               <Route path="/teacher/assignments" element={<RequireAuth allowedRoles={["teacher"]}><Assignment /></RequireAuth>} />
               <Route path="/teacher/schedule" element={<RequireAuth allowedRoles={["teacher"]}><MySchedule /></RequireAuth>} />
-              <Route path="/teacher/reports" element={<RequireAuth allowedRoles={["teacher"]}><Report /></RequireAuth>} />
               <Route path="/teacher/attendance" element={<RequireAuth allowedRoles={["teacher"]}><Attendance /></RequireAuth>} />
               <Route path="/teacher/assessments" element={<RequireAuth allowedRoles={["teacher"]}><Assessment /></RequireAuth>} />
               <Route

@@ -89,4 +89,6 @@ const slotSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+slotSchema.index({ date: 1, slotType: 1 });
+
 module.exports = mongoose.model("Slot", slotSchema);

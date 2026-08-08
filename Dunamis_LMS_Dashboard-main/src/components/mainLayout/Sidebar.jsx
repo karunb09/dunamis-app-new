@@ -71,7 +71,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
-    { to: "/teacher/reports", icon: <FiBarChart2 />, text: "Reports" },
   ];
 
   const adminMenu = [
@@ -145,6 +144,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           icon: <FiDollarSign />,
           text: "Financials",
           permission: "financials",
+        },
+        {
+          to: "/admin/reports",
+          icon: <FiBarChart2 />,
+          text: "Reports & Insights",
+          permission: "reports",
         },
         {
           to: "/admin/enquiries",

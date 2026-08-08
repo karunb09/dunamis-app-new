@@ -19,10 +19,15 @@ const DataTable = ({
     bulkDeleteLabel = "Delete",
     bulkCopyLoading = false,
     bulkCopyLabel = "Copy",
+    // Server-paginated callers pass the full result size and this page's offset;
+    // both default to the client-side values so existing callers are unchanged.
+    totalCount,
+    rangeOffset = 0,
 }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedRows, setSelectedRows] = useState([]);
 
+    const resolvedTotal = totalCount ?? data.length;
     const totalPages = Math.max(1, Math.ceil(data.length / itemsPerPage));
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentData = data.slice(startIndex, startIndex + itemsPerPage);
@@ -91,14 +96,15 @@ const DataTable = ({
             <div className="mb-4 flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white px-5 py-3.5 shadow-[0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p className="text-sm font-semibold text-slate-900">
-                        {data.length}{" "}
+                        {resolvedTotal}{" "}
                         <span className="font-normal text-slate-500">
-                            {data.length === 1 ? "record" : "records"}
+                            {resolvedTotal === 1 ? "record" : "records"}
                         </span>
                     </p>
                     {data.length > 0 && (
                         <p className="mt-0.5 text-xs text-slate-400">
-                            Showing {startIndex + 1}–{endIndex} of {data.length}
+                            Showing {rangeOffset + startIndex + 1}–{rangeOffset + endIndex} of{" "}
+                            {resolvedTotal}
                         </p>
                     )}
                 </div>

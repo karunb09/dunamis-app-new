@@ -18,10 +18,13 @@ const {
   buildPricingForPlan,
   loadValidatedEnrollmentContext,
   syncSlotStudentCount,
-  getOverdueInstallmentPayments,
   buildPaymentAccessStatus,
   normalizeMode,
+  reassignStudentEnrollment,
+  recomputeStudentMode,
 } = require("../services/enrollmentService");
+const { getStudentSchedules } = require("../utils/classRoster");
+const { notifyEvent, notifyUsers } = require("../utils/notificationService");
 const {
   getCashfreeErrorMessage,
   findActiveEnrollmentTransaction,
@@ -34,6 +37,8 @@ const {
   getDisplayName,
   normalizePhone,
   createMerchantOrderId,
+  recordTransactionEvent,
+  TRANSACTION_EVENTS,
 } = require("../services/paymentService");
 const asyncHandler = require("../utils/asyncHandler");
 const { resolveReferralCode, normalizeCode, applyReferralDiscount } = require("../utils/referral");
@@ -149,6 +154,14 @@ exports.createOrder = async (req, res) => {
           activeTransaction.referralCode = resolvedReferralCode;
           await activeTransaction.save();
         }
+        await recordTransactionEvent(activeTransaction._id, {
+          type: TRANSACTION_EVENTS.ORDER_REUSED,
+          actor: "student",
+          actorUserId: req.user.userId,
+          status: activeTransaction.status,
+          amount: activeTransaction.amount,
+          detail: "Student re-opened checkout for this still-valid order",
+        });
         return res.status(200).json({
           success: true,
           message: "Existing pending order returned",
@@ -169,6 +182,16 @@ exports.createOrder = async (req, res) => {
       activeTransaction.status = "expired";
       activeTransaction.lastError = "Superseded by repriced order";
       await activeTransaction.save();
+
+      await recordTransactionEvent(activeTransaction._id, {
+        type: TRANSACTION_EVENTS.ORDER_SUPERSEDED,
+        actor: "student",
+        actorUserId: req.user.userId,
+        status: "expired",
+        detail: `Price changed from ${formatMoney(activeTransaction.amount)} to ${formatMoney(
+          pricing.amount
+        )} — a new order replaced this one`,
+      });
     }
 
     const transaction = await createCashfreeEnrollmentTransaction({
@@ -178,6 +201,7 @@ exports.createOrder = async (req, res) => {
       planType: resolvedPlanType,
       installmentNo: 1,
       referralCode: resolvedReferralCode,
+      initiatedBy: { actor: "student", actorUserId: req.user.userId },
     });
 
     return res.status(200).json({
@@ -234,6 +258,14 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
+    await recordTransactionEvent(transaction._id, {
+      type: TRANSACTION_EVENTS.VERIFY_REQUESTED,
+      actor: "student",
+      actorUserId: req.user.userId,
+      status: transaction.status,
+      detail: "Student returned from checkout and asked us to verify the payment",
+    });
+
     const order = await getCashfreeOrder(orderId);
     const payments = await getCashfreePaymentsForOrder(orderId).catch(() => []);
     const successfulPayment = getSuccessfulPayment(payments);
@@ -245,6 +277,14 @@ exports.verifyPayment = async (req, res) => {
     });
 
     if (!confirmed.paid) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.GATEWAY_NOT_PAID,
+        actor: "gateway",
+        status: confirmed.transaction?.status || transaction.status,
+        detail: `Gateway reported the order as ${order.order_status} — nothing captured`,
+        meta: { latestPaymentStatus: getLatestPayment(payments)?.payment_status || null },
+      });
+
       return res.status(400).json({
         success: false,
         message: "Payment is not completed yet",
@@ -354,6 +394,20 @@ exports.handleCashfreeWebhook = async (req, res) => {
       }
     );
 
+    if (webhookUpdate.modifiedCount > 0) {
+      await recordTransactionEvent(transaction._id, {
+        type: TRANSACTION_EVENTS.WEBHOOK_RECEIVED,
+        actor: "gateway",
+        status: transaction.status,
+        detail: `Gateway webhook ${event.type} received`,
+        meta: {
+          webhookType: event.type,
+          paymentStatus: payment?.payment_status || null,
+          idempotencyKey: webhookKey,
+        },
+      });
+    }
+
     if (webhookUpdate.modifiedCount === 0) {
       // Already recorded this exact event. Still re-run SUCCESS fulfillment when
       // the order isn't fulfilled yet — a prior delivery may have failed after
@@ -376,7 +430,11 @@ exports.handleCashfreeWebhook = async (req, res) => {
         payment: successfulPayment,
       });
     } else if (event.type === "PAYMENT_FAILED_WEBHOOK") {
-      await PaymentTransaction.updateOne(
+      const failureReason =
+        event?.data?.error_details?.error_description ||
+        payment?.payment_message ||
+        "Payment failed";
+      const failed = await PaymentTransaction.updateOne(
         { _id: transaction._id, status: { $in: ["created", "pending"] } },
         {
           $set: {
@@ -385,15 +443,20 @@ exports.handleCashfreeWebhook = async (req, res) => {
             cashfreePaymentId: payment?.cf_payment_id?.toString() || null,
             cashfreePaymentStatus: payment?.payment_status || "FAILED",
             paymentMode: payment?.payment_group || transaction.paymentMode,
-            lastError:
-              event?.data?.error_details?.error_description ||
-              payment?.payment_message ||
-              "Payment failed",
+            lastError: failureReason,
           },
         }
       );
+      if (failed.modifiedCount > 0) {
+        await recordTransactionEvent(transaction._id, {
+          type: TRANSACTION_EVENTS.FAILED,
+          actor: "gateway",
+          status: "failed",
+          detail: failureReason,
+        });
+      }
     } else if (event.type === "PAYMENT_USER_DROPPED_WEBHOOK") {
-      await PaymentTransaction.updateOne(
+      const dropped = await PaymentTransaction.updateOne(
         { _id: transaction._id, status: { $in: ["created", "pending"] } },
         {
           $set: {
@@ -406,6 +469,14 @@ exports.handleCashfreeWebhook = async (req, res) => {
           },
         }
       );
+      if (dropped.modifiedCount > 0) {
+        await recordTransactionEvent(transaction._id, {
+          type: TRANSACTION_EVENTS.CHECKOUT_DISMISSED,
+          actor: "student",
+          status: "dropped",
+          detail: payment?.payment_message || "Student left the checkout without paying",
+        });
+      }
     }
 
     return res.status(200).json({ success: true });
@@ -441,6 +512,7 @@ exports.getEnrolledCourses = asyncHandler(async (req, res) => {
     }
 
     const courses = student.enrolledCourses
+      .filter((course) => course.active !== false)
       .map((course) => course.courseId)
       .filter((course) => course !== null);
 
@@ -469,112 +541,6 @@ exports.getPaymentAccessStatus = asyncHandler(async (req, res) => {
       ...buildPaymentAccessStatus(student),
     });
 });
-
-exports.createNextInstallmentOrder = async (req, res) => {
-  try {
-    if (!isStudentRequest(req)) return studentOnlyResponse(res);
-
-    const userId = new mongoose.Types.ObjectId(req.user.userId);
-    const { courseId, slotId, sessionType } = req.body || {};
-
-    const student = await Student.findOne({ userId }).populate("userId");
-    if (!student) {
-      return res.status(404).json({ success: false, message: "Student not found" });
-    }
-
-    const overduePayments = getOverdueInstallmentPayments(student);
-    const overduePayment = overduePayments.find((payment) => {
-      if (courseId && String(payment.courseId) !== String(courseId)) return false;
-      if (slotId && String(payment.slotId) !== String(slotId)) return false;
-      if (sessionType && payment.sessionType !== sessionType) return false;
-      return true;
-    });
-
-    if (!overduePayment) {
-      return res.status(400).json({
-        success: false,
-        message: "No overdue installment was found for this student",
-      });
-    }
-
-    const nextInstallmentNo = Number(overduePayment.installmentNo || 0) + 1;
-    const installmentTotal = Number(overduePayment.installmentTotal || 1);
-    if (nextInstallmentNo > installmentTotal) {
-      return res.status(400).json({
-        success: false,
-        message: "All installments are already paid for this course",
-      });
-    }
-
-    const context = await loadValidatedEnrollmentContext({
-      courseId: overduePayment.courseId.toString(),
-      teacherId: overduePayment.teacherId.toString(),
-      slotId: overduePayment.slotId.toString(),
-      sessionType: overduePayment.sessionType,
-      deliveryMode: overduePayment.deliveryMode,
-      branchId: overduePayment.branchId?.toString(),
-      allowExistingStudentId: student._id,
-    });
-    if (context.error) {
-      return res
-        .status(context.error.status)
-        .json({ success: false, message: context.error.message });
-    }
-
-    const pricing = buildPricingForPlan(context.course, overduePayment.sessionType, "monthly");
-    if (pricing.error) {
-      return res.status(400).json({ success: false, message: pricing.error });
-    }
-
-    const existingTransaction = await findActiveEnrollmentTransaction({
-      studentId: student._id,
-      courseId: overduePayment.courseId,
-      slotId: overduePayment.slotId,
-      sessionType: overduePayment.sessionType,
-      paymentType: "Installment",
-      installmentNo: nextInstallmentNo,
-    });
-
-    if (existingTransaction?.status === "pending" && existingTransaction.paymentSessionId) {
-      return res.status(200).json({
-        success: true,
-        message: "Existing pending installment order returned",
-        transactionId: existingTransaction._id,
-        order: serializeOrderResponse(existingTransaction),
-      });
-    }
-
-    if (existingTransaction) {
-      return res.status(400).json({
-        success: false,
-        message: "An active installment payment already exists",
-      });
-    }
-
-    const transaction = await createCashfreeEnrollmentTransaction({
-      student,
-      context,
-      pricing,
-      planType: "monthly",
-      installmentNo: nextInstallmentNo,
-      dueDate: new Date(),
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Installment order created successfully",
-      transactionId: transaction._id,
-      order: serializeOrderResponse(transaction),
-    });
-  } catch (error) {
-    console.error("Error creating next installment order:", getCashfreeErrorMessage(error));
-    return res.status(500).json({
-      success: false,
-      message: "Failed to create installment order",
-      error: getCashfreeErrorMessage(error),
-    });
-  }
-};
 
 exports.generateInstallmentOrders = async (req, res) => {
   try {
@@ -854,6 +820,246 @@ exports.adminEnrollStudent = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to enroll student. Please try again.",
+      hint: itHint,
+      error: error.message,
+    });
+  }
+};
+
+// ─── Reassignment ───────────────────────────────────────────────────────────
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const reassignmentEmailTemplate = ({ title, intro, studentName, courseName, scheduleText }) => `
+  <div style="max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
+    <div style="background:#ffffff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#f97316;">Dunamis LMS</p>
+      <h1 style="margin:0 0 14px;color:#111827;font-size:24px;line-height:1.25;">${escapeHtml(title)}</h1>
+      <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.7;">${escapeHtml(intro)}</p>
+      <div style="border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;padding:18px 20px;">
+        <p style="margin:0 0 8px;color:#334155;"><strong>Student:</strong> ${escapeHtml(studentName)}</p>
+        <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(courseName)}</p>
+        <p style="margin:0;color:#334155;"><strong>New schedule:</strong> ${escapeHtml(scheduleText)}</p>
+      </div>
+    </div>
+  </div>
+`;
+
+const sendReassignmentNotification = async ({ student, newCourse, newTeacher, newSlot }) => {
+  const teacherWithUser = await Teacher.findById(newTeacher._id).populate("userId", "name email");
+  const studentName = getDisplayName(student.userId);
+  const days = (newSlot.recurringDays || []).join("/") || "TBD";
+  const scheduleText = `${days}, ${newSlot.startTime || "TBD"}-${newSlot.endTime || "TBD"}`;
+
+  const notificationHtml = reassignmentEmailTemplate({
+    title: "Student reassigned",
+    intro: `${studentName} has been moved into ${newCourse.name} with a new instructor/schedule.`,
+    studentName,
+    courseName: newCourse.name,
+    scheduleText,
+  });
+
+  await Promise.allSettled([
+    notifyEvent({
+      event: "enrollmentReassigned",
+      instructorUser: teacherWithUser?.userId,
+      subject: `Student added to ${newCourse.name}`,
+      html: notificationHtml,
+      instructorSubject: `A student has been added to your ${newCourse.name} class`,
+      instructorHtml: notificationHtml,
+      creatorId: student.userId?._id,
+    }),
+    student.userId?.email
+      ? notifyUsers({
+          title: "Your class has changed",
+          message: `You've been moved to a new class for ${newCourse.name}.`,
+          users: [student.userId],
+          subject: `Your ${newCourse.name} class has changed`,
+          html: reassignmentEmailTemplate({
+            title: "Your class has changed",
+            intro: `You've been moved to a new class for ${newCourse.name}.`,
+            studentName,
+            courseName: newCourse.name,
+            scheduleText,
+          }),
+          creatorId: student.userId._id,
+        })
+      : Promise.resolve(),
+  ]);
+};
+
+exports.reassignEnrollment = async (req, res) => {
+  try {
+    const {
+      studentId,
+      enrollmentId,
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+    } = req.body;
+
+    const student = await Student.findById(studentId).populate("userId");
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    const enrollment = student.enrolledCourses.id(enrollmentId);
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: "Enrollment not found for this student.",
+      });
+    }
+
+    // enrolledCourses carries no teacher field — ClassRoster is the live
+    // source of truth for "who currently teaches this student this course".
+    const schedules = await getStudentSchedules(studentId);
+    const currentSchedule = schedules.find(
+      (schedule) => String(schedule.courseId) === String(enrollment.courseId)
+    );
+    if (!currentSchedule) {
+      return res.status(409).json({
+        success: false,
+        message: "No active class membership found for this enrollment — it may already be inactive.",
+        hint: itHint,
+      });
+    }
+
+    const oldCourseId = enrollment.courseId;
+    const oldTeacherId = currentSchedule.teacherId;
+    const oldSlotId = enrollment.slotId;
+
+    if (
+      String(courseId) === String(oldCourseId) &&
+      String(teacherId) === String(oldTeacherId) &&
+      String(slotId) === String(oldSlotId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "New course/instructor/slot is identical to the current enrollment.",
+      });
+    }
+
+    const context = await loadValidatedEnrollmentContext({
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+      allowExistingStudentId: studentId,
+    });
+    if (context.error) {
+      return res.status(context.error.status).json({
+        success: false,
+        message: context.error.message,
+        hint: "Verify the course, instructor, batch, and branch details are correct. " + itHint,
+      });
+    }
+
+    try {
+      await reassignStudentEnrollment({
+        studentId,
+        oldCourseId,
+        oldTeacherId,
+        newContext: context,
+        sessionType,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Unable to reassign — the target class may be full.",
+        hint: itHint,
+      });
+    }
+
+    // No Mongo transactions in this codebase — the roster/slot move above has
+    // already happened by this point. This filter only guards the enrolledCourses
+    // write against a concurrent double-submit; it can't undo the roster move.
+    // Deactivate + push are two separate calls because Mongo rejects an update
+    // that combines a positional $set ("enrolledCourses.$...") with a $push on
+    // the same array path in a single operation.
+    const deactivate = await Student.updateOne(
+      {
+        _id: studentId,
+        "enrolledCourses._id": enrollmentId,
+        "enrolledCourses.slotId": oldSlotId,
+        "enrolledCourses.active": { $ne: false },
+      },
+      { $set: { "enrolledCourses.$.active": false } }
+    );
+
+    if (deactivate.modifiedCount === 0) {
+      return res.status(409).json({
+        success: false,
+        message: "This enrollment was already reassigned by someone else. Refresh and try again.",
+      });
+    }
+
+    // A course change starts fresh progress; an instructor-only swap (same
+    // course) carries the student's existing progress forward — it's still
+    // the same course content, just a new teacher/schedule.
+    const sameCourse = String(context.course._id) === String(oldCourseId);
+
+    await Student.updateOne(
+      { _id: studentId },
+      {
+        $push: {
+          enrolledCourses: {
+            courseId: context.course._id,
+            slotId: context.slot._id,
+            progress: sameCourse ? enrollment.progress : 0,
+            status: "in-progress",
+            completedAt: null,
+            joinedAt: new Date(),
+            active: true,
+          },
+          reassignmentHistory: {
+            fromCourseId: oldCourseId,
+            toCourseId: context.course._id,
+            fromTeacherId: oldTeacherId,
+            toTeacherId: context.teacher._id,
+            fromSlotId: oldSlotId,
+            toSlotId: context.slot._id,
+            reassignedBy: req.user._id,
+            reassignedAt: new Date(),
+          },
+        },
+      }
+    );
+
+    await recomputeStudentMode(studentId);
+
+    sendReassignmentNotification({
+      student,
+      newCourse: context.course,
+      newTeacher: context.teacher,
+      newSlot: context.slot,
+    }).catch((error) => console.error("Reassignment notification failed:", error));
+
+    return res.status(200).json({
+      success: true,
+      message: "Student reassigned successfully.",
+      enrollment: {
+        courseId: context.course._id,
+        teacherId: context.teacher._id,
+        slotId: context.slot._id,
+      },
+    });
+  } catch (error) {
+    console.error("Error in reassignEnrollment:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reassign student. Please try again.",
       hint: itHint,
       error: error.message,
     });

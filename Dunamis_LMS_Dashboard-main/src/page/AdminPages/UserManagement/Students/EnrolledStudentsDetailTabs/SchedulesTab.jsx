@@ -16,7 +16,7 @@ const formatDays = (slot) => {
 const SchedulesTab = ({ student }) => {
   const courses = Array.isArray(student?.enrolledCourses) ? student.enrolledCourses : [];
   const schedules = courses
-    .filter((course) => course?.slotDetails)
+    .filter((course) => course?.active !== false && course?.slotDetails)
     .map((course, idx) => {
       const slot = course.slotDetails;
       return {

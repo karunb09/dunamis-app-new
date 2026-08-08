@@ -1,5 +1,6 @@
 const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Student = require("../model/student.model");
+const { getLatestInstallmentPerEnrollment } = require("../services/enrollmentService");
 const {
   createDashboardNotice,
   notifyEvent,
@@ -18,6 +19,10 @@ const formatDate = (value) => {
   });
 };
 
+// Students pay on the website portal, never the admin dashboard.
+const STUDENT_FEES_URL =
+  process.env.STUDENT_FEES_URL || "https://dunamisindia.co.in/student/fees";
+
 const buildInstallmentEmail = ({ title, intro, courseName, amount, dueDate }) => `
   <div style="max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
     <div style="background:#fff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
@@ -29,6 +34,16 @@ const buildInstallmentEmail = ({ title, intro, courseName, amount, dueDate }) =>
         <p style="margin:0 0 8px;color:#334155;"><strong>Amount:</strong> INR ${Number(amount || 0).toLocaleString("en-IN")}</p>
         <p style="margin:0;color:#334155;"><strong>Due date:</strong> ${formatDate(dueDate)}</p>
       </div>
+      <div style="margin:24px 0 8px;text-align:center;">
+        <a href="${escapeHtml(STUDENT_FEES_URL)}"
+           style="display:inline-block;background:#ea580c;color:#ffffff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 32px;border-radius:999px;">
+          Pay this installment
+        </a>
+      </div>
+      <p style="margin:12px 0 0;text-align:center;color:#64748b;font-size:12px;line-height:1.6;">
+        You can also pay in cash at your centre.<br/>
+        If the button does not work, open ${escapeHtml(STUDENT_FEES_URL)}
+      </p>
     </div>
   </div>
 `;
@@ -111,28 +126,7 @@ const checkInstallmentReminders = async () => {
       .populate("payments.courseId", "name code");
 
     for (const student of students) {
-      const latestByEnrollment = new Map();
-
-      (student.payments || [])
-        .filter(
-          (payment) =>
-            payment.paymentType === "Installment" &&
-            payment.PaymentStatus === "completed" &&
-            payment.dueDate
-        )
-        .forEach((payment) => {
-          const key = [
-            payment.courseId?._id || payment.courseId || "course",
-            payment.slotId || "slot",
-            payment.sessionType || "session",
-          ].join(":");
-          const current = latestByEnrollment.get(key);
-          if (!current || Number(payment.installmentNo || 0) > Number(current.installmentNo || 0)) {
-            latestByEnrollment.set(key, payment);
-          }
-        });
-
-      for (const payment of latestByEnrollment.values()) {
+      for (const payment of getLatestInstallmentPerEnrollment(student)) {
         if (payment.monthlyPaymentStatus !== "pending") continue;
 
         const dueDate = new Date(payment.dueDate);

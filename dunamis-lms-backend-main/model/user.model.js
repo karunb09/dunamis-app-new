@@ -126,4 +126,6 @@ userSchema.pre("save", async function () {
   }
 });
 
+userSchema.index({ accountType: 1, createdAt: -1 });
+
 module.exports = mongoose.model("user", userSchema);

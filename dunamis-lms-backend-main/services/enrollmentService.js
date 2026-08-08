@@ -5,7 +5,14 @@ const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
-const { registerRosterMembership, rollingRange, hasSlotStarted } = require("../utils/classRoster");
+const {
+  registerRosterMembership,
+  removeRosterMembership,
+  applyRostersToSlots,
+  rollingRange,
+  hasSlotStarted,
+  startOfDay,
+} = require("../utils/classRoster");
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -232,6 +239,7 @@ const loadValidatedEnrollmentContext = async ({
 
 const mapStudentPaymentMode = (paymentGroup) => {
   const group = String(paymentGroup || "").toLowerCase();
+  if (group.includes("cash")) return "Cash";
   if (group.includes("upi")) return "UPI";
   if (group.includes("debit")) return "Debit Card";
   if (group.includes("credit")) return "Credit Card";
@@ -387,10 +395,108 @@ const addStudentToSlot = async (transaction) => {
   return true;
 };
 
+// ─── Reassignment ─────────────────────────────────────────────────────────────
+
+// Direct fallback for enrollments that predate ClassRoster (no roster row to
+// remove from) — pulls the student out of the old teacher's future "enrolled"
+// slots for that course. Started/past slots are left alone.
+const removeStudentFromSlotFallback = async ({ studentId, courseId, teacherId }) => {
+  const now = new Date();
+  const slots = await Slot.find({
+    createdBy: teacherId,
+    courseId,
+    slotType: "enrolled",
+    students: studentId,
+    date: { $gte: startOfDay(now) },
+  });
+
+  const ops = slots
+    .filter((slot) => !hasSlotStarted(slot, now))
+    .map((slot) => ({
+      updateOne: {
+        filter: { _id: slot._id },
+        update: { $pull: { students: studentId }, $inc: { currentStudentsCount: -1 } },
+      },
+    }));
+
+  if (ops.length) await Slot.bulkWrite(ops, { ordered: false });
+};
+
+// Moves a student's durable class membership from (oldCourseId, oldTeacherId)
+// to newContext (already validated by loadValidatedEnrollmentContext). Adds to
+// the new class BEFORE removing from the old one — if the new class is full,
+// registerRosterMembership throws and the old membership is left untouched, so
+// a capacity failure is always safe to retry. Never touches past/started slots
+// or payment history.
+const reassignStudentEnrollment = async ({
+  studentId,
+  oldCourseId,
+  oldTeacherId,
+  newContext,
+  sessionType,
+}) => {
+  await addStudentToSlot({
+    _id: null,
+    studentId,
+    teacherId: newContext.teacher._id,
+    courseId: newContext.course._id,
+    slotId: newContext.slot._id,
+    sessionType,
+    branchId: newContext.resolvedBranchId,
+    deliveryMode: newContext.resolvedMode,
+    parentAvailabilityId: newContext.slot.parentAvailabilityId || null,
+  });
+
+  const oldRoster = await removeRosterMembership({
+    studentId,
+    courseId: oldCourseId,
+    teacherId: oldTeacherId,
+  });
+
+  if (oldRoster) {
+    const { rangeStart, rangeEnd } = rollingRange();
+    await applyRostersToSlots({ teacherId: oldTeacherId, rangeStart, rangeEnd });
+  } else {
+    await removeStudentFromSlotFallback({
+      studentId,
+      courseId: oldCourseId,
+      teacherId: oldTeacherId,
+    });
+  }
+
+  return { oldRosterFound: Boolean(oldRoster) };
+};
+
+// Recomputes mode from the student's current enrolled courses — "hybrid" when
+// they span both online and offline, otherwise the single shared mode. Only
+// reassignment can cross modes today, so this only needs calling from there.
+const recomputeStudentMode = async (studentId) => {
+  const student = await Student.findById(studentId)
+    .select("enrolledCourses mode")
+    .populate({ path: "enrolledCourses.courseId", select: "mode" });
+  if (!student || !student.enrolledCourses.length) return;
+
+  const modes = new Set(
+    student.enrolledCourses
+      .filter((ec) => ec.active !== false)
+      .map((ec) => ec.courseId?.mode)
+      .filter(Boolean)
+  );
+  if (!modes.size) return;
+
+  const nextMode = modes.size > 1 ? "hybrid" : [...modes][0];
+  if (nextMode !== student.mode) {
+    await Student.updateOne({ _id: studentId }, { $set: { mode: nextMode } });
+  }
+};
+
 // ─── Overdue / access ─────────────────────────────────────────────────────────
 
-const getOverdueInstallmentPayments = (student) => {
-  const now = new Date();
+// The newest completed installment per enrollment group. Only this row carries
+// the live dueDate, so every "does this student owe money" question starts here.
+// Shared by getOverdueInstallmentPayments, the installment reminder cron, and
+// the dues aggregation — keep the grouping in one place.
+const getLatestInstallmentPerEnrollment = (student) => {
   const latestByEnrollment = new Map();
 
   (student?.payments || [])
@@ -412,10 +518,242 @@ const getOverdueInstallmentPayments = (student) => {
       }
     });
 
-  return [...latestByEnrollment.values()].filter(
-    (payment) =>
-      payment.monthlyPaymentStatus === "pending" && new Date(payment.dueDate) < now
+  return [...latestByEnrollment.values()];
+};
+
+const DAY_MS = 86400000;
+
+// Pending rows decorated with their timing. Deliberately does NOT cap on
+// installmentTotal: aggregateOutstandingInstallments doesn't either, and
+// tests/dues.aggregation.integration.test.js asserts the two agree exactly.
+const getPendingInstallmentEntries = (student, asOf = new Date()) =>
+  getLatestInstallmentPerEnrollment(student)
+    .filter((payment) => payment.monthlyPaymentStatus === "pending")
+    .map((payment) => {
+      const dueDate = new Date(payment.dueDate);
+      const dayDelta = Math.floor((asOf - dueDate) / DAY_MS);
+
+      return {
+        payment,
+        dueDate,
+        isOverdue: dueDate < asOf,
+        daysLate: dayDelta > 0 ? dayDelta : 0,
+        daysUntilDue: dayDelta < 0 ? Math.abs(dayDelta) : 0,
+        installmentNo: Number(payment.installmentNo || 0),
+        nextInstallmentNo: Number(payment.installmentNo || 0) + 1,
+        installmentTotal: Number(payment.installmentTotal || 1),
+        amountDue: payment.installmentAmount || payment.amount,
+      };
+    })
+    .sort((a, b) => a.dueDate - b.dueDate);
+
+// Every installment the student may pay right now. The previous one is settled,
+// so the next is payable whether or not its due date has passed — paying early
+// used to be impossible, which made the 7-day reminder email ask for something
+// the portal then refused to accept.
+const getPayableInstallments = (student, asOf = new Date()) =>
+  getPendingInstallmentEntries(student, asOf).filter(
+    (entry) => entry.nextInstallmentNo <= entry.installmentTotal
   );
+
+const getOverdueInstallmentPayments = (student, asOf = new Date()) =>
+  getPendingInstallmentEntries(student, asOf)
+    .filter((entry) => entry.isOverdue)
+    .map((entry) => entry.payment);
+
+// The Mongo mirror of getLatestInstallmentPerEnrollment + the overdue filter,
+// run across every student. Cross-checked against the JS version in
+// tests/dues.aggregation.integration.test.js.
+const aggregateOutstandingInstallments = async ({
+  asOf = new Date(),
+  page = 1,
+  limit = 50,
+  branchId = null,
+  courseId = null,
+  studentId = null,
+  minDaysLate = null,
+  bucket = null,
+  withRows = true,
+} = {}) => {
+  const [result] = await Student.aggregate(
+    [
+      // Cheap candidate narrowing only. Without $elemMatch this matches across
+      // different array elements; correctness is enforced after $unwind.
+      {
+        $match: {
+          "payments.paymentType": "Installment",
+          "payments.monthlyPaymentStatus": "pending",
+          ...(studentId ? { _id: studentId } : {}),
+          ...(branchId ? { branch: branchId } : {}),
+        },
+      },
+      { $unwind: "$payments" },
+      {
+        $match: {
+          "payments.paymentType": "Installment",
+          "payments.PaymentStatus": "completed",
+          "payments.dueDate": { $ne: null },
+          ...(courseId ? { "payments.courseId": courseId } : {}),
+        },
+      },
+      { $sort: { "payments.installmentNo": 1 } },
+      {
+        $group: {
+          _id: {
+            studentId: "$_id",
+            courseId: "$payments.courseId",
+            slotId: "$payments.slotId",
+            sessionType: "$payments.sessionType",
+          },
+          latest: { $last: "$payments" },
+          userId: { $first: "$userId" },
+          branch: { $first: "$branch" },
+        },
+      },
+      {
+        $match: {
+          "latest.monthlyPaymentStatus": "pending",
+          "latest.dueDate": { $lt: asOf },
+        },
+      },
+      {
+        $addFields: {
+          amountDue: { $ifNull: ["$latest.installmentAmount", "$latest.amount"] },
+          daysLate: {
+            $floor: {
+              $divide: [{ $subtract: [asOf, "$latest.dueDate"] }, 86400000],
+            },
+          },
+        },
+      },
+      {
+        $addFields: {
+          bucket: {
+            $switch: {
+              branches: [
+                { case: { $lte: ["$daysLate", 7] }, then: "0-7" },
+                { case: { $lte: ["$daysLate", 30] }, then: "8-30" },
+              ],
+              default: "30+",
+            },
+          },
+        },
+      },
+      ...(bucket ? [{ $match: { bucket } }] : []),
+      ...(minDaysLate != null ? [{ $match: { daysLate: { $gte: minDaysLate } } }] : []),
+      {
+        // An empty $facet sub-pipeline is a passthrough, not a filter, so the
+        // rows branch is omitted entirely rather than set to [] when not wanted.
+        $facet: {
+          ...(withRows
+            ? {
+                rows: [
+                  { $sort: { daysLate: -1, amountDue: -1 } },
+                { $skip: (page - 1) * limit },
+                { $limit: limit },
+                {
+                  $lookup: {
+                    from: "users",
+                    localField: "userId",
+                    foreignField: "_id",
+                    pipeline: [{ $project: { name: 1, email: 1, mobileNo: 1 } }],
+                    as: "user",
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "courses",
+                    localField: "_id.courseId",
+                    foreignField: "_id",
+                    pipeline: [{ $project: { name: 1, code: 1 } }],
+                    as: "course",
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "branches",
+                    localField: "branch",
+                    foreignField: "_id",
+                    pipeline: [{ $project: { branchName: 1 } }],
+                    as: "branchDoc",
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    studentId: "$_id.studentId",
+                    courseId: "$_id.courseId",
+                    slotId: "$_id.slotId",
+                    paymentId: "$latest._id",
+                    amountDue: 1,
+                    daysLate: 1,
+                    bucket: 1,
+                    dueDate: "$latest.dueDate",
+                    installmentNo: "$latest.installmentNo",
+                    installmentTotal: "$latest.installmentTotal",
+                    sessionType: "$_id.sessionType",
+                    lastRemindedAt: {
+                      $ifNull: ["$latest.overdueNoticeSentAt", "$latest.reminderSentAt"],
+                    },
+                    student: {
+                      $let: {
+                        vars: { u: { $first: "$user" } },
+                        in: {
+                          name: {
+                            $trim: {
+                              input: {
+                                $concat: [
+                                  { $ifNull: ["$$u.name.firstName", ""] },
+                                  " ",
+                                  { $ifNull: ["$$u.name.lastName", ""] },
+                                ],
+                              },
+                            },
+                          },
+                          email: "$$u.email",
+                          phone: "$$u.mobileNo",
+                        },
+                      },
+                    },
+                    course: { $first: "$course" },
+                    branch: { $first: "$branchDoc" },
+                  },
+                },
+                ],
+              }
+            : {}),
+          total: [{ $count: "count" }],
+          totals: [
+            {
+              $group: {
+                _id: null,
+                amount: { $sum: "$amountDue" },
+                count: { $sum: 1 },
+                students: { $addToSet: "$_id.studentId" },
+                maxDaysLate: { $max: "$daysLate" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                amount: 1,
+                count: 1,
+                maxDaysLate: 1,
+                students: { $size: "$students" },
+              },
+            },
+          ],
+          aging: [
+            { $group: { _id: "$bucket", amount: { $sum: "$amountDue" }, count: { $sum: 1 } } },
+            { $project: { _id: 0, bucket: "$_id", amount: 1, count: 1 } },
+          ],
+        },
+      },
+    ],
+    { allowDiskUse: true }
+  );
+
+  return { rows: [], total: [], totals: [], aging: [], ...result };
 };
 
 const buildPaymentAccessStatus = (student) => {
@@ -450,6 +788,12 @@ module.exports = {
   getNextInstallmentDueDate,
   applyStudentFulfillment,
   addStudentToSlot,
+  reassignStudentEnrollment,
+  recomputeStudentMode,
+  getLatestInstallmentPerEnrollment,
+  getPendingInstallmentEntries,
+  getPayableInstallments,
   getOverdueInstallmentPayments,
+  aggregateOutstandingInstallments,
   buildPaymentAccessStatus,
 };

@@ -6,6 +6,10 @@ const Enquiry = require("../model/enquiry.model");
 const TeacherApplication = require("../model/teacherApplication.model");
 const DemoBooking = require("../model/demoBooking.model");
 const Branch = require("../model/branch.model");
+const PaymentTransaction = require("../model/paymentTransaction.model");
+
+// Recognized-revenue statuses — keep this in sync with controller/insights.controller.js.
+const PAID_STATUSES = ["paid", "paid_pending_fulfillment", "fulfilled"];
 
 exports.getAdminSummary = asyncHandler(async (req, res) => {
     const [
@@ -27,19 +31,11 @@ exports.getAdminSummary = asyncHandler(async (req, res) => {
       TeacherApplication.countDocuments({ status: { $in: ["new", "shortlisted", "interviewed"] } }),
       DemoBooking.countDocuments({ demoStatus: { $in: ["Booked", "Rescheduled"] } }),
       DemoBooking.countDocuments({ demoStatus: "Attended" }),
-      Student.aggregate([
-        { $unwind: "$payments" },
-        {
-          $match: {
-            "payments.PaymentStatus": { $in: ["completed", "Completed", "paid", "Paid"] },
-          },
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: { $ifNull: ["$payments.amount", 0] } },
-          },
-        },
+      // PaymentTransaction is the authoritative revenue source — it also
+      // captures manual/cash enrollments that Student.payments[] misses.
+      PaymentTransaction.aggregate([
+        { $match: { status: { $in: PAID_STATUSES } } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
     ]);
 

@@ -175,6 +175,11 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Set when isPublished first flips to true; used for monthly insights.
+    publishedAt: {
+      type: Date,
+      default: null,
+    },
     price: [priceSchema],
     teacherMedia: [
       {

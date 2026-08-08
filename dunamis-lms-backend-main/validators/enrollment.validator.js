@@ -33,14 +33,19 @@ const verifyPaymentSchema = z
     { message: "A Cashfree order ID is required.", path: ["cashfree_order_id"] }
   );
 
-const nextInstallmentSchema = z.looseObject({
+const reassignEnrollmentSchema = z.looseObject({
+  studentId: objectId("studentId"),
+  enrollmentId: objectId("enrollmentId"),
   courseId: objectId("courseId"),
-  slotId: objectId("slotId").optional(),
-  sessionType: z.string().trim().optional(),
+  teacherId: objectId("teacherId"),
+  slotId: objectId("slotId"),
+  sessionType: nonEmpty("sessionType"),
+  deliveryMode: z.string().trim().nullish(),
+  branchId: objectId("branchId").nullish(),
 });
 
 module.exports = {
   createOrderSchema,
   verifyPaymentSchema,
-  nextInstallmentSchema,
+  reassignEnrollmentSchema,
 };

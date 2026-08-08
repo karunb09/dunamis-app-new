@@ -1,6 +1,4 @@
 import {
-    FiDownload,
-    FiRefreshCw,
     FiClock,
     FiMonitor,
     FiUsers,
@@ -20,23 +18,13 @@ export default function RemunerationTab({ remunerations, employeeId }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
-                <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-semibold">{formattedMonth}</h2>
-                    {employeeId && (
-                        <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-mono">
-                            {employeeId}
-                        </span>
-                    )}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                    <button className="px-4 py-2 rounded-full border flex items-center gap-2 text-sm hover:bg-gray-50">
-                        <FiDownload /> Download Pay Slips
-                    </button>
-                    <button className="px-4 py-2 rounded-full border flex items-center gap-2 text-sm hover:bg-gray-50">
-                        <FiRefreshCw /> Refresh
-                    </button>
-                </div>
+            <div className="flex items-center gap-3">
+                <h2 className="text-xl font-semibold">{formattedMonth}</h2>
+                {employeeId && (
+                    <span className="px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-full font-mono">
+                        {employeeId}
+                    </span>
+                )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
