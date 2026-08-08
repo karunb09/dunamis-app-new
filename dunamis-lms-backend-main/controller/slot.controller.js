@@ -6,6 +6,7 @@ const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
 const { getMaxStudents, isUnlimited } = require("../utils/slotCapacity");
+const { hasSlotStarted } = require("../utils/classRoster");
 
 const SLOT_DURATION_RULES = {
   enrolled: {
@@ -501,6 +502,12 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
       slots = await fetchSlots();
     }
 
+    // A slot whose start time has already passed today can no longer be
+    // booked into — showing it as "available" leads an admin to assign a
+    // student to a class that will never happen.
+    const now = new Date();
+    slots = slots.filter((slot) => !hasSlotStarted(slot, now));
+
     const teacherIds = [
       ...new Set(
         slots
@@ -523,6 +530,14 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
           availability.days || []
         );
       });
+    });
+
+    // An "enrolled" slot tied to a parentAvailabilityId the teacher no longer
+    // offers (removed from weeklyAvailability) is a dead recurring class —
+    // it won't regenerate future occurrences, so it must not be bookable.
+    slots = slots.filter((slot) => {
+      if (slot.slotType !== "enrolled" || !slot.parentAvailabilityId) return true;
+      return availabilityDaysById.has(String(slot.parentAvailabilityId));
     });
 
     const decoratedSlots = slots.map((slot) => {

@@ -59,10 +59,11 @@ const StudentProfile = () => {
   const phone = student?.userId?.mobileNo || "-";
   const profileImage = student?.userId?.image || "";
 
-  const enrolledCount = Array.isArray(student?.enrolledCourses) ? student.enrolledCourses.length : 0;
-  const completedCoursesCount = Array.isArray(student?.enrolledCourses)
-    ? student.enrolledCourses.filter(course => course.status === "completed").length
-    : 0;
+  const activeEnrolledCourses = Array.isArray(student?.enrolledCourses)
+    ? student.enrolledCourses.filter((course) => course.active !== false)
+    : [];
+  const enrolledCount = activeEnrolledCourses.length;
+  const completedCoursesCount = activeEnrolledCourses.filter(course => course.status === "completed").length;
   const assignmentsCount = Array.isArray(student?.assignment) ? student.assignment.length : 0;
 
   return (

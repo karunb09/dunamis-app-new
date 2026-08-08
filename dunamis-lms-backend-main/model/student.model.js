@@ -74,6 +74,14 @@ const studentSchema = new mongoose.Schema(
           type: Date,
           default: null,
         },
+        // false once an admin reassigns this enrollment to a new
+        // course/instructor — the row stays for history, but is no longer
+        // the student's current class. New reassignments push a fresh entry
+        // rather than mutating this one in place.
+        active: {
+          type: Boolean,
+          default: true,
+        },
       },
     ],
     demoCourse: [
@@ -85,13 +93,25 @@ const studentSchema = new mongoose.Schema(
     ],
     mode: {
       type: String,
-      enum: ["online", "offline"],
+      enum: ["online", "offline", "hybrid"],
       default: "online",
     },
     branch: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Branch",
     },
+    reassignmentHistory: [
+      {
+        fromCourseId: { type: mongoose.Schema.Types.ObjectId, ref: "course" },
+        toCourseId: { type: mongoose.Schema.Types.ObjectId, ref: "course" },
+        fromTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: "teacher" },
+        toTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: "teacher" },
+        fromSlotId: { type: mongoose.Schema.Types.ObjectId, ref: "Slot" },
+        toSlotId: { type: mongoose.Schema.Types.ObjectId, ref: "Slot" },
+        reassignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+        reassignedAt: { type: Date, default: Date.now },
+      },
+    ],
     payments: [
       {
         courseId: {
@@ -260,6 +280,7 @@ studentSchema.set("toJSON", {
       branch: ret.branch,
       demoCourse: ret.demoCourse,
       enrolledCourses: ret.enrolledCourses,
+      reassignmentHistory: ret.reassignmentHistory,
       assignment: ret.assignment,
       followUps: ret.followUps,
       adminActions: ret.adminActions,

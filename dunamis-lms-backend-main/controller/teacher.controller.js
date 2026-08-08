@@ -14,6 +14,7 @@ const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
 const { localFileUpload } = require("../utils/locallyUploader");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
+const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
 
 const normalizeStringArray = (value) => {
   if (Array.isArray(value)) {
@@ -503,22 +504,21 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
         const teacherIdStr = String(teacher._id);
 
         // Students assigned to THIS teacher only — a shared course would
-        // otherwise count every co-teacher's students. payments[].teacherId is
-        // the authoritative student↔teacher link.
-        const students = await Student.find({
-          "payments.teacherId": teacher._id,
-        })
-          .populate({
-            path: "userId",
-            select: "name email mobileNo image",
-          })
-          .populate({
-            path: "enrolledCourses.courseId",
-            select: "name sessionType mode",
-          });
-
-        const studentIds = students.map((s) => s._id);
-        const studentCount = studentIds.length;
+        // otherwise count every co-teacher's students. ClassRoster is the
+        // live source of truth (kept current by admin reassignment);
+        // payments[].teacherId is only a fallback for pre-rollout enrollments.
+        const { candidateIds, resolveCourse } = await resolveTeacherStudentContext(teacher._id);
+        const students = candidateIds.length
+          ? await Student.find({ _id: { $in: candidateIds } })
+              .populate({
+                path: "userId",
+                select: "name email mobileNo image",
+              })
+              .populate({
+                path: "enrolledCourses.courseId",
+                select: "name sessionType mode",
+              })
+          : [];
 
         const feedbacks = await Feedback.find({ courseId: { $in: courseIds } });
         const averageRating =
@@ -527,46 +527,56 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
               feedbacks.length
             : 0;
 
+        const formattedStudents = students
+          .map((s) => {
+            const paymentByCourse = {};
+            (s.payments || []).forEach((p) => {
+              if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
+              const cid = String(p.courseId);
+              if (!paymentByCourse[cid]) {
+                paymentByCourse[cid] = {
+                  deliveryMode: p.deliveryMode || null,
+                  sessionType: p.sessionType || null,
+                };
+              }
+            });
+
+            const courses = s.enrolledCourses
+              .map((ec) => {
+                const cid = String(ec.courseId?._id);
+                const resolved = resolveCourse(s._id, cid, paymentByCourse[cid]);
+                if (!resolved) return null;
+                return {
+                  id: ec.courseId?._id,
+                  name: ec.courseId?.name,
+                  sessionType: resolved.sessionType || ec.courseId?.sessionType,
+                  mode: resolved.deliveryMode || ec.courseId?.mode,
+                  enrollmentDate: ec.enrollmentDate,
+                };
+              })
+              .filter(Boolean);
+
+            return {
+              id: s._id,
+              name: s.userId?.name,
+              email: s.userId?.email,
+              mobileNo: s.userId?.mobileNo,
+              image: s.userId?.image,
+              courses,
+            };
+          })
+          // A candidate with zero remaining courses for this teacher was
+          // reassigned away entirely — drop them from the roster view.
+          .filter((s) => s.courses.length > 0);
+
+        const studentIds = formattedStudents.map((s) => s.id);
+        const studentCount = studentIds.length;
+
         // teacher model
         await Teacher.findByIdAndUpdate(teacher._id, {
           students: studentIds,
           studentCount,
           averageRating: parseFloat(averageRating.toFixed(1)),
-        });
-
-        const formattedStudents = students.map((s) => {
-          const enrollmentByCourse = {};
-          (s.payments || []).forEach((p) => {
-            if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
-            const cid = String(p.courseId);
-            if (!enrollmentByCourse[cid]) {
-              enrollmentByCourse[cid] = {
-                deliveryMode: p.deliveryMode || null,
-                sessionType: p.sessionType || null,
-              };
-            }
-          });
-
-          return {
-            id: s._id,
-            name: s.userId?.name,
-            email: s.userId?.email,
-            mobileNo: s.userId?.mobileNo,
-            image: s.userId?.image,
-            courses: s.enrolledCourses
-              .filter((ec) => enrollmentByCourse[String(ec.courseId?._id)])
-              .map((ec) => {
-                const enrollment =
-                  enrollmentByCourse[String(ec.courseId?._id)] || {};
-                return {
-                  id: ec.courseId?._id,
-                  name: ec.courseId?.name,
-                  sessionType: enrollment.sessionType || ec.courseId?.sessionType,
-                  mode: enrollment.deliveryMode || ec.courseId?.mode,
-                  enrollmentDate: ec.enrollmentDate,
-                };
-              }),
-          };
         });
 
         return {
@@ -762,12 +772,13 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
 
     // Students actually assigned to THIS teacher. A course may have several
     // teachers, so matching by courseId alone leaks every teacher's roster into
-    // each profile. payments[].teacherId is the authoritative student↔teacher
-    // link, written at fulfillment for both online and cash enrollments.
+    // each profile. ClassRoster is the live source of truth (kept current by
+    // admin reassignment); payments[].teacherId is only a fallback for
+    // enrollments that predate the ClassRoster rollout.
     const teacherIdStr = String(teacher._id);
-    const students = await Student.find({
-      "payments.teacherId": teacher._id,
-    })
+    const { candidateIds, resolveCourse } = await resolveTeacherStudentContext(teacher._id);
+    const students = candidateIds.length
+      ? await Student.find({ _id: { $in: candidateIds } })
       .populate({
         path: "userId",
         select: "name email mobileNo image",
@@ -806,10 +817,8 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
             ],
           },
         ],
-      });
-
-    const studentIds = students.map((s) => s._id);
-    const studentCount = studentIds.length;
+      })
+      : [];
 
     // Per-student, per-course recurring schedule (days/time/session type)
     const rosters = await ClassRoster.find({
@@ -841,48 +850,37 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
           feedbacks.length
         : 0;
 
-    // Update teacher stats
-    await Teacher.findByIdAndUpdate(teacher._id, {
-      students: studentIds,
-      studentCount,
-      averageRating: parseFloat(averageRating.toFixed(1)),
-    });
+    // Format students — courses this student takes WITH this teacher, roster-
+    // first (with the payment-snapshot delivery mode/sessionType as fallback
+    // for pre-rollout pairs — the instructor's own mode may be "hybrid",
+    // which is not the student's session mode).
+    const formattedStudents = students
+      .map((s) => {
+        const paymentByCourse = {};
+        (s.payments || []).forEach((p) => {
+          if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
+          const cid = String(p.courseId);
+          if (!paymentByCourse[cid]) {
+            paymentByCourse[cid] = {
+              deliveryMode: p.deliveryMode || null,
+              sessionType: p.sessionType || null,
+            };
+          }
+        });
 
-    // Format students
-    const formattedStudents = students.map((s) => {
-      // Courses this student takes WITH this teacher, plus the delivery mode
-      // (online/offline) captured on the enrolling payment — the instructor's
-      // own mode may be "hybrid", which is not the student's session mode.
-      const enrollmentByCourse = {};
-      (s.payments || []).forEach((p) => {
-        if (String(p.teacherId) !== teacherIdStr || !p.courseId) return;
-        const cid = String(p.courseId);
-        if (!enrollmentByCourse[cid]) {
-          enrollmentByCourse[cid] = {
-            deliveryMode: p.deliveryMode || null,
-            sessionType: p.sessionType || null,
-          };
-        }
-      });
-
-      return {
-        id: s._id,
-        name: s.userId?.name,
-        email: s.userId?.email,
-        mobileNo: s.userId?.mobileNo,
-        image: s.userId?.image,
-        courses: s.enrolledCourses
-          .filter((ec) => enrollmentByCourse[String(ec.courseId?._id)])
+        const courses = s.enrolledCourses
           .map((ec) => {
             const course = ec.courseId;
-            const enrollment = enrollmentByCourse[String(course?._id)] || {};
+            const cid = String(course?._id);
+            const resolved = resolveCourse(s._id, cid, paymentByCourse[cid]);
+            if (!resolved) return null;
             return {
               id: course?._id,
               name: course?.name,
               code: course?.code,
               description: course?.description,
-              sessionType: enrollment.sessionType || course?.sessionType,
-              mode: enrollment.deliveryMode || course?.mode,
+              sessionType: resolved.sessionType || course?.sessionType,
+              mode: resolved.deliveryMode || course?.mode,
               level: course?.level,
               startDate: course?.startDate,
               endDate: course?.endDate,
@@ -896,8 +894,30 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
               enrollmentDate: ec.enrollmentDate,
               schedule: scheduleByStudentCourse[`${s._id}_${course?._id}`] || null,
             };
-          }),
-      };
+          })
+          .filter(Boolean);
+
+        return {
+          id: s._id,
+          name: s.userId?.name,
+          email: s.userId?.email,
+          mobileNo: s.userId?.mobileNo,
+          image: s.userId?.image,
+          courses,
+        };
+      })
+      // A candidate with zero remaining courses for this teacher was
+      // reassigned away entirely — drop them from the roster view.
+      .filter((s) => s.courses.length > 0);
+
+    const studentIds = formattedStudents.map((s) => s.id);
+    const studentCount = studentIds.length;
+
+    // Update teacher stats
+    await Teacher.findByIdAndUpdate(teacher._id, {
+      students: studentIds,
+      studentCount,
+      averageRating: parseFloat(averageRating.toFixed(1)),
     });
 
     // Format teacher for response

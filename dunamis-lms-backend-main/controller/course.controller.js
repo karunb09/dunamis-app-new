@@ -202,7 +202,12 @@ const withPublicCourseTotals = async (courses = []) => {
   const courseIds = courses.map((course) => course._id);
   const studentCounts = await Student.aggregate([
     { $unwind: "$enrolledCourses" },
-    { $match: { "enrolledCourses.courseId": { $in: courseIds } } },
+    {
+      $match: {
+        "enrolledCourses.courseId": { $in: courseIds },
+        "enrolledCourses.active": { $ne: false },
+      },
+    },
     {
       $group: {
         _id: "$enrolledCourses.courseId",
@@ -445,24 +450,24 @@ exports.getAllCoursesAdmin = asyncHandler(async (req, res) => {
 
     courses = courses.map((course) => {
       const enrolledStudents = students
-        .filter(
-          (s) =>
-            Array.isArray(s.enrolledCourses) &&
-            s.enrolledCourses.some(
-              (ec) => ec.courseId.toString() === course._id.toString()
-            )
-        )
         .map((s) => ({
+          student: s,
+          enrollment: Array.isArray(s.enrolledCourses)
+            ? s.enrolledCourses.find(
+                (ec) =>
+                  ec.courseId.toString() === course._id.toString() &&
+                  ec.active !== false
+              )
+            : null,
+        }))
+        .filter(({ enrollment }) => Boolean(enrollment))
+        .map(({ student: s, enrollment }) => ({
           _id: s._id,
           name: `${s.userId.name.firstName} ${s.userId.name.lastName}`,
           email: s.userId.email,
           image: s.userId.image,
-          progress: s.enrolledCourses.find(
-            (ec) => ec.courseId.toString() === course._id.toString()
-          ).progress,
-          status: s.enrolledCourses.find(
-            (ec) => ec.courseId.toString() === course._id.toString()
-          ).status,
+          progress: enrollment.progress,
+          status: enrollment.status,
         }));
 
       return {

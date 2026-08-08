@@ -50,7 +50,10 @@ const getBookingStudentMeta = (booking) => {
 };
 
 const getBookingCourse = (booking) =>
-    booking?.courseId || booking?.slotId?.courseId || booking?.studentId?.enrolledCourses?.[0]?.courseId || null;
+    booking?.courseId ||
+    booking?.slotId?.courseId ||
+    booking?.studentId?.enrolledCourses?.find((c) => c.active !== false)?.courseId ||
+    null;
 
 const getBookingTeacherName = (booking) => {
     const teacherUser = booking?.teacherId?.userId || {};

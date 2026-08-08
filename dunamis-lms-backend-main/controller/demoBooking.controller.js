@@ -369,6 +369,7 @@ exports.bookDemoSlot = asyncHandler(async (req, res) => {
     const isEnrolled = student
       ? student.enrolledCourses.some(
           (course) =>
+            course.active !== false &&
             course.courseId?._id?.toString() === slot.courseId._id.toString()
         )
       : false;

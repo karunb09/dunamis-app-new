@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import * as studentApi from "../api/studentApi";
+import * as enrollmentApi from "../api/enrollmentApi";
 
 export const studentKeys = {
   all: ["students"],
@@ -83,5 +84,20 @@ export function useUpdateStudent() {
       toast.error(hint ? `${err.message} ${hint}` : err.message);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
+export function useReassignEnrollment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => enrollmentApi.reassignEnrollment(payload),
+    onSuccess: (_data, variables) => {
+      toast.success("Student reassigned successfully.");
+      queryClient.invalidateQueries({ queryKey: studentKeys.detail(variables.studentId) });
+    },
+    onError: (err) => {
+      const hint = err.response?.data?.hint;
+      toast.error(hint ? `${err.message} ${hint}` : err.message);
+    },
   });
 }

@@ -162,6 +162,7 @@ exports.getFeesSummary = asyncHandler(async (req, res) => {
   // who has cleared a course can see it as settled.
   const duesByCourse = new Set(dues.map((due) => String(due.courseId)));
   const settled = (student.enrolledCourses || [])
+    .filter((enrollment) => enrollment.active !== false)
     .filter((enrollment) => {
       const courseId = enrollment.courseId?._id || enrollment.courseId;
       return courseId && !duesByCourse.has(String(courseId));

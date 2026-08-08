@@ -5,7 +5,14 @@ const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
-const { registerRosterMembership, rollingRange, hasSlotStarted } = require("../utils/classRoster");
+const {
+  registerRosterMembership,
+  removeRosterMembership,
+  applyRostersToSlots,
+  rollingRange,
+  hasSlotStarted,
+  startOfDay,
+} = require("../utils/classRoster");
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +395,101 @@ const addStudentToSlot = async (transaction) => {
   return true;
 };
 
+// ─── Reassignment ─────────────────────────────────────────────────────────────
+
+// Direct fallback for enrollments that predate ClassRoster (no roster row to
+// remove from) — pulls the student out of the old teacher's future "enrolled"
+// slots for that course. Started/past slots are left alone.
+const removeStudentFromSlotFallback = async ({ studentId, courseId, teacherId }) => {
+  const now = new Date();
+  const slots = await Slot.find({
+    createdBy: teacherId,
+    courseId,
+    slotType: "enrolled",
+    students: studentId,
+    date: { $gte: startOfDay(now) },
+  });
+
+  const ops = slots
+    .filter((slot) => !hasSlotStarted(slot, now))
+    .map((slot) => ({
+      updateOne: {
+        filter: { _id: slot._id },
+        update: { $pull: { students: studentId }, $inc: { currentStudentsCount: -1 } },
+      },
+    }));
+
+  if (ops.length) await Slot.bulkWrite(ops, { ordered: false });
+};
+
+// Moves a student's durable class membership from (oldCourseId, oldTeacherId)
+// to newContext (already validated by loadValidatedEnrollmentContext). Adds to
+// the new class BEFORE removing from the old one — if the new class is full,
+// registerRosterMembership throws and the old membership is left untouched, so
+// a capacity failure is always safe to retry. Never touches past/started slots
+// or payment history.
+const reassignStudentEnrollment = async ({
+  studentId,
+  oldCourseId,
+  oldTeacherId,
+  newContext,
+  sessionType,
+}) => {
+  await addStudentToSlot({
+    _id: null,
+    studentId,
+    teacherId: newContext.teacher._id,
+    courseId: newContext.course._id,
+    slotId: newContext.slot._id,
+    sessionType,
+    branchId: newContext.resolvedBranchId,
+    deliveryMode: newContext.resolvedMode,
+    parentAvailabilityId: newContext.slot.parentAvailabilityId || null,
+  });
+
+  const oldRoster = await removeRosterMembership({
+    studentId,
+    courseId: oldCourseId,
+    teacherId: oldTeacherId,
+  });
+
+  if (oldRoster) {
+    const { rangeStart, rangeEnd } = rollingRange();
+    await applyRostersToSlots({ teacherId: oldTeacherId, rangeStart, rangeEnd });
+  } else {
+    await removeStudentFromSlotFallback({
+      studentId,
+      courseId: oldCourseId,
+      teacherId: oldTeacherId,
+    });
+  }
+
+  return { oldRosterFound: Boolean(oldRoster) };
+};
+
+// Recomputes mode from the student's current enrolled courses — "hybrid" when
+// they span both online and offline, otherwise the single shared mode. Only
+// reassignment can cross modes today, so this only needs calling from there.
+const recomputeStudentMode = async (studentId) => {
+  const student = await Student.findById(studentId)
+    .select("enrolledCourses mode")
+    .populate({ path: "enrolledCourses.courseId", select: "mode" });
+  if (!student || !student.enrolledCourses.length) return;
+
+  const modes = new Set(
+    student.enrolledCourses
+      .filter((ec) => ec.active !== false)
+      .map((ec) => ec.courseId?.mode)
+      .filter(Boolean)
+  );
+  if (!modes.size) return;
+
+  const nextMode = modes.size > 1 ? "hybrid" : [...modes][0];
+  if (nextMode !== student.mode) {
+    await Student.updateOne({ _id: studentId }, { $set: { mode: nextMode } });
+  }
+};
+
 // ─── Overdue / access ─────────────────────────────────────────────────────────
 
 // The newest completed installment per enrollment group. Only this row carries
@@ -686,6 +788,8 @@ module.exports = {
   getNextInstallmentDueDate,
   applyStudentFulfillment,
   addStudentToSlot,
+  reassignStudentEnrollment,
+  recomputeStudentMode,
   getLatestInstallmentPerEnrollment,
   getPendingInstallmentEntries,
   getPayableInstallments,

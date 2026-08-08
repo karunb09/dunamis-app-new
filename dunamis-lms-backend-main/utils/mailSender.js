@@ -1,4 +1,14 @@
 const nodemailer = require("nodemailer");
+const MailLog = require("../model/log.model");
+
+const logMailAttempt = async (to, subject, status, error) => {
+  try {
+    await MailLog.create({ to, subject, status, error });
+  } catch (logError) {
+    console.error("mail log write error", logError);
+  }
+};
+
 const mailSender = async (email, title, body, attachments = []) => {
   try {
     const port = Number(process.env.MAIL_PORT || 465);
@@ -26,9 +36,11 @@ const mailSender = async (email, title, body, attachments = []) => {
       html: `${body}`,
       attachments,
     });
+    await logMailAttempt(email, title, "sent");
     return info;
   } catch (error) {
     console.error("email sender error", error);
+    await logMailAttempt(email, title, "failed", error.message);
     throw error;
   }
 };

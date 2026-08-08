@@ -277,26 +277,32 @@ exports.getStudentById = asyncHandler(async (req, res) => {
     );
 
     const studentData = student.toObject();
-    studentData.enrolledCourses = (studentData.enrolledCourses || []).map((course) => {
-      const courseId = String(course.courseId?._id || course.courseId);
-      const schedule = scheduleByCourse.get(courseId);
-      return {
-        ...course,
-        slotDetails: schedule
-          ? {
-              parentAvailabilityId: schedule.parentAvailabilityId,
-              day: schedule.recurringDays,
-              recurringDays: schedule.recurringDays,
-              startTime: schedule.startTime,
-              endTime: schedule.endTime,
-              sessionType: schedule.sessionType,
-              branchId: schedule.branchId,
-              teacherId: schedule.teacherId,
-              teacherName: teacherNameById.get(String(schedule.teacherId)) || null,
-            }
-          : null,
-      };
-    });
+    studentData.enrolledCourses = (studentData.enrolledCourses || [])
+      // A student viewing their own record should only ever see their
+      // current class — a reassigned-away entry would just confuse them.
+      // Staff (admin/teacher) still see both, so the dashboard can render
+      // the old one as a disabled/history card.
+      .filter((course) => req.user?.accountType !== "student" || course.active !== false)
+      .map((course) => {
+        const courseId = String(course.courseId?._id || course.courseId);
+        const schedule = scheduleByCourse.get(courseId);
+        return {
+          ...course,
+          slotDetails: schedule
+            ? {
+                parentAvailabilityId: schedule.parentAvailabilityId,
+                day: schedule.recurringDays,
+                recurringDays: schedule.recurringDays,
+                startTime: schedule.startTime,
+                endTime: schedule.endTime,
+                sessionType: schedule.sessionType,
+                branchId: schedule.branchId,
+                teacherId: schedule.teacherId,
+                teacherName: teacherNameById.get(String(schedule.teacherId)) || null,
+              }
+            : null,
+        };
+      });
 
     res.status(200).json({
       success: true,

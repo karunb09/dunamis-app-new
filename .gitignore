@@ -62,3 +62,6 @@ docs/*
 
 # claude
 .claude/*
+
+# local-only scripts (hardcode dev-seed data, never commit)
+dunamis-lms-backend-main/scripts/seedDatabase.js

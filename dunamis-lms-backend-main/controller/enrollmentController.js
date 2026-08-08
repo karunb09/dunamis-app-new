@@ -20,7 +20,11 @@ const {
   syncSlotStudentCount,
   buildPaymentAccessStatus,
   normalizeMode,
+  reassignStudentEnrollment,
+  recomputeStudentMode,
 } = require("../services/enrollmentService");
+const { getStudentSchedules } = require("../utils/classRoster");
+const { notifyEvent, notifyUsers } = require("../utils/notificationService");
 const {
   getCashfreeErrorMessage,
   findActiveEnrollmentTransaction,
@@ -508,6 +512,7 @@ exports.getEnrolledCourses = asyncHandler(async (req, res) => {
     }
 
     const courses = student.enrolledCourses
+      .filter((course) => course.active !== false)
       .map((course) => course.courseId)
       .filter((course) => course !== null);
 
@@ -815,6 +820,246 @@ exports.adminEnrollStudent = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to enroll student. Please try again.",
+      hint: itHint,
+      error: error.message,
+    });
+  }
+};
+
+// ─── Reassignment ───────────────────────────────────────────────────────────
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const reassignmentEmailTemplate = ({ title, intro, studentName, courseName, scheduleText }) => `
+  <div style="max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
+    <div style="background:#ffffff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#f97316;">Dunamis LMS</p>
+      <h1 style="margin:0 0 14px;color:#111827;font-size:24px;line-height:1.25;">${escapeHtml(title)}</h1>
+      <p style="margin:0 0 20px;color:#334155;font-size:15px;line-height:1.7;">${escapeHtml(intro)}</p>
+      <div style="border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc;padding:18px 20px;">
+        <p style="margin:0 0 8px;color:#334155;"><strong>Student:</strong> ${escapeHtml(studentName)}</p>
+        <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(courseName)}</p>
+        <p style="margin:0;color:#334155;"><strong>New schedule:</strong> ${escapeHtml(scheduleText)}</p>
+      </div>
+    </div>
+  </div>
+`;
+
+const sendReassignmentNotification = async ({ student, newCourse, newTeacher, newSlot }) => {
+  const teacherWithUser = await Teacher.findById(newTeacher._id).populate("userId", "name email");
+  const studentName = getDisplayName(student.userId);
+  const days = (newSlot.recurringDays || []).join("/") || "TBD";
+  const scheduleText = `${days}, ${newSlot.startTime || "TBD"}-${newSlot.endTime || "TBD"}`;
+
+  const notificationHtml = reassignmentEmailTemplate({
+    title: "Student reassigned",
+    intro: `${studentName} has been moved into ${newCourse.name} with a new instructor/schedule.`,
+    studentName,
+    courseName: newCourse.name,
+    scheduleText,
+  });
+
+  await Promise.allSettled([
+    notifyEvent({
+      event: "enrollmentReassigned",
+      instructorUser: teacherWithUser?.userId,
+      subject: `Student added to ${newCourse.name}`,
+      html: notificationHtml,
+      instructorSubject: `A student has been added to your ${newCourse.name} class`,
+      instructorHtml: notificationHtml,
+      creatorId: student.userId?._id,
+    }),
+    student.userId?.email
+      ? notifyUsers({
+          title: "Your class has changed",
+          message: `You've been moved to a new class for ${newCourse.name}.`,
+          users: [student.userId],
+          subject: `Your ${newCourse.name} class has changed`,
+          html: reassignmentEmailTemplate({
+            title: "Your class has changed",
+            intro: `You've been moved to a new class for ${newCourse.name}.`,
+            studentName,
+            courseName: newCourse.name,
+            scheduleText,
+          }),
+          creatorId: student.userId._id,
+        })
+      : Promise.resolve(),
+  ]);
+};
+
+exports.reassignEnrollment = async (req, res) => {
+  try {
+    const {
+      studentId,
+      enrollmentId,
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+    } = req.body;
+
+    const student = await Student.findById(studentId).populate("userId");
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found." });
+    }
+
+    const enrollment = student.enrolledCourses.id(enrollmentId);
+    if (!enrollment) {
+      return res.status(404).json({
+        success: false,
+        message: "Enrollment not found for this student.",
+      });
+    }
+
+    // enrolledCourses carries no teacher field — ClassRoster is the live
+    // source of truth for "who currently teaches this student this course".
+    const schedules = await getStudentSchedules(studentId);
+    const currentSchedule = schedules.find(
+      (schedule) => String(schedule.courseId) === String(enrollment.courseId)
+    );
+    if (!currentSchedule) {
+      return res.status(409).json({
+        success: false,
+        message: "No active class membership found for this enrollment — it may already be inactive.",
+        hint: itHint,
+      });
+    }
+
+    const oldCourseId = enrollment.courseId;
+    const oldTeacherId = currentSchedule.teacherId;
+    const oldSlotId = enrollment.slotId;
+
+    if (
+      String(courseId) === String(oldCourseId) &&
+      String(teacherId) === String(oldTeacherId) &&
+      String(slotId) === String(oldSlotId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "New course/instructor/slot is identical to the current enrollment.",
+      });
+    }
+
+    const context = await loadValidatedEnrollmentContext({
+      courseId,
+      teacherId,
+      slotId,
+      sessionType,
+      deliveryMode,
+      branchId,
+      allowExistingStudentId: studentId,
+    });
+    if (context.error) {
+      return res.status(context.error.status).json({
+        success: false,
+        message: context.error.message,
+        hint: "Verify the course, instructor, batch, and branch details are correct. " + itHint,
+      });
+    }
+
+    try {
+      await reassignStudentEnrollment({
+        studentId,
+        oldCourseId,
+        oldTeacherId,
+        newContext: context,
+        sessionType,
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Unable to reassign — the target class may be full.",
+        hint: itHint,
+      });
+    }
+
+    // No Mongo transactions in this codebase — the roster/slot move above has
+    // already happened by this point. This filter only guards the enrolledCourses
+    // write against a concurrent double-submit; it can't undo the roster move.
+    // Deactivate + push are two separate calls because Mongo rejects an update
+    // that combines a positional $set ("enrolledCourses.$...") with a $push on
+    // the same array path in a single operation.
+    const deactivate = await Student.updateOne(
+      {
+        _id: studentId,
+        "enrolledCourses._id": enrollmentId,
+        "enrolledCourses.slotId": oldSlotId,
+        "enrolledCourses.active": { $ne: false },
+      },
+      { $set: { "enrolledCourses.$.active": false } }
+    );
+
+    if (deactivate.modifiedCount === 0) {
+      return res.status(409).json({
+        success: false,
+        message: "This enrollment was already reassigned by someone else. Refresh and try again.",
+      });
+    }
+
+    // A course change starts fresh progress; an instructor-only swap (same
+    // course) carries the student's existing progress forward — it's still
+    // the same course content, just a new teacher/schedule.
+    const sameCourse = String(context.course._id) === String(oldCourseId);
+
+    await Student.updateOne(
+      { _id: studentId },
+      {
+        $push: {
+          enrolledCourses: {
+            courseId: context.course._id,
+            slotId: context.slot._id,
+            progress: sameCourse ? enrollment.progress : 0,
+            status: "in-progress",
+            completedAt: null,
+            joinedAt: new Date(),
+            active: true,
+          },
+          reassignmentHistory: {
+            fromCourseId: oldCourseId,
+            toCourseId: context.course._id,
+            fromTeacherId: oldTeacherId,
+            toTeacherId: context.teacher._id,
+            fromSlotId: oldSlotId,
+            toSlotId: context.slot._id,
+            reassignedBy: req.user._id,
+            reassignedAt: new Date(),
+          },
+        },
+      }
+    );
+
+    await recomputeStudentMode(studentId);
+
+    sendReassignmentNotification({
+      student,
+      newCourse: context.course,
+      newTeacher: context.teacher,
+      newSlot: context.slot,
+    }).catch((error) => console.error("Reassignment notification failed:", error));
+
+    return res.status(200).json({
+      success: true,
+      message: "Student reassigned successfully.",
+      enrollment: {
+        courseId: context.course._id,
+        teacherId: context.teacher._id,
+        slotId: context.slot._id,
+      },
+    });
+  } catch (error) {
+    console.error("Error in reassignEnrollment:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reassign student. Please try again.",
       hint: itHint,
       error: error.message,
     });

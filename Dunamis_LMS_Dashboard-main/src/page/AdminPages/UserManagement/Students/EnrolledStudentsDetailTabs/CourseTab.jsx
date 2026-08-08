@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { FiRepeat } from "react-icons/fi";
 import { resolveImageUrl } from "../../../../../utils/resolveImageUrl";
+import ReassignEnrollmentModal from "../ReassignEnrollmentModal";
 
 // Helper: convert hex color to rgba with alpha
 function hexToRgba(hex, alpha = 1) {
@@ -15,15 +18,24 @@ function hexToRgba(hex, alpha = 1) {
 
 const CoursesTab = ({ student }) => {
     const enrolledCourses = student?.enrolledCourses || [];
+    const [reassignTarget, setReassignTarget] = useState(null);
 
     if (enrolledCourses.length === 0) {
         return <p className="text-gray-500">No courses enrolled.</p>;
     }
 
+    // Active enrollments (current class) lead the grid; reassigned-away
+    // entries trail behind as disabled history cards.
+    const sortedCourses = [...enrolledCourses].sort(
+        (a, b) => (b.active !== false ? 1 : 0) - (a.active !== false ? 1 : 0)
+    );
+
     return (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {enrolledCourses.map((item) => {
+            {sortedCourses.map((item) => {
                 const course = item.courseId;
+                const isActive = item.active !== false;
 
                 if (!course) {
                     console.warn("Skipping enrollment with null courseId:", item);
@@ -58,7 +70,9 @@ const CoursesTab = ({ student }) => {
                 return (
                     <div
                         key={item._id}
-                        className="flex bg-white rounded-xl overflow-hidden shadow-sm border border-gray-200"
+                        className={`flex bg-white rounded-xl overflow-hidden shadow-sm border ${
+                            isActive ? "border-gray-200" : "border-gray-200 opacity-60 grayscale"
+                        }`}
                     >
                         <img
                             src={resolveImageUrl(course.image, "/placeholder.png")}
@@ -67,35 +81,55 @@ const CoursesTab = ({ student }) => {
                         />
                         <div className="p-3 flex flex-col justify-between flex-1 min-w-0">
                             <div>
-                                <div className="flex gap-1.5 mb-1.5 flex-wrap">
-                                    {/* Category badge with dynamic color */}
-                                    <span
-                                        className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full"
-                                        style={{
-                                            backgroundColor: categoryBgColor,
-                                            color: categoryColor
-                                        }}
-                                    >
-                                        <span>{categoryIcon}</span>
-                                        <span>{categoryName}</span>
-                                    </span>
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                    <div className="flex gap-1.5 flex-wrap">
+                                        {/* Category badge with dynamic color */}
+                                        <span
+                                            className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium rounded-full"
+                                            style={{
+                                                backgroundColor: categoryBgColor,
+                                                color: categoryColor
+                                            }}
+                                        >
+                                            <span>{categoryIcon}</span>
+                                            <span>{categoryName}</span>
+                                        </span>
 
-                                    {/* Level badge */}
-                                    <span className="text-[11px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full capitalize">
-                                        {course.level}
-                                    </span>
+                                        {/* Level badge */}
+                                        <span className="text-[11px] bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full capitalize">
+                                            {course.level}
+                                        </span>
 
-                                    {/* Status badge */}
-                                    <span
-                                        className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${status === 'completed'
-                                                ? 'bg-green-100 text-green-700'
-                                                : status === 'in-progress'
-                                                    ? 'bg-blue-100 text-blue-700'
-                                                    : 'bg-gray-100 text-gray-700'
-                                            }`}
-                                    >
-                                        {status.replace('-', ' ')}
-                                    </span>
+                                        {/* Status badge */}
+                                        {isActive ? (
+                                            <span
+                                                className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${status === 'completed'
+                                                        ? 'bg-green-100 text-green-700'
+                                                        : status === 'in-progress'
+                                                            ? 'bg-blue-100 text-blue-700'
+                                                            : 'bg-gray-100 text-gray-700'
+                                                    }`}
+                                            >
+                                                {status.replace('-', ' ')}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-600 font-medium">
+                                                Reassigned — inactive
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {isActive && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setReassignTarget(item)}
+                                            title="Reassign instructor / course"
+                                            className="shrink-0 inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                                        >
+                                            <FiRepeat size={11} />
+                                            Reassign
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Course name */}
@@ -117,6 +151,23 @@ const CoursesTab = ({ student }) => {
                                 <p className="text-xs text-gray-500 mt-1">
                                     Mode: <span className="capitalize">{course.mode}</span> • Type: <span className="capitalize">{course.courseType}</span>
                                 </p>
+
+                                {/* Reassignment history, if any */}
+                                {(() => {
+                                    const history = (student?.reassignmentHistory || []).filter(
+                                        (h) => String(h.toCourseId?._id || h.toCourseId) === String(course._id)
+                                    );
+                                    if (!history.length) return null;
+                                    const last = history[history.length - 1];
+                                    return (
+                                        <p className="text-[11px] text-amber-600 mt-1">
+                                            Reassigned {history.length > 1 ? `${history.length} times` : "once"}
+                                            {last?.reassignedAt
+                                                ? ` · last on ${new Date(last.reassignedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                                : ""}
+                                        </p>
+                                    );
+                                })()}
                             </div>
 
                             {/* Progress bar */}
@@ -139,6 +190,15 @@ const CoursesTab = ({ student }) => {
                 );
             })}
         </div>
+
+        {reassignTarget && (
+            <ReassignEnrollmentModal
+                enrollment={reassignTarget}
+                studentId={student._id}
+                onClose={() => setReassignTarget(null)}
+            />
+        )}
+        </>
     );
 };
 
