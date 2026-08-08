@@ -1,7 +1,12 @@
 import { useParams, useLocation } from "react-router-dom";
 import { useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
 import { FiBook, FiCheckCircle, FiAward, FiGrid, FiClipboard, FiEdit3, FiCalendar, FiCreditCard, FiCheckSquare } from "react-icons/fi";
 import { useStudentById } from "../../../../hooks/useStudents";
+import { updateUser } from "../../../../redux/User/UserSlice";
+import { getStoredToken } from "../../../../utils/authSession";
 import IconTabBar from "../../../../components/IconTabBar";
 import PageTabBar from "../../../../components/PageTabBar";
 
@@ -17,6 +22,10 @@ import AttendanceHomeworkTab from "./EnrolledStudentsDetailTabs/AttendanceHomewo
 const StudentProfile = () => {
   const { id } = useParams();
   const location = useLocation();
+  const dispatch = useDispatch();
+  const authToken = useSelector((state) => state.auth.token);
+  const token = authToken || getStoredToken();
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Overview");
   const tabs = useMemo(
@@ -59,11 +68,45 @@ const StudentProfile = () => {
   const phone = student?.userId?.mobileNo || "-";
   const profileImage = student?.userId?.image || "";
 
-  const enrolledCount = Array.isArray(student?.enrolledCourses) ? student.enrolledCourses.length : 0;
-  const completedCoursesCount = Array.isArray(student?.enrolledCourses)
-    ? student.enrolledCourses.filter(course => course.status === "completed").length
-    : 0;
+  const activeEnrolledCourses = Array.isArray(student?.enrolledCourses)
+    ? student.enrolledCourses.filter((course) => course.active !== false)
+    : [];
+  const enrolledCount = activeEnrolledCourses.length;
+  const completedCoursesCount = activeEnrolledCourses.filter(course => course.status === "completed").length;
   const assignmentsCount = Array.isArray(student?.assignment) ? student.assignment.length : 0;
+
+  const accountStatus = (student?.userId?.accountStatus || "active").toLowerCase();
+  const studentName = `${firstName} ${lastName}`.trim() || "this student";
+
+  const handleToggleStatus = async () => {
+    const nextStatus = accountStatus === "active" ? "inactive" : "active";
+    const actionLabel = nextStatus === "inactive" ? "disable" : "enable";
+    if (!window.confirm(`Do you want to ${actionLabel} ${studentName}? Disabling blocks their login.`)) return;
+
+    setStatusUpdating(true);
+    const toastId = toast.loading(`Updating status for ${studentName}…`);
+    try {
+      await dispatch(updateUser({ id: student?.userId?._id, userData: { accountStatus: nextStatus }, token })).unwrap();
+      toast.dismiss(toastId);
+      await Swal.fire({
+        icon: "success",
+        title: "Student status updated",
+        text: `${studentName} is now ${nextStatus === "active" ? "enabled" : "disabled"}.`,
+        confirmButtonColor: "#0f172a",
+      });
+      refetch();
+    } catch (err) {
+      toast.dismiss(toastId);
+      await Swal.fire({
+        icon: "error",
+        title: "Action failed",
+        text: err?.message || `Could not update status for ${studentName}.`,
+        confirmButtonColor: "#dc2626",
+      });
+    } finally {
+      setStatusUpdating(false);
+    }
+  };
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -84,9 +127,23 @@ const StudentProfile = () => {
             <div className="text-sm text-gray-500">{phone}</div>
           </div>
         </div>
-        <span className="bg-blue-100 text-blue-700 px-4 py-1 rounded-full">
-          {student?.userId?.accountStatus === "active" ? "Active" : "Enrolled"}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span
+            className={`px-4 py-1 rounded-full text-sm font-medium ${
+              accountStatus === "active" ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"
+            }`}
+          >
+            {accountStatus === "active" ? "Active" : "Disabled"}
+          </span>
+          <button
+            type="button"
+            onClick={handleToggleStatus}
+            disabled={statusUpdating}
+            className="rounded-full border border-slate-200 px-4 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+          >
+            {accountStatus === "active" ? "Disable" : "Enable"}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

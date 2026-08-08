@@ -1,10 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaFilter, FaList, FaSearch, FaSortAmountDown, FaTh } from "react-icons/fa";
+import { useDispatch, useSelector } from "react-redux";
+import { useQueryClient } from "@tanstack/react-query";
+import { FaFilter, FaList, FaSearch, FaSortAmountDown, FaTh, FaUserCheck, FaUserSlash } from "react-icons/fa";
 import { FiClipboard, FiEye, FiX } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-import { useStudentsByType } from "../../../../hooks/useStudents";
+import Swal from "sweetalert2";
+import { updateUser } from "../../../../redux/User/UserSlice";
+import { useStudentsByType, studentKeys } from "../../../../hooks/useStudents";
 import DataCards from "../../../../components/DataCards";
 import DataTable from "../../../../components/Table";
 import PersonCard from "../../../../components/cards/PersonCard";
@@ -14,6 +18,7 @@ import usePersistedState from "../../../../hooks/usePersistedState";
 import { exportToExcel } from "../../../../utils/exportToExcel";
 import { getFeeStatus, getJoinDate } from "../../../../utils/feeStatus";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+import { getStoredToken } from "../../../../utils/authSession";
 
 const SORT_OPTIONS = [
     { value: "name", label: "Name" },
@@ -32,10 +37,16 @@ const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
 const formatDate = (date) => (date ? dayjs(date).format("DD MMM YYYY") : "—");
 
+const MODE_BADGE_CLASS = {
+    online: "bg-emerald-50 text-emerald-600",
+    offline: "bg-sky-50 text-sky-600",
+    hybrid: "bg-purple-50 text-purple-600",
+};
+
 const modeBadge = (mode) =>
     mode ? (
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${
-            mode === "online" ? "bg-emerald-50 text-emerald-600" : "bg-sky-50 text-sky-600"
+            MODE_BADGE_CLASS[mode] || "bg-slate-50 text-slate-600"
         }`}>
             {mode}
         </span>
@@ -45,6 +56,8 @@ const modeBadge = (mode) =>
 
 const EnrolledStudents = () => {
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const queryClient = useQueryClient();
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
@@ -54,7 +67,10 @@ const EnrolledStudents = () => {
     const [pageSize, setPageSize] = usePersistedState("enrolledStudentsPageSize", 12);
     const [selectedIds, setSelectedIds] = useState([]);
     const [exporting, setExporting] = useState(false);
+    const [processingAction, setProcessingAction] = useState(null);
     const sortRef = useRef();
+    const authToken = useSelector((state) => state.auth.token);
+    const token = authToken || getStoredToken();
 
     const { data: studentsByType, isLoading, error } = useStudentsByType();
 
@@ -67,7 +83,9 @@ const EnrolledStudents = () => {
     }, []);
 
     const rows = (studentsByType?.enrolled || []).map((s, index) => {
-        const courses = (s.enrolledCourses || []).map((c) => ({
+        const courses = (s.enrolledCourses || [])
+            .filter((c) => c.active !== false)
+            .map((c) => ({
             name: c.courseId?.name || "Unknown Course",
             code: c.courseId?.code || "",
             category: c.courseId?.category?.name || "",
@@ -79,6 +97,8 @@ const EnrolledStudents = () => {
             _id: s._id,
             raw: s,
             mockId: `#ERD-${1000 + index}`,
+            userDocId: s.userId?._id,
+            accountStatus: (s.userId?.accountStatus || "active").toLowerCase(),
             name: `${s.userId?.name?.firstName || ""} ${s.userId?.name?.lastName || ""}`.trim() || "Unknown",
             email: s.userId?.email || "",
             phone: s.userId?.mobileNo != null ? String(s.userId.mobileNo) : "",
@@ -194,6 +214,37 @@ ${courses || "No courses enrolled"}`;
         }
     };
 
+    const handleToggleStatus = async (row) => {
+        const nextStatus = row.accountStatus === "active" ? "inactive" : "active";
+        const actionLabel = nextStatus === "inactive" ? "disable" : "enable";
+        if (!window.confirm(`Do you want to ${actionLabel} ${row.name}? Disabling blocks their login.`)) return;
+
+        const actionKey = `status-${row._id}`;
+        setProcessingAction(actionKey);
+        const toastId = toast.loading(`Updating status for ${row.name}…`);
+        try {
+            await dispatch(updateUser({ id: row.userDocId, userData: { accountStatus: nextStatus }, token })).unwrap();
+            queryClient.invalidateQueries({ queryKey: studentKeys.all });
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: "success",
+                title: "Student status updated",
+                text: `${row.name} is now ${nextStatus === "active" ? "enabled" : "disabled"}.`,
+                confirmButtonColor: "#0f172a",
+            });
+        } catch (err) {
+            toast.dismiss(toastId);
+            await Swal.fire({
+                icon: "error",
+                title: "Action failed",
+                text: err?.message || `Could not update status for ${row.name}.`,
+                confirmButtonColor: "#dc2626",
+            });
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
     const buildMenuItems = (row) => [
         {
             label: "View Profile",
@@ -205,7 +256,20 @@ ${courses || "No courses enrolled"}`;
             icon: <FiClipboard size={14} />,
             onClick: () => handleCopyDetails([row]),
         },
+        {
+            label: row.accountStatus === "active" ? "Disable" : "Enable",
+            icon: row.accountStatus === "active" ? <FaUserSlash size={13} /> : <FaUserCheck size={13} />,
+            disabled: Boolean(processingAction),
+            onClick: () => handleToggleStatus(row),
+        },
     ];
+
+    const DISABLED_BADGE = { label: "Disabled", className: "bg-slate-200 text-slate-600", dot: true, dotClass: "bg-slate-400" };
+    const cardStatusBadge = (row) => (row.accountStatus !== "active" ? DISABLED_BADGE : FEE_BADGES[row.feeStatus]);
+    const accountStatusBadge = (row) =>
+        row.accountStatus === "active"
+            ? { label: "Active", className: "bg-emerald-50 text-emerald-600", dot: true, dotClass: "bg-emerald-500" }
+            : DISABLED_BADGE;
 
     const tableColumns = [
         {
@@ -281,6 +345,21 @@ ${courses || "No courses enrolled"}`;
             minWidth: "120px",
             nowrap: true,
             render: (_, row) => formatDate(row.joinedAt),
+        },
+        {
+            key: "status",
+            header: "Status",
+            minWidth: "100px",
+            nowrap: true,
+            render: (_, row) => {
+                const badge = accountStatusBadge(row);
+                return (
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${badge.className}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${badge.dotClass}`} />
+                        {badge.label}
+                    </span>
+                );
+            },
         },
         {
             key: "actions",
@@ -452,6 +531,7 @@ ${courses || "No courses enrolled"}`;
                                     <option value="">All</option>
                                     <option value="online">Online</option>
                                     <option value="offline">Offline</option>
+                                    <option value="hybrid">Hybrid</option>
                                 </select>
                             </div>
                             <div>
@@ -502,7 +582,7 @@ ${courses || "No courses enrolled"}`;
                             avatarSrc={row.avatar || undefined}
                             name={row.name}
                             subtitle={row.courses[0]?.name || "No course"}
-                            statusBadge={FEE_BADGES[row.feeStatus]}
+                            statusBadge={cardStatusBadge(row)}
                             meta={[
                                 { label: "Student ID", value: row.mockId },
                                 { label: "Course Code", value: row.courses[0]?.code || "N/A" },
