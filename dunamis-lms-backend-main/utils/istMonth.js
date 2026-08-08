@@ -23,6 +23,21 @@ const monthWindow = (monthKey) => {
   };
 };
 
+// UTC instant of IST 00:00 on a YYYY-MM-DD calendar date. Date-only filter
+// values mean an IST calendar day, not a UTC one — parsing "2026-08-07" as a
+// plain Date yields UTC midnight, which is 05:30 IST and silently drops the
+// first 5.5 hours of the day.
+const istDayStart = (dayKey) => {
+  const [year, month, day] = String(dayKey).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day) - IST_OFFSET_MS);
+};
+
+// Exclusive upper bound for an inclusive IST end date: start of the next day.
+const istDayEndExclusive = (dayKey) => {
+  const [year, month, day] = String(dayKey).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + 1) - IST_OFFSET_MS);
+};
+
 const shiftMonth = (monthKey, delta) => {
   const [year, month] = monthKey.split("-").map(Number);
   const total = year * 12 + (month - 1) + delta;
@@ -56,6 +71,8 @@ module.exports = {
   currentMonthKey,
   isValidMonthKey,
   monthWindow,
+  istDayStart,
+  istDayEndExclusive,
   shiftMonth,
   monthKeysEndingAt,
   monthLabel,

@@ -71,7 +71,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
-    { to: "/teacher/reports", icon: <FiBarChart2 />, text: "Reports" },
   ];
 
   const adminMenu = [

@@ -126,9 +126,15 @@ const paymentTransactionSchema = new mongoose.Schema(
     verifiedAt: { type: Date, default: null },
     paidAt: { type: Date, default: null },
     failedAt: { type: Date, default: null },
+    // Student got course access + payment record, but the class seat may still
+    // be missing. Distinguishes "paid and got nothing" from "paid, no seat".
+    coreFulfilledAt: { type: Date, default: null },
     fulfilledAt: { type: Date, default: null },
     notificationsSentAt: { type: Date, default: null },
     expiresAt: { type: Date, default: null },
+    reconciledAt: { type: Date, default: null },
+    reconcileAttempts: { type: Number, default: 0 },
+    reconcileLastStatus: { type: String, default: null },
   },
   { timestamps: true }
 );

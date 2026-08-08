@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { FiRefreshCw, FiChevronLeft, FiChevronRight, FiInbox } from "react-icons/fi";
 import { useMonthlyInsights, useInsightMonths } from "../../hooks/useMonthlyInsights";
@@ -410,12 +410,27 @@ const MonthlyReportPage = () => {
                 <div>
                   <p className="text-slate-500">Outstanding dues</p>
                   <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.outstanding.amount)}</p>
-                  <p className="text-xs text-slate-400">{revenue.outstanding.count} transaction(s)</p>
+                  <p className="text-xs text-slate-400">
+                    {revenue.outstanding.count} installment(s)
+                    {revenue.outstanding.asOfNow ? " · as of today" : ""}
+                  </p>
+                  <Link
+                    to="/admin/financials?tab=dues"
+                    className="mt-1 inline-block text-xs font-medium text-orange-600 hover:underline"
+                  >
+                    View who owes →
+                  </Link>
                 </div>
                 <div>
                   <p className="text-slate-500">Refunded</p>
                   <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.refunded.amount)}</p>
                   <p className="text-xs text-slate-400">{revenue.refunded.count} transaction(s)</p>
+                  <Link
+                    to={`/admin/financials?tab=transactions&status=refunded&month=${data.month.key}`}
+                    className="mt-1 inline-block text-xs font-medium text-orange-600 hover:underline"
+                  >
+                    View refunds →
+                  </Link>
                 </div>
                 <div>
                   <p className="text-slate-500">Referral discount given</p>

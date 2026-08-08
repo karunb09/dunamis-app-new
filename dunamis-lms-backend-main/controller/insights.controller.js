@@ -1,4 +1,5 @@
 const asyncHandler = require("../utils/asyncHandler");
+const { aggregateOutstandingInstallments } = require("../services/enrollmentService");
 const {
   monthWindow,
   currentMonthKey,
@@ -135,20 +136,19 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = 
       section("coursesPublished", () => monthlyCountMap(Course, { dateField: "publishedAt", ...ctx }), new Map()),
       section("completions", () => buildCompletionMap(ctx), new Map()),
       section("referrals", () => buildReferralFacet(ctx), null),
+      // Receivables live on student.payments[] — future installments are never
+      // pre-created as PaymentTransaction rows (the website calls create-order
+      // once, then next-installment-order on demand), so querying transactions
+      // here read near-zero regardless of what was actually owed.
+      //
+      // Always as of NOW, never monthEnd: monthlyPaymentStatus carries no
+      // history, so the pending set is today's set no matter which month is
+      // being viewed. Measuring daysLate to a month boundary would age today's
+      // rows against an unrelated date. Surfaced as `asOfNow` for the UI.
       section(
         "outstanding",
-        () =>
-          PaymentTransaction.aggregate([
-            { $match: { feeStatus: "Due", status: { $nin: PAID_STATUSES }, dueDate: { $lt: monthEnd } } },
-            {
-              $group: {
-                _id: null,
-                count: { $sum: 1 },
-                amount: { $sum: { $ifNull: ["$installmentAmount", "$amount"] } },
-              },
-            },
-          ]),
-        []
+        () => aggregateOutstandingInstallments({ asOf: new Date(), withRows: false }),
+        null
       ),
     ]);
 
@@ -344,12 +344,15 @@ async function buildCompletionMap({ trendStart, monthEnd }) {
 async function buildRevenueFacet({ trendStart, monthStart, monthEnd }) {
   const [result] = await PaymentTransaction.aggregate([
     // An order created 31-Jan can be paid 01-Feb; matching createdAt alone
-    // would drop it from February's revenue, so widen the outer match.
+    // would drop it from February's revenue, so widen the outer match. The
+    // refundedAt leg matters too: a June payment refunded in July is outside
+    // both other legs, and without it July's refunded facet reads zero.
     {
       $match: {
         $or: [
           { paidAt: { $gte: trendStart, $lt: monthEnd } },
           { createdAt: { $gte: trendStart, $lt: monthEnd } },
+          { refundedAt: { $gte: trendStart, $lt: monthEnd } },
         ],
       },
     },
@@ -434,9 +437,17 @@ async function buildRevenueFacet({ trendStart, monthStart, monthEnd }) {
             },
           },
         ],
+        // Keyed on refundedAt (not updatedAt, which any unrelated edit bumps),
+        // and summing refundAmount so partial refunds don't over-report.
         refunded: [
-          { $match: { status: "refunded", updatedAt: { $gte: monthStart, $lt: monthEnd } } },
-          { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: "$amount" } } },
+          { $match: { status: "refunded", refundedAt: { $gte: monthStart, $lt: monthEnd } } },
+          {
+            $group: {
+              _id: null,
+              count: { $sum: 1 },
+              amount: { $sum: { $ifNull: ["$refundAmount", "$amount"] } },
+            },
+          },
         ],
       },
     },
@@ -574,7 +585,7 @@ function buildRevenueSection({ revenueFacet, referralFacet, outstanding, monthKe
       topCourses: [],
       byBranch: [],
       refunded: { count: 0, amount: 0 },
-      outstanding: { count: 0, amount: 0 },
+      outstanding: { count: 0, amount: 0, aging: [], asOfNow: true },
       referrals: { count: emptyMetric(monthKeys), revenue: emptyMetric(monthKeys), discountGiven: 0, byReferrerType: [], pendingRewards: 0 },
     };
   }
@@ -608,7 +619,8 @@ function buildRevenueSection({ revenueFacet, referralFacet, outstanding, monthKe
   };
 
   const refundedRow = revenueFacet.refunded?.[0] || { count: 0, amount: 0 };
-  const outstandingRow = outstanding?.[0] || { count: 0, amount: 0 };
+  const outstandingRow = outstanding?.totals?.[0] || { count: 0, amount: 0 };
+  const outstandingAging = outstanding?.aging || [];
 
   const referralByMonth = new Map();
   const referralRevenueByMonth = new Map();
@@ -654,7 +666,15 @@ function buildRevenueSection({ revenueFacet, referralFacet, outstanding, monthKe
       transactions: b.txns,
     })),
     refunded: { count: refundedRow.count || 0, amount: refundedRow.amount || 0 },
-    outstanding: { count: outstandingRow.count || 0, amount: outstandingRow.amount || 0 },
+    // monthlyPaymentStatus carries no history, so a July-overdue installment
+    // paid in August reads as settled when you view July today. This is
+    // receivables as of now, not as of month end — the UI must say so.
+    outstanding: {
+      count: outstandingRow.count || 0,
+      amount: outstandingRow.amount || 0,
+      aging: outstandingAging,
+      asOfNow: true,
+    },
     referrals: {
       count: toMetric(referralByMonth, monthKeys),
       revenue: toMetric(referralRevenueByMonth, monthKeys),

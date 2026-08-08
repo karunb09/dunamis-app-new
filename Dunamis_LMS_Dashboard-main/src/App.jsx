@@ -44,7 +44,6 @@ const MyStudent = lazy(() => import("./page/TeacherPages/TeacherCourses/MyStuden
 const Assignment = lazy(() => import("./page/TeacherPages/Assignment"));
 const MySchedule = lazy(() => import("./page/TeacherPages/MySchedule"));
 const Attendance = lazy(() => import("./page/TeacherPages/TeacherCourses/Attendance"));
-const Report = lazy(() => import("./page/TeacherPages/Report"));
 const Assessment = lazy(() => import("./page/TeacherPages/Assessment"));
 const StudentDetail = lazy(() => import("./page/TeacherPages/TeacherCourses/StudentDetail"));
 const Profile = lazy(() => import("./page/TeacherPages/profile"));
@@ -226,7 +225,6 @@ const App = () => {
               <Route path="/teacher/students" element={<RequireAuth allowedRoles={["teacher"]}><MyStudent /></RequireAuth>} />
               <Route path="/teacher/assignments" element={<RequireAuth allowedRoles={["teacher"]}><Assignment /></RequireAuth>} />
               <Route path="/teacher/schedule" element={<RequireAuth allowedRoles={["teacher"]}><MySchedule /></RequireAuth>} />
-              <Route path="/teacher/reports" element={<RequireAuth allowedRoles={["teacher"]}><Report /></RequireAuth>} />
               <Route path="/teacher/attendance" element={<RequireAuth allowedRoles={["teacher"]}><Attendance /></RequireAuth>} />
               <Route path="/teacher/assessments" element={<RequireAuth allowedRoles={["teacher"]}><Assessment /></RequireAuth>} />
               <Route

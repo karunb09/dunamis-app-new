@@ -1,5 +1,6 @@
 const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Student = require("../model/student.model");
+const { getLatestInstallmentPerEnrollment } = require("../services/enrollmentService");
 const {
   createDashboardNotice,
   notifyEvent,
@@ -111,28 +112,7 @@ const checkInstallmentReminders = async () => {
       .populate("payments.courseId", "name code");
 
     for (const student of students) {
-      const latestByEnrollment = new Map();
-
-      (student.payments || [])
-        .filter(
-          (payment) =>
-            payment.paymentType === "Installment" &&
-            payment.PaymentStatus === "completed" &&
-            payment.dueDate
-        )
-        .forEach((payment) => {
-          const key = [
-            payment.courseId?._id || payment.courseId || "course",
-            payment.slotId || "slot",
-            payment.sessionType || "session",
-          ].join(":");
-          const current = latestByEnrollment.get(key);
-          if (!current || Number(payment.installmentNo || 0) > Number(current.installmentNo || 0)) {
-            latestByEnrollment.set(key, payment);
-          }
-        });
-
-      for (const payment of latestByEnrollment.values()) {
+      for (const payment of getLatestInstallmentPerEnrollment(student)) {
         if (payment.monthlyPaymentStatus !== "pending") continue;
 
         const dueDate = new Date(payment.dueDate);

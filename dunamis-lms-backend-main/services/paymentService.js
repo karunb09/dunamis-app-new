@@ -480,6 +480,10 @@ const fulfillPaidTransaction = async (transactionId) => {
   try {
     await applyStudentFulfillment(transaction);
     coreFulfilled = true;
+    await PaymentTransaction.updateOne(
+      { _id: transaction._id, coreFulfilledAt: null },
+      { $set: { coreFulfilledAt: new Date() } }
+    );
     await addStudentToSlot(transaction);
 
     const fulfilledTransaction = await PaymentTransaction.findOneAndUpdate(
