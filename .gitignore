@@ -50,6 +50,9 @@ original-docs/
 dunamis-lms-backend-main/uploads/
 nginx-conf
 
+# local-only dev seed script (hardcodes a non-prod seed password)
+dunamis-lms-backend-main/scripts/seedDatabase.js
+
 # md files
 Claude.md
 ./*.md

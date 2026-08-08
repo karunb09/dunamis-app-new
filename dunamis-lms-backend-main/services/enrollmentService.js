@@ -5,7 +5,14 @@ const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
-const { registerRosterMembership, rollingRange, hasSlotStarted } = require("../utils/classRoster");
+const {
+  registerRosterMembership,
+  removeRosterMembership,
+  applyRostersToSlots,
+  rollingRange,
+  hasSlotStarted,
+  startOfDay,
+} = require("../utils/classRoster");
 
 // ─── Pricing ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +395,135 @@ const addStudentToSlot = async (transaction) => {
   return true;
 };
 
+// ─── Reassignment ─────────────────────────────────────────────────────────────
+
+// Direct fallback for enrollments that predate ClassRoster (no roster row to
+// remove from) — pulls the student out of the old teacher's future "enrolled"
+// slots for that course. Started/past slots are left alone.
+const removeStudentFromSlotFallback = async ({ studentId, courseId, teacherId }) => {
+  const now = new Date();
+  const slots = await Slot.find({
+    createdBy: teacherId,
+    courseId,
+    slotType: "enrolled",
+    students: studentId,
+    date: { $gte: startOfDay(now) },
+  });
+
+  const ops = slots
+    .filter((slot) => !hasSlotStarted(slot, now))
+    .map((slot) => ({
+      updateOne: {
+        filter: { _id: slot._id },
+        update: { $pull: { students: studentId }, $inc: { currentStudentsCount: -1 } },
+      },
+    }));
+
+  if (ops.length) await Slot.bulkWrite(ops, { ordered: false });
+};
+
+// Moves a student's durable class membership from (oldCourseId, oldTeacherId)
+// to newContext (already validated by loadValidatedEnrollmentContext). Adds to
+// the new class BEFORE removing from the old one — if the new class is full,
+// registerRosterMembership throws and the old membership is left untouched, so
+// a capacity failure is always safe to retry. Never touches past/started slots
+// or payment history.
+const reassignStudentEnrollment = async ({
+  studentId,
+  oldCourseId,
+  oldTeacherId,
+  newContext,
+  sessionType,
+}) => {
+  await addStudentToSlot({
+    _id: null,
+    studentId,
+    teacherId: newContext.teacher._id,
+    courseId: newContext.course._id,
+    slotId: newContext.slot._id,
+    sessionType,
+    branchId: newContext.resolvedBranchId,
+    deliveryMode: newContext.resolvedMode,
+    parentAvailabilityId: newContext.slot.parentAvailabilityId || null,
+  });
+
+  const oldRoster = await removeRosterMembership({
+    studentId,
+    courseId: oldCourseId,
+    teacherId: oldTeacherId,
+  });
+
+  if (oldRoster) {
+    const { rangeStart, rangeEnd } = rollingRange();
+    await applyRostersToSlots({ teacherId: oldTeacherId, rangeStart, rangeEnd });
+  } else {
+    await removeStudentFromSlotFallback({
+      studentId,
+      courseId: oldCourseId,
+      teacherId: oldTeacherId,
+    });
+  }
+
+  return { oldRosterFound: Boolean(oldRoster) };
+};
+
+// Moves the old enrollment's single outstanding installment row (if any) onto
+// the new course/slot/teacher/branch so it keeps surfacing as a due on the
+// Fees tab instead of silently vanishing into "settled" once the old
+// enrollment is deactivated. Amount/installmentNo/installmentTotal/dueDate —
+// the terms the student already agreed to — are left untouched; only the
+// routing fields move.
+const carryForwardPendingDues = async ({ studentId, student, oldCourseId, oldSlotId, sessionType, newContext }) => {
+  const pendingRow = getLatestInstallmentPerEnrollment(student).find((payment) => {
+    const courseId = payment.courseId?._id || payment.courseId;
+    return (
+      String(courseId || "") === String(oldCourseId || "") &&
+      String(payment.slotId || "") === String(oldSlotId || "") &&
+      payment.monthlyPaymentStatus === "pending"
+    );
+  });
+
+  if (!pendingRow) return false;
+
+  await Student.updateOne(
+    { _id: studentId, "payments._id": pendingRow._id },
+    {
+      $set: {
+        "payments.$.courseId": newContext.course._id,
+        "payments.$.slotId": newContext.slot._id,
+        "payments.$.teacherId": newContext.teacher._id,
+        "payments.$.sessionType": sessionType,
+        "payments.$.deliveryMode": newContext.resolvedMode,
+        "payments.$.branchId": newContext.resolvedBranchId || null,
+      },
+    }
+  );
+  return true;
+};
+
+// Recomputes mode from the student's current enrolled courses — "hybrid" when
+// they span both online and offline, otherwise the single shared mode. Only
+// reassignment can cross modes today, so this only needs calling from there.
+const recomputeStudentMode = async (studentId) => {
+  const student = await Student.findById(studentId)
+    .select("enrolledCourses mode")
+    .populate({ path: "enrolledCourses.courseId", select: "mode" });
+  if (!student || !student.enrolledCourses.length) return;
+
+  const modes = new Set(
+    student.enrolledCourses
+      .filter((ec) => ec.active !== false)
+      .map((ec) => ec.courseId?.mode)
+      .filter(Boolean)
+  );
+  if (!modes.size) return;
+
+  const nextMode = modes.size > 1 ? "hybrid" : [...modes][0];
+  if (nextMode !== student.mode) {
+    await Student.updateOne({ _id: studentId }, { $set: { mode: nextMode } });
+  }
+};
+
 // ─── Overdue / access ─────────────────────────────────────────────────────────
 
 // The newest completed installment per enrollment group. Only this row carries
@@ -686,6 +822,9 @@ module.exports = {
   getNextInstallmentDueDate,
   applyStudentFulfillment,
   addStudentToSlot,
+  reassignStudentEnrollment,
+  carryForwardPendingDues,
+  recomputeStudentMode,
   getLatestInstallmentPerEnrollment,
   getPendingInstallmentEntries,
   getPayableInstallments,
