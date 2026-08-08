@@ -147,6 +147,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           permission: "financials",
         },
         {
+          to: "/admin/reports",
+          icon: <FiBarChart2 />,
+          text: "Reports & Insights",
+          permission: "reports",
+        },
+        {
           to: "/admin/enquiries",
           icon: <FiMessageCircle />,
           text: "Enquiries",

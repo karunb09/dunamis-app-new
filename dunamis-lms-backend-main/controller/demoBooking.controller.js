@@ -384,6 +384,7 @@ exports.bookDemoSlot = asyncHandler(async (req, res) => {
       lead: resolvedLead,
       demoStatus: "Booked",
       enrollmentStatus: isEnrolled ? "Enrolled" : "Not Enrolled",
+      convertedAt: isEnrolled ? new Date() : null,
       followUp: "Pending",
       response: "",
     });
@@ -509,7 +510,7 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         path: "slotId",
         select: "createdBy",
       })
-      .select("teacherId slotId");
+      .select("teacherId slotId demoStatus enrollmentStatus");
 
     if (!booking) {
       return res
@@ -536,9 +537,22 @@ exports.updateBooking = asyncHandler(async (req, res) => {
 
     // Teachers may only set the demo status; the rest is admin-managed
     const updateFields = {};
-    if (demoStatus) updateFields.demoStatus = demoStatus;
+    if (demoStatus) {
+      updateFields.demoStatus = demoStatus;
+      if (demoStatus === "Attended" && booking.demoStatus !== "Attended") {
+        updateFields.attendedAt = new Date();
+      }
+    }
     if (!isTeacher) {
-      if (enrollmentStatus) updateFields.enrollmentStatus = enrollmentStatus;
+      if (enrollmentStatus) {
+        updateFields.enrollmentStatus = enrollmentStatus;
+        if (
+          enrollmentStatus === "Enrolled" &&
+          booking.enrollmentStatus !== "Enrolled"
+        ) {
+          updateFields.convertedAt = new Date();
+        }
+      }
       if (followUp) updateFields.followUp = followUp;
       if (response !== undefined) updateFields.response = response;
     }

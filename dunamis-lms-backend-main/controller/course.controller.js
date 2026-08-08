@@ -312,6 +312,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       image: imagePath,
       price: parsedPrice,
       isPublished: publishFlag,
+      publishedAt: publishFlag ? new Date() : null,
     });
    
     try {
@@ -608,6 +609,9 @@ exports.updateCourse = asyncHandler(async (req, res) => {
         typeof req.body.isPublished === "string"
           ? req.body.isPublished === "true"
           : Boolean(req.body.isPublished);
+      if (updateData.isPublished && !existingCourse.isPublished) {
+        updateData.publishedAt = new Date();
+      }
     }
     const nextMode = updateData.mode || existingCourse.mode;
     const parsedBranches = parseArrayField("branches");

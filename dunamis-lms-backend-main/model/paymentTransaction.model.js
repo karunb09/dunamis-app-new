@@ -142,5 +142,6 @@ paymentTransactionSchema.index({
   installmentNo: 1,
   status: 1,
 });
+paymentTransactionSchema.index({ paidAt: -1 });
 
 module.exports = mongoose.model("PaymentTransaction", paymentTransactionSchema);

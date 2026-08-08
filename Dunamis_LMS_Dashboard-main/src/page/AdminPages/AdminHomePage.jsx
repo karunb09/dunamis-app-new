@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import {
   FiArrowUpRight,
   FiAward,
+  FiBarChart2,
   FiBookOpen,
   FiCalendar,
   FiEdit3,
@@ -68,6 +69,14 @@ const ALL_QUICK_LINKS = [
     permission: "enquiries",
     icon: FiMessageSquare,
     chip: "bg-rose-100 text-rose-600",
+  },
+  {
+    title: "Reports",
+    description: "Monthly growth, revenue, funnel, and delivery insights.",
+    to: "/admin/reports",
+    permission: "reports",
+    icon: FiBarChart2,
+    chip: "bg-indigo-100 text-indigo-600",
   },
 ];
 

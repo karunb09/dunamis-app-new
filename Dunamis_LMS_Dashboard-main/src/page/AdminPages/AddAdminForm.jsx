@@ -45,6 +45,7 @@ const AddAdminForm = () => {
             enquiries: false,
             updates: false,
             referralManagement: false,
+            reports: false,
         },
     });
     const [adminUserId, setAdminUserId] = useState("");
@@ -65,6 +66,7 @@ const AddAdminForm = () => {
         { key: "enquiries", label: "Enquiries" },
         { key: "updates", label: "Updates" },
         { key: "referralManagement", label: "Referral Management" },
+        { key: "reports", label: "Reports & Insights" },
     ];
 
     useEffect(() => {
