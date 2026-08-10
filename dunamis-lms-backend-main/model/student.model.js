@@ -200,6 +200,12 @@ const studentSchema = new mongoose.Schema(
           enum: ["monthly", "full", null],
           default: null,
         },
+        // Name of the custom offer bought, snapshotted for the receipt list.
+        // Display only — never read by billing logic.
+        planLabel: {
+          type: String,
+          default: null,
+        },
         paymentType: {
           type: String,
           enum: ["Installment", "Full"],

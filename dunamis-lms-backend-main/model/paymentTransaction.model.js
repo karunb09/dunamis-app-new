@@ -96,6 +96,10 @@ const paymentTransactionSchema = new mongoose.Schema(
     // Chosen fixed-duration plan in months (3 / 6 / 12). Null for legacy
     // transactions that predate tenure plans.
     planMonths: { type: Number, default: null },
+    // Named promotional offer bought instead of a tenure plan. The name is
+    // snapshotted because the offer may be renamed or deleted after purchase.
+    customPlanId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    customPlanName: { type: String, default: null },
     // Freelancer partner code entered by the student at payment.
     referralCode: { type: String, uppercase: true, trim: true, default: null },
     // Pre-discount amount, set only when a referral discount changed the charge.

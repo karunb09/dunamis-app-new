@@ -119,6 +119,7 @@ const AddCoursePage = () => {
                                 totalInstallments: resolveInstallments(p),
                                 installments: resolveInstallments(p),
                                 tenurePlans: Array.isArray(p.tenurePlans) ? p.tenurePlans : [],
+                                customPlans: Array.isArray(p.customPlans) ? p.customPlans : [],
                             };
                         }
                     });
@@ -185,6 +186,20 @@ const AddCoursePage = () => {
 
             if (!Number.isInteger(installments) || installments <= 0) {
                 return `Installments must be a positive number for ${label} pricing`;
+            }
+
+            // Incomplete offers are dropped by the payload mapper — say so
+            // rather than letting the admin's work disappear on save.
+            const offers = Array.isArray(session.customPlans) ? session.customPlans : [];
+            for (const offer of offers) {
+                const name = String(offer.name || "").trim();
+                const price = Number(offer.fullPayment);
+                if (!name) {
+                    return `Every ${label} special offer needs a name`;
+                }
+                if (!Number.isFinite(price) || price <= 0) {
+                    return `"${name}" needs a price above 0`;
+                }
             }
         }
 
@@ -292,6 +307,18 @@ const AddCoursePage = () => {
                         fullPayment: parseFloat(plan.fullPayment) || 0,
                         isActive: plan.isActive ?? true,
                     })).filter((plan) => plan.months > 0),
+                    // _id must survive: it is how the enroll flow and paid
+                    // transactions reference a specific offer.
+                    customPlans: (Array.isArray(session.customPlans) ? session.customPlans : []).map((plan) => ({
+                        ...(plan._id ? { _id: plan._id } : {}),
+                        name: String(plan.name || "").trim(),
+                        description: String(plan.description || "").trim(),
+                        fullPayment: parseFloat(plan.fullPayment) || 0,
+                        originalPrice: parseFloat(plan.originalPrice) || null,
+                        durationMonths: parseInt(plan.durationMonths, 10) || null,
+                        perks: Array.isArray(plan.perks) ? plan.perks : [],
+                        isActive: plan.isActive ?? true,
+                    })).filter((plan) => plan.name && plan.fullPayment > 0),
                 })),
             content: Array.isArray(courseData.content) && courseData.content.length > 0
                 ? courseData.content.map(c => c._id || c)

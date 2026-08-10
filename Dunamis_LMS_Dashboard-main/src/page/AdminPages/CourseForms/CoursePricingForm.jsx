@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import Swal from "sweetalert2";
 
 // Fixed-duration plans the learner can choose from.
 const TENURE_OPTIONS = [3, 6, 12];
@@ -76,6 +77,32 @@ const buildPlans = (session = {}) => {
 const activePlans = (plans = []) =>
     plans.filter((plan) => plan.enabled && toNumber(plan.monthlyFee) > 0);
 
+let offerUidSeq = 0;
+const nextOfferUid = () => `offer-${Date.now()}-${(offerUidSeq += 1)}`;
+
+// Custom offer rows stay as raw strings all the way through the state
+// round-trip — coercing here would rewrite what the admin is mid-way through
+// typing (a trailing "." or a leading "0"). AddCoursePage converts on save.
+const buildCustomPlans = (session = {}) => {
+    const incoming = Array.isArray(session.customPlans) ? session.customPlans : [];
+    return incoming.map((plan = {}) => ({
+        uid: plan.uid || plan._id || nextOfferUid(),
+        ...(plan._id ? { _id: plan._id } : {}),
+        name: plan.name ?? "",
+        description: plan.description ?? "",
+        fullPayment: plan.fullPayment != null ? String(plan.fullPayment) : "",
+        originalPrice: plan.originalPrice != null ? String(plan.originalPrice) : "",
+        durationMonths:
+            plan.durationMonths != null ? String(plan.durationMonths) : "",
+        perks: Array.isArray(plan.perks) ? plan.perks : [],
+        perkDraft: plan.perkDraft ?? "",
+        isActive: plan.isActive ?? true,
+    }));
+};
+
+const activeOffers = (offers = []) =>
+    offers.filter((offer) => offer.isActive && toNumber(offer.fullPayment) > 0);
+
 const primaryPlan = (plans = []) => {
     const active = activePlans(plans);
     return (
@@ -96,6 +123,7 @@ const toPersistedSession = (session) => {
     return {
         ...session,
         plans,
+        customPlans: session.customPlans || buildCustomPlans(session),
         enabled: Boolean(session.enabled),
         monthlyFee: primary ? primary.monthlyFee : "",
         discount: primary ? primary.discount : DEFAULT_DISCOUNT,
@@ -119,6 +147,7 @@ const normalizeSession = (session = {}) =>
         ...session,
         enabled: Boolean(session.enabled),
         plans: buildPlans(session),
+        customPlans: buildCustomPlans(session),
     });
 
 const normalizePricing = (pricing) => ({
@@ -141,7 +170,11 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
             (count, row) => count + activePlans(sessions[row.type]?.plans).length,
             0
         );
-        return { enabledCount: enabledRows.length, totalPlans };
+        const totalOffers = enabledRows.reduce(
+            (count, row) => count + activeOffers(sessions[row.type]?.customPlans).length,
+            0
+        );
+        return { enabledCount: enabledRows.length, totalPlans, totalOffers };
     }, [sessions]);
 
     const commitSessions = (nextSessions) => {
@@ -179,6 +212,84 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
         });
     };
 
+    const commitOffers = (type, customPlans) => {
+        commitSessions({
+            ...sessions,
+            [type]: toPersistedSession({ ...sessions[type], customPlans }),
+        });
+    };
+
+    const handleOfferAdd = (type) => {
+        commitOffers(type, [
+            ...sessions[type].customPlans,
+            {
+                uid: nextOfferUid(),
+                name: "",
+                description: "",
+                fullPayment: "",
+                originalPrice: "",
+                durationMonths: "",
+                perks: [],
+                perkDraft: "",
+                isActive: true,
+            },
+        ]);
+    };
+
+    const handleOfferChange = (type, uid, field, value) => {
+        commitOffers(
+            type,
+            sessions[type].customPlans.map((offer) =>
+                offer.uid === uid ? { ...offer, [field]: value } : offer
+            )
+        );
+    };
+
+    const handleOfferDelete = async (type, uid) => {
+        const offer = sessions[type].customPlans.find((item) => item.uid === uid);
+        const result = await Swal.fire({
+            title: "Delete this offer?",
+            text: offer?.name
+                ? `"${offer.name}" will be removed when you save the course. Students who already bought it keep their record.`
+                : "This offer will be removed when you save the course.",
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#FF6B35",
+            cancelButtonColor: "#64748b",
+            confirmButtonText: "Delete offer",
+        });
+        if (!result.isConfirmed) return;
+        commitOffers(
+            type,
+            sessions[type].customPlans.filter((item) => item.uid !== uid)
+        );
+    };
+
+    const handlePerkAdd = (type, uid) => {
+        const offer = sessions[type].customPlans.find((item) => item.uid === uid);
+        const perk = String(offer?.perkDraft || "").trim();
+        if (!perk || offer.perks.includes(perk)) return;
+        commitOffers(
+            type,
+            sessions[type].customPlans.map((item) =>
+                item.uid === uid
+                    ? { ...item, perks: [...item.perks, perk], perkDraft: "" }
+                    : item
+            )
+        );
+    };
+
+    const handlePerkRemove = (type, uid, perk) => {
+        commitOffers(
+            type,
+            sessions[type].customPlans.map((item) =>
+                item.uid === uid
+                    ? { ...item, perks: item.perks.filter((p) => p !== perk) }
+                    : item
+            )
+        );
+    };
+
     return (
         <div className="space-y-6">
             <section className="overflow-hidden rounded-[32px] border border-slate-200 bg-slate-950 shadow-sm">
@@ -200,7 +311,7 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                             </p>
                         </div>
 
-                        <div className="grid min-w-[280px] grid-cols-2 gap-3">
+                        <div className="grid min-w-[280px] grid-cols-3 gap-3">
                             <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
                                     Active rows
@@ -212,6 +323,12 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                                     Plans live
                                 </p>
                                 <p className="mt-2 text-3xl font-semibold">{summary.totalPlans}</p>
+                            </div>
+                            <div className="rounded-3xl border border-white/10 bg-white/10 p-4 backdrop-blur">
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">
+                                    Offers
+                                </p>
+                                <p className="mt-2 text-3xl font-semibold">{summary.totalOffers}</p>
                             </div>
                         </div>
                     </div>
@@ -381,6 +498,261 @@ const PricingForm = ({ pricing: propPricing, setPricing }) => {
                                         </div>
                                     );
                                 })}
+                            </div>
+
+                            <div className="mt-6 border-t border-slate-200 pt-5">
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+                                            Special offers
+                                        </p>
+                                        <p className="mt-1 text-sm text-slate-500">
+                                            Named promotions paid in full, e.g. "Buy 3 Months, Get 1
+                                            Free".
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        disabled={!isEnabled}
+                                        onClick={() => handleOfferAdd(row.type)}
+                                        className={`rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] ${
+                                            !isEnabled ? "cursor-not-allowed opacity-50" : ""
+                                        }`}
+                                    >
+                                        + Add offer
+                                    </button>
+                                </div>
+
+                                {session.customPlans.length === 0 ? (
+                                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">
+                                        Nothing here yet
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 space-y-4">
+                                        {session.customPlans.map((offer) => (
+                                            <div
+                                                key={offer.uid}
+                                                className={`rounded-[24px] border p-4 transition ${
+                                                    isEnabled && offer.isActive
+                                                        ? "border-orange-200 bg-orange-50/40"
+                                                        : "border-slate-200 bg-slate-50"
+                                                }`}
+                                            >
+                                                <div className="flex items-start gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={offer.name}
+                                                        placeholder="Offer name"
+                                                        disabled={!isEnabled}
+                                                        onChange={(event) =>
+                                                            handleOfferChange(
+                                                                row.type,
+                                                                offer.uid,
+                                                                "name",
+                                                                event.target.value
+                                                            )
+                                                        }
+                                                        className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        disabled={!isEnabled}
+                                                        onClick={() =>
+                                                            handleOfferChange(
+                                                                row.type,
+                                                                offer.uid,
+                                                                "isActive",
+                                                                !offer.isActive
+                                                            )
+                                                        }
+                                                        title={
+                                                            offer.isActive
+                                                                ? "Shown to students. Click to hide it."
+                                                                : "Hidden from students. Click to show it."
+                                                        }
+                                                        className={`inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                                                            offer.isActive
+                                                                ? "bg-slate-950 text-white"
+                                                                : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                                                        } ${!isEnabled ? "cursor-not-allowed opacity-50" : ""}`}
+                                                    >
+                                                        <span
+                                                            className={`h-4 w-4 rounded-full border transition ${
+                                                                offer.isActive
+                                                                    ? "border-white bg-orange-400"
+                                                                    : "border-slate-300 bg-white"
+                                                            }`}
+                                                        />
+                                                        {offer.isActive ? "Shown" : "Hidden"}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOfferDelete(row.type, offer.uid)}
+                                                        className="shrink-0 rounded-full bg-white px-3 py-2 text-xs font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-50"
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+
+                                                <input
+                                                    type="text"
+                                                    value={offer.description}
+                                                    placeholder="Short description (optional)"
+                                                    disabled={!isEnabled}
+                                                    onChange={(event) =>
+                                                        handleOfferChange(
+                                                            row.type,
+                                                            offer.uid,
+                                                            "description",
+                                                            event.target.value
+                                                        )
+                                                    }
+                                                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                />
+
+                                                {!offer.isActive && (
+                                                    <p className="mt-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-200">
+                                                        Hidden — students will not see this offer on
+                                                        the course page or at enrollment.
+                                                    </p>
+                                                )}
+
+                                                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                            Price <span className="text-red-500">*</span>
+                                                        </span>
+                                                        <div className="relative">
+                                                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                                                                ₹
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                step="1"
+                                                                value={offer.fullPayment}
+                                                                disabled={!isEnabled}
+                                                                onChange={(event) =>
+                                                                    handleOfferChange(
+                                                                        row.type,
+                                                                        offer.uid,
+                                                                        "fullPayment",
+                                                                        event.target.value
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-7 pr-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                            />
+                                                        </div>
+                                                    </label>
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                            Strike-through price
+                                                        </span>
+                                                        <div className="relative">
+                                                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                                                                ₹
+                                                            </span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                step="1"
+                                                                value={offer.originalPrice}
+                                                                disabled={!isEnabled}
+                                                                onChange={(event) =>
+                                                                    handleOfferChange(
+                                                                        row.type,
+                                                                        offer.uid,
+                                                                        "originalPrice",
+                                                                        event.target.value
+                                                                    )
+                                                                }
+                                                                className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-7 pr-3 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                            />
+                                                        </div>
+                                                    </label>
+
+                                                    <label className="block">
+                                                        <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                            Access months
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            step="1"
+                                                            value={offer.durationMonths}
+                                                            disabled={!isEnabled}
+                                                            onChange={(event) =>
+                                                                handleOfferChange(
+                                                                    row.type,
+                                                                    offer.uid,
+                                                                    "durationMonths",
+                                                                    event.target.value
+                                                                )
+                                                            }
+                                                            className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-950 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                        />
+                                                    </label>
+                                                </div>
+
+                                                <div className="mt-3">
+                                                    <span className="mb-1.5 block text-xs font-medium text-slate-600">
+                                                        Perks
+                                                    </span>
+                                                    {offer.perks.length > 0 && (
+                                                        <div className="mb-2 flex flex-wrap gap-2">
+                                                            {offer.perks.map((perk) => (
+                                                                <button
+                                                                    key={perk}
+                                                                    type="button"
+                                                                    onClick={() =>
+                                                                        handlePerkRemove(row.type, offer.uid, perk)
+                                                                    }
+                                                                    className="inline-flex items-center gap-1.5 rounded-full border border-orange-300 bg-orange-50 px-3 py-1 text-xs font-medium text-orange-700 transition hover:bg-orange-100"
+                                                                >
+                                                                    {perk}
+                                                                    <span className="text-orange-400">x</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex gap-2">
+                                                        <input
+                                                            type="text"
+                                                            value={offer.perkDraft}
+                                                            placeholder="e.g. Instrument included"
+                                                            disabled={!isEnabled}
+                                                            onChange={(event) =>
+                                                                handleOfferChange(
+                                                                    row.type,
+                                                                    offer.uid,
+                                                                    "perkDraft",
+                                                                    event.target.value
+                                                                )
+                                                            }
+                                                            onKeyDown={(event) => {
+                                                                if (event.key !== "Enter") return;
+                                                                event.preventDefault();
+                                                                handlePerkAdd(row.type, offer.uid);
+                                                            }}
+                                                            className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            disabled={!isEnabled}
+                                                            onClick={() => handlePerkAdd(row.type, offer.uid)}
+                                                            className={`shrink-0 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 ${
+                                                                !isEnabled ? "cursor-not-allowed opacity-50" : ""
+                                                            }`}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </article>
                     );

@@ -187,7 +187,7 @@ function ReceiptPanel({ open, onClose, receipt, timeline, loading }) {
               <dd className="font-medium text-slate-900">
                 {receipt.paymentType === "Installment"
                   ? `Installment ${receipt.installmentNo} of ${receipt.installmentTotal}`
-                  : "Full payment"}
+                  : receipt.planLabel || "Full payment"}
               </dd>
             </div>
             <div>
@@ -563,7 +563,7 @@ export default function StudentFeesPage() {
                           <td className="px-5 py-3 text-slate-600">
                             {row.paymentType === "Installment"
                               ? `${row.installmentNo} of ${row.installmentTotal}`
-                              : "Full"}
+                              : row.planLabel || "Full"}
                           </td>
                           <td className="px-5 py-3">
                             <span className="inline-flex items-center gap-1 text-slate-600">

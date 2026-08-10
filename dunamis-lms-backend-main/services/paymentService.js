@@ -227,6 +227,7 @@ const createCashfreeEnrollmentTransaction = async ({
     planType,
     installmentNo,
     amount: pricing.amount,
+    customPlanId: pricing.customPlan?._id?.toString() || null,
   };
 
   const transaction = await PaymentTransaction.create({
@@ -241,6 +242,8 @@ const createCashfreeEnrollmentTransaction = async ({
     sessionType: context.slot.sessionType,
     planType,
     planMonths: pricing.planMonths ?? null,
+    customPlanId: pricing.customPlan?._id ?? null,
+    customPlanName: pricing.customPlan?.name ?? null,
     referralCode,
     paymentType: pricing.paymentType,
     installmentNo,
@@ -271,8 +274,15 @@ const createCashfreeEnrollmentTransaction = async ({
         detail:
           pricing.paymentType === "Installment"
             ? `Installment ${installmentNo} of ${pricing.installmentTotal} initiated`
+            : pricing.customPlan
+            ? `Full payment initiated — ${pricing.customPlan.name}`
             : "Full payment initiated",
-        meta: { planType, planMonths: pricing.planMonths ?? null, referralCode },
+        meta: {
+          planType,
+          planMonths: pricing.planMonths ?? null,
+          customPlanName: pricing.customPlan?.name ?? null,
+          referralCode,
+        },
       },
     ],
   });

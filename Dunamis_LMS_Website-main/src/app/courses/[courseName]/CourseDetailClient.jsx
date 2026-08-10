@@ -24,6 +24,7 @@ import {
   resolveImageUrl,
 } from "@/lib/resolveImageUrl";
 import { buildTeacherName, formatTimeLabel } from "@/helpers/courseSlots";
+import { getActiveCustomPlans } from "@/helpers/tenurePlans";
 import { slugifyBranch } from "@/lib/serverCenters";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
@@ -112,6 +113,27 @@ const mapFeeStructure = (price, type = "monthly") => {
   return [{ plan: sessionLabel, price: pct > 0 ? `Save ${pct}%` : "One-time", features: ["Full course access", "All materials", pct > 0 ? `₹${price?.fullPayment || 0} one-time (${pct}% off)` : `₹${price?.fullPayment || 0} one-time`, "Lifetime access", sessionType === "premium" ? "Priority support" : "Standard support", "Certificate on completion"], sessionType }];
 };
 
+const mapCustomPlanCards = (price) => {
+  const sessionType = price?.sessionType || "standard";
+  const sessionLabel = sessionType === "premium" ? "Individual" : "Group";
+  return getActiveCustomPlans(price).map((plan) => ({
+    planId: plan.id,
+    plan: plan.name,
+    subtitle: plan.description,
+    price: `₹${plan.fullPayment.toLocaleString("en-IN")}`,
+    mrp: plan.originalPrice > plan.fullPayment
+      ? `₹${plan.originalPrice.toLocaleString("en-IN")}`
+      : null,
+    features: [
+      ...plan.perks,
+      plan.durationMonths ? `${plan.durationMonths} months access` : null,
+      `${sessionLabel} sessions`,
+      "One-time payment",
+    ].filter(Boolean),
+    sessionType,
+  }));
+};
+
 // Offline courses run at branches; group them by city so a 13-branch course
 // reads as three places rather than one long list.
 const buildBranchGroups = (branches) => {
@@ -158,6 +180,7 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
     feeStructure: {
       monthly: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "monthly")) || [],
       full: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "full")) || [],
+      custom: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap(mapCustomPlanCards) || [],
     },
     branchGroups: buildBranchGroups(courseRecord?.branches),
     branchCount: courseRecord?.branchCount || 0,
@@ -569,6 +592,32 @@ export default function CourseDetailClient({ initialCourse = null }) {
               {activeTab === "Fee Structure" && (
                 <TabPane key="fee">
                   <div className="space-y-8">
+                    {course.feeStructure.custom?.length > 0 && (
+                      <div>
+                        <SectionTitle>Special Offers</SectionTitle>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          {course.feeStructure.custom.map((plan, i) => (
+                            <motion.div key={plan.planId || i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
+                              className="relative rounded-2xl border border-[#CC3700]/40 bg-gradient-to-br from-orange-50 to-white p-5 sm:p-6 shadow-sm">
+                              <span className="absolute -top-2.5 left-5 rounded-full bg-[#CC3700] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Limited offer</span>
+                              <h3 className="mt-1 font-bold text-gray-900 text-sm sm:text-base">{plan.plan}</h3>
+                              {plan.subtitle && <p className="mt-0.5 text-sm text-gray-500">{plan.subtitle}</p>}
+                              <div className="mt-2 flex items-baseline gap-2">
+                                <p className="text-2xl font-extrabold text-[#CC3700]">{plan.price}</p>
+                                {plan.mrp && <p className="text-sm text-gray-400 line-through">{plan.mrp}</p>}
+                              </div>
+                              <ul className="mt-4 space-y-2">
+                                {plan.features.map((f, fi) => (
+                                  <li key={fi} className="flex items-center gap-2 text-sm text-gray-600">
+                                    <LuCircleCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />{f}
+                                  </li>
+                                ))}
+                              </ul>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {course.feeStructure.monthly?.length > 0 && (
                       <div>
                         <SectionTitle>Monthly Plans</SectionTitle>
@@ -588,10 +637,6 @@ export default function CourseDetailClient({ initialCourse = null }) {
                                   </li>
                                 ))}
                               </ul>
-                              <motion.button whileTap={{ scale: 0.97 }} onClick={() => openEnrollmentFlow()}
-                                className={`mt-5 w-full rounded-xl py-2.5 text-sm font-bold transition ${plan.sessionType === "premium" ? "bg-[#CC3700] text-white hover:bg-[#B83100]" : "border border-[#CC3700] text-[#CC3700] hover:bg-orange-50"}`}>
-                                Enroll Now
-                              </motion.button>
                             </motion.div>
                           ))}
                         </div>

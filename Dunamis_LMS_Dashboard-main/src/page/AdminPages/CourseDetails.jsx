@@ -342,6 +342,68 @@ const CourseDetailPage = () => {
                                                 Selected Plan
                                             </span>
                                         )}
+
+                                        {plan.tenurePlans?.length > 0 && (
+                                            <div className="mt-4 border-t border-orange-100 pt-3">
+                                                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+                                                    Tenure plans
+                                                </p>
+                                                <ul className="mt-2 space-y-1">
+                                                    {plan.tenurePlans.map((tenure) => (
+                                                        <li
+                                                            key={tenure.months}
+                                                            className="flex items-center justify-between gap-3 text-sm text-gray-600"
+                                                        >
+                                                            <span>{tenure.months} months</span>
+                                                            <span className="font-medium text-gray-900">
+                                                                ₹{Number(tenure.monthlyFee || 0).toLocaleString("en-IN")}/mo
+                                                                {" · "}
+                                                                ₹{Number(tenure.fullPayment || 0).toLocaleString("en-IN")} full
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+
+                                        {plan.customPlans?.length > 0 && (
+                                            <div className="mt-4 border-t border-orange-100 pt-3">
+                                                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
+                                                    Special offers
+                                                </p>
+                                                <ul className="mt-2 space-y-2">
+                                                    {plan.customPlans.map((offer) => (
+                                                        <li key={offer._id} className="text-sm">
+                                                            <div className="flex items-center justify-between gap-3">
+                                                                <span className="font-medium text-gray-900">
+                                                                    {offer.name}
+                                                                </span>
+                                                                <span className="shrink-0 text-gray-600">
+                                                                    ₹{Number(offer.fullPayment || 0).toLocaleString("en-IN")}
+                                                                </span>
+                                                            </div>
+                                                            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                                                                <span
+                                                                    className={`inline-flex rounded-full px-2 py-0.5 font-semibold ring-1 ${
+                                                                        offer.isActive
+                                                                            ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                                                                            : "bg-rose-50 text-rose-700 ring-rose-200"
+                                                                    }`}
+                                                                >
+                                                                    {offer.isActive ? "Shown" : "Hidden"}
+                                                                </span>
+                                                                {offer.durationMonths ? (
+                                                                    <span>{offer.durationMonths} months access</span>
+                                                                ) : null}
+                                                                {offer.perks?.length > 0 ? (
+                                                                    <span>{offer.perks.join(", ")}</span>
+                                                                ) : null}
+                                                            </div>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>

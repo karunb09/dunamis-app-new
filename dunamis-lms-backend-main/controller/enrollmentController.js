@@ -83,6 +83,7 @@ exports.createOrder = async (req, res) => {
       slotId,
       planType,
       planMonths,
+      customPlanId,
       deliveryMode,
       branchId,
       referralCode,
@@ -122,7 +123,8 @@ exports.createOrder = async (req, res) => {
       context.course,
       sessionType,
       resolvedPlanType,
-      planMonths
+      planMonths,
+      customPlanId
     );
     if (basePricing.error) {
       return res.status(400).json({ success: false, message: basePricing.error });
@@ -147,9 +149,16 @@ exports.createOrder = async (req, res) => {
       const reusable =
         activeTransaction.status === "pending" && activeTransaction.paymentSessionId;
 
+      // The lookup does not key on the chosen plan, so two custom offers at
+      // the same price would otherwise reuse each other's order and carry the
+      // wrong duration.
+      const samePlan =
+        String(activeTransaction.customPlanId || "") ===
+        String(pricing.customPlan?._id || "");
+
       // Reuse only when the price is unchanged; otherwise the Cashfree order
       // holds a stale amount and must be superseded by a freshly priced one.
-      if (reusable && activeTransaction.amount === pricing.amount) {
+      if (reusable && activeTransaction.amount === pricing.amount && samePlan) {
         if (resolvedReferralCode && !activeTransaction.referralCode) {
           activeTransaction.referralCode = resolvedReferralCode;
           await activeTransaction.save();
@@ -655,6 +664,7 @@ exports.adminEnrollStudent = async (req, res) => {
       sessionType,
       planType,
       planMonths,
+      customPlanId,
       amount,
       paymentDate,
       receiptRef,
@@ -746,7 +756,13 @@ exports.adminEnrollStudent = async (req, res) => {
     }
 
     const resolvedPlanType = resolvePlanType(planType);
-    const pricing = buildPricingForPlan(context.course, sessionType, resolvedPlanType, planMonths);
+    const pricing = buildPricingForPlan(
+      context.course,
+      sessionType,
+      resolvedPlanType,
+      planMonths,
+      customPlanId
+    );
     if (pricing.error) {
       return res.status(400).json({
         success: false,
@@ -771,6 +787,8 @@ exports.adminEnrollStudent = async (req, res) => {
       sessionType,
       planType: resolvedPlanType,
       planMonths: pricing.planMonths ?? null,
+      customPlanId: pricing.customPlan?._id ?? null,
+      customPlanName: pricing.customPlan?.name ?? null,
       referralCode: resolvedReferral ? normalizeCode(referralCode) : null,
       paymentType: pricing.paymentType,
       installmentNo: 1,

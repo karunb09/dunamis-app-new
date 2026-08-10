@@ -15,6 +15,7 @@ const createOrderSchema = z.looseObject({
   sessionType: nonEmpty("sessionType"),
   planType: z.string().trim().nullish(),
   planMonths: z.coerce.number().int().positive().nullish(),
+  customPlanId: objectId("customPlanId").nullish(),
   deliveryMode: z.string().trim().nullish(),
   branchId: objectId("branchId").nullish(),
   referralCode: z.string().trim().nullish(),

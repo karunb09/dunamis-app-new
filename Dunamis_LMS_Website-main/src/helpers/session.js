@@ -2,49 +2,27 @@
 export const SESSION_KEY = "enrollSelection";
 export const TERM_KEY = "enrollTerm";
 
-// Merge fields into a single selection object without clobbering
+// Merge fields into the selection for the course being enrolled in.
+// Only one course is held at a time: switching course starts a clean object,
+// because a blind merge left the previous course's deliveryMode, branch,
+// instructor, slot and referral code behind for the next one to pick up.
 export function upsertEnrollSelection(patch) {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     const prev = raw ? JSON.parse(raw) : {};
+    const switchingCourse =
+      patch.courseId &&
+      prev.courseId &&
+      String(patch.courseId) !== String(prev.courseId);
 
-    // Guard against accidental overwrite of user-picked fields
-    const guarded = {
-      ...prev,
-      ...(Object.prototype.hasOwnProperty.call(patch, "branch")
-        ? { branch: patch.branch }
-        : {}),
-      ...(Object.prototype.hasOwnProperty.call(patch, "branchId")
-        ? { branchId: patch.branchId }
-        : {}),
-      ...(Object.prototype.hasOwnProperty.call(patch, "branchLabel")
-        ? { branchLabel: patch.branchLabel }
-        : {}),
-      ...(Object.prototype.hasOwnProperty.call(patch, "instructorId")
-        ? { instructorId: patch.instructorId }
-        : {}),
-      ...(Object.prototype.hasOwnProperty.call(patch, "instructorLabel")
-        ? { instructorLabel: patch.instructorLabel }
-        : {}),
-      ...(Object.prototype.hasOwnProperty.call(patch, "slot")
-        ? { slot: patch.slot }
-        : {}),
-      // Copy remaining keys from patch
-      ...Object.keys(patch).reduce((acc, k) => {
-        if (
-          k === "branch" ||
-          k === "instructorId" ||
-          k === "instructorLabel" ||
-          k === "slot"
-        )
-          return acc;
-        acc[k] = patch[k];
-        return acc;
-      }, {}),
-      timestamp: Date.now(),
-    };
-
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(guarded));
+    sessionStorage.setItem(
+      SESSION_KEY,
+      JSON.stringify({
+        ...(switchingCourse ? {} : prev),
+        ...patch,
+        timestamp: Date.now(),
+      })
+    );
   } catch (e) {}
 }
 
@@ -70,12 +48,19 @@ export function clearEnrollSelection() {
   } catch (e) {}
 }
 
-// Optional: a normalized reader that prefers id/label
-export function getCurrentSelection() {
+// Normalized reader that prefers id/label. Pass expectedCourseId to get null
+// rather than another course's leftovers.
+export function getCurrentSelection(expectedCourseId = null) {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY);
     const sel = raw ? JSON.parse(raw) : null;
     if (!sel) return null;
+    if (
+      expectedCourseId &&
+      String(sel.courseId || "") !== String(expectedCourseId)
+    ) {
+      return null;
+    }
     return {
       ...sel,
       branchId: sel.branchId ?? null,

@@ -17,6 +17,7 @@ import {
   resolveEnrollmentResumeHref,
   saveEnrollmentResume,
 } from '@/helpers/enrollmentResume';
+import { monthsLabel } from '@/helpers/tenurePlans';
 
 const asMoney = (n) => {
   const v = Number(n);
@@ -136,6 +137,10 @@ export default function PaymentConfirmation() {
   const courseId = sel?.courseId || null;
   const courseType = sel?.courseType || null;
   const courseEndDate = sel?.courseEndDate || null;
+  const customPlanId = sel?.customPlanId || null;
+  const customPlanName = sel?.customPlanName || null;
+  const customPlanPerks = sel?.customPlanPerks || null;
+  const customPlanOriginalPrice = sel?.customPlanOriginalPrice ?? null;
 
   const uiSessionLabel = selectedSessionType === 'premium' ? 'Individual Sessions' : selectedSessionType === 'standard' ? 'Group Sessions' : null;
   const uiDeliveryLabel = deliveryMode ? deliveryMode.charAt(0).toUpperCase() + deliveryMode.slice(1) : null;
@@ -149,6 +154,26 @@ export default function PaymentConfirmation() {
     const isFixedCourse = courseType === 'fixed';
     const endDateLabel = formatEndDate(courseEndDate);
     const fixedDuration = isFixedCourse && endDateLabel ? `Until ${endDateLabel}` : null;
+
+    // A named offer carries its own price and copy — the tenure/discount math
+    // below does not apply to it.
+    if (customPlanId) {
+      const fee = Number(fullPayment);
+      if (!Number.isFinite(fee) || fee <= 0) return { error: 'Invalid offer amount.' };
+      const listed = Number(customPlanOriginalPrice);
+      const mrp = Number.isFinite(listed) && listed > fee ? listed : null;
+      return {
+        courseFee: fee,
+        planName: customPlanName || 'Special Offer',
+        planDuration:
+          fixedDuration || (planMonths ? monthsLabel(planMonths) : 'Full course'),
+        billingText: 'One-time payment',
+        perks: Array.isArray(customPlanPerks) ? customPlanPerks : [],
+        mrp,
+        savings: mrp ? mrp - fee : null,
+        pct: 0,
+      };
+    }
 
     if (planType === 'monthly') {
       if (!monthlyFee && monthlyFee !== 0) return { error: 'Missing monthlyFee for monthly plan.' };
@@ -176,13 +201,26 @@ export default function PaymentConfirmation() {
       billingText: hasPct ? `One-time payment • Save ${pct}%` : 'One-time payment',
       planNote:
         !isFixedCourse && planMonths
-          ? `After ${planMonths} months you'll switch to month-to-month billing. Questions? Reach out to your instructor.`
+          ? `After ${monthsLabel(planMonths)} you'll switch to month-to-month billing. Questions? Reach out to your instructor.`
           : null,
       mrp,
       savings,
       pct: hasPct ? pct : 0,
     };
-  }, [selectedSessionType, planType, monthlyFee, fullPayment, discount, courseType, courseEndDate]);
+  }, [
+    selectedSessionType,
+    planType,
+    planMonths,
+    monthlyFee,
+    fullPayment,
+    discount,
+    courseType,
+    courseEndDate,
+    customPlanId,
+    customPlanName,
+    customPlanPerks,
+    customPlanOriginalPrice,
+  ]);
 
   // Preview of the server-side first-payment discount. Mirrors the backend math
   // in utils/referral.js applyReferralDiscount so the shown total matches the charge.
@@ -262,6 +300,7 @@ export default function PaymentConfirmation() {
         sessionType: selectedSessionType,
         planType,
         planMonths,
+        customPlanId: customPlanId || undefined,
         teacherId: instructorId,
         slotId: slot.slotId,
         deliveryMode,
@@ -529,6 +568,15 @@ export default function PaymentConfirmation() {
                 <p className="-mt-3 rounded-xl bg-orange-50 px-4 py-3 text-sm leading-relaxed text-gray-600">
                   {priceBlock.planNote}
                 </p>
+              )}
+              {priceBlock?.perks?.length > 0 && (
+                <ul className="-mt-3 space-y-1.5 rounded-xl bg-orange-50 px-4 py-3">
+                  {priceBlock.perks.map((perk) => (
+                    <li key={perk} className="text-sm leading-relaxed text-gray-600">
+                      • {perk}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
 

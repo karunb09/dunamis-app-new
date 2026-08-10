@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { getStoredToken } from "../../../../utils/authSession";
@@ -48,6 +48,7 @@ export default function ManualEnrollForm({ onSuccess }) {
   const [sessionType, setSessionType] = useState("standard");
   const [planType, setPlanType] = useState("full");
   const [planMonths, setPlanMonths] = useState(null);
+  const [customPlanId, setCustomPlanId] = useState("");
   const [amount, setAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [receiptRef, setReceiptRef] = useState("");
@@ -56,6 +57,23 @@ export default function ManualEnrollForm({ onSuccess }) {
   // Slots
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
+
+  const customPlans = useMemo(() => {
+    const price = (selectedCourse?.price || []).find(
+      (p) => p.sessionType === sessionType
+    );
+    return (price?.customPlans || []).filter(
+      (plan) => plan.isActive !== false && Number(plan.fullPayment) > 0
+    );
+  }, [selectedCourse, sessionType]);
+
+  const planTypeOptions = customPlans.length > 0 ? [...PLAN_TYPES, "custom"] : PLAN_TYPES;
+
+  // A course/session change can strand a selection from the previous course.
+  useEffect(() => {
+    setCustomPlanId("");
+    setPlanType((current) => (current === "custom" ? "full" : current));
+  }, [selectedCourseId, sessionType]);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -198,6 +216,10 @@ export default function ManualEnrollForm({ onSuccess }) {
       setSubmitError({ message: "Please select a branch." });
       return;
     }
+    if (planType === "custom" && !customPlanId) {
+      setSubmitError({ message: "Please select an offer." });
+      return;
+    }
     if (!amount || Number(amount) <= 0) {
       setSubmitError({ message: "Please enter a valid cash amount." });
       return;
@@ -216,8 +238,9 @@ export default function ManualEnrollForm({ onSuccess }) {
           teacherId: selectedTeacherId,
           branchId: selectedBranchId || undefined,
           sessionType,
-          planType,
+          planType: planType === "custom" ? "full" : planType,
           planMonths: planType === "monthly" && planMonths ? Number(planMonths) : undefined,
+          customPlanId: planType === "custom" ? customPlanId : undefined,
           amount: Number(amount),
           paymentDate,
           receiptRef: receiptRef || undefined,
@@ -502,7 +525,7 @@ export default function ManualEnrollForm({ onSuccess }) {
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600">Plan type</label>
               <div className="flex gap-2">
-                {PLAN_TYPES.map((p) => (
+                {planTypeOptions.map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -536,6 +559,39 @@ export default function ManualEnrollForm({ onSuccess }) {
                     }`}
                   >
                     {m} mo
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {planType === "custom" && (
+            <div className="mt-4">
+              <label className="mb-1.5 block text-xs font-medium text-gray-600">Offer</label>
+              <div className="space-y-2">
+                {customPlans.map((plan) => (
+                  <button
+                    key={plan._id}
+                    type="button"
+                    onClick={() => {
+                      setCustomPlanId(plan._id);
+                      setAmount(String(plan.fullPayment));
+                    }}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                      customPlanId === plan._id
+                        ? "border-orange-400 bg-orange-50 text-orange-700"
+                        : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+                    }`}
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="font-semibold">{plan.name}</span>
+                      <span className="shrink-0">₹{Number(plan.fullPayment).toLocaleString("en-IN")}</span>
+                    </span>
+                    {plan.durationMonths ? (
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        {plan.durationMonths} months access
+                      </span>
+                    ) : null}
                   </button>
                 ))}
               </div>

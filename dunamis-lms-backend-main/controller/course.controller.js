@@ -54,6 +54,32 @@ const normalizeTenurePlans = (plans = []) => {
     .filter(Boolean);
 };
 
+// Incoming _id is preserved: the parent price row's _id is regenerated on
+// every save, so a custom plan that lost its own _id would break checkouts
+// already in flight and orphan the plan reference on paid transactions.
+const normalizeCustomPlans = (plans = []) => {
+  if (!Array.isArray(plans)) return [];
+  return plans
+    .map((plan = {}) => {
+      const name = String(plan.name || "").trim();
+      const fullPayment = Number(plan.fullPayment);
+      if (!name || !Number.isFinite(fullPayment) || fullPayment < 1) return null;
+      return {
+        ...(plan._id ? { _id: plan._id } : {}),
+        name,
+        description: String(plan.description || "").trim(),
+        fullPayment,
+        originalPrice: Number(plan.originalPrice) || null,
+        durationMonths: Number(plan.durationMonths) || null,
+        perks: (Array.isArray(plan.perks) ? plan.perks : [])
+          .map((perk) => String(perk).trim())
+          .filter(Boolean),
+        isActive: plan.isActive ?? true,
+      };
+    })
+    .filter(Boolean);
+};
+
 const normalizePricePayload = (price = {}) => ({
   sessionType: price.sessionType,
   monthlyFee: Number(price.monthlyFee) || 0,
@@ -63,6 +89,7 @@ const normalizePricePayload = (price = {}) => ({
   isSelected: price.isSelected ?? true,
   installments: normalizeInstallments(price),
   tenurePlans: normalizeTenurePlans(price.tenurePlans),
+  customPlans: normalizeCustomPlans(price.customPlans),
 });
 
 const normalizeIdList = (values = []) => {

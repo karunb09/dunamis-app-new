@@ -26,7 +26,14 @@ import {
   normalizeEntityId,
   normalizeMode,
 } from '@/helpers/courseSlots';
-import { getActiveTenurePlans, pickDefaultTenure, findTenure } from '@/helpers/tenurePlans';
+import {
+  getActiveTenurePlans,
+  pickDefaultTenure,
+  findTenure,
+  getActiveCustomPlans,
+  findCustomPlan,
+  monthsLabel,
+} from '@/helpers/tenurePlans';
 import StepNav from './EnrollTermsParts/StepNav';
 import StepDelivery from './EnrollTermsParts/StepDelivery';
 import StepInstructor from './EnrollTermsParts/StepInstructor';
@@ -279,6 +286,7 @@ export default function EnrollTerm({
   const [selectedSessionType, setSelectedSessionType] = useState('');
   const [selectedPlanType, setSelectedPlanType] = useState('');
   const [selectedMonths, setSelectedMonths] = useState(null);
+  const [selectedCustomPlanId, setSelectedCustomPlanId] = useState('');
   const [isNavigating, setIsNavigating] = useState(false);
 
   const branchCityOptions = useMemo(() => {
@@ -321,6 +329,7 @@ export default function EnrollTerm({
       discount: item?.discount ?? 0,
       isActive: item?.isActive ?? true,
       tenurePlans: Array.isArray(item?.tenurePlans) ? item.tenurePlans : [],
+      customPlans: Array.isArray(item?.customPlans) ? item.customPlans : [],
       installments: item?.installments ?? null,
     }));
   }, [course]);
@@ -445,6 +454,13 @@ export default function EnrollTerm({
     [activePriceObj]
   );
 
+  const customPlans = useMemo(
+    () => getActiveCustomPlans(activePriceObj),
+    [activePriceObj]
+  );
+
+  const selectedCustomPlan = findCustomPlan(customPlans, selectedCustomPlanId);
+
   const steps = useMemo(
     () =>
       needsSessionTypeChoice
@@ -462,9 +478,11 @@ export default function EnrollTerm({
   useEffect(() => {
     if (!isOpen) return;
 
-    const current = getCurrentSelection() || {};
+    const current = getCurrentSelection(courseId) || {};
+    // A stored mode still has to be one this course actually offers.
+    const storedMode = normalizeMode(current.deliveryMode);
     const initialMode =
-      normalizeMode(current.deliveryMode) ||
+      (enrollmentModeOptions.includes(storedMode) ? storedMode : '') ||
       enrollmentModeOptions[0] ||
       normalizeMode(course?.mode) ||
       'online';
@@ -477,10 +495,11 @@ export default function EnrollTerm({
     setSelectedSessionType('');
     setSelectedPlanType('');
     setSelectedMonths(null);
+    setSelectedCustomPlanId('');
     setVideoPreview(null);
     setAppliedPreferredInstructorId('');
     setIsNavigating(false);
-  }, [course?.mode, enrollmentModeOptions, isOpen]);
+  }, [course?.mode, courseId, enrollmentModeOptions, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !normalizedPreferredInstructorId) return;
@@ -561,7 +580,9 @@ export default function EnrollTerm({
   useEffect(() => {
     if (selectedBranchId) return;
 
-    const current = getCurrentSelection() || {};
+    // Scoped to this course — branch labels repeat across courses, so an
+    // unscoped read would preselect a centre the student never picked here.
+    const current = getCurrentSelection(courseId) || {};
     if (!current.branchLabel || !branchOptions.length) return;
 
     const matchedBranch = branchOptions.find(
@@ -571,7 +592,7 @@ export default function EnrollTerm({
     if (matchedBranch) {
       setSelectedBranchId(matchedBranch.id);
     }
-  }, [branchOptions, selectedBranchId]);
+  }, [branchOptions, courseId, selectedBranchId]);
 
   useEffect(() => {
     if (!selectedInstructorId) return;
@@ -631,9 +652,14 @@ export default function EnrollTerm({
 
   // Reset downstream choices when the user navigates back.
   useEffect(() => {
-    if (currentStepId !== 'plan') setSelectedPlanType('');
+    if (currentStepId !== 'plan') {
+      setSelectedPlanType('');
+      setSelectedMonths(null);
+      setSelectedCustomPlanId('');
+    }
     if (currentStepId === 'delivery') setSelectedSessionType('');
   }, [currentStepId]);
+
 
   if (!isOpen) return null;
 
@@ -713,17 +739,29 @@ export default function EnrollTerm({
       slot: selectedSlot,
       sessionType: resolvedSessionType,
       planType: selectedPlanType,
-      planMonths: planDurationMonths,
+      planMonths: selectedCustomPlan
+        ? selectedCustomPlan.durationMonths
+        : planDurationMonths,
+      customPlanId: selectedCustomPlan?.id || null,
+      customPlanName: selectedCustomPlan?.name || null,
+      customPlanPerks: selectedCustomPlan?.perks || null,
+      customPlanOriginalPrice: selectedCustomPlan?.originalPrice || null,
       priceId: activePriceObj?.id || null,
       code: course?.code || '',
       category: courseCategory,
       courseType: course?.courseType || null,
       courseEndDate: course?.endDate || null,
       courseImage: course?.image || '',
-      monthlyFee: planMonthlyFee,
-      fullPayment: planFullFee,
-      discount: planDiscountPct,
-      duration: planDurationMonths ? `${planDurationMonths} months` : '',
+      monthlyFee: selectedCustomPlan ? null : planMonthlyFee,
+      fullPayment: selectedCustomPlan
+        ? selectedCustomPlan.fullPayment
+        : planFullFee,
+      discount: selectedCustomPlan ? 0 : planDiscountPct,
+      duration: selectedCustomPlan
+        ? (selectedCustomPlan.durationMonths
+            ? monthsLabel(selectedCustomPlan.durationMonths)
+            : '')
+        : (planDurationMonths ? monthsLabel(planDurationMonths) : ''),
     });
 
     router.push('/payment-confirmation');
@@ -1045,17 +1083,83 @@ export default function EnrollTerm({
             </p>
 
             <div className="grid gap-4 sm:grid-cols-3">
+              {/* Named promotional offers — full payment, shown ahead of the standard plans */}
+              {customPlans.map((offer) => {
+                const isSelected = selectedCustomPlanId === offer.id;
+                const selectOffer = () => {
+                  setSelectedCustomPlanId(offer.id);
+                  setSelectedPlanType('full');
+                  setSelectedMonths(null);
+                };
+                return (
+                  <div
+                    key={offer.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={selectOffer}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        selectOffer();
+                      }
+                    }}
+                    className={`relative cursor-pointer rounded-3xl border p-5 transition ${
+                      isSelected
+                        ? 'border-orange-500 bg-orange-50 ring-2 ring-orange-200'
+                        : 'border-gray-200 hover:border-orange-200 hover:bg-orange-50/30'
+                    }`}
+                  >
+                    <span className="absolute -top-2.5 left-4 rounded-full bg-[#CC3700] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                      Offer
+                    </span>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-lg font-semibold text-gray-900">{offer.name}</p>
+                      {isSelected ? (
+                        <HiCheckCircle className="shrink-0 text-xl text-orange-500" />
+                      ) : null}
+                    </div>
+                    <span className="mt-1 inline-block rounded-full bg-emerald-100 px-3 py-0.5 text-xs font-medium text-emerald-700">
+                      One-time
+                    </span>
+                    <p className="mt-3 text-2xl font-bold text-gray-900">
+                      {toMoney(offer.fullPayment) || '—'}
+                    </p>
+                    {offer.originalPrice > offer.fullPayment ? (
+                      <p className="mt-0.5 text-sm text-gray-400 line-through">
+                        {toMoney(offer.originalPrice)}
+                      </p>
+                    ) : null}
+                    {offer.durationMonths ? (
+                      <p className="mt-2 text-sm text-gray-600">
+                        {offer.durationMonths} months access
+                      </p>
+                    ) : null}
+                    {offer.perks.length > 0 ? (
+                      <ul className="mt-2 space-y-1">
+                        {offer.perks.map((perk) => (
+                          <li key={perk} className="text-sm text-gray-600">
+                            • {perk}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                );
+              })}
+
               {/* Monthly card — tied to the primary (6-month, or first active) tenure */}
               <div
                 role="button"
                 tabIndex={0}
                 onClick={() => {
+                  setSelectedCustomPlanId('');
                   setSelectedMonths(monthlyCardMonths);
                   setSelectedPlanType('monthly');
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
+                    setSelectedCustomPlanId('');
                     setSelectedMonths(monthlyCardMonths);
                     setSelectedPlanType('monthly');
                   }
@@ -1089,26 +1193,29 @@ export default function EnrollTerm({
               {/* One full-payment card per active tenure plan (dynamic — falls back to legacy fields) */}
               {fullPaymentCards.map((plan) => {
                 const isSelected =
-                  selectedPlanType === 'full' && selectedMonths === plan.months;
+                  !selectedCustomPlanId &&
+                  selectedPlanType === 'full' &&
+                  selectedMonths === plan.months;
                 const isPrimary =
                   tenurePlans.length > 0 &&
                   primaryTenure &&
                   plan.months === primaryTenure.months;
                 const { mrp, savings } = computeMrpAndSavings(plan.fullPayment, plan.discount);
+                const selectTenure = () => {
+                  setSelectedCustomPlanId('');
+                  setSelectedMonths(plan.months);
+                  setSelectedPlanType('full');
+                };
                 return (
                   <div
                     key={plan.months ?? 'full'}
                     role="button"
                     tabIndex={0}
-                    onClick={() => {
-                      setSelectedMonths(plan.months);
-                      setSelectedPlanType('full');
-                    }}
+                    onClick={selectTenure}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        setSelectedMonths(plan.months);
-                        setSelectedPlanType('full');
+                        selectTenure();
                       }
                     }}
                     className={`relative cursor-pointer rounded-3xl border p-5 transition ${

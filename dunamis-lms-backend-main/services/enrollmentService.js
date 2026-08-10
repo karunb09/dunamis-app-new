@@ -32,10 +32,50 @@ const findTenurePlan = (selectedPrice, planMonths) => {
   );
 };
 
-const buildPricingForPlan = (course, sessionType, planType, planMonths = null) => {
+const findCustomPlan = (selectedPrice, customPlanId) => {
+  if (!customPlanId) return null;
+  const plans = Array.isArray(selectedPrice.customPlans)
+    ? selectedPrice.customPlans
+    : [];
+  return (
+    plans.find(
+      (p) => String(p._id) === String(customPlanId) && (p.isActive ?? true)
+    ) || null
+  );
+};
+
+const buildPricingForPlan = (
+  course,
+  sessionType,
+  planType,
+  planMonths = null,
+  customPlanId = null
+) => {
   const selectedPrice = course.price.find((p) => p.sessionType === sessionType);
   if (!selectedPrice) {
     return { error: "Invalid session type" };
+  }
+
+  // Custom offers are full payment only, so they never enter the installment
+  // chain — installmentTotal 1 stops getNextInstallmentDueDate at its guard.
+  if (customPlanId) {
+    const customPlan = findCustomPlan(selectedPrice, customPlanId);
+    if (!customPlan) {
+      return { error: "This plan is no longer available" };
+    }
+    const full = Number(customPlan.fullPayment);
+    if (!full || full <= 0) {
+      return { error: "Invalid price for the selected plan" };
+    }
+    return {
+      selectedPrice,
+      amount: full,
+      paymentType: "Full",
+      planMonths: Number(customPlan.durationMonths) || null,
+      installmentTotal: 1,
+      installmentAmount: null,
+      customPlan,
+    };
   }
 
   const tenurePlan = findTenurePlan(selectedPrice, planMonths);
@@ -274,6 +314,7 @@ const applyStudentFulfillment = async (transaction) => {
     branchId: transaction.branchId || null,
     deliveryMode: transaction.deliveryMode,
     planType: transaction.planType,
+    planLabel: transaction.customPlanName || null,
     paymentType: transaction.paymentType,
     installmentNo: transaction.installmentNo,
     installmentTotal: transaction.installmentTotal,

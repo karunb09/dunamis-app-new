@@ -29,6 +29,45 @@ const tenurePlanSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// A named promotional offer (e.g. "Buy 3 Months, Get 1 Free"). Full payment
+// only — perks are fulfilled by staff, and durationMonths records access
+// length without driving any billing schedule. Keeps its own _id (unlike
+// tenurePlanSchema, which is keyed by months) so the enroll flow and paid
+// transactions can reference a specific offer.
+const customPlanSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    default: "",
+  },
+  fullPayment: {
+    type: Number,
+    required: true,
+    min: 1,
+  },
+  // Strike-through reference price. Display only.
+  originalPrice: {
+    type: Number,
+    default: null,
+  },
+  durationMonths: {
+    type: Number,
+    default: null,
+  },
+  perks: {
+    type: [String],
+    default: [],
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+});
+
 const priceSchema = new mongoose.Schema({
   sessionType: {
     type: String,
@@ -64,6 +103,11 @@ const priceSchema = new mongoose.Schema({
   // top-level monthlyFee / fullPayment / installments fields above.
   tenurePlans: {
     type: [tenurePlanSchema],
+    default: [],
+  },
+  // Named promotional offers. Full payment only, additive to tenurePlans.
+  customPlans: {
+    type: [customPlanSchema],
     default: [],
   },
 });
