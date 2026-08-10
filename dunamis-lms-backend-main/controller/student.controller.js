@@ -67,7 +67,7 @@ exports.sendOTP = asyncHandler(async (req, res) => {
       // expiresAt:new Date(Date.now()+10*60*1000),
     };
     // TODO: Enable this later
-    await mailSender(email, "email verification", otpTemplate(otp));
+    await mailSender(email, "email verification", otpTemplate(otp), otpTemplate.attachments);
     await OTP.create(otpPayload);
 
     // //return respnose successfully
