@@ -274,7 +274,8 @@ exports.forgotPassword = asyncHandler(async (req, res) => {
             await mailSender(
                 email,
                 "Password Reset OTP",
-                otpTemplate(otp, `${user.name.firstName} ${user.name.lastName}`)
+                otpTemplate(otp, `${user.name.firstName} ${user.name.lastName}`),
+                otpTemplate.attachments
             );
 
             return res.status(200).json({
