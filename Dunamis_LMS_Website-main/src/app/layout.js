@@ -57,7 +57,7 @@ export const metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  icons: { icon: "/logo-square.png", apple: "/logo-square.png" },
+  icons: { icon: "/favicon.png", apple: "/favicon.png" },
 };
 
 const organizationJsonLd = {
