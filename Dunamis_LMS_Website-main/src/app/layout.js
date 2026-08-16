@@ -44,7 +44,7 @@ export const metadata = {
     description: DEFAULT_DESCRIPTION,
     url: SITE_URL,
     locale: "en_IN",
-    images: [{ url: "/Dunamis.png", width: 1200, height: 630, alt: SITE_NAME }],
+    images: [{ url: "/Dunamis.png", width: 1200, height: 360, alt: SITE_NAME }],
   },
   twitter: {
     card: "summary_large_image",
@@ -57,7 +57,7 @@ export const metadata = {
     follow: true,
     googleBot: { index: true, follow: true, "max-image-preview": "large" },
   },
-  icons: { icon: "/Dunamis.png", apple: "/Dunamis.png" },
+  icons: { icon: "/favicon.png", apple: "/favicon.png" },
 };
 
 const organizationJsonLd = {
@@ -65,7 +65,7 @@ const organizationJsonLd = {
   "@type": "EducationalOrganization",
   name: SITE_NAME,
   url: SITE_URL,
-  logo: `${SITE_URL}/Dunamis.png`,
+  logo: `${SITE_URL}/logo-square.png`,
   description: DEFAULT_DESCRIPTION,
   email: "contact@dunamisindia.co.in",
   telephone: "+91-9398246083",

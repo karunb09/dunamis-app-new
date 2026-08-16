@@ -1,3 +1,8 @@
+const path = require("path");
+
+const LOGO_PATH = path.resolve(__dirname, "../Dunamis.png");
+const LOGO_CID = "dunamis-logo";
+
 const otpTemplate = (otp) => {
 	return `<!DOCTYPE html>
 	<html>
@@ -67,7 +72,7 @@ const otpTemplate = (otp) => {
 	<body>
 		<div class="container">
 			<a href="https://dunamisindia.co.in"><img class="logo"
-					src="https://res.cloudinary.com/dhkxrds3r/image/upload/v1751086466/kwevgskprhikh4aaqaht.png" alt="Dunamis Logo"></a>
+					src="cid:${LOGO_CID}" alt="Dunamis Logo"></a>
 			<div class="message">OTP Verification Email</div>
 			<div class="body">
 				<p>Dear User,</p>
@@ -85,4 +90,9 @@ const otpTemplate = (otp) => {
 	</html>`;
 	
 };
+
+otpTemplate.attachments = [
+	{ filename: "Dunamis.png", path: LOGO_PATH, cid: LOGO_CID },
+];
+
 module.exports = otpTemplate;

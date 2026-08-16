@@ -298,9 +298,9 @@ const Sidebar = ({ isOpen, onClose }) => {
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
                   <img
-                    src="/dunamisMusic.png"
+                    src="/logo-square.png"
                     alt="DUNAMIS Logo"
-                    className="h-8 w-8 object-contain"
+                    className="h-9 w-9 object-contain"
                   />
                 </div>
                 {isExpanded && (
