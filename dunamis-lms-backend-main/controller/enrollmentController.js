@@ -666,6 +666,8 @@ exports.adminEnrollStudent = async (req, res) => {
       planMonths,
       customPlanId,
       amount,
+      discountType,
+      discountValue,
       paymentDate,
       receiptRef,
       referralCode,
@@ -683,6 +685,27 @@ exports.adminEnrollStudent = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: "amount must be a positive number.",
+      });
+    }
+
+    if (discountType && !["percent", "flat"].includes(discountType)) {
+      return res.status(400).json({
+        success: false,
+        message: "discountType must be 'percent' or 'flat'.",
+      });
+    }
+
+    const parsedDiscountValue = Number(discountValue) || 0;
+    if (discountType && parsedDiscountValue <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "discountValue must be greater than 0 when a discount type is set.",
+      });
+    }
+    if (discountType === "percent" && parsedDiscountValue > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "A percent discount cannot exceed 100.",
       });
     }
 
@@ -771,6 +794,14 @@ exports.adminEnrollStudent = async (req, res) => {
       });
     }
 
+    // Admin-granted discount, priced off the plan's list price. `amount` stays
+    // whatever cash was actually handed over — these two only record what the
+    // student was due and how much was waived.
+    const discounted = applyReferralDiscount(pricing, {
+      discountType,
+      discountValue: parsedDiscountValue,
+    });
+
     const manualOrderId = `manual_${Date.now()}_${student._id.toString().slice(-6)}_${context.course._id.toString().slice(-6)}_${crypto.randomBytes(3).toString("hex")}`;
 
     const resolvedReferral = await resolveReferralCode(referralCode);
@@ -795,6 +826,8 @@ exports.adminEnrollStudent = async (req, res) => {
       installmentTotal: pricing.installmentTotal,
       installmentAmount: pricing.installmentAmount,
       amount: parsedAmount,
+      originalAmount: discounted.originalAmount ?? null,
+      discountAmount: discounted.discountAmount ?? 0,
       currency: "INR",
       gateway: "manual",
       merchantOrderId: manualOrderId,

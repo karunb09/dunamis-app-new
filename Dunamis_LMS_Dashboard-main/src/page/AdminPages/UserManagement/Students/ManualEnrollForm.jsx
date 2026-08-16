@@ -50,6 +50,9 @@ export default function ManualEnrollForm({ onSuccess }) {
   const [planMonths, setPlanMonths] = useState(null);
   const [customPlanId, setCustomPlanId] = useState("");
   const [amount, setAmount] = useState("");
+  const [amountTouched, setAmountTouched] = useState(false);
+  const [discountType, setDiscountType] = useState("");
+  const [discountValue, setDiscountValue] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [receiptRef, setReceiptRef] = useState("");
   const [referralCode, setReferralCode] = useState("");
@@ -58,22 +61,66 @@ export default function ManualEnrollForm({ onSuccess }) {
   const [slots, setSlots] = useState([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  const customPlans = useMemo(() => {
-    const price = (selectedCourse?.price || []).find(
-      (p) => p.sessionType === sessionType
-    );
-    return (price?.customPlans || []).filter(
-      (plan) => plan.isActive !== false && Number(plan.fullPayment) > 0
-    );
-  }, [selectedCourse, sessionType]);
+  const activePrice = useMemo(
+    () => (selectedCourse?.price || []).find((p) => p.sessionType === sessionType) || null,
+    [selectedCourse, sessionType]
+  );
+
+  const customPlans = useMemo(
+    () =>
+      (activePrice?.customPlans || []).filter(
+        (plan) => plan.isActive !== false && Number(plan.fullPayment) > 0
+      ),
+    [activePrice]
+  );
 
   const planTypeOptions = customPlans.length > 0 ? [...PLAN_TYPES, "custom"] : PLAN_TYPES;
+
+  // Preview of what the server will charge — buildPricingForPlan stays the
+  // authority; this only drives the discount maths shown to the admin.
+  const listPrice = useMemo(() => {
+    if (!activePrice) return 0;
+    if (planType === "custom") {
+      const plan = customPlans.find((p) => String(p._id) === String(customPlanId));
+      return Number(plan?.fullPayment) || 0;
+    }
+    const tenure = (activePrice.tenurePlans || []).find(
+      (p) => Number(p.months) === Number(planMonths) && (p.isActive ?? true)
+    );
+    if (planType === "monthly") {
+      return Number(tenure?.monthlyFee) || Number(activePrice.monthlyFee) || 0;
+    }
+    return Number(tenure?.fullPayment) || Number(activePrice.fullPayment) || 0;
+  }, [activePrice, customPlanId, customPlans, planMonths, planType]);
+
+  const discountAmount = useMemo(() => {
+    const value = Number(discountValue) || 0;
+    if (!discountType || value <= 0 || listPrice <= 0) return 0;
+    const raw =
+      discountType === "percent"
+        ? Math.round((listPrice * value) / 100)
+        : Math.round(value);
+    // Mirrors the ₹1 floor the server applies (PaymentTransaction.amount min: 1).
+    return Math.min(raw, Math.max(0, listPrice - 1));
+  }, [discountType, discountValue, listPrice]);
+
+  const payableAmount = listPrice > 0 ? listPrice - discountAmount : 0;
 
   // A course/session change can strand a selection from the previous course.
   useEffect(() => {
     setCustomPlanId("");
     setPlanType((current) => (current === "custom" ? "full" : current));
   }, [selectedCourseId, sessionType]);
+
+  // Follow the plan price until the admin types their own figure.
+  useEffect(() => {
+    setAmountTouched(false);
+  }, [selectedCourseId, sessionType, planType, planMonths, customPlanId]);
+
+  useEffect(() => {
+    if (amountTouched || payableAmount <= 0) return;
+    setAmount(String(payableAmount));
+  }, [amountTouched, payableAmount]);
 
   // Submission
   const [submitting, setSubmitting] = useState(false);
@@ -220,6 +267,14 @@ export default function ManualEnrollForm({ onSuccess }) {
       setSubmitError({ message: "Please select an offer." });
       return;
     }
+    if (discountType && !(Number(discountValue) > 0)) {
+      setSubmitError({ message: "Enter a discount value, or choose 'No discount'." });
+      return;
+    }
+    if (discountType === "percent" && Number(discountValue) > 100) {
+      setSubmitError({ message: "A percent discount cannot exceed 100." });
+      return;
+    }
     if (!amount || Number(amount) <= 0) {
       setSubmitError({ message: "Please enter a valid cash amount." });
       return;
@@ -242,6 +297,8 @@ export default function ManualEnrollForm({ onSuccess }) {
           planMonths: planType === "monthly" && planMonths ? Number(planMonths) : undefined,
           customPlanId: planType === "custom" ? customPlanId : undefined,
           amount: Number(amount),
+          discountType: discountType || undefined,
+          discountValue: discountType ? Number(discountValue) : undefined,
           paymentDate,
           receiptRef: receiptRef || undefined,
           referralCode: referralCode.trim().toUpperCase() || undefined,
@@ -573,10 +630,7 @@ export default function ManualEnrollForm({ onSuccess }) {
                   <button
                     key={plan._id}
                     type="button"
-                    onClick={() => {
-                      setCustomPlanId(plan._id);
-                      setAmount(String(plan.fullPayment));
-                    }}
+                    onClick={() => setCustomPlanId(plan._id)}
                     className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                       customPlanId === plan._id
                         ? "border-orange-400 bg-orange-50 text-orange-700"
@@ -606,6 +660,78 @@ export default function ManualEnrollForm({ onSuccess }) {
           <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-500">
             6. Cash Payment Details
           </h3>
+          <div className="mb-4">
+            <label className="mb-1.5 block text-xs font-medium text-gray-600">
+              Discount (optional)
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { key: "", label: "No discount" },
+                { key: "percent", label: "Percent (%)" },
+                { key: "flat", label: "Flat (₹)" },
+              ].map((option) => (
+                <button
+                  key={option.key || "none"}
+                  type="button"
+                  onClick={() => {
+                    setDiscountType(option.key);
+                    if (!option.key) setDiscountValue("");
+                  }}
+                  className={`rounded-xl border px-4 py-2 text-sm transition ${
+                    discountType === option.key
+                      ? "border-orange-400 bg-orange-50 font-semibold text-orange-700"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-orange-200"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {discountType && (
+              <div className="mt-3">
+                <div className="relative max-w-[220px]">
+                  <input
+                    type="number"
+                    min="1"
+                    max={discountType === "percent" ? 100 : undefined}
+                    step="1"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={discountType === "percent" ? "e.g. 10" : "e.g. 1000"}
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 pr-9 text-sm outline-none focus:border-orange-400"
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
+                    {discountType === "percent" ? "%" : "₹"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {listPrice > 0 ? (
+              <div className="mt-3 rounded-xl bg-white px-4 py-3 text-sm ring-1 ring-gray-200">
+                <div className="flex items-center justify-between text-gray-600">
+                  <span>Plan price</span>
+                  <span>₹{listPrice.toLocaleString("en-IN")}</span>
+                </div>
+                {discountAmount > 0 && (
+                  <div className="mt-1 flex items-center justify-between text-emerald-600">
+                    <span>Discount</span>
+                    <span>− ₹{discountAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                )}
+                <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2 font-semibold text-gray-900">
+                  <span>Payable</span>
+                  <span>₹{payableAmount.toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-gray-500">
+                Pick a plan above to see its price and calculate a discount.
+              </p>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-gray-600">
@@ -615,10 +741,19 @@ export default function ManualEnrollForm({ onSuccess }) {
                 type="number"
                 min="1"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  setAmountTouched(true);
+                  setAmount(e.target.value);
+                }}
                 placeholder="e.g. 5000"
                 className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-400"
               />
+              {payableAmount > 0 && Number(amount) !== payableAmount && (
+                <p className="mt-1.5 text-xs text-amber-600">
+                  Differs from the ₹{payableAmount.toLocaleString("en-IN")} payable —
+                  the cash collected is recorded as entered.
+                </p>
+              )}
             </div>
 
             <div>

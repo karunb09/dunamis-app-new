@@ -83,9 +83,18 @@ const SESSION_STEP = { id: 'session', label: 'Session type' };
 const hasPositivePrice = (price) => {
   const monthly = Number(price?.monthlyFee);
   const full = Number(price?.fullPayment);
-  return (
+  if (
     (Number.isFinite(monthly) && monthly > 0) ||
     (Number.isFinite(full) && full > 0)
+  ) {
+    return true;
+  }
+
+  // A row can be sold through a promotional offer alone. Without this the
+  // wizard treats it as unpriced: its slots get filtered out, its session
+  // type becomes unreachable, and the offer never reaches the plan step.
+  return (Array.isArray(price?.customPlans) ? price.customPlans : []).some(
+    (plan) => (plan?.isActive ?? true) && Number(plan?.fullPayment) > 0
   );
 };
 
@@ -698,7 +707,10 @@ export default function EnrollTerm({
   const monthlyCardMonths = primaryTenure?.months ?? null;
   const monthlyCardFee =
     primaryTenure?.monthlyFee || Number(activePriceObj?.monthlyFee) || null;
-  const fullPaymentCards =
+  // A row sold only through an offer has no monthly or legacy full price —
+  // rendering those cards would offer a selectable "—" plan the server rejects.
+  const showMonthlyCard = Number(monthlyCardFee) > 0;
+  const fullPaymentCards = (
     tenurePlans.length > 0
       ? tenurePlans
       : [
@@ -707,7 +719,8 @@ export default function EnrollTerm({
             fullPayment: Number(activePriceObj?.fullPayment) || 0,
             discount: Number(activePriceObj?.discount) || 0,
           },
-        ];
+        ]
+  ).filter((plan) => Number(plan?.fullPayment) > 0);
 
   const canContinue =
     currentStepId === 'delivery'
@@ -1148,6 +1161,7 @@ export default function EnrollTerm({
               })}
 
               {/* Monthly card — tied to the primary (6-month, or first active) tenure */}
+              {showMonthlyCard ? (
               <div
                 role="button"
                 tabIndex={0}
@@ -1185,10 +1199,11 @@ export default function EnrollTerm({
                 </p>
                 {isFixedDurationCourse && monthlyCardMonths ? (
                   <p className="mt-2 text-sm text-gray-600">
-                    Paid over {monthlyCardMonths} months
+                    Paid over {monthsLabel(monthlyCardMonths)}
                   </p>
                 ) : null}
               </div>
+              ) : null}
 
               {/* One full-payment card per active tenure plan (dynamic — falls back to legacy fields) */}
               {fullPaymentCards.map((plan) => {
