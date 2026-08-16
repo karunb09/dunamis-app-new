@@ -22,6 +22,7 @@ const {
   aggregateOutstandingInstallments,
   getPayableInstallments,
 } = require("../services/enrollmentService");
+const { applyReferralDiscount } = require("../utils/referral");
 const { istDayStart, istDayEndExclusive } = require("../utils/istMonth");
 
 const PAID_GRACE_MS = 15 * 60 * 1000;
@@ -458,8 +459,18 @@ const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
 // Deliberately narrower than adminEnrollStudent, which only ever creates
 // installment 1 and cannot record a later collection.
 exports.recordCashInstallment = asyncHandler(async (req, res) => {
-  const { studentId, courseId, slotId, sessionType, amount, paymentDate, receiptRef, note } =
-    req.body;
+  const {
+    studentId,
+    courseId,
+    slotId,
+    sessionType,
+    amount,
+    discountType,
+    discountValue,
+    paymentDate,
+    receiptRef,
+    note,
+  } = req.body;
 
   const student = await Student.findById(studentId).populate("userId");
   if (!student) {
@@ -517,15 +528,29 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
     });
   }
 
+  // An admin may waive part of the installment. The waiver is deliberate and
+  // settles the installment in full, unlike a short collection.
+  const discounted = applyReferralDiscount(
+    { amount: entry.amountDue },
+    { discountType, discountValue: Number(discountValue) || 0 }
+  );
+  const expectedAmount = discounted.amount;
+
   // Full installment only: a short cash collection must not silently close the
   // installment and roll the due date forward.
-  if (!amountMatches(amount, entry.amountDue)) {
+  if (!amountMatches(amount, expectedAmount)) {
     return res.status(400).json({
       success: false,
-      message: `The amount due for installment ${entry.nextInstallmentNo} is ${formatMoney(
-        entry.amountDue
-      )}. Partial cash collections are not supported — record the full installment.`,
-      amountDue: entry.amountDue,
+      message: `The amount to collect for installment ${
+        entry.nextInstallmentNo
+      } is ${formatMoney(expectedAmount)}${
+        discounted.discountAmount
+          ? ` (${formatMoney(entry.amountDue)} less a ${formatMoney(
+              discounted.discountAmount
+            )} discount)`
+          : ""
+      }. Partial cash collections are not supported — record the full amount.`,
+      amountDue: expectedAmount,
     });
   }
 
@@ -576,9 +601,13 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
     paymentType: "Installment",
     installmentNo: entry.nextInstallmentNo,
     installmentTotal: entry.installmentTotal,
+    // The contractual installment, not the discounted one — a one-off waiver
+    // must not reprice the rest of the schedule.
     installmentAmount: entry.amountDue,
     dueDate: entry.dueDate,
     amount,
+    originalAmount: discounted.originalAmount ?? null,
+    discountAmount: discounted.discountAmount ?? 0,
     currency: "INR",
     gateway: "manual",
     paymentMode: "Cash",
@@ -599,8 +628,19 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
         amount,
         detail: `Cash of ${formatMoney(amount)} collected at the centre for installment ${
           entry.nextInstallmentNo
-        } of ${entry.installmentTotal}`,
-        meta: { receiptRef: receiptRef || null, note: note || null, paidAt },
+        } of ${entry.installmentTotal}${
+          discounted.discountAmount
+            ? ` — ${formatMoney(discounted.discountAmount)} waived off ${formatMoney(
+                entry.amountDue
+              )}`
+            : ""
+        }`,
+        meta: {
+          receiptRef: receiptRef || null,
+          note: note || null,
+          paidAt,
+          discountAmount: discounted.discountAmount ?? 0,
+        },
       },
     ],
   });

@@ -94,23 +94,19 @@ const buildInstructorCards = (courseRecord) =>
     };
   });
 
-const mapFeeStructure = (price, type = "monthly") => {
+const mapFeeStructure = (price) => {
   const sessionType = price?.sessionType || "standard";
   const sessionLabel = sessionType === "premium" ? "Individual" : "Group";
-  const mentorshipFeature = sessionType === "premium" ? "1-on-1 mentorship" : "Group mentorship";
   const tenurePlans = Array.isArray(price?.tenurePlans)
-    ? price.tenurePlans.filter((p) => p.isActive !== false && (Number(p.monthlyFee) > 0 || Number(p.fullPayment) > 0))
+    ? price.tenurePlans.filter((p) => p.isActive !== false && Number(p.monthlyFee) > 0)
     : [];
-  if (tenurePlans.length > 0) {
-    return tenurePlans.map((plan) => {
-      const pct = Number(plan.discount) || 0;
-      if (type === "monthly") return { plan: `${sessionLabel} · ${plan.months}-month`, price: `₹${plan.monthlyFee || 0}/month`, features: ["Full course access", "Live sessions", mentorshipFeature, pct > 0 ? `${pct}% off full payment` : "Flexible payment", "Certificate on completion"], sessionType };
-      return { plan: `${sessionLabel} · ${plan.months}-month`, price: pct > 0 ? `Save ${pct}%` : "One-time", features: ["Full course access", "All materials", pct > 0 ? `₹${plan.fullPayment || 0} one-time (${pct}% off)` : `₹${plan.fullPayment || 0} one-time`, "Lifetime access", sessionType === "premium" ? "Priority support" : "Standard support", "Certificate on completion"], sessionType };
-    });
-  }
-  if (type === "monthly") return [{ plan: sessionLabel, price: `₹${price?.monthlyFee || 0}/month`, features: ["Full course access", "Live sessions", mentorshipFeature, price?.discount > 0 ? `${price.discount}% discount on full payment` : "Flexible payment", "Certificate on completion"], sessionType }];
-  const pct = Number(price?.discount) || 0;
-  return [{ plan: sessionLabel, price: pct > 0 ? `Save ${pct}%` : "One-time", features: ["Full course access", "All materials", pct > 0 ? `₹${price?.fullPayment || 0} one-time (${pct}% off)` : `₹${price?.fullPayment || 0} one-time`, "Lifetime access", sessionType === "premium" ? "Priority support" : "Standard support", "Certificate on completion"], sessionType }];
+  const primaryPlan = tenurePlans.find((p) => Number(p.months) === 6) || tenurePlans[0];
+  const monthlyFee = Number(primaryPlan?.monthlyFee) || Number(price?.monthlyFee) || 0;
+  if (monthlyFee <= 0) return [];
+  const features = sessionType === "premium"
+    ? ["1-on-1 mentorship", "Live sessions", "Level-wise certification", "Additional discount on quarterly & half-yearly payments"]
+    : ["Full course access", "Live sessions", "Group mentorship", "Level-wise certification", "Additional discount on quarterly & half-yearly payments"];
+  return [{ plan: sessionLabel, price: `₹${monthlyFee}/month`, features, sessionType }];
 };
 
 const mapCustomPlanCards = (price) => {
@@ -178,8 +174,7 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
     curriculum: buildCurriculum(courseRecord?.content),
     instructors: buildInstructorCards(courseRecord),
     feeStructure: {
-      monthly: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "monthly")) || [],
-      full: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap((p) => mapFeeStructure(p, "full")) || [],
+      monthly: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap(mapFeeStructure) || [],
       custom: courseRecord?.price?.filter((p) => p?.isActive !== false).flatMap(mapCustomPlanCards) || [],
     },
     branchGroups: buildBranchGroups(courseRecord?.branches),
@@ -630,27 +625,6 @@ export default function CourseDetailClient({ initialCourse = null }) {
                                 {plan.sessionType === "premium" && <span className="rounded-full bg-[#CC3700] px-2.5 py-0.5 text-[11px] font-semibold text-white shrink-0">Premium</span>}
                               </div>
                               <p className="text-2xl font-extrabold text-[#CC3700]">{plan.price}</p>
-                              <ul className="mt-4 space-y-2">
-                                {plan.features.map((f, fi) => (
-                                  <li key={fi} className="flex items-center gap-2 text-sm text-gray-600">
-                                    <LuCircleCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />{f}
-                                  </li>
-                                ))}
-                              </ul>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {course.feeStructure.full?.length > 0 && (
-                      <div>
-                        <SectionTitle>Full Payment Plans</SectionTitle>
-                        <div className="grid sm:grid-cols-2 gap-4">
-                          {course.feeStructure.full.map((plan, i) => (
-                            <motion.div key={i} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}
-                              className="rounded-2xl border border-gray-100 bg-white p-5 sm:p-6 shadow-sm">
-                              <h3 className="font-bold text-gray-900 text-sm sm:text-base">{plan.plan}</h3>
-                              <p className="text-2xl font-extrabold text-emerald-600 mt-1">{plan.price}</p>
                               <ul className="mt-4 space-y-2">
                                 {plan.features.map((f, fi) => (
                                   <li key={fi} className="flex items-center gap-2 text-sm text-gray-600">

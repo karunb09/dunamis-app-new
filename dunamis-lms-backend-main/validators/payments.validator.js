@@ -88,6 +88,10 @@ const cashInstallmentSchema = z.object({
   // Floors at 1 to match PaymentTransaction.amount; the controller additionally
   // requires it to equal the outstanding installment exactly.
   amount: z.coerce.number().min(1, "Amount must be at least 1."),
+  // An admin may waive part of the installment; the controller prices the
+  // waiver off the amount due and still requires the remainder in full.
+  discountType: z.enum(["percent", "flat"]).nullish(),
+  discountValue: z.coerce.number().min(0).nullish(),
   paymentDate: z.coerce
     .date()
     .max(new Date(Date.now() + 24 * 60 * 60 * 1000), "The payment date cannot be in the future.")

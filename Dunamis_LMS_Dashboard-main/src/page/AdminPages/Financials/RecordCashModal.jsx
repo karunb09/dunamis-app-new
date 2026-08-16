@@ -18,6 +18,8 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
   const [paymentDate, setPaymentDate] = useState(dayjs().format("YYYY-MM-DD"));
   const [receiptRef, setReceiptRef] = useState("");
   const [note, setNote] = useState("");
+  const [discountType, setDiscountType] = useState("");
+  const [discountValue, setDiscountValue] = useState("");
   const recordCash = useRecordCashInstallment();
 
   useEffect(() => {
@@ -25,6 +27,8 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
     setPaymentDate(dayjs().format("YYYY-MM-DD"));
     setReceiptRef("");
     setNote("");
+    setDiscountType("");
+    setDiscountValue("");
   }, [open, due?.studentId, due?.courseId]);
 
   if (!open || !due) return null;
@@ -34,15 +38,35 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
   // The dues row carries the last PAID installment; cash clears the next one.
   const installmentNo = Number(due.installmentNo || 0) + 1;
 
+  // Mirrors the server: the waiver is priced off the amount due and the
+  // remainder is still required in full. Floors at ₹1.
+  const discountAmount = (() => {
+    const value = Number(discountValue) || 0;
+    if (!discountType || value <= 0 || amountDue <= 0) return 0;
+    const raw =
+      discountType === "percent"
+        ? Math.round((amountDue * value) / 100)
+        : Math.round(value);
+    return Math.min(raw, Math.max(0, amountDue - 1));
+  })();
+  const collectAmount = amountDue - discountAmount;
+
   const submit = async (event) => {
     event.preventDefault();
 
     const confirmed = await Swal.fire({
       title: "Record cash payment?",
       html: `<div style="text-align:left;font-size:14px;line-height:1.7">
-        <b>${formatInr(amountDue)}</b> will be recorded as received in cash from
+        <b>${formatInr(collectAmount)}</b> will be recorded as received in cash from
         <b>${studentName}</b> for <b>${due.course?.name || "this course"}</b>
-        (installment ${installmentNo}).<br/><br/>
+        (installment ${installmentNo}).<br/>
+        ${
+          discountAmount > 0
+            ? `A discount of <b>${formatInr(discountAmount)}</b> off ${formatInr(
+                amountDue
+              )} will be recorded against this installment.<br/>`
+            : ""
+        }<br/>
         This marks the installment paid and restores course access. It cannot be undone from here.
       </div>`,
       icon: "warning",
@@ -60,7 +84,9 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
         courseId: due.courseId,
         slotId: due.slotId || undefined,
         sessionType: due.sessionType || undefined,
-        amount: amountDue,
+        amount: collectAmount,
+        discountType: discountType || undefined,
+        discountValue: discountType ? Number(discountValue) : undefined,
         paymentDate,
         receiptRef: receiptRef.trim() || undefined,
         note: note.trim() || undefined,
@@ -120,8 +146,13 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
               <p className="font-semibold text-slate-900">{studentName}</p>
               <p className="truncate text-xs text-slate-500">{due.student?.email || "—"}</p>
             </div>
-            <p className="flex-shrink-0 text-lg font-bold text-slate-900">
-              {formatInr(amountDue)}
+            <p className="flex-shrink-0 text-right text-lg font-bold text-slate-900">
+              {formatInr(collectAmount)}
+              {discountAmount > 0 && (
+                <span className="block text-xs font-medium text-slate-400 line-through">
+                  {formatInr(amountDue)}
+                </span>
+              )}
             </p>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-600">
@@ -151,9 +182,71 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
         </div>
 
         <p className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800 ring-1 ring-amber-200">
-          Only the full installment can be recorded. If the student paid less, collect the balance
-          before recording it here.
+          The full amount must be collected. If the student paid less, either collect the balance
+          or record the shortfall as a discount below — don't record a partial amount.
         </p>
+
+        <div className="mt-4">
+          <span className={labelClass}>Discount (optional)</span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: "", label: "No discount" },
+              { key: "percent", label: "Percent (%)" },
+              { key: "flat", label: "Flat (₹)" },
+            ].map((option) => (
+              <button
+                key={option.key || "none"}
+                type="button"
+                onClick={() => {
+                  setDiscountType(option.key);
+                  if (!option.key) setDiscountValue("");
+                }}
+                className={`rounded-2xl border px-4 py-2 text-sm font-medium transition ${
+                  discountType === option.key
+                    ? "border-orange-300 bg-orange-50 text-orange-700"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          {discountType && (
+            <div className="relative mt-3 max-w-[200px]">
+              <input
+                type="number"
+                min="1"
+                max={discountType === "percent" ? 100 : undefined}
+                step="1"
+                value={discountValue}
+                onChange={(event) => setDiscountValue(event.target.value)}
+                placeholder={discountType === "percent" ? "e.g. 10" : "e.g. 500"}
+                className={`${inputClass} pr-9`}
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">
+                {discountType === "percent" ? "%" : "₹"}
+              </span>
+            </div>
+          )}
+
+          {discountAmount > 0 && (
+            <div className="mt-3 rounded-2xl bg-white px-4 py-3 text-sm ring-1 ring-slate-200">
+              <div className="flex items-center justify-between text-slate-600">
+                <span>Installment due</span>
+                <span>{formatInr(amountDue)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-emerald-600">
+                <span>Discount</span>
+                <span>− {formatInr(discountAmount)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 font-semibold text-slate-900">
+                <span>To collect</span>
+                <span>{formatInr(collectAmount)}</span>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="mt-4 space-y-4">
           <div>
@@ -212,10 +305,12 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
           </button>
           <button
             type="submit"
-            disabled={recordCash.isPending}
+            disabled={
+              recordCash.isPending || (Boolean(discountType) && discountAmount <= 0)
+            }
             className="rounded-2xl bg-[#FF6B35] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {recordCash.isPending ? "Recording..." : `Record ${formatInr(amountDue)}`}
+            {recordCash.isPending ? "Recording..." : `Record ${formatInr(collectAmount)}`}
           </button>
         </div>
       </form>

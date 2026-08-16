@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Swal from "sweetalert2";
 
 // Fixed-duration plans the learner can choose from.
-const TENURE_OPTIONS = [3, 6, 12];
+const TENURE_OPTIONS = [1, 3, 6, 12];
 const DEFAULT_PRIMARY_MONTHS = 6;
 const DEFAULT_DISCOUNT = "10";
 
