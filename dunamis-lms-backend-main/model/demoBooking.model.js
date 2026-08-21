@@ -80,6 +80,20 @@ const demoBookingSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    meetingLink: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    meetingLinkUpdatedAt: {
+      type: Date,
+      default: null,
+    },
+    meetingLinkSetBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      default: null,
+    },
     followUp: {
       type: String,
       enum: ["Pending", "Contacted", "Closed"],

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HiAcademicCap, HiClipboardList, HiSparkles, HiTrendingUp } from "react-icons/hi";
+import { HiAcademicCap, HiClipboardList, HiSparkles, HiTrendingUp, HiVideoCamera } from "react-icons/hi";
 import StudentShell from "@/components/student/StudentShell";
 
 const cards = [
@@ -10,6 +10,12 @@ const cards = [
     href: "/student/my-courses",
     icon: HiAcademicCap,
     copy: "Continue enrolled courses and review your session details.",
+  },
+  {
+    label: "Demo Classes",
+    href: "/student/demo-classes",
+    icon: HiVideoCamera,
+    copy: "See your booked demos, join links, and past demo sessions.",
   },
   {
     label: "Assignments",

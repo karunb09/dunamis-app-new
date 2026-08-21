@@ -36,6 +36,7 @@ const mapTeacherToInstructor = (teacher) => {
         courseCategory: teacher.teacherApplication?.areaOfExpertise || '—',
         studentCount: teacher.studentCount || 0,
         mode: teacher.teacherApplication?.mode || '—',
+        teachLanguages: teacher.teacherApplication?.language?.teach || [],
         joiningDate: teacher.createdAt,
         salaryStatus: teacher.salaryStatus,
     };
@@ -141,6 +142,7 @@ const Instructor = () => {
     const editData = editModal.instructor
         ? {
             mode: editModal.instructor.mode !== '—' ? editModal.instructor.mode : 'online',
+            teachLanguages: editModal.instructor.teachLanguages || [],
             branch: '',
             courses: teachers.find((t) => t.id === editModal.instructor.id)?.courses?.map((c) => c.name) || [],
             profilePicture: editModal.instructor.avatar || editModal.instructor.userImage || '',
@@ -152,7 +154,13 @@ const Instructor = () => {
         if (!row) return;
 
         const payload = new FormData();
-        payload.append('teacherDetails', JSON.stringify({ mode: updated.mode || 'online' }));
+        payload.append(
+            'teacherDetails',
+            JSON.stringify({
+                mode: updated.mode || 'online',
+                language: { teach: updated.teachLanguages || [] },
+            })
+        );
         if (updated.profilePictureFile) payload.append('profilePicture', updated.profilePictureFile);
 
         runInstructorAction({
@@ -382,6 +390,22 @@ const Instructor = () => {
                         selected={selected}
                         onSelect={onSelect}
                     >
+                        {row.teachLanguages?.length > 0 && (
+                            <div className="pb-1">
+                                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Teaches In</p>
+                                <div className="flex flex-wrap gap-1">
+                                    {row.teachLanguages.map((language) => (
+                                        <span
+                                            key={language}
+                                            className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-700 ring-1 ring-orange-100"
+                                        >
+                                            {language}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Salary status toggle */}
                         <div className="pb-1">
                             <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Salary Status</p>

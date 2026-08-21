@@ -2,7 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FaCamera } from 'react-icons/fa';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
+import ReactSelect from 'react-select';
 import ProfileImageCropper from '../../../../components/ProfileImageCropper';
+import {
+    LANGUAGE_OPTIONS,
+    LANGUAGE_SELECT_STYLES,
+    toLanguageOptions,
+} from '../../../../constants/languages';
 
 const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) => {
     const fileInputRef = useRef(null);
@@ -114,6 +120,22 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                         <option value="offline">Offline</option>
                         <option value="hybrid">Hybrid (Online + Offline)</option>
                     </select>
+                </div>
+
+                {/* Teaching Languages */}
+                <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Teaching Languages</label>
+                    <ReactSelect
+                        isMulti
+                        options={LANGUAGE_OPTIONS}
+                        value={toLanguageOptions(form.teachLanguages)}
+                        onChange={(selected) =>
+                            handleChange('teachLanguages', (selected || []).map((option) => option.value))
+                        }
+                        placeholder="Select languages"
+                        closeMenuOnSelect={false}
+                        styles={LANGUAGE_SELECT_STYLES}
+                    />
                 </div>
 
                 {/* Branch - only if Offline or Hybrid */}

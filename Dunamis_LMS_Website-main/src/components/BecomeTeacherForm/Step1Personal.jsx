@@ -2,6 +2,7 @@ import {
   SelectInput,
   TextInput,
 } from "./FormFields";
+import { TEACHING_LANGUAGES } from "@/lib/languages";
 
 export default function Step1Personal({ formData, setFormData, errors = {} }) {
   return (
@@ -85,6 +86,41 @@ export default function Step1Personal({ formData, setFormData, errors = {} }) {
         required
         className="md:col-span-2"
       />
+
+      <div className="md:col-span-2">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Languages You Teach In <span className="text-red-500">*</span>
+        </label>
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-gray-200 p-3">
+          {TEACHING_LANGUAGES.map((language) => {
+            const isSelected = (formData.teachLanguage || []).includes(language);
+            return (
+              <button
+                key={language}
+                type="button"
+                onClick={() =>
+                  setFormData({
+                    ...formData,
+                    teachLanguage: isSelected
+                      ? formData.teachLanguage.filter((item) => item !== language)
+                      : [...(formData.teachLanguage || []), language],
+                  })
+                }
+                className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+                  isSelected
+                    ? "border-orange-500 bg-orange-500 text-white"
+                    : "border-gray-300 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50"
+                }`}
+              >
+                {language}
+              </button>
+            );
+          })}
+        </div>
+        {errors.teachLanguage ? (
+          <p className="mt-1 text-sm text-red-500">{errors.teachLanguage}</p>
+        ) : null}
+      </div>
     </div>
   );
 }

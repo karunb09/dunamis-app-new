@@ -474,9 +474,17 @@ exports.getUserById = asyncHandler(async (req, res) => {
 
         const user = await User.findById(id)
             .select("-password")
-            .populate("roleId")
+            .populate({
+                path: "roleId",
+                // roleId is a refPath — admin/student docs have no teacherDetail.
+                populate: {
+                    path: "teacherDetail",
+                    select: "language areaOfExpertise mode specilization",
+                    strictPopulate: false,
+                },
+            })
             .populate("adminDetails"); // Add this line
-        
+
         if (!user) {
             return res.status(404).json({
                 success: false,

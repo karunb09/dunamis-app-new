@@ -2,8 +2,15 @@ import React, { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import ReactSelect from "react-select";
 import { createTeacher } from "../../../../redux/Intructor/teacherSlice";
 import BackButton from "../../../../components/BackButton";
+import {
+  DEFAULT_TEACHING_LANGUAGES,
+  LANGUAGE_OPTIONS,
+  LANGUAGE_SELECT_STYLES,
+  toLanguageOptions,
+} from "../../../../constants/languages";
 
 const getTodayDateString = () => {
   const today = new Date();
@@ -19,6 +26,7 @@ const INITIAL_FORM = {
   gender: "female",
   readLanguage: "",
   speakLanguage: "",
+  teachLanguage: [...DEFAULT_TEACHING_LANGUAGES],
   currentState: "",
   currentCity: "",
   currentAddress: "",
@@ -46,6 +54,13 @@ const AddInstructorForm = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: name === "mobileNo" ? value.replace(/\D/g, "").slice(0, 10) : value,
+    }));
+  };
+
+  const handleTeachLanguageChange = (selectedOptions) => {
+    setFormData((prev) => ({
+      ...prev,
+      teachLanguage: (selectedOptions || []).map((option) => option.value),
     }));
   };
 
@@ -275,6 +290,24 @@ const AddInstructorForm = () => {
                 placeholder="English, Hindi"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Teaching Languages
+              </label>
+              <ReactSelect
+                isMulti
+                name="teachLanguage"
+                options={LANGUAGE_OPTIONS}
+                value={toLanguageOptions(formData.teachLanguage)}
+                onChange={handleTeachLanguageChange}
+                placeholder="Select languages"
+                closeMenuOnSelect={false}
+                styles={LANGUAGE_SELECT_STYLES}
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Shown to students on the website. The instructor can change this from their profile.
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">State</label>

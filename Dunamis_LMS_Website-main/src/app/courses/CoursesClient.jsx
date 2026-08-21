@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuMapPin } from "react-icons/lu";
+import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuMapPin, LuLanguages } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -99,11 +99,20 @@ function CourseCard({ course, courseFallbackImage }) {
           </p>
         )}
 
-        {course.level && (
-          <span className="mt-3 inline-block w-fit rounded-full bg-orange-50 border border-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-600 capitalize">
-            {course.level}
-          </span>
-        )}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {course.level && (
+            <span className="inline-block w-fit rounded-full bg-orange-50 border border-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-600 capitalize">
+              {course.level}
+            </span>
+          )}
+
+          {course.languages.length > 0 && (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-violet-50 border border-violet-100 px-2.5 py-0.5 text-xs font-medium text-violet-700">
+              <LuLanguages className="w-3 h-3 shrink-0" />
+              <span className="line-clamp-1">{course.languages.join(", ")}</span>
+            </span>
+          )}
+        </div>
 
         {/* Actions */}
         <div className="mt-auto grid grid-cols-2 gap-2 pt-4">
@@ -202,19 +211,29 @@ function CoursesPageContent({ initialCourses = [] }) {
     return mode === "online" || mode === "offline" ? mode : "";
   };
 
+  const readLanguageFromQuery = () => (searchParams.get("language") || "").trim();
+
   const [selectedCategory, setSelectedCategory] = useState(readCategoryFromQuery);
   const [selectedMode, setSelectedMode] = useState(readModeFromQuery);
+  const [selectedLanguage, setSelectedLanguage] = useState(readLanguageFromQuery);
   const searchParamsString = searchParams.toString();
   const categoryFromQuery = readCategoryFromQuery();
   const modeFromQuery = readModeFromQuery();
+  const languageFromQuery = readLanguageFromQuery();
 
-  const writeFiltersToUrl = ({ category = selectedCategory, mode = selectedMode } = {}) => {
+  const writeFiltersToUrl = ({
+    category = selectedCategory,
+    mode = selectedMode,
+    language = selectedLanguage,
+  } = {}) => {
     const nextParams = new URLSearchParams(searchParamsString);
     const nextCategory = String(category || "").trim();
     const nextMode = normalizeValue(mode);
+    const nextLanguage = String(language || "").trim();
     if (nextCategory) nextParams.set("category", nextCategory); else nextParams.delete("category");
     if (nextMode) nextParams.set("mode", nextMode); else nextParams.delete("mode");
-    if (!nextCategory && !nextMode) nextParams.delete("intent");
+    if (nextLanguage) nextParams.set("language", nextLanguage); else nextParams.delete("language");
+    if (!nextCategory && !nextMode && !nextLanguage) nextParams.delete("intent");
     const nextQuery = nextParams.toString();
     const nextHref = nextQuery ? `${pathname}?${nextQuery}` : pathname;
     const currentHref = searchParamsString ? `${pathname}?${searchParamsString}` : pathname;
@@ -230,9 +249,13 @@ function CoursesPageContent({ initialCourses = [] }) {
     setSelectedMode(n);
     writeFiltersToUrl({ category: selectedCategory, mode: n });
   };
+  const updateLanguageFilter = (language) => {
+    setSelectedLanguage(language);
+    writeFiltersToUrl({ language });
+  };
   const clearSelectedFilters = () => {
-    setSelectedCategory(""); setSelectedMode(""); setMaxPrice(10000);
-    writeFiltersToUrl({ category: "", mode: "" });
+    setSelectedCategory(""); setSelectedMode(""); setSelectedLanguage(""); setMaxPrice(10000);
+    writeFiltersToUrl({ category: "", mode: "", language: "" });
   };
 
   const transformCourses = (rawCourses) => {
@@ -249,6 +272,7 @@ function CoursesPageContent({ initialCourses = [] }) {
           category: course.category?.name || "Not specified",
           level: course.level || "Beginner",
           mode: course.mode || "online",
+          languages: Array.isArray(course.languages) ? course.languages : [],
           price: selectedPrice?.monthlyFee || selectedPrice?.fullPayment || 0,
           image: resolveImageUrl(course.image, courseFallbackImage),
           rating: course.rating || 0,
@@ -273,7 +297,10 @@ function CoursesPageContent({ initialCourses = [] }) {
     const matchesCategory = selectedCategory ? normalizeValue(course.category) === normalizeValue(selectedCategory) : true;
     const matchesMode = selectedMode ? normalizeValue(course.mode) === normalizeValue(selectedMode) : true;
     const matchesPrice = course.price <= maxPrice;
-    return matchesSearch && matchesCategory && matchesMode && matchesPrice;
+    const matchesLanguage = selectedLanguage
+      ? course.languages.some((l) => normalizeValue(l) === normalizeValue(selectedLanguage))
+      : true;
+    return matchesSearch && matchesCategory && matchesMode && matchesPrice && matchesLanguage;
   });
 
   const categories = useMemo(
@@ -281,12 +308,18 @@ function CoursesPageContent({ initialCourses = [] }) {
     [transformedCourses]
   );
 
+  const languages = useMemo(
+    () => [...new Set(transformedCourses.flatMap((c) => c.languages).filter(Boolean))],
+    [transformedCourses]
+  );
+
   useEffect(() => {
     setSelectedCategory((c) => c === categoryFromQuery ? c : categoryFromQuery);
     setSelectedMode((m) => m === modeFromQuery ? m : modeFromQuery);
-  }, [categoryFromQuery, modeFromQuery, searchParamsString]);
+    setSelectedLanguage((l) => l === languageFromQuery ? l : languageFromQuery);
+  }, [categoryFromQuery, modeFromQuery, languageFromQuery, searchParamsString]);
 
-  const hasActiveFilters = selectedCategory || selectedMode || maxPrice < 10000;
+  const hasActiveFilters = selectedCategory || selectedMode || selectedLanguage || maxPrice < 10000;
 
   return (
     <>
@@ -512,6 +545,27 @@ function CoursesPageContent({ initialCourses = [] }) {
                     ))}
                   </div>
                 </div>
+
+                {languages.length > 1 && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Language</p>
+                    <div className="flex flex-wrap gap-2">
+                      {["", ...languages].map((language) => (
+                        <button
+                          key={language || "__all__"}
+                          onClick={() => updateLanguageFilter(language)}
+                          className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                            selectedLanguage === language
+                              ? "bg-[#CC3700] text-white"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          }`}
+                        >
+                          {language || "All"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <div className="flex items-center justify-between mb-2">

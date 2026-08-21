@@ -7,6 +7,10 @@ const Student = require("../model/student.model");
 const Branch = require("../model/branch.model");
 const fs = require("fs/promises");
 const path = require("path");
+const {
+  DEFAULT_TEACHING_LANGUAGES,
+  normalizeLanguages,
+} = require("../constants/languages");
 
 const deleteLocalUpload = async (filePath) => {
   if (!filePath || !filePath.startsWith("/uploads/")) {
@@ -165,6 +169,18 @@ const syncCourseBranches = async ({
   }
 };
 
+// FormData sends languages as a JSON string; fall back to comma-separated.
+const parseLanguagesField = (raw) => {
+  if (raw === undefined || raw === null || raw === "") return DEFAULT_TEACHING_LANGUAGES;
+  if (Array.isArray(raw)) return normalizeLanguages(raw);
+
+  try {
+    return normalizeLanguages(JSON.parse(raw));
+  } catch {
+    return normalizeLanguages(raw);
+  }
+};
+
 const formatPublicTeacherForCourse = (teacher) => {
   if (!teacher) return null;
 
@@ -185,6 +201,7 @@ const formatPublicTeacherForCourse = (teacher) => {
           currentCity: teacher.teacherDetail.currentCity,
           yearOfExperience: teacher.teacherDetail.yearOfExperience,
           highestQualification: teacher.teacherDetail.highestQualification,
+          teachLanguages: teacher.teacherDetail.language?.teach || [],
         }
       : null,
     userId: teacher.userId
@@ -205,7 +222,7 @@ const publicTeacherPopulate = {
       path: "teacherDetail",
       model: "TeacherApplication",
       select:
-        "name profilePicture profileVideo mode areaOfExpertise currentState currentCity yearOfExperience highestQualification",
+        "name profilePicture profileVideo mode areaOfExpertise currentState currentCity yearOfExperience highestQualification language",
     },
     {
       path: "userId",
@@ -271,6 +288,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       courseType,
       level,
       certification,
+      languages,
       startDate,
       endDate,
       teacher,
@@ -336,6 +354,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       courseType,
       level,
       certification,
+      languages: parseLanguagesField(languages),
       startDate,
       endDate,
       objectives: objectives ? JSON.parse(objectives) : [],
@@ -636,6 +655,9 @@ exports.updateCourse = asyncHandler(async (req, res) => {
     updateData.price = parsedPrice
       ? parsedPrice.map(normalizePricePayload)
       : existingCourse.price;
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "languages")) {
+      updateData.languages = parseLanguagesField(req.body.languages);
+    }
     if (req.body.isPublished !== undefined) {
       updateData.isPublished =
         typeof req.body.isPublished === "string"

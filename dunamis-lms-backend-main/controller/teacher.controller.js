@@ -15,6 +15,10 @@ const mailSender = require("../utils/mailSender");
 const { localFileUpload } = require("../utils/locallyUploader");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
+const {
+  DEFAULT_TEACHING_LANGUAGES,
+  normalizeLanguages,
+} = require("../constants/languages");
 
 const normalizeStringArray = (value) => {
   if (Array.isArray(value)) {
@@ -130,6 +134,7 @@ const formatPublicCourseSummary = (course) => {
     code: course.code,
     mode: course.mode,
     level: course.level,
+    languages: course.languages || [],
     image: course.image,
     category: course.category
       ? {
@@ -206,6 +211,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       gender,
       readLanguage,
       speakLanguage,
+      teachLanguage,
       currentState,
       currentCity,
       currentAddress,
@@ -224,6 +230,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
 
     const readLanguages = normalizeStringArray(readLanguage);
     const speakLanguages = normalizeStringArray(speakLanguage);
+    const teachLanguages = normalizeLanguages(normalizeStringArray(teachLanguage));
     const normalizedEmail = email?.trim().toLowerCase();
     const normalizedMobileNo = String(mobileNo || "").trim();
 
@@ -332,6 +339,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       language: {
         read: readLanguages,
         speak: speakLanguages,
+        teach: teachLanguages.length ? teachLanguages : DEFAULT_TEACHING_LANGUAGES,
       },
       email: normalizedEmail,
       mobileNo: Number(normalizedMobileNo),
@@ -417,7 +425,7 @@ exports.getPublicTeachers = asyncHandler(async (req, res) => {
       })
       .populate({
         path: "course",
-        select: "_id name code mode level image category",
+        select: "_id name code mode level languages image category",
         populate: {
           path: "category",
           model: "Category",
@@ -677,7 +685,7 @@ exports.getPublicTeacherById = asyncHandler(async (req, res) => {
       })
       .populate({
         path: "course",
-        select: "_id name code mode level image category",
+        select: "_id name code mode level languages image category",
         populate: {
           path: "category",
           model: "Category",
@@ -1036,6 +1044,19 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
       teacherDetailsUpdate.profilePicture = uploadedFiles[0].path;
     }
 
+    // A partial `language` object would replace the whole nested doc and wipe
+    // the keys it omits, so flatten it into dot-paths instead.
+    if (teacherDetailsUpdate.language) {
+      const { read, speak, teach } = teacherDetailsUpdate.language;
+      delete teacherDetailsUpdate.language;
+
+      if (read !== undefined) teacherDetailsUpdate["language.read"] = normalizeStringArray(read);
+      if (speak !== undefined) teacherDetailsUpdate["language.speak"] = normalizeStringArray(speak);
+      if (teach !== undefined) {
+        teacherDetailsUpdate["language.teach"] = normalizeLanguages(normalizeStringArray(teach));
+      }
+    }
+
     // 5. teacher info
     if (teacher.teacherDetail && Object.keys(teacherDetailsUpdate).length) {
       await TeacherDetail.findByIdAndUpdate(
@@ -1051,7 +1072,7 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     const updatedTeacher = await Teacher.findById(id)
       .populate({ path: "userId", select: "name email mobileNo accountType accountStatus employeeId image _id" })
       .populate({ path: "teacherDetail" })
-      .populate({ path: "course", select: "_id name code mode level image category" });
+      .populate({ path: "course", select: "_id name code mode level languages image category" });
 
     res.status(200).json({
       success: true,

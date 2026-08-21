@@ -6,11 +6,13 @@ const Category = require("../model/category.model");
 const mailSender = require("../utils/mailSender");
 const {
   adminDemoBookingEmailTemplate,
+  demoLinkEmailTemplate,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,
 } = require("../mail/demoBookingEmail");
 const {
   createDashboardNotice,
+  getAdminUsers,
   notifyEvent,
 } = require("../utils/notificationService");
 
@@ -502,16 +504,147 @@ exports.getAllBookings = asyncHandler(async (req, res) => {
     return res.status(200).json(bookings);
 });
 
+// Notify the learner (registered or guest lead) plus staff once an instructor
+// or admin shares the join link. Never allowed to fail the update request.
+const sendDemoLinkNotifications = async ({ bookingId, meetingLink, isUpdate }) => {
+  const booking = await DemoBooking.findById(bookingId)
+    .populate({
+      path: "studentId",
+      select: "userId",
+      populate: { path: "userId", select: "name email" },
+    })
+    .populate({
+      path: "slotId",
+      select: "date startTime endTime branchId",
+      populate: [
+        { path: "branchId", select: "branchName location branchTimings city", populate: { path: "city", select: "cityName" } },
+        { path: "createdBy", select: "userId teacherDetail", populate: { path: "userId", select: "name email" } },
+      ],
+    })
+    .populate({ path: "courseId", select: "name code mode" });
+
+  if (!booking) return;
+
+  const studentUser = booking.studentId?.userId || null;
+  const recipientEmail = booking.lead?.email || studentUser?.email || "";
+  const courseName = booking.courseId?.name || "your course";
+
+  const { subject, html, attachments = [] } = demoLinkEmailTemplate({
+    student: studentUser
+      ? { name: studentUser.name, email: studentUser.email }
+      : booking.lead,
+    course: booking.courseId,
+    slot: booking.slotId,
+    branch: booking.slotId?.branchId || null,
+    instructor: booking.slotId?.createdBy,
+    meetingLink,
+    isUpdate,
+  });
+
+  const deliveries = [];
+
+  if (recipientEmail) {
+    deliveries.push({
+      type: "student-email",
+      recipient: recipientEmail,
+      task: mailSender(recipientEmail, subject, html, attachments),
+    });
+  }
+
+  if (studentUser?._id) {
+    deliveries.push({
+      type: "student-notice",
+      recipient: "dashboard",
+      task: createDashboardNotice({
+        title: isUpdate ? "Demo class link updated" : "Demo class link shared",
+        message: `Join link for your ${courseName} demo: ${meetingLink}`,
+        userIds: [studentUser._id],
+        creatorId: studentUser._id,
+      }),
+    });
+  }
+
+  const admins = await getAdminUsers();
+  if (admins.length) {
+    deliveries.push({
+      type: "admin-notice",
+      recipient: "dashboard",
+      task: createDashboardNotice({
+        title: isUpdate ? "Demo class link updated" : "Demo class link shared",
+        message: `${courseName} demo link ${isUpdate ? "updated" : "shared"} with the learner.`,
+        userIds: admins.map((admin) => admin._id),
+      }),
+    });
+  }
+
+  if (!deliveries.length) return;
+
+  const results = await Promise.allSettled(deliveries.map((delivery) => delivery.task));
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") return;
+    console.error("Demo link notification failed", {
+      bookingId: String(bookingId),
+      type: deliveries[index].type,
+      recipient: deliveries[index].recipient,
+      error: result.reason?.message || result.reason || "Unknown error",
+    });
+  });
+};
+
+// Bookings owned by the logged-in student. Guest demos booked before signup are
+// matched by lead email so they still surface in the student portal.
+exports.getMyBookings = asyncHandler(async (req, res) => {
+    const ownerFilters = [];
+    if (req.user?.roleId) ownerFilters.push({ studentId: req.user.roleId });
+    if (req.user?.email) {
+      ownerFilters.push({ "lead.email": normalizeEmail(req.user.email) });
+    }
+
+    if (!ownerFilters.length) {
+      return res.status(200).json({ success: true, bookings: [] });
+    }
+
+    const bookings = await DemoBooking.find({ $or: ownerFilters })
+      .select(
+        "demoStatus enrollmentStatus deliveryMode meetingLink meetingLinkUpdatedAt createdAt slotId courseId teacherId branchId"
+      )
+      .populate({
+        path: "slotId",
+        select: "date startTime endTime branchId",
+        populate: {
+          path: "branchId",
+          select: "branchName location branchTimings city",
+          populate: { path: "city", select: "cityName" },
+        },
+      })
+      .populate({ path: "courseId", select: "name code mode" })
+      .populate({
+        path: "teacherId",
+        select: "userId",
+        populate: { path: "userId", select: "name" },
+      })
+      .populate({
+        path: "branchId",
+        select: "branchName location branchTimings city",
+        populate: { path: "city", select: "cityName" },
+      })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({ success: true, bookings });
+});
+
 // Update booking
 exports.updateBooking = asyncHandler(async (req, res) => {
-    const { demoStatus, enrollmentStatus, followUp, response } = req.body;
+    const { demoStatus, enrollmentStatus, followUp, response, meetingLink } =
+      req.body;
 
     const booking = await DemoBooking.findById(req.params.id)
       .populate({
         path: "slotId",
         select: "createdBy",
       })
-      .select("teacherId slotId demoStatus enrollmentStatus");
+      .select("teacherId slotId demoStatus enrollmentStatus meetingLink");
 
     if (!booking) {
       return res
@@ -536,7 +669,7 @@ exports.updateBooking = asyncHandler(async (req, res) => {
       }
     }
 
-    // Teachers may only set the demo status; the rest is admin-managed
+    // Teachers may set the demo status and the join link; the rest is admin-managed
     const updateFields = {};
     if (demoStatus) {
       updateFields.demoStatus = demoStatus;
@@ -544,6 +677,19 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         updateFields.attendedAt = new Date();
       }
     }
+
+    let sharedLink = "";
+    if (typeof meetingLink === "string") {
+      const nextLink = meetingLink.trim();
+      updateFields.meetingLink = nextLink;
+
+      if (nextLink !== (booking.meetingLink || "")) {
+        updateFields.meetingLinkUpdatedAt = nextLink ? new Date() : null;
+        updateFields.meetingLinkSetBy = nextLink ? req.user?.userId || null : null;
+        sharedLink = nextLink;
+      }
+    }
+
     if (!isTeacher) {
       if (enrollmentStatus) {
         updateFields.enrollmentStatus = enrollmentStatus;
@@ -570,6 +716,21 @@ exports.updateBooking = asyncHandler(async (req, res) => {
       updateFields,
       { returnDocument: "after", runValidators: true }
     );
+
+    if (sharedLink) {
+      try {
+        await sendDemoLinkNotifications({
+          bookingId: updatedBooking._id,
+          meetingLink: sharedLink,
+          isUpdate: Boolean(booking.meetingLink),
+        });
+      } catch (error) {
+        console.error("Demo link notification failed", {
+          bookingId: String(updatedBooking._id),
+          error: error?.message || error,
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,

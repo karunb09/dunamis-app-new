@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { DEFAULT_TEACHING_LANGUAGES } = require("../constants/languages");
 
 const teacherApplicationSchema = new mongoose.Schema(
   {
@@ -29,6 +30,10 @@ const teacherApplicationSchema = new mongoose.Schema(
           required: true,
         },
       ],
+      teach: {
+        type: [String],
+        default: DEFAULT_TEACHING_LANGUAGES,
+      },
     },
     email: {
       type: String,

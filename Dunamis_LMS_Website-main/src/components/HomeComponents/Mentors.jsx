@@ -46,7 +46,8 @@ export default function Mentors() {
             // Format languages
             const languages = {
                 read: teacherApp.language?.read || [],
-                speak: teacherApp.language?.speak || []
+                speak: teacherApp.language?.speak || [],
+                teach: teacherApp.language?.teach || []
             };
 
             const mentor = {
@@ -375,9 +376,9 @@ export default function Mentors() {
                                                             <div>
                                                                 <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Languages</h4>
                                                                 <p className="text-xs text-white/65">
-                                                                    Speak: {mentor.languages.speak.join(", ") || "N/A"}
+                                                                    Teaches in: {mentor.languages.teach.join(", ") || "N/A"}
                                                                     <br />
-                                                                    Read: {mentor.languages.read.join(", ") || "N/A"}
+                                                                    Speak: {mentor.languages.speak.join(", ") || "N/A"}
                                                                 </p>
                                                             </div>
                                                             <div>

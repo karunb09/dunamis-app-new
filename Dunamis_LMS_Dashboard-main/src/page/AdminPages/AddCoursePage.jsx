@@ -7,6 +7,7 @@ import CourseMediaForm from "./CourseForms/CourseMediaForm";
 import { useNavigate, useParams } from "react-router-dom";
 import { useCourseDetailsQuery, useCreateCourse, useUpdateCourse } from "../../hooks/useCourses";
 import toast from "react-hot-toast";
+import { DEFAULT_TEACHING_LANGUAGES } from "../../constants/languages";
 
 const AddCoursePage = () => {
     const tabs = ["Course Info", "Instructors", "Pricing", "Content", "Media"];
@@ -41,7 +42,7 @@ const AddCoursePage = () => {
     };
 
     const [courseData, setCourseData] = useState({
-        info: {},
+        info: { languages: [...DEFAULT_TEACHING_LANGUAGES] },
         instructors: [],
         pricing: {
             standard: {
@@ -95,6 +96,9 @@ const AddCoursePage = () => {
                     endDate: formatDateForInput(passedCourseData.endDate),
                     mode: passedCourseData.mode || "",
                     level: passedCourseData.level || "",
+                    languages: Array.isArray(passedCourseData.languages) && passedCourseData.languages.length
+                        ? passedCourseData.languages
+                        : [...DEFAULT_TEACHING_LANGUAGES],
                     category: passedCourseData.category?._id || "",
                     subCategory: subCategoryId,
                     courseType: passedCourseData.courseType || "",
@@ -281,6 +285,9 @@ const AddCoursePage = () => {
             subCategory: courseData.info.subCategory,
             mode: courseData.info.mode,
             level: courseData.info.level,
+            languages: Array.isArray(courseData.info.languages) && courseData.info.languages.length
+                ? courseData.info.languages
+                : [...DEFAULT_TEACHING_LANGUAGES],
             certification: courseData.info.certification,
             courseType: courseData.info.courseType,
             startDate: courseData.info.startDate || null,
@@ -331,7 +338,7 @@ const AddCoursePage = () => {
 
         // Append regular fields
         Object.entries(payload).forEach(([key, value]) => {
-            if (["teacher", "price", "content", "objectives", "branches"].includes(key)) {
+            if (["teacher", "price", "content", "objectives", "branches", "languages"].includes(key)) {
                 formData.append(key, JSON.stringify(value ?? []));
             } else if (value === null) {
                 formData.append(key, "");

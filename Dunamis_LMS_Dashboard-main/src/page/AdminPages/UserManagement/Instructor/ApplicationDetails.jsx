@@ -244,6 +244,10 @@ const ApplicationDetails = () => {
                                     .join(", ") || "—"}
                             </p>
                         </div>
+                        <div>
+                            <label className="text-sm text-gray-600">Teaches In</label>
+                            <p>{(language?.teach || []).join(", ") || "—"}</p>
+                        </div>
                     </div>
                 </section>
 

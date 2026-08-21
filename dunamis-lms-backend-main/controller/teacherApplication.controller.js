@@ -8,6 +8,10 @@ const sendApplicationStatus = require("../mail/sendApplicationStatus");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
+const {
+  DEFAULT_TEACHING_LANGUAGES,
+  normalizeLanguages,
+} = require("../constants/languages");
 
 const getTodayDateString = () => {
   const today = new Date();
@@ -34,6 +38,7 @@ exports.createTeacherApplication = asyncHandler(async (req, res) => {
       gender,
       readLanguage,
       speakLanguage,
+      teachLanguage,
       email,
       mobileNo,
       currentState,
@@ -47,7 +52,7 @@ exports.createTeacherApplication = asyncHandler(async (req, res) => {
       noticePeriod,
       availability,
       mode,
-      specialization, 
+      specialization,
     } = req.body;
 
     // Validate required fields
@@ -203,6 +208,9 @@ exports.createTeacherApplication = asyncHandler(async (req, res) => {
       language: {
         read: readLanguage.trim(),
         speak: speakLanguage.trim(),
+        teach: normalizeLanguages(teachLanguage).length
+          ? normalizeLanguages(teachLanguage)
+          : DEFAULT_TEACHING_LANGUAGES,
       },
       email: normalizedEmail,
       mobileNo: parseInt(mobileNo),

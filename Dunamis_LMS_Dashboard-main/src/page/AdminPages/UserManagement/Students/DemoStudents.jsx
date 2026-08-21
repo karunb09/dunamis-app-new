@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FaSearch, FaFilter, FaList, FaSortAmountDown, FaTh } from "react-icons/fa";
-import { FiClipboard, FiX } from "react-icons/fi";
+import { FiClipboard, FiCopy, FiExternalLink, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
 import { getAllBookings, updateBookingStatus } from "../../../../redux/DemoBooking/DemoBookingSlice";
 import DataCards from "../../../../components/DataCards";
@@ -119,6 +119,101 @@ const BookingResponseInput = ({ value, saving, onCommit }) => {
     );
 };
 
+const isDemoUpcoming = (booking) => {
+    const date = getBookingDate(booking);
+    if (!date || Number.isNaN(date.getTime())) return false;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    return date >= startOfToday;
+};
+
+const BookingLinkField = ({ booking, saving, onCommit }) => {
+    const savedLink = booking?.meetingLink || "";
+    const [draft, setDraft] = useState(savedLink);
+    const [editing, setEditing] = useState(!savedLink);
+
+    useEffect(() => {
+        setDraft(savedLink);
+        setEditing(!savedLink);
+    }, [savedLink]);
+
+    const commit = () => {
+        const next = (draft ?? "").trim();
+        if (next === savedLink) {
+            setEditing(!next);
+            return;
+        }
+        if (next && !/^https:\/\/\S+$/.test(next)) {
+            toast.error("Enter a valid https:// link");
+            return;
+        }
+        onCommit(next);
+    };
+
+    const copyLink = () => {
+        navigator.clipboard.writeText(savedLink)
+            .then(() => toast.success("Link copied!"))
+            .catch(() => toast.error("Failed to copy!"));
+    };
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1.5">
+                <input
+                    type="url"
+                    value={draft}
+                    disabled={saving}
+                    placeholder="https://meet.google.com/…"
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") { setDraft(savedLink); setEditing(!savedLink); }
+                    }}
+                    onBlur={commit}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition-colors placeholder:text-slate-300 focus:border-orange-400 disabled:opacity-50"
+                />
+                {!savedLink && getBookingMode(booking) !== "offline" && isDemoUpcoming(booking) ? (
+                    <span className="shrink-0 rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700 ring-1 ring-amber-100">
+                        Not shared
+                    </span>
+                ) : null}
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-wrap items-center gap-1.5">
+            <a
+                href={savedLink}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-100"
+            >
+                <FiExternalLink size={12} />
+                Join
+            </a>
+            <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); copyLink(); }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-orange-200 hover:text-orange-600"
+            >
+                <FiCopy size={12} />
+                Copy
+            </button>
+            <button
+                type="button"
+                disabled={saving}
+                onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+                className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-orange-200 hover:text-orange-600 disabled:opacity-50"
+            >
+                Edit
+            </button>
+        </div>
+    );
+};
+
 const DemoStudents = () => {
     const dispatch = useDispatch();
     const { bookings, loading, error } = useSelector((state) => state.demoBookings);
@@ -221,7 +316,8 @@ Demo Status: ${s.demoStatus || "N/A"}
 Enrollment Status: ${s.enrollmentStatus || "N/A"}
 Follow Up: ${s.followUp || "N/A"}
 Response: ${s.response || "N/A"}
-Slot: ${getBookingSlotLabel(s)}`.trim();
+Slot: ${getBookingSlotLabel(s)}
+Class Link: ${s.meetingLink || "Not shared"}`.trim();
         }).join("\n\n---\n\n");
         navigator.clipboard.writeText(details)
             .then(() => toast.success("Copied to clipboard!"))
@@ -241,6 +337,7 @@ Slot: ${getBookingSlotLabel(s)}`.trim();
         { header: "Enrollment Status", value: (r) => r.enrollmentStatus || "", width: 16 },
         { header: "Follow Up", value: (r) => r.followUp || "" },
         { header: "Response", value: (r) => r.response || "", width: 32 },
+        { header: "Class Link", value: (r) => r.meetingLink || "", width: 36 },
     ];
 
     const runExport = async (list) => {
@@ -365,6 +462,18 @@ Slot: ${getBookingSlotLabel(s)}`.trim();
                     value={row.response}
                     saving={savingId === row._id}
                     onCommit={(value) => updateStudent(row._id, "response", value)}
+                />
+            ),
+        },
+        {
+            key: "meetingLink",
+            header: "Class Link",
+            minWidth: "200px",
+            render: (_, row) => (
+                <BookingLinkField
+                    booking={row}
+                    saving={savingId === row._id}
+                    onCommit={(value) => updateStudent(row._id, "meetingLink", value)}
                 />
             ),
         },
@@ -641,6 +750,14 @@ Slot: ${getBookingSlotLabel(s)}`.trim();
                                             value={row.response}
                                             saving={savingId === row._id}
                                             onCommit={(value) => updateStudent(row._id, "response", value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="mb-1 text-[10px] text-slate-400">Class Link</p>
+                                        <BookingLinkField
+                                            booking={row}
+                                            saving={savingId === row._id}
+                                            onCommit={(value) => updateStudent(row._id, "meetingLink", value)}
                                         />
                                     </div>
                                 </div>

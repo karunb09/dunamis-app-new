@@ -73,6 +73,7 @@ const InstructorProfile = () => {
 
     setEditData({
       mode: selectedTeacher.teacherDetails?.mode || "online",
+      teachLanguages: selectedTeacher.teacherDetails?.language?.teach || [],
       branch: selectedTeacher.teacherDetails?.branch || "",
       courses: selectedTeacher.courses?.map((c) => c.name) || [],
       profilePicture:
@@ -175,6 +176,7 @@ const InstructorProfile = () => {
       "teacherDetails",
       JSON.stringify({
         mode: updated.mode || instructor?.mode || "online",
+        language: { teach: updated.teachLanguages || [] },
       })
     );
 
@@ -279,6 +281,11 @@ const InstructorProfile = () => {
                   <span className="px-2 py-0.5 sm:py-1 bg-orange-100 text-orange-600 text-xs sm:text-sm rounded-full flex items-center gap-1">
                     <FiStar className="text-sm sm:text-lg text-orange-400" /> {selectedTeacher.averageRating || 0}
                   </span>
+                  {instructor?.language?.teach?.length > 0 && (
+                    <span className="px-2 py-0.5 sm:py-1 bg-purple-100 text-purple-700 text-xs sm:text-sm rounded-full flex items-center gap-1">
+                      <FaLanguage className="text-sm sm:text-lg" /> Teaches in {instructor.language.teach.join(", ")}
+                    </span>
+                  )}
                 </div>
 
                 {instructor.bio && <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-gray-600 max-w-xl line-clamp-2 sm:line-clamp-none">{instructor.bio}</p>}

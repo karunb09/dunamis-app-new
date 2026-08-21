@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { FiCamera, FiEdit2, FiMail, FiMapPin, FiPhone, FiUser } from "react-icons/fi";
+import ReactSelect from "react-select";
 import { updateUser } from "../../redux/User/UserSlice";
+import { updateTeacher } from "../../redux/Intructor/teacherSlice";
+import {
+  LANGUAGE_OPTIONS,
+  LANGUAGE_SELECT_STYLES,
+  toLanguageOptions,
+} from "../../constants/languages";
 import toast from "react-hot-toast";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 import ProfileImageCropper from "../../components/ProfileImageCropper";
@@ -14,7 +21,7 @@ const PersonalInfo = ({ user, loading }) => {
   const [editMode, setEditMode] = useState(false);
   const [profile, setProfile] = useState({
     firstName: "", lastName: "", email: "", mobile: "",
-    bio: "", location: "", image: "",
+    bio: "", location: "", image: "", teachLanguages: [],
   });
   const [editForm, setEditForm] = useState({});
   const [imageFile, setImageFile] = useState(null);
@@ -31,6 +38,7 @@ const PersonalInfo = ({ user, loading }) => {
         bio: user.bio || "",
         location: user.location || "",
         image: user.image || "",
+        teachLanguages: user.roleId?.teacherDetail?.language?.teach || [],
       };
       setProfile(data);
       setEditForm(data);
@@ -85,7 +93,29 @@ const PersonalInfo = ({ user, loading }) => {
     if (imageFile) formData.append("profileImage", imageFile);
     else if (editForm.image === "") formData.append("profileImage", "");
 
+    const nextLanguages = editForm.teachLanguages || [];
+    const languagesChanged =
+      JSON.stringify(nextLanguages) !== JSON.stringify(profile.teachLanguages || []);
+    const teacherId = user?.roleId?._id;
+
+    if (languagesChanged && !teacherId) {
+      toast.error("Could not find your instructor profile. Please try again.");
+      return;
+    }
+
     try {
+      if (languagesChanged) {
+        const teacherPayload = new FormData();
+        teacherPayload.append(
+          "teacherDetails",
+          JSON.stringify({ language: { teach: nextLanguages } })
+        );
+        await dispatch(
+          updateTeacher({ id: teacherId, updatedData: teacherPayload, token })
+        ).unwrap();
+        setProfile((prev) => ({ ...prev, teachLanguages: nextLanguages }));
+      }
+
       const result = await dispatch(updateUser({ id: user._id, userData: formData, token })).unwrap();
       const u = result.user;
       if (u) {
@@ -97,6 +127,7 @@ const PersonalInfo = ({ user, loading }) => {
           bio: u.bio || "",
           location: u.location || "",
           image: u.image || "",
+          teachLanguages: nextLanguages,
         };
         setProfile(updated);
         setEditForm(updated);
@@ -241,6 +272,35 @@ const PersonalInfo = ({ user, loading }) => {
             className={FIELD_INPUT}
           />
         </label>
+
+        <div className="block md:col-span-2">
+          <span className="mb-1.5 block text-sm font-medium text-slate-700">
+            Languages I Teach In
+          </span>
+          {editMode ? (
+            <ReactSelect
+              isMulti
+              options={LANGUAGE_OPTIONS}
+              value={toLanguageOptions(editForm.teachLanguages)}
+              onChange={(selected) =>
+                setEditForm((prev) => ({
+                  ...prev,
+                  teachLanguages: (selected || []).map((option) => option.value),
+                }))
+              }
+              placeholder="Select languages"
+              closeMenuOnSelect={false}
+              styles={LANGUAGE_SELECT_STYLES}
+            />
+          ) : (
+            <p className={FIELD_INPUT + " min-h-[42px]"}>
+              {(profile.teachLanguages || []).join(", ") || "Not set"}
+            </p>
+          )}
+          <p className="mt-1.5 text-xs text-slate-500">
+            Students see this on your instructor profile and when they pick a class.
+          </p>
+        </div>
 
         <label className="block md:col-span-2">
           <span className="mb-1.5 block text-sm font-medium text-slate-700">Bio</span>

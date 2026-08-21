@@ -98,6 +98,11 @@ export default function StepInstructor({
                       <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
                         {getVisibleSlotsForInstructor(instructor).length} slots
                       </span>
+                      {instructor.teachLanguages?.length > 0 && (
+                        <span className="rounded-full bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 ring-1 ring-violet-100">
+                          Teaches in {instructor.teachLanguages.join(', ')}
+                        </span>
+                      )}
                       {hasVideo ? (
                         <button
                           type="button"

@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { DEFAULT_TEACHING_LANGUAGES } = require("../constants/languages");
 
 // A single fixed-duration payment plan (e.g. 3, 6 or 12 months).
 // fullPayment = total payable for the whole tenure after discount.
@@ -165,6 +166,10 @@ const courseSchema = new mongoose.Schema(
       required: function () {
         return this.isPublished;
       },
+    },
+    languages: {
+      type: [String],
+      default: DEFAULT_TEACHING_LANGUAGES,
     },
     startDate: {
       type: Date,

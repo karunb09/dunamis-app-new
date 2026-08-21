@@ -289,6 +289,10 @@ export const buildInstructorOptions = (
       ),
       averageRating: teacher?.averageRating || 0,
       studentCount: teacher?.studentCount || 0,
+      teachLanguages:
+        teacher?.teacherDetail?.teachLanguages ||
+        teacher?.teacherDetail?.language?.teach ||
+        [],
       mode:
         normalizeMode(teacher?.teacherDetail?.mode) ||
         normalizeMode(teacher?.mode) ||

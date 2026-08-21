@@ -3,7 +3,7 @@
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { LuClock, LuUsers, LuStar, LuChevronDown, LuChevronLeft, LuCircleCheck, LuMapPin, LuWifi, LuBookOpen, LuAward, LuPlay } from "react-icons/lu";
+import { LuClock, LuUsers, LuStar, LuChevronDown, LuChevronLeft, LuCircleCheck, LuMapPin, LuWifi, LuBookOpen, LuAward, LuPlay, LuLanguages } from "react-icons/lu";
 import BookDemoModal from "@/components/PopupModals/BookDemoModal";
 import EnrollTerm from "@/components/PopupModals/EnrollTerms";
 import LoginModal from "@/components/PopupModals/LoginModal";
@@ -84,6 +84,7 @@ const buildInstructorCards = (courseRecord) =>
       qualification: teacher?.teacherDetail?.highestQualification || "",
       location: [teacher?.teacherDetail?.currentCity, teacher?.teacherDetail?.currentState].filter(Boolean).join(", "),
       yearsExperience: teacher?.teacherDetail?.yearOfExperience ? `${teacher.teacherDetail.yearOfExperience} yrs exp` : "",
+      teachLanguages: teacher?.teacherDetail?.teachLanguages || teacher?.teacherDetail?.language?.teach || [],
       mode: teacher?.teacherDetail?.mode || courseRecord?.mode || "online",
       courseDemoVideo: resolveImageUrl(
         courseMedia?.demoVideos?.find((v) => v.isActive)?.filePath, ""
@@ -162,6 +163,7 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
     category: courseRecord?.category?.name || "Not specified",
     level: courseRecord?.level || "beginner",
     mode: courseRecord?.mode || "online",
+    languages: Array.isArray(courseRecord?.languages) ? courseRecord.languages : [],
     description: courseRecord?.description || "No description available",
     duration: courseRecord?.startDate && courseRecord?.endDate
       ? `${new Date(courseRecord.startDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} – ${new Date(courseRecord.endDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}`
@@ -373,6 +375,12 @@ export default function CourseDetailClient({ initialCourse = null }) {
                 <span className="capitalize">{course.mode}</span>
               </span>
               <span className="rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium text-white capitalize">{course.level}</span>
+              {course.languages.length > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-violet-500/80 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  <LuLanguages className="w-3 h-3" />
+                  {course.languages.join(", ")}
+                </span>
+              )}
               {course.duration && (
                 <span className="flex items-center gap-1 text-white/55 text-xs">
                   <LuClock className="w-3.5 h-3.5" />{course.duration}
@@ -730,6 +738,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
                     {activeInstructor.yearsExperience && <span className="rounded-full bg-orange-50 border border-orange-100 px-3 py-1 text-xs font-medium text-orange-600">{activeInstructor.yearsExperience}</span>}
                     {activeInstructor.qualification && <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700">{activeInstructor.qualification}</span>}
                     {activeInstructor.location && <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-700 flex items-center gap-1"><LuMapPin className="w-3 h-3" />{activeInstructor.location}</span>}
+                    {activeInstructor.teachLanguages?.length > 0 && <span className="rounded-full bg-violet-50 border border-violet-100 px-3 py-1 text-xs font-medium text-violet-700 flex items-center gap-1"><LuLanguages className="w-3 h-3" />Teaches in {activeInstructor.teachLanguages.join(", ")}</span>}
                     {activeInstructor.expertise && <span className="rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs font-medium text-blue-700">{activeInstructor.expertise}</span>}
                   </div>
                   {(activeInstructor.courseDemoVideo || activeInstructor.profileVideo) ? (

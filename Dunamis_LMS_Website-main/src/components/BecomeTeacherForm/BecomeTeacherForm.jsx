@@ -31,6 +31,7 @@ export default function MultiStepForm() {
         dob: "",
         readLanguage: "",
         speakLanguage: "",
+        teachLanguage: [],
         email: "",
         mobileNo: "",
         currentState: "",
@@ -106,6 +107,9 @@ export default function MultiStepForm() {
             }
             if (!formData.speakLanguage.trim()) {
                 errors.speakLanguage = "Please enter the languages you can speak";
+            }
+            if (!formData.teachLanguage?.length) {
+                errors.teachLanguage = "Please select at least one language you teach in";
             }
         }
 

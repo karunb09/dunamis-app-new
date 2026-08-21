@@ -229,6 +229,38 @@ const studentDemoBookingEmailTemplate = (input = {}) => {
   };
 };
 
+const demoLinkEmailTemplate = (input = {}) => {
+  const ctx = buildDemoBookingContext(input);
+  const isUpdate = Boolean(input.isUpdate);
+  const meetingLink = String(input.meetingLink || "").trim();
+
+  const details = `
+    <p style="margin:0 0 12px;color:#0f172a;font-weight:700;font-size:16px;">${isUpdate ? "Updated join link" : "Your join link is ready"}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(ctx.course.name)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(ctx.instructor?.name || "Instructor")}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Date:</strong> ${escapeHtml(ctx.slot.date)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} \u2013 ${ctx.slot.endTime}`)} (20 min)</p>
+    <p style="margin:0;color:#334155;word-break:break-all;"><strong>Link:</strong> ${escapeHtml(meetingLink)}</p>
+  `;
+
+  return {
+    subject: isUpdate
+      ? `Updated join link for your ${ctx.course.name} demo`
+      : `Join link for your ${ctx.course.name} demo`,
+    html: buildDemoBookingCard({
+      title: isUpdate ? "Your demo link has changed" : "Join link for your demo class",
+      intro: isUpdate
+        ? "Your instructor updated the link for your demo class. Please use the new link below at the scheduled time."
+        : "Your instructor has shared the link for your demo class. Use the button below at the scheduled time to join.",
+      details,
+      ctaText: "Join Demo Class",
+      ctaHref: meetingLink,
+    }),
+    attachments: buildDemoEmailAttachments(),
+    context: ctx,
+  };
+};
+
 const instructorDemoBookingEmailTemplate = (input = {}) => {
   const ctx = buildDemoBookingContext(input);
   const details = `
@@ -305,6 +337,7 @@ const buildDemoEmailAttachments = () => {
 module.exports = {
   adminDemoBookingEmailTemplate,
   buildDemoBookingContext,
+  demoLinkEmailTemplate,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,
 };

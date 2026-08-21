@@ -104,6 +104,21 @@ const Dashboard = () => {
     }
   };
 
+  const handleSaveMeetingLink = async (bookingId, meetingLink) => {
+    setUpdatingBookingId(bookingId);
+    try {
+      await dispatch(updateBookingStatus({ id: bookingId, updatedData: { meetingLink } })).unwrap();
+      toast.success(meetingLink ? "Class link shared with the student" : "Class link removed");
+      dispatch(getAllBookings(teacherId ? { teacherId } : {}));
+    } catch (err) {
+      toast.error(
+        typeof err === "string" ? err : err?.message || "Failed to save class link"
+      );
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#fff4ec] via-[#fffaf6] to-white">
       <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-6 lg:space-y-8">
@@ -169,6 +184,7 @@ const Dashboard = () => {
               error={demoError}
               onRefresh={handleRefreshDemoBookings}
               onUpdateStatus={handleUpdateDemoStatus}
+              onSaveMeetingLink={handleSaveMeetingLink}
               updatingId={updatingBookingId}
             />
           </section>

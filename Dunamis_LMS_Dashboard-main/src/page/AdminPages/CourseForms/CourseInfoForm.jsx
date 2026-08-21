@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import ReactSelect from "react-select";
 import { fetchAllBranches } from "../../../redux/Branch/branchSlice";
 import { fetchAllContent } from "../../../redux/Content/ContentSlice";
+import { LANGUAGE_OPTIONS, toLanguageOptions } from "../../../constants/languages";
 
 
 const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBranches }) => {
@@ -36,6 +37,13 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
     const handleChange = (e) => {
         const { name, value } = e.target;
         setCourseInfo({ ...courseInfo, [name]: value });
+    };
+
+    const handleLanguagesChange = (selectedOptions) => {
+        setCourseInfo({
+            ...courseInfo,
+            languages: (selectedOptions || []).map((option) => option.value),
+        });
     };
 
     const handleCourseNameChange = (selectedOption) => {
@@ -431,6 +439,46 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
                     <option value="intermediate">Intermediate</option>
                     <option value="advanced">Advanced</option>
                 </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium mb-1">Teaching Languages</label>
+                <ReactSelect
+                    isMulti
+                    name="languages"
+                    options={LANGUAGE_OPTIONS}
+                    value={toLanguageOptions(courseInfo?.languages)}
+                    onChange={handleLanguagesChange}
+                    className="w-full pr-10"
+                    placeholder="Select languages"
+                    closeMenuOnSelect={false}
+                    styles={{
+                        control: (base, state) => ({
+                            ...base,
+                            minHeight: 42,
+                            borderRadius: 16,
+                            backgroundColor: "#f3f4f6",
+                            borderColor: state.isFocused ? "#111827" : "#e5e7eb",
+                            boxShadow: state.isFocused ? "0 0 0 1px #111827" : "none",
+                            "&:hover": {
+                                borderColor: "#111827",
+                            },
+                        }),
+                        multiValue: (base) => ({
+                            ...base,
+                            borderRadius: 999,
+                            backgroundColor: "#ffffff",
+                        }),
+                        multiValueLabel: (base) => ({
+                            ...base,
+                            color: "#111827",
+                            fontWeight: 500,
+                        }),
+                    }}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                    Shown to students on the website. Defaults to English.
+                </p>
             </div>
 
             <div>
