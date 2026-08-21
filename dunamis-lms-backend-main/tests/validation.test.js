@@ -16,6 +16,8 @@ const { createStudentSchema } = require("../validators/student.validator");
 const { bankDetailsSchema } = require("../validators/teacher.validator");
 const { createAdminSchema } = require("../validators/admin.validator");
 const { idParam } = require("../validators/common");
+const { dailyAttendanceQuerySchema } = require("../validators/attendanceReport.validator");
+const { isValidDayKey } = require("../utils/istMonth");
 
 const OID = "a".repeat(24);
 
@@ -334,4 +336,33 @@ test("idParam: malformed id -> 400 (params source)", () => {
   const ok = runValidate(idParam, { id: OID }, "params");
   assert.equal(ok.nextCalled, true);
   assert.deepEqual(ok.req.validated.params, { id: OID });
+});
+
+test("isValidDayKey: only zero-padded, in-range IST calendar days", () => {
+  assert.equal(isValidDayKey("2026-08-01"), true);
+  assert.equal(isValidDayKey("2026-8-1"), false);
+  assert.equal(isValidDayKey("2026-13-01"), false);
+  assert.equal(isValidDayKey("2026-08-32"), false);
+  assert.equal(isValidDayKey("not-a-date"), false);
+  assert.equal(isValidDayKey(undefined), false);
+});
+
+test("dailyAttendance: date stays a string so the IST window is built correctly", () => {
+  const ok = runValidate(dailyAttendanceQuerySchema, { date: "2026-08-22" }, "query");
+  assert.equal(ok.nextCalled, true);
+  // Coercing to a Date here would parse it as UTC midnight and shift the
+  // window by 5h30m — the whole reason the schema keeps it as text.
+  assert.equal(typeof ok.req.validated.query.date, "string");
+  assert.equal(ok.req.validated.query.date, "2026-08-22");
+
+  const bad = runValidate(dailyAttendanceQuerySchema, { date: "22-08-2026" }, "query");
+  assert.equal(bad.res.statusCode, 400);
+  assert.match(bad.res.body.errors[0].message, /YYYY-MM-DD/);
+
+  const badId = runValidate(dailyAttendanceQuerySchema, { teacherId: "123" }, "query");
+  assert.equal(badId.res.statusCode, 400);
+
+  // Omitting everything is valid — the service falls back to today.
+  const empty = runValidate(dailyAttendanceQuerySchema, {}, "query");
+  assert.equal(empty.nextCalled, true);
 });

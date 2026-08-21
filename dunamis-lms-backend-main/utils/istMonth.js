@@ -38,6 +38,41 @@ const istDayEndExclusive = (dayKey) => {
   return new Date(Date.UTC(year, month - 1, day + 1) - IST_OFFSET_MS);
 };
 
+const dayWindow = (dayKey) => ({
+  start: istDayStart(dayKey),
+  end: istDayEndExclusive(dayKey),
+});
+
+const dayKeyFromDate = (date) => {
+  const ist = new Date(date.getTime() + IST_OFFSET_MS);
+  return `${ist.getUTCFullYear()}-${pad2(ist.getUTCMonth() + 1)}-${pad2(ist.getUTCDate())}`;
+};
+
+const currentDayKey = () => dayKeyFromDate(new Date());
+
+const isValidDayKey = (value) =>
+  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(String(value || ""));
+
+// Date.UTC normalises out-of-range days, so month/year rollover is free.
+const shiftDay = (dayKey, delta) => {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + delta));
+  return `${shifted.getUTCFullYear()}-${pad2(shifted.getUTCMonth() + 1)}-${pad2(
+    shifted.getUTCDate()
+  )}`;
+};
+
+const dayLabel = (dayKey) => {
+  const [year, month, day] = dayKey.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-IN", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+};
+
 const shiftMonth = (monthKey, delta) => {
   const [year, month] = monthKey.split("-").map(Number);
   const total = year * 12 + (month - 1) + delta;
@@ -73,6 +108,12 @@ module.exports = {
   monthWindow,
   istDayStart,
   istDayEndExclusive,
+  dayWindow,
+  dayKeyFromDate,
+  currentDayKey,
+  isValidDayKey,
+  shiftDay,
+  dayLabel,
   shiftMonth,
   monthKeysEndingAt,
   monthLabel,

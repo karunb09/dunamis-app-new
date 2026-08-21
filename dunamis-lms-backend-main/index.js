@@ -103,6 +103,7 @@ const courseRequestRoutes = require("./routes/courseRequest.routes");
 const referralRoutes = require("./routes/referral.routes");
 const opsRoutes = require("./routes/ops.routes");
 const insightsRoutes = require("./routes/insights.routes");
+const reportsRoutes = require("./routes/reports.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const studentPaymentsRoutes = require("./routes/studentPayments.routes");
 
@@ -229,6 +230,7 @@ app.use("/api/v1/course-requests", courseRequestRoutes);
 app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/ops", opsRoutes);
 app.use("/api/v1/insights", insightsRoutes);
+app.use("/api/v1/reports", reportsRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 // Only order creation is throttled. The fees page polls /summary and posts
 // checkout lifecycle pings, which would otherwise burn the 20-request budget

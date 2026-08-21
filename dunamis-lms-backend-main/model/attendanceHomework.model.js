@@ -68,10 +68,13 @@ const attendanceHomeworkSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-attendanceHomeworkSchema.index(
-  { studentId: 1, courseId: 1, date: 1 },
-  { unique: true }
-);
+// One row per student per class occurrence. slotId (not date) is the class
+// identity: a student can attend two batches of the same course on the same
+// day — Wed-Sat and Sat-Sun both include Saturday — and a course can run both
+// premium (1:1) and standard (group) sections.
+attendanceHomeworkSchema.index({ slotId: 1, studentId: 1 }, { unique: true });
+// Replaces the studentId prefix the old unique key used to provide.
+attendanceHomeworkSchema.index({ studentId: 1, date: -1 });
 attendanceHomeworkSchema.index({ date: -1 });
 
 module.exports = mongoose.model("attendanceHomework", attendanceHomeworkSchema);

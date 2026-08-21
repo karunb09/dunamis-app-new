@@ -8,14 +8,14 @@ const ClassRoster = require("../model/classRoster.model");
 const mongoose = require("mongoose");
 const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
 const { buildContentTitleMaps } = require("../utils/contentTitles");
+const { formatUserName: formatName } = require("../utils/formatName");
 
 const HOMEWORK_WORD_LIMIT = 500;
 
 const countWords = (text) =>
   String(text || "").trim().split(/\s+/).filter(Boolean).length;
 
-const formatUserName = (name) =>
-  [name?.firstName, name?.lastName].filter(Boolean).join(" ") || "Student";
+const formatUserName = (name) => formatName(name, "Student");
 
 const dayRangeOf = (value) => {
   const start = new Date(value);
@@ -325,16 +325,13 @@ exports.updateAttendanceHomework = asyncHandler(async (req, res) => {
     if (error)
       return res.status(error.status).json({ success: false, message: error.message });
 
-    const classDay = dayRangeOf(slot.date || new Date());
+    // Filter must be the unique key exactly, or the upsert's insert branch
+    // throws E11000 instead of inserting. The slot lookup above already scoped
+    // this to the requesting teacher.
     await Promise.all(
       entries.map((entry) =>
         AttendanceHomework.updateOne(
-          {
-            teacherId: teacher._id,
-            slotId: slot._id,
-            studentId: entry.studentId,
-            date: { $gte: classDay.start, $lte: classDay.end },
-          },
+          { slotId: slot._id, studentId: entry.studentId },
           { $set: entry },
           { upsert: true }
         )

@@ -152,6 +152,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           permission: "reports",
         },
         {
+          to: "/admin/reports/attendance",
+          icon: <FiCheckSquare />,
+          text: "Attendance Report",
+          permission: "reports",
+        },
+        {
           to: "/admin/enquiries",
           icon: <FiMessageCircle />,
           text: "Enquiries",

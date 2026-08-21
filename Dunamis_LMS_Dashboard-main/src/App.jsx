@@ -37,6 +37,7 @@ const CourseRequestsPage = lazy(() => import("./page/AdminPages/CourseRequests/C
 const ReferralManagementPage = lazy(() => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"));
 const SystemStatus = lazy(() => import("./page/AdminPages/SystemStatus"));
 const MonthlyReportPage = lazy(() => import("./page/AdminPages/MonthlyReportPage"));
+const DailyAttendanceReportPage = lazy(() => import("./page/AdminPages/DailyAttendanceReportPage"));
 
 const Dashboard = lazy(() => import("./page/TeacherPages/TeacherCourses/Home"));
 const MyCourses = lazy(() => import("./page/TeacherPages/TeacherCourses/MyCourses"));
@@ -209,6 +210,7 @@ const App = () => {
               />
               <Route path="/admin/financials" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="financials"><FinancialPage /></RequireAuth>} />
               <Route path="/admin/reports" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><MonthlyReportPage /></RequireAuth>} />
+              <Route path="/admin/reports/attendance" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><DailyAttendanceReportPage /></RequireAuth>} />
               <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="enquiries"><EnquiriesPage /></RequireAuth>} />
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
