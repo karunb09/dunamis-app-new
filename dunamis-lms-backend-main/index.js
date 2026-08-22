@@ -1,6 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const compression = require("compression");
 const app = express();
 
 app.set("trust proxy", 1);
@@ -172,6 +173,9 @@ app.post(
   express.raw({ type: "application/json" }),
   require("./controller/enrollmentController").handleCashfreeWebhook
 );
+
+// Mounted below the Cashfree webhook so that route keeps its raw body.
+app.use(compression({ threshold: 1024 }));
 
 // Cap JSON body size to blunt oversized-payload abuse (file uploads use the
 // separate express-fileupload pipeline below, not JSON).

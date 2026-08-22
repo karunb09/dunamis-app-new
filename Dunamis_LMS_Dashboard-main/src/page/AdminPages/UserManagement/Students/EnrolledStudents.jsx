@@ -22,12 +22,17 @@ const SORT_OPTIONS = [
     { value: "feeStatus", label: "Fee Status" },
 ];
 
-const FEE_STATUS_ORDER = { Overdue: 0, Due: 1, Paid: 2 };
+const FEE_STATUS_ORDER = { Overdue: 0, Due: 1, OnTrack: 2, Paid: 3 };
+// Green while the plan is simply running; amber once the date passes; rose only
+// after the grace window in utils/feeStatus.js runs out.
 const FEE_BADGES = {
     Paid: { label: "Paid", className: "bg-emerald-50 text-emerald-600", dot: true, dotClass: "bg-emerald-500" },
+    OnTrack: { label: "On track", className: "bg-green-50 text-green-700", dot: true, dotClass: "bg-green-500" },
     Due: { label: "Due", className: "bg-amber-50 text-amber-600", dot: true, dotClass: "bg-amber-500" },
     Overdue: { label: "Overdue", className: "bg-rose-50 text-rose-600", dot: true, dotClass: "bg-rose-500" },
 };
+// Display text for the internal fee-status values, used outside the badge.
+const FEE_LABELS = { Paid: "Paid", OnTrack: "On track", Due: "Due", Overdue: "Overdue" };
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
 const formatDate = (date) => (date ? dayjs(date).format("DD MMM YYYY") : "—");
@@ -161,7 +166,7 @@ const EnrolledStudents = () => {
                 return `Name: ${r.name}
 Email: ${r.email}
 Mobile: ${r.phone || "N/A"}
-Fee Status: ${r.feeStatus}
+Fee Status: ${FEE_LABELS[r.feeStatus] || r.feeStatus}
 Joined: ${formatDate(r.joinedAt)}
 Courses:
 ${courses || "No courses enrolled"}`;
@@ -180,7 +185,7 @@ ${courses || "No courses enrolled"}`;
         { header: "Category", value: (r) => r.categories.join("; "), width: 18 },
         { header: "Avg Progress", value: (r) => (r.avgProgress != null ? `${r.avgProgress}%` : "") },
         { header: "Mode", value: (r) => r.mode },
-        { header: "Fee Status", value: (r) => r.feeStatus },
+        { header: "Fee Status", value: (r) => FEE_LABELS[r.feeStatus] || r.feeStatus },
         { header: "Joined", value: (r) => formatDate(r.joinedAt), width: 14 },
     ];
 
@@ -446,6 +451,7 @@ ${courses || "No courses enrolled"}`;
                                 >
                                     <option value="">All</option>
                                     <option value="Paid">Paid</option>
+                                    <option value="OnTrack">On track</option>
                                     <option value="Due">Due</option>
                                     <option value="Overdue">Overdue</option>
                                 </select>

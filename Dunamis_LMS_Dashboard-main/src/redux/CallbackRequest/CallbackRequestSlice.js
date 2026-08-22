@@ -46,6 +46,7 @@ const callbackRequestSlice = createSlice({
   initialState: {
     callbackRequests: [],
     loading: false,
+    listStatus: "idle",
     error: null,
   },
   reducers: {},
@@ -53,14 +54,17 @@ const callbackRequestSlice = createSlice({
     builder
       .addCase(getAllCallbackRequests.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllCallbackRequests.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.callbackRequests = action.payload;
         state.error = null;
       })
       .addCase(getAllCallbackRequests.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload || action.error.message;
       })
       .addCase(updateCallbackRequestStatus.rejected, (state, action) => {

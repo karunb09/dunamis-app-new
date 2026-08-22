@@ -23,7 +23,7 @@ const SORT_OPTIONS = [
 const AdminManageMentPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { admins } = useSelector(state => state.admin);
+    const { admins, listStatus } = useSelector(state => state.admin);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOpen, setSortOpen] = useState(false);
@@ -39,8 +39,8 @@ const AdminManageMentPage = () => {
     };
 
     useEffect(() => {
-        dispatch(fetchAdmins());
-    }, [dispatch]);
+        if (listStatus === "idle") dispatch(fetchAdmins());
+    }, [listStatus, dispatch]);
 
     useEffect(() => {
         const handleClickOutside = (event) => {

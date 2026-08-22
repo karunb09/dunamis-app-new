@@ -1,6 +1,9 @@
 const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Student = require("../model/student.model");
-const { getLatestInstallmentPerEnrollment } = require("../services/enrollmentService");
+const {
+  getLatestInstallmentPerEnrollment,
+  ACCESS_GRACE_DAYS,
+} = require("../services/enrollmentService");
 const {
   createDashboardNotice,
   notifyEvent,
@@ -67,8 +70,12 @@ const sendInstallmentReminder = async ({ student, payment, type }) => {
   const amount = payment.installmentAmount || payment.amount;
   const studentFirstName = studentUser.name?.firstName || "A student";
   const title = isOverdue ? "Installment overdue" : "Installment reminder";
+  // Access is only paused once the grace window in enrollmentService runs out,
+  // so a day-one reminder must not claim classes are already blocked.
   const message = isOverdue
-    ? `Your installment for ${courseName} is overdue. Course access is paused until payment is completed.`
+    ? `Your installment for ${courseName} was due on ${formatDate(
+        payment.dueDate
+      )}. Please pay within ${ACCESS_GRACE_DAYS} days of the due date to keep your classes running.`
     : `Your next installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
 
   // Notify student (dashboard notice + email)

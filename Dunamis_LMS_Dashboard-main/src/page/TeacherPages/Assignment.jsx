@@ -152,7 +152,7 @@ function Assignments() {
     }
   };
 
-  if (loading) {
+  if (loading && !assignments?.length) {
     return (
       <div className="w-full min-h-screen bg-white p-4 flex items-center justify-center">
         <div className="text-center">

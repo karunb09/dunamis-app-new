@@ -491,13 +491,6 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
         path: "course",
         select: "_id name",
       })
-      .populate({
-        path: "students",
-        populate: {
-          path: "userId",
-          select: "name email mobileNo image",
-        },
-      })
       .sort(options.sort)
       .limit(options.limit * 1)
       .skip((options.page - 1) * options.limit);
@@ -580,19 +573,29 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
         const studentIds = formattedStudents.map((s) => s.id);
         const studentCount = studentIds.length;
 
-        // teacher model
-        await Teacher.findByIdAndUpdate(teacher._id, {
-          students: studentIds,
-          studentCount,
-          averageRating: parseFloat(averageRating.toFixed(1)),
-        });
+        // These denormalized fields are read elsewhere (course listings,
+        // getTeacherById), so this listing keeps refreshing them — but only
+        // when they actually moved, otherwise every GET issues N writes.
+        const rating = parseFloat(averageRating.toFixed(1));
+        const storedIds = (teacher.students || []).map(String).join(",");
+        if (
+          teacher.studentCount !== studentCount ||
+          teacher.averageRating !== rating ||
+          storedIds !== studentIds.map(String).join(",")
+        ) {
+          await Teacher.findByIdAndUpdate(teacher._id, {
+            students: studentIds,
+            studentCount,
+            averageRating: rating,
+          });
+        }
 
         return {
           id: teacher._id,
           user: teacher.userId,
           salaryStatus: teacher.salaryStatus,
           studentCount,
-          averageRating: parseFloat(averageRating.toFixed(1)),
+          averageRating: rating,
           bankDetails: teacher.bankDetails
             ? {
                 accountHolderName: teacher.bankDetails.accountHolderName,

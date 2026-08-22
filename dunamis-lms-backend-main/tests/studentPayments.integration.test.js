@@ -416,3 +416,136 @@ test("non-student accounts are refused", async () => {
   await getFeesSummary({ user: { userId: String(oid()), accountType: "admin" } }, res);
   assert.equal(res.statusCode, 403);
 });
+
+test("access survives the grace window, then cuts on day 8", async () => {
+  const { course, slot, teacher } = await seedCourse();
+
+  // Boundary walk: 1 day late (in grace), 7 days (last allowed), 8 days (cut).
+  const cases = [
+    { daysLate: 1, status: "due", restricted: false },
+    { daysLate: 7, status: "due", restricted: false },
+    { daysLate: 8, status: "overdue", restricted: true },
+    { daysLate: 40, status: "overdue", restricted: true },
+  ];
+
+  for (const { daysLate, status, restricted } of cases) {
+    await clearCollections();
+    const seeded = await seedCourse();
+    const { user } = await seedStudent([
+      {
+        course: seeded.course,
+        slot: seeded.slot,
+        teacher: seeded.teacher,
+        installments: [{ installmentNo: 1, dueDate: daysAgo(daysLate) }],
+      },
+    ]);
+
+    const res = await callSummary(user._id);
+    assert.equal(res.body.dues[0].status, status, `${daysLate} days late -> ${status}`);
+    assert.equal(
+      res.body.accessRestricted,
+      restricted,
+      `${daysLate} days late -> accessRestricted ${restricted}`
+    );
+  }
+});
+
+test("a student inside the grace window can still pay, and totals still count them late", async () => {
+  const { course, slot, teacher } = await seedCourse();
+  const { user } = await seedStudent([
+    { course, slot, teacher, installments: [{ installmentNo: 1, dueDate: daysAgo(3) }] },
+  ]);
+
+  const summary = await callSummary(user._id);
+  assert.equal(summary.body.accessRestricted, false, "3 days late keeps access");
+  // Finance still treats them as late money even though classes continue.
+  assert.equal(summary.body.totals.overdueCount, 1);
+  assert.equal(summary.body.totals.overdueAmount, 2000);
+  assert.equal(summary.body.graceDays, 7);
+
+  const order = await callOrder(user._id, { courseId: String(course._id) });
+  assert.equal(order.statusCode, 200, order.body?.message);
+});
+
+test("buildPaymentAccessStatus applies the same grace as the fees summary", async () => {
+  const { buildPaymentAccessStatus } = require("../services/enrollmentService");
+  const seeded = await seedCourse();
+
+  const { student: inGrace } = await seedStudent([
+    { ...seeded, installments: [{ installmentNo: 1, dueDate: daysAgo(5) }] },
+  ]);
+  const { student: pastGrace } = await seedStudent([
+    { ...seeded, installments: [{ installmentNo: 1, dueDate: daysAgo(9) }] },
+  ]);
+
+  const a = buildPaymentAccessStatus(await Student.findById(inGrace._id));
+  assert.equal(a.accessRestricted, false);
+  assert.equal(a.overduePayments.length, 0);
+
+  const b = buildPaymentAccessStatus(await Student.findById(pastGrace._id));
+  assert.equal(b.accessRestricted, true);
+  assert.equal(b.overduePayments[0].daysLate, 9);
+  assert.equal(b.graceDays, 7);
+});
+
+test("a settled payment cannot record checkout_dismissed", async () => {
+  // Reproduces the prod trail: fulfilled at 10:15:06, then a false
+  // "checkout abandoned" at 10:15:19. The gateway modal fires its close
+  // callback after a successful checkout, so the ping arrives post-payment.
+  const { course, slot, teacher } = await seedCourse();
+  const { user } = await seedStudent([
+    { course, slot, teacher, installments: [{ installmentNo: 1, dueDate: daysAgo(5) }] },
+  ]);
+
+  const order = await callOrder(user._id, { courseId: String(course._id) });
+  const txnId = order.body.transactionId;
+
+  for (const status of ["paid", "paid_pending_fulfillment", "fulfilled"]) {
+    await PaymentTransaction.updateOne({ _id: txnId }, { $set: { status } });
+
+    const res = mockRes();
+    await recordClientEvent(
+      {
+        user: asStudent(user._id),
+        validated: { params: { id: String(txnId) } },
+        body: { type: "checkout_dismissed" },
+      },
+      res
+    );
+
+    assert.equal(res.statusCode, 200, "the ping is accepted, just not recorded");
+    assert.equal(res.body.ignored, "payment already settled");
+
+    const txn = await PaymentTransaction.findById(txnId);
+    assert.ok(
+      !txn.events.some((e) => e.type === "checkout_dismissed"),
+      `checkout_dismissed must not be recorded while status is ${status}`
+    );
+  }
+});
+
+test("checkout_dismissed is still recorded for a genuinely abandoned checkout", async () => {
+  const { course, slot, teacher } = await seedCourse();
+  const { user } = await seedStudent([
+    { course, slot, teacher, installments: [{ installmentNo: 1, dueDate: daysAgo(5) }] },
+  ]);
+
+  const order = await callOrder(user._id, { courseId: String(course._id) });
+
+  const res = mockRes();
+  await recordClientEvent(
+    {
+      user: asStudent(user._id),
+      validated: { params: { id: String(order.body.transactionId) } },
+      body: { type: "checkout_dismissed" },
+    },
+    res
+  );
+  assert.equal(res.statusCode, 200);
+
+  const txn = await PaymentTransaction.findById(order.body.transactionId);
+  assert.ok(
+    txn.events.some((e) => e.type === "checkout_dismissed"),
+    "a pending order still records the drop-off"
+  );
+});

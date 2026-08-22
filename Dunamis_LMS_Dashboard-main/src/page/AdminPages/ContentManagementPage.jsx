@@ -22,7 +22,7 @@ const SORT_OPTIONS = [
 const ContentManagementPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { contentList, loading, error } = useSelector((state) => state.content);
+  const { contentList, loading, error, listStatus } = useSelector((state) => state.content);
   const [sortOpen, setSortOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,10 +48,9 @@ const ContentManagementPage = () => {
       ) || 0,
   };
 
-  // Fetch all content on mount
   useEffect(() => {
-    dispatch(fetchAllContent());
-  }, [dispatch]);
+    if (listStatus === "idle") dispatch(fetchAllContent());
+  }, [listStatus, dispatch]);
 
   const allCategories = Array.from(
     new Set(contentList.map(c => c.category?.name).filter(Boolean))
@@ -324,7 +323,7 @@ const ContentManagementPage = () => {
       </div>
 
       {/* Content Grid */}
-      {loading ? (
+      {loading && !contentList.length ? (
         <div>Loading...</div>
       ) : error ? (
         <div className="text-red-500">{error}</div>

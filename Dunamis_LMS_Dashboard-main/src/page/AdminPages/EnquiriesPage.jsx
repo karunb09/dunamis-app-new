@@ -46,12 +46,13 @@ const TABS = ["General Enquiries", "Callback Requests"];
 
 const EnquiriesPage = () => {
     const dispatch = useDispatch();
-    const { enquiries, loading, error } = useSelector((state) => state.enquiry);
-    const { admins } = useSelector((state) => state.admin);
+    const { enquiries, loading, error, listStatus: enquiryListStatus } = useSelector((state) => state.enquiry);
+    const { admins, listStatus: adminListStatus } = useSelector((state) => state.admin);
     const {
         callbackRequests,
         loading: callbackLoading,
         error: callbackError,
+        listStatus: callbackListStatus,
     } = useSelector((state) => state.callbackRequest);
 
     const [activeTab, setActiveTab] = useState("General Enquiries");
@@ -69,10 +70,10 @@ const EnquiriesPage = () => {
     const sortRef = useRef(null);
 
     useEffect(() => {
-        dispatch(getAllEnquiries());
-        dispatch(fetchAdmins());
-        dispatch(getAllCallbackRequests());
-    }, [dispatch]);
+        if (enquiryListStatus === "idle") dispatch(getAllEnquiries());
+        if (adminListStatus === "idle") dispatch(fetchAdmins());
+        if (callbackListStatus === "idle") dispatch(getAllCallbackRequests());
+    }, [enquiryListStatus, adminListStatus, callbackListStatus, dispatch]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -243,7 +244,7 @@ const EnquiriesPage = () => {
                 </div>
             )}
 
-            {loading ? (
+            {loading && !enquiries.length ? (
                 <div className="rounded-[30px] border border-slate-200 bg-white px-6 py-16 text-center">
                     <p className="text-sm text-slate-500">Loading enquiries…</p>
                 </div>

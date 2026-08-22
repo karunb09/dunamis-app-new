@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 
 const { isAuth, accessToRole } = require("../middleware/auth");
+const { publicCache } = require("../middleware/cacheControl");
 const {
   createCity,
   getAllCities,
@@ -11,7 +12,7 @@ const {
   getCityById,
 } = require("../controller/city.controller");
 
-router.get("/get-all-cities", getAllCities);
+router.get("/get-all-cities", publicCache(), getAllCities);
 router.get("/managers", getCityManagers);
 router.get("/:id", getCityById);
 router.post("/create", isAuth, accessToRole(["admin", "superadmin"]), createCity);

@@ -128,6 +128,7 @@ const contentSlice = createSlice({
     contentList: [],
     content: null,
     loading: false,
+    listStatus: "idle",
     error: null,
   },
   extraReducers: (builder) => {
@@ -135,15 +136,18 @@ const contentSlice = createSlice({
       // Fetch all content
       .addCase(fetchAllContent.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
         state.error = null;
       })
       .addCase(fetchAllContent.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.contentList = action.payload.contents;
       })
 
       .addCase(fetchAllContent.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload || action.error.message;
       })
 

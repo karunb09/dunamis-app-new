@@ -26,6 +26,7 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { logoutUser } from "../../redux/authSlice";
+import { prefetchRoute } from "../../routeLoaders";
 import clsx from "clsx";
 import { getStoredUser } from "../../utils/authSession";
 
@@ -376,6 +377,9 @@ const SidebarLink = ({ icon, text, to, onClick, isExpanded }) => (
     to={to}
     end
     onClick={onClick}
+    onMouseEnter={() => prefetchRoute(to)}
+    onFocus={() => prefetchRoute(to)}
+    onTouchStart={() => prefetchRoute(to)}
     title={!isExpanded ? text : ""}
     className={({ isActive }) =>
       clsx(

@@ -11,41 +11,42 @@ import SignInNavbar from "./components/signInNavbar";
 import { PublicOnlyRoute, RequireAuth } from "./components/auth/AuthGuard";
 import { hydrateSession } from "./redux/authSlice";
 import { pushPath } from "./utils/navHistory";
+import { routeLoaders } from "./routeLoaders";
 
 // Hot Toast
 import { Toaster } from "react-hot-toast";
 const StudentPortalRedirect = lazy(() => import("./components/auth/StudentPortalRedirect"));
 
-const AdminHomePage = lazy(() => import("./page/AdminPages/AdminHomePage"));
+const AdminHomePage = lazy(routeLoaders["/admin"]);
 const ContentDetails = lazy(() => import("./page/AdminPages/ContentManagement/ContentDetails"));
 const ContentCreate = lazy(() => import("./page/AdminPages/ContentManagement/ContentCreate"));
-const CourseManagementPage = lazy(() => import("./page/AdminPages/CourseManagementPage"));
-const ContentManagementPage = lazy(() => import("./page/AdminPages/ContentManagementPage"));
-const CategoryManagementPage = lazy(() => import("./page/AdminPages/CategoryManagementPage"));
+const CourseManagementPage = lazy(routeLoaders["/admin/course-management"]);
+const ContentManagementPage = lazy(routeLoaders["/admin/content-management"]);
+const CategoryManagementPage = lazy(routeLoaders["/admin/category-management"]);
 const CreateCourseForm = lazy(() => import("./page/AdminPages/AddCoursePage"));
-const StudentManagementPage = lazy(() => import("./page/AdminPages/UserManagement/StudentManagementPage"));
-const InstructorManagementPage = lazy(() => import("./page/AdminPages/UserManagement/InstructorManagementPage"));
-const AdminManageMentPage = lazy(() => import("./page/AdminPages/UserManagement/AdminManageMentPage"));
-const OffilineCentersPage = lazy(() => import("./page/AdminPages/OffilineCentersPage"));
-const UpdatesPage = lazy(() => import("./page/AdminPages/UpdatesPage"));
-const FinancialPage = lazy(() => import("./page/AdminPages/FinancialPage"));
-const EnquiriesPage = lazy(() => import("./page/AdminPages/EnquiriesPage"));
-const SiteContentPage = lazy(() => import("./page/AdminPages/SiteContentPage"));
+const StudentManagementPage = lazy(routeLoaders["/admin/student-management"]);
+const InstructorManagementPage = lazy(routeLoaders["/admin/instructor-management"]);
+const AdminManageMentPage = lazy(routeLoaders["/admin/admin-management"]);
+const OffilineCentersPage = lazy(routeLoaders["/admin/centers"]);
+const UpdatesPage = lazy(routeLoaders["/admin/updates"]);
+const FinancialPage = lazy(routeLoaders["/admin/financials"]);
+const EnquiriesPage = lazy(routeLoaders["/admin/enquiries"]);
+const SiteContentPage = lazy(routeLoaders["/admin/site-content"]);
 const StudentProfile = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudentProfile"));
 const EnrolledStudents = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudents"));
-const CourseRequestsPage = lazy(() => import("./page/AdminPages/CourseRequests/CourseRequestsPage"));
-const ReferralManagementPage = lazy(() => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"));
-const SystemStatus = lazy(() => import("./page/AdminPages/SystemStatus"));
-const MonthlyReportPage = lazy(() => import("./page/AdminPages/MonthlyReportPage"));
-const DailyAttendanceReportPage = lazy(() => import("./page/AdminPages/DailyAttendanceReportPage"));
+const CourseRequestsPage = lazy(routeLoaders["/admin/course-requests"]);
+const ReferralManagementPage = lazy(routeLoaders["/admin/referral-management"]);
+const SystemStatus = lazy(routeLoaders["/admin/system-status"]);
+const MonthlyReportPage = lazy(routeLoaders["/admin/reports"]);
+const DailyAttendanceReportPage = lazy(routeLoaders["/admin/reports/attendance"]);
 
-const Dashboard = lazy(() => import("./page/TeacherPages/TeacherCourses/Home"));
-const MyCourses = lazy(() => import("./page/TeacherPages/TeacherCourses/MyCourses"));
-const MyStudent = lazy(() => import("./page/TeacherPages/TeacherCourses/MyStudent"));
-const Assignment = lazy(() => import("./page/TeacherPages/Assignment"));
-const MySchedule = lazy(() => import("./page/TeacherPages/MySchedule"));
-const Attendance = lazy(() => import("./page/TeacherPages/TeacherCourses/Attendance"));
-const Assessment = lazy(() => import("./page/TeacherPages/Assessment"));
+const Dashboard = lazy(routeLoaders["/teacher"]);
+const MyCourses = lazy(routeLoaders["/teacher/courses"]);
+const MyStudent = lazy(routeLoaders["/teacher/students"]);
+const Assignment = lazy(routeLoaders["/teacher/assignments"]);
+const MySchedule = lazy(routeLoaders["/teacher/schedule"]);
+const Attendance = lazy(routeLoaders["/teacher/attendance"]);
+const Assessment = lazy(routeLoaders["/teacher/assessments"]);
 const StudentDetail = lazy(() => import("./page/TeacherPages/TeacherCourses/StudentDetail"));
 const Profile = lazy(() => import("./page/TeacherPages/profile"));
 
@@ -64,8 +65,14 @@ const ApplicationDetails = lazy(() => import("./page/AdminPages/UserManagement/I
 const CourseDetails = lazy(() => import("./page/AdminPages/CourseDetails"));
 
 const RouteFallback = () => (
-  <div className="flex min-h-[240px] items-center justify-center text-sm text-slate-500">
-    Loading...
+  <div className="animate-pulse space-y-4">
+    <div className="h-3 w-24 rounded-full bg-slate-200" />
+    <div className="h-8 w-64 rounded-2xl bg-slate-200" />
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-40 rounded-[30px] bg-slate-200/70" />
+      ))}
+    </div>
   </div>
 );
 

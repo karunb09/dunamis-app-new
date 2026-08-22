@@ -1,4 +1,4 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { clearAuthSession } from "../utils/authSession";
 import applicationReducer from "./Intructor/teacherApplication";
 import teacherReducer from "./Intructor/teacherSlice";
@@ -43,31 +43,49 @@ const sessionExpiredMiddleware = () => (next) => (action) => {
   return next(action);
 };
 
+const appReducer = combineReducers({
+  auth: authReducer,
+  application: applicationReducer,
+  branch: branchReducer,
+  city: cityReducer,
+  zone: zoneReducer,
+  subCategory: subCategoryReducer,
+  teachers: teacherReducer,
+  content: contentReducer,
+  admin: adminReducer,
+  user: userReducer,
+  demoBookings: demoBookingReducer,
+  enquiry: enquiryReducer,
+  callbackRequest: callbackRequestReducer,
+  notice: noticeReducer,
+  remuneration: remunerationReducer,
+  feedback: feedbackReducer,
+  assignment: assignmentReducer,
+  attendanceHomework: attendanceHomeworkReducer,
+  assessment: assessmentReducer,
+  siteContent: siteContentReducer,
+  courseRequests: courseRequestReducer,
+  referral: referralReducer,
+});
+
+// Logout navigates client-side without a reload, so cached slice data would
+// otherwise survive into the next user's session. auth is left alone — it clears
+// itself, and resetting it would restore hydrating:true and strand AuthGuard.
+const LOGOUT_ACTIONS = new Set([
+  "auth/logout",
+  "auth/logoutUser/fulfilled",
+  "auth/logoutUser/rejected",
+]);
+
+const rootReducer = (state, action) => {
+  if (state && LOGOUT_ACTIONS.has(action.type)) {
+    return appReducer({ auth: state.auth }, action);
+  }
+  return appReducer(state, action);
+};
+
 export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    application: applicationReducer,
-    branch: branchReducer,
-    city: cityReducer,
-    zone: zoneReducer,
-    subCategory: subCategoryReducer,
-    teachers: teacherReducer,
-    content: contentReducer,
-    admin: adminReducer,
-    user: userReducer,
-    demoBookings: demoBookingReducer,
-    enquiry: enquiryReducer,
-    callbackRequest: callbackRequestReducer,
-    notice: noticeReducer,
-    remuneration: remunerationReducer,
-    feedback: feedbackReducer,
-    assignment: assignmentReducer,
-    attendanceHomework: attendanceHomeworkReducer,
-    assessment: assessmentReducer,
-    siteContent: siteContentReducer,
-    courseRequests: courseRequestReducer,
-    referral: referralReducer,
-  },
+  reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(sessionExpiredMiddleware),
 });

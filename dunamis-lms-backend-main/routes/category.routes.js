@@ -3,6 +3,7 @@ const router = express.Router();
 const { isAuth, accessToRole } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
+const { publicCache } = require("../middleware/cacheControl");
 const {
   createCategorySchema,
   createCategoryFullSchema,
@@ -15,7 +16,7 @@ const {
   createCategoryWithSubCategories
 } = require("../controller/category.controller");
 
-router.get("/get-all-category", getAllCategories);
+router.get("/get-all-category", publicCache(), getAllCategories);
 router.post("/create", isAuth, accessToRole(["admin", "superadmin"]), validate(createCategorySchema), createCategory);
 router.put("/:id", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), updateCategory);
 router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), deleteCategory);

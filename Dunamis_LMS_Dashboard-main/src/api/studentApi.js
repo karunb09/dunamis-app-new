@@ -13,12 +13,22 @@ const toError = (err, fallback) => {
 };
 
 // Returns the grouped-by-type shape the UI expects, e.g. { enrolled: [...], ... }.
+// The server sends one student list plus ID sets for the two subsets, so the
+// grouping is rebuilt here rather than shipped three times over the wire.
 export async function fetchStudentsByType(type) {
   try {
     const { data } = await axios.get("/student/get-by-type", {
       params: type ? { type } : {},
     });
-    return data;
+    const students = data.students || [];
+    const enrolled = new Set((data.enrolledIds || []).map(String));
+    const demo = new Set((data.demoIds || []).map(String));
+    return {
+      ...data,
+      registered: students,
+      enrolled: students.filter((s) => enrolled.has(String(s._id))),
+      demo: students.filter((s) => demo.has(String(s._id))),
+    };
   } catch (err) {
     throw toError(err, "Failed to load students");
   }

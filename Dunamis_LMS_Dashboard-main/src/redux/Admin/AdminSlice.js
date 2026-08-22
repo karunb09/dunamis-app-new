@@ -79,6 +79,7 @@ const adminSlice = createSlice({
     admins: [],
     selectedAdmin: null,
     loading: false,
+    listStatus: "idle",
     error: null,
     successMessage: null,
   },
@@ -98,15 +99,18 @@ const adminSlice = createSlice({
       // fetchAdmins
       .addCase(fetchAdmins.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
         state.error = null;
         state.successMessage = null;
       })
       .addCase(fetchAdmins.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.admins = action.payload;
       })
       .addCase(fetchAdmins.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload;
       })
 

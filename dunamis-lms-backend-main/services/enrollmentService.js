@@ -602,6 +602,19 @@ const getOverdueInstallmentPayments = (student, asOf = new Date()) =>
     .filter((entry) => entry.isOverdue)
     .map((entry) => entry.payment);
 
+// Days an installment may run late before class access is cut. Deliberately
+// separate from getOverdueInstallmentPayments: that one feeds the dues
+// aggregation and the reminder cron, which must keep chasing from day 1 — only
+// the access gate gets the grace period.
+const ACCESS_GRACE_DAYS = 7;
+
+const isAccessBlocking = (entry, graceDays = ACCESS_GRACE_DAYS) =>
+  entry.daysLate > graceDays;
+
+// Installments late enough to pause the student's course access.
+const getAccessBlockingInstallments = (student, asOf = new Date()) =>
+  getPendingInstallmentEntries(student, asOf).filter((entry) => isAccessBlocking(entry));
+
 // The Mongo mirror of getLatestInstallmentPerEnrollment + the overdue filter,
 // run across every student. Cross-checked against the JS version in
 // tests/dues.aggregation.integration.test.js.
@@ -797,25 +810,29 @@ const aggregateOutstandingInstallments = async ({
   return { rows: [], total: [], totals: [], aging: [], ...result };
 };
 
-const buildPaymentAccessStatus = (student) => {
-  const overduePayments = getOverdueInstallmentPayments(student).map((payment) => ({
-    courseId: payment.courseId?._id || payment.courseId || null,
-    courseName: payment.courseId?.name || "Course",
-    courseCode: payment.courseId?.code || "",
-    amount: payment.installmentAmount || payment.amount,
-    dueDate: payment.dueDate,
-    installmentNo: payment.installmentNo,
-    installmentTotal: payment.installmentTotal,
+const buildPaymentAccessStatus = (student, asOf = new Date()) => {
+  const blocking = getAccessBlockingInstallments(student, asOf).map((entry) => ({
+    courseId: entry.payment.courseId?._id || entry.payment.courseId || null,
+    courseName: entry.payment.courseId?.name || "Course",
+    courseCode: entry.payment.courseId?.code || "",
+    amount: entry.amountDue,
+    dueDate: entry.dueDate,
+    daysLate: entry.daysLate,
+    installmentNo: entry.installmentNo,
+    installmentTotal: entry.installmentTotal,
   }));
 
+  const restricted = blocking.length > 0;
+
   return {
-    accessRestricted: overduePayments.length > 0,
-    reason: overduePayments.length > 0 ? "installment_overdue" : null,
-    message:
-      overduePayments.length > 0
-        ? "Course access is restricted until the overdue installment is paid."
-        : "Course access is active.",
-    overduePayments,
+    accessRestricted: restricted,
+    reason: restricted ? "installment_overdue" : null,
+    message: restricted
+      ? "Course access is restricted until the overdue installment is paid."
+      : "Course access is active.",
+    graceDays: ACCESS_GRACE_DAYS,
+    // Name kept for the existing website consumers (StudentGuard, profile).
+    overduePayments: blocking,
   };
 };
 
@@ -835,6 +852,8 @@ module.exports = {
   getPendingInstallmentEntries,
   getPayableInstallments,
   getOverdueInstallmentPayments,
+  getAccessBlockingInstallments,
+  ACCESS_GRACE_DAYS,
   aggregateOutstandingInstallments,
   buildPaymentAccessStatus,
 };

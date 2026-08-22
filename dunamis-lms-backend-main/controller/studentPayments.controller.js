@@ -7,6 +7,7 @@ const {
   buildPricingForPlan,
   loadValidatedEnrollmentContext,
   getPayableInstallments,
+  ACCESS_GRACE_DAYS,
 } = require("../services/enrollmentService");
 const {
   findActiveEnrollmentTransaction,
@@ -60,8 +61,11 @@ const serializeOrder = (transaction) => ({
 const enrollmentKey = (courseId, slotId, sessionType) =>
   [courseId || "course", slotId || "slot", sessionType || "session"].join(":");
 
+// Mirrors the admin badge in Dunamis_LMS_Dashboard-main/src/utils/feeStatus.js.
+// "overdue" is the only state that actually costs the student class access.
 const paymentStatusOf = (entry) => {
-  if (entry.isOverdue) return "overdue";
+  if (entry.daysLate > ACCESS_GRACE_DAYS) return "overdue";
+  if (entry.isOverdue) return "due";
   if (entry.daysUntilDue <= DUE_SOON_DAYS) return "due_soon";
   return "upcoming";
 };
@@ -156,7 +160,9 @@ exports.getFeesSummary = asyncHandler(async (req, res) => {
     };
   });
 
-  const overdue = dues.filter((due) => due.isOverdue);
+  // Late but inside the grace window keeps access; only "overdue" blocks.
+  const blocking = dues.filter((due) => due.status === "overdue");
+  const late = dues.filter((due) => due.isOverdue);
   const history = buildHistory(student);
 
   // Enrollments with nothing left to pay still belong on the page, so a student
@@ -179,15 +185,16 @@ exports.getFeesSummary = asyncHandler(async (req, res) => {
   return res.status(200).json({
     success: true,
     asOf,
-    accessRestricted: overdue.length > 0,
+    accessRestricted: blocking.length > 0,
+    graceDays: ACCESS_GRACE_DAYS,
     message:
-      overdue.length > 0
+      blocking.length > 0
         ? "Course access is restricted until the overdue installment is paid."
         : "Course access is active.",
     totals: {
       outstanding: dues.reduce((sum, due) => sum + Number(due.amount || 0), 0),
-      overdueAmount: overdue.reduce((sum, due) => sum + Number(due.amount || 0), 0),
-      overdueCount: overdue.length,
+      overdueAmount: late.reduce((sum, due) => sum + Number(due.amount || 0), 0),
+      overdueCount: late.length,
       duesCount: dues.length,
       totalPaid: history.reduce((sum, row) => sum + Number(row.amount || 0), 0),
       nextDueDate: dues[0]?.dueDate || null,
@@ -419,6 +426,16 @@ exports.recordClientEvent = asyncHandler(async (req, res) => {
   }
   if (String(transaction.userId) !== String(req.user.userId)) {
     return res.status(403).json({ success: false, message: "Not your payment" });
+  }
+
+  // A payment that already settled cannot be abandoned. The gateway modal fires
+  // its close callback after a successful checkout, so without this the trail
+  // ends with a false "abandoned" entry stamped after "fulfilled".
+  if (
+    eventType === TRANSACTION_EVENTS.CHECKOUT_DISMISSED &&
+    ["paid", "paid_pending_fulfillment", "fulfilled"].includes(transaction.status)
+  ) {
+    return res.status(200).json({ success: true, ignored: "payment already settled" });
   }
 
   await recordTransactionEvent(id, {

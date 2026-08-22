@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import {
@@ -46,6 +46,11 @@ const STATUS_META = {
     label: "Overdue",
     pill: "bg-red-50 text-red-700 ring-red-200",
     card: "border-red-200 bg-red-50/40",
+  },
+  due: {
+    label: "Due",
+    pill: "bg-orange-50 text-orange-700 ring-orange-200",
+    card: "border-orange-200 bg-orange-50/40",
   },
   due_soon: {
     label: "Due soon",
@@ -261,6 +266,10 @@ export default function StudentFeesPage() {
   const [receipt, setReceipt] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [timelineLoading, setTimelineLoading] = useState(false);
+  // PaymentModal calls onSuccess and then onClose on the happy path, so the
+  // close handler must know the payment already settled — otherwise every
+  // successful checkout logs a false "abandoned" event.
+  const checkoutSettled = useRef(false);
 
   const session = useMemo(() => {
     if (typeof window === "undefined") return { user: authUser, token: authToken };
@@ -333,6 +342,7 @@ export default function StudentFeesPage() {
         throw new Error(data.message || "Could not start the payment");
       }
 
+      checkoutSettled.current = false;
       setPaymentOrder(data.order);
       setActiveTransactionId(data.transactionId);
       setPayOpen(true);
@@ -345,13 +355,17 @@ export default function StudentFeesPage() {
   };
 
   const closeCheckout = () => {
-    pingCheckout(activeTransactionId, "checkout_dismissed");
+    if (!checkoutSettled.current) {
+      pingCheckout(activeTransactionId, "checkout_dismissed");
+    }
     setPayOpen(false);
     setPaymentOrder(null);
     setActiveTransactionId(null);
   };
 
   const verifyPayment = async (paymentDetails) => {
+    // Set before any await: PaymentModal fires onClose synchronously after this.
+    checkoutSettled.current = true;
     const orderId =
       paymentDetails?.cashfree_order_id || paymentOrder?.orderId || paymentOrder?.id;
 

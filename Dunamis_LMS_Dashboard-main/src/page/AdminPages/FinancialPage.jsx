@@ -17,7 +17,7 @@ const FinancialPage = () => {
   const queryClient = useQueryClient();
 
   const requestedTab = searchParams.get("tab");
-  const activeTab = TAB_IDS.includes(requestedTab) ? requestedTab : "needs-attention";
+  const activeTab = TAB_IDS.includes(requestedTab) ? requestedTab : "transactions";
 
   const { data: countData } = useNeedsAttentionCount();
   const critical = countData?.critical || 0;
@@ -41,6 +41,8 @@ const FinancialPage = () => {
   }, [searchParams]);
 
   const tabs = [
+    { id: "transactions", label: "Transactions" },
+    { id: "dues", label: "Dues" },
     {
       id: "needs-attention",
       label: (
@@ -49,9 +51,7 @@ const FinancialPage = () => {
           {critical > 0 && <Pill tone="rose">{critical}</Pill>}
         </span>
       ),
-    },
-    { id: "transactions", label: "Transactions" },
-    { id: "dues", label: "Dues" },
+    }
   ];
 
   const changeTab = (id) => {

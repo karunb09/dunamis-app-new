@@ -581,10 +581,13 @@ exports.getStudentsByType = asyncHandler(async (req, res) => {
       .populate({
         path: "userId",
         match: { accountType: "student" },
-        select: "-password",
+        // Allow-list, not "-password": list views render only these, and a
+        // deny-list ships every field added to User later.
+        select: "name email mobileNo image accountStatus createdAt",
       })
       .populate({
         path: "enrolledCourses.courseId",
+        select: "name code mode sessionType category",
         populate: { path: "category", select: "name" },
       })
       .populate({
@@ -608,25 +611,21 @@ exports.getStudentsByType = asyncHandler(async (req, res) => {
       s.enrolledCourses = s.enrolledCourses.filter((c) => c.courseId !== null);
     });
 
-    // Registered = all students
-    const registered = students;
+    // Enrolled and demo are subsets of the same list — sending IDs instead of
+    // three full copies keeps the payload at one serialization of each student.
+    const enrolledIds = students
+      .filter((s) => s.payments?.some((p) => p.PaymentStatus === "completed"))
+      .map((s) => s._id);
 
-    // Enrolled = students who have completed at least one payment
-    const enrolled = students.filter(
-      (s) =>
-        s.payments && s.payments.some((p) => p.PaymentStatus === "completed")
-    );
-
-    // Demo students = students who have at least one demo booking
-    const demo = students.filter(
-      (s) => s.demoCourse && s.demoCourse.length > 0
-    );
+    const demoIds = students
+      .filter((s) => s.demoCourse?.length > 0)
+      .map((s) => s._id);
 
     return res.status(200).json({
       success: true,
-      registered,
-      enrolled,
-      demo,
+      students,
+      enrolledIds,
+      demoIds,
     });
 });
 

@@ -32,18 +32,34 @@ export const getPendingInstallments = (student, now = new Date()) =>
         }))
         .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
+// Days past the due date before a late installment escalates from "Due" to
+// "Overdue". Matches the 0-7 / 8-30 aging bucket the Financials dues tab uses.
+export const FEE_GRACE_DAYS = 7;
+
+const DAY_MS = 86400000;
+
+// Worst state across the student's enrollments wins, so one late course is not
+// hidden by another that is paid up.
+const SEVERITY = { Overdue: 0, Due: 1, OnTrack: 2, Paid: 3 };
+
+// "OnTrack"  - plan running, next installment not due yet
+// "Due"      - due date passed, within the grace window
+// "Overdue"  - due date passed by more than FEE_GRACE_DAYS
+// "Paid"     - nothing left to pay on any enrollment
 export const getFeeStatus = (student, now = new Date()) => {
     const payments = (student?.payments || []).filter((p) => p.PaymentStatus !== "failed");
     if (!payments.length) return "Due";
 
-    let anyUpcoming = false;
+    let worst = null;
     for (const latest of getLatestPerEnrollment(student)) {
-        if (latest.monthlyPaymentStatus === "pending") {
-            if (new Date(latest.dueDate) < now) return "Overdue";
-            anyUpcoming = true;
-        }
+        if (latest.monthlyPaymentStatus !== "pending") continue;
+
+        const daysLate = Math.floor((now - new Date(latest.dueDate)) / DAY_MS);
+        const state = daysLate > FEE_GRACE_DAYS ? "Overdue" : daysLate >= 0 ? "Due" : "OnTrack";
+        if (worst === null || SEVERITY[state] < SEVERITY[worst]) worst = state;
     }
-    if (anyUpcoming) return "Due";
+
+    if (worst) return worst;
 
     return payments.some((p) => p.PaymentStatus === "completed") ? "Paid" : "Due";
 };

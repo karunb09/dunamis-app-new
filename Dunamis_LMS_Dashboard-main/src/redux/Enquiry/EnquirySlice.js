@@ -84,6 +84,7 @@ const enquirySlice = createSlice({
     enquiries: [],
     selectedEnquiry: null,
     loading: false,
+    listStatus: "idle",
     error: null,
   },
   reducers: {},
@@ -91,14 +92,17 @@ const enquirySlice = createSlice({
     builder
       .addCase(getAllEnquiries.pending, (state) => {
         state.loading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllEnquiries.fulfilled, (state, action) => {
         state.loading = false;
+        state.listStatus = "succeeded";
         state.enquiries = action.payload;
         state.error = null;
       })
       .addCase(getAllEnquiries.rejected, (state, action) => {
         state.loading = false;
+        state.listStatus = "failed";
         state.error = action.payload || action.error.message;
       })
       .addCase(getEnquiryById.fulfilled, (state, action) => {

@@ -75,7 +75,7 @@ const MyStudent = () => {
     setSelectedStudent(student);
   };
 
-  if (loading) {
+  if (loading && !selectedTeacher) {
     return (
       <div className="flex min-h-[300px] items-center justify-center">
         <div className="text-center">
