@@ -229,17 +229,20 @@ test("demo slots are out of scope", async () => {
   assert.equal(report.totals.classesScheduled, 0);
 });
 
-test("an empty section is visible but is not an alarm", async () => {
+test("a slot with nobody enrolled is not a class and is not reported", async () => {
   const teacher = await makeTeacher();
   const course = await makeCourse();
+  const student = await makeStudent();
   await makeSlot({ teacher, course, students: [] });
+  await makeSlot({ teacher, course, students: [student] });
 
   const report = await buildDailyAttendanceReport({ dayKey: DAY });
 
-  assert.equal(report.classes.length, 1, "still shown — a section that lost its students matters");
-  assert.equal(report.classes[0].coverageStatus, "NoStudents");
-  assert.equal(report.totals.withoutStudents, 1);
-  assert.equal(report.totals.unmarked, 0, "nobody to mark is not the same as nobody marked");
+  // Slots are generated from teacher availability, so most occurrences never
+  // had a student. Counting them buried the real classes 15:1 on prod.
+  assert.equal(report.totals.classesScheduled, 1, "only the slot with a student counts");
+  assert.equal(report.classes.length, 1);
+  assert.equal(report.totals.unmarked, 1);
 });
 
 test("an empty slot falls back to its active roster", async () => {

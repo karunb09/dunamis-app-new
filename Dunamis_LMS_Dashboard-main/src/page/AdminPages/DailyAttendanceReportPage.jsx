@@ -21,7 +21,6 @@ const COVERAGE = {
   Full: { label: "Marked", className: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
   Partial: { label: "Partial", className: "bg-amber-50 text-amber-700 ring-amber-200" },
   Missing: { label: "Not marked", className: "bg-rose-50 text-rose-700 ring-rose-200" },
-  NoStudents: { label: "No students", className: "bg-slate-50 text-slate-500 ring-slate-200" },
 };
 
 const FILTERS = [
@@ -29,7 +28,6 @@ const FILTERS = [
   { id: "Missing", label: "Not marked" },
   { id: "Partial", label: "Partial" },
   { id: "Full", label: "Marked" },
-  { id: "NoStudents", label: "No students" },
 ];
 
 const formatPct = (value) => (value == null ? "—" : `${value}%`);
@@ -44,7 +42,7 @@ const Pill = ({ className, children }) => (
 );
 
 const CoverageBadge = ({ status }) => {
-  const meta = COVERAGE[status] || COVERAGE.NoStudents;
+  const meta = COVERAGE[status] || COVERAGE.Missing;
   return <Pill className={meta.className}>{meta.label}</Pill>;
 };
 
@@ -129,7 +127,6 @@ const buildSheets = (data) => [
       ["Fully marked", data.totals.fullyMarked],
       ["Partially marked", data.totals.partiallyMarked],
       ["Not marked", data.totals.unmarked],
-      ["Sections without students", data.totals.withoutStudents],
       ["Students expected", data.totals.studentsExpected],
       ["Students marked", data.totals.studentsMarked],
       ["Present", data.totals.present],

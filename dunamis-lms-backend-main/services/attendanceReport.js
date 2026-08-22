@@ -34,7 +34,6 @@ const emptyTotals = () => ({
   fullyMarked: 0,
   partiallyMarked: 0,
   unmarked: 0,
-  withoutStudents: 0,
   studentsExpected: 0,
   studentsMarked: 0,
   present: 0,
@@ -45,8 +44,10 @@ const emptyTotals = () => ({
   classesMarkedLate: 0,
 });
 
+// Only ever called for classes that have students; empty slots are dropped
+// before this point. `>=` not `==` so a student removed after marking does not
+// downgrade a completed class.
 const coverageOf = (marked, expected) => {
-  if (!expected) return "NoStudents";
   if (marked >= expected) return "Full";
   return marked === 0 ? "Missing" : "Partial";
 };
@@ -66,9 +67,10 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
     }
   };
 
-  // Deliberately no `"students.0": { $exists: true }` — an empty section is a
-  // fact an admin should see, and filtering it out is what made the old digest
-  // blind. Served by the { date, slotType } index.
+  // No `"students.0": { $exists: true }` here — the roster fallback below can
+  // still supply students for a slot whose own array was never populated. Slots
+  // that genuinely have nobody are dropped after that resolves.
+  // Served by the { date, slotType } index.
   const slots = await section(
     "classes",
     () =>
@@ -90,7 +92,56 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
     []
   );
 
-  const slotIds = slots.map((slot) => slot._id);
+  // A past slot's students[] is a frozen snapshot of who was actually expected
+  // that day — applyRostersToSlots only runs from today forward. That is what an
+  // auditor wants, so this deliberately inverts getTeacherClassAttendance's
+  // roster-first priority; the roster is only a rescue for empty slots.
+  const orphanParentIds = slots
+    .filter((slot) => !(slot.students || []).length && slot.parentAvailabilityId)
+    .map((slot) => slot.parentAvailabilityId);
+
+  const rosters = await section(
+    "rosters",
+    () =>
+      orphanParentIds.length
+        ? ClassRoster.find({
+            parentAvailabilityId: { $in: orphanParentIds },
+            status: "active",
+          })
+            .select("parentAvailabilityId students")
+            .lean()
+        : [],
+    []
+  );
+  const rosterByParent = new Map(
+    rosters.map((roster) => [
+      String(roster.parentAvailabilityId),
+      (roster.students || []).filter((m) => m.status === "active").map((m) => m.studentId),
+    ])
+  );
+
+  const expectedBySlot = new Map();
+  for (const slot of slots) {
+    const own = (slot.students || []).map(idOf);
+    if (own.length) {
+      expectedBySlot.set(String(slot._id), { ids: own, source: "slot" });
+      continue;
+    }
+    const fromRoster = (rosterByParent.get(String(slot.parentAvailabilityId)) || []).map(idOf);
+    expectedBySlot.set(String(slot._id), {
+      ids: fromRoster,
+      source: fromRoster.length ? "roster" : "slot",
+    });
+  }
+
+  // Slot generation runs off teacher availability, so most occurrences never
+  // had a student. Reporting them would bury the handful that matter — on prod
+  // that was 62 empty sections against 4 real classes.
+  const classSlots = slots.filter(
+    (slot) => (expectedBySlot.get(String(slot._id))?.ids || []).length > 0
+  );
+
+  const slotIds = classSlots.map((slot) => slot._id);
 
   // Matched on slotId, never on date. slotId is the class's identity and cannot
   // drift; a date window would silently drop legacy rows stamped with their
@@ -137,50 +188,10 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
   );
   const attendanceBySlot = new Map(attendance.map((row) => [String(row._id), row]));
 
-  // A past slot's students[] is a frozen snapshot of who was actually expected
-  // that day — applyRostersToSlots only runs from today forward. That is what an
-  // auditor wants, so this deliberately inverts getTeacherClassAttendance's
-  // roster-first priority; the roster is only a rescue for empty slots.
-  const orphanParentIds = slots
-    .filter((slot) => !(slot.students || []).length && slot.parentAvailabilityId)
-    .map((slot) => slot.parentAvailabilityId);
-
-  const rosters = await section(
-    "rosters",
-    () =>
-      orphanParentIds.length
-        ? ClassRoster.find({
-            parentAvailabilityId: { $in: orphanParentIds },
-            status: "active",
-          })
-            .select("parentAvailabilityId students")
-            .lean()
-        : [],
-    []
-  );
-  const rosterByParent = new Map(
-    rosters.map((roster) => [
-      String(roster.parentAvailabilityId),
-      (roster.students || []).filter((m) => m.status === "active").map((m) => m.studentId),
-    ])
-  );
-
-  const expectedBySlot = new Map();
-  for (const slot of slots) {
-    const own = (slot.students || []).map(idOf);
-    if (own.length) {
-      expectedBySlot.set(String(slot._id), { ids: own, source: "slot" });
-      continue;
-    }
-    const fromRoster = (rosterByParent.get(String(slot.parentAvailabilityId)) || []).map(idOf);
-    expectedBySlot.set(String(slot._id), {
-      ids: fromRoster,
-      source: fromRoster.length ? "roster" : "slot",
-    });
-  }
-
   const studentIds = new Set();
-  for (const { ids } of expectedBySlot.values()) ids.forEach((id) => studentIds.add(id));
+  for (const slot of classSlots) {
+    for (const id of expectedBySlot.get(String(slot._id)).ids) studentIds.add(id);
+  }
   for (const row of attendance) {
     for (const item of row.entries) studentIds.add(idOf(item.studentId));
   }
@@ -206,7 +217,7 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
     null
   );
 
-  const classes = slots.map((slot) => {
+  const classes = classSlots.map((slot) => {
     const slotKey = String(slot._id);
     const row = attendanceBySlot.get(slotKey);
     const { ids: expectedIds, source } = expectedBySlot.get(slotKey) || { ids: [], source: "slot" };
@@ -267,7 +278,6 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
     if (item.coverageStatus === "Full") acc.fullyMarked += 1;
     if (item.coverageStatus === "Partial") acc.partiallyMarked += 1;
     if (item.coverageStatus === "Missing") acc.unmarked += 1;
-    if (item.coverageStatus === "NoStudents") acc.withoutStudents += 1;
     acc.studentsExpected += item.expectedStudents;
     acc.studentsMarked += item.markedStudents;
     acc.present += item.present;
