@@ -438,7 +438,8 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                   await mailSender(
                     application.email,
                     "Your teacher Account created",
-                    sendPasswordTemplate(user, "teacher", generatedPassword)
+                    sendPasswordTemplate(user, "teacher", generatedPassword),
+                    sendPasswordTemplate.attachments
                   );
                 } catch (mailErr) {
                   console.error("Failed to send teacher credentials email", mailErr);

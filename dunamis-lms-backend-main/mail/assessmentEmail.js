@@ -1,3 +1,8 @@
+const path = require("path");
+
+const LOGO_PATH = path.resolve(__dirname, "../Dunamis.png");
+const LOGO_CID = "dunamis-logo";
+
 const escapeHtml = (value) =>
   String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -21,6 +26,9 @@ const buildAssessmentDueEmail = ({ studentName, courseName, dueDate }) => ({
   subject: `Assessment due: ${studentName} — ${courseName}`,
   html: `
   <div style="max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
+    <div style="text-align:center;margin-bottom:20px;">
+      <img src="cid:${LOGO_CID}" alt="Dunamis Logo" style="height:36px;width:auto;" />
+    </div>
     <div style="background:#ffffff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
       <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#f97316;">Dunamis LMS</p>
       <h1 style="margin:0 0 14px;color:#111827;font-size:24px;line-height:1.25;">Quarterly assessment due</h1>
@@ -33,6 +41,7 @@ const buildAssessmentDueEmail = ({ studentName, courseName, dueDate }) => ({
     </div>
   </div>
 `,
+  attachments: [{ filename: "Dunamis.png", path: LOGO_PATH, cid: LOGO_CID }],
 });
 
 module.exports = { buildAssessmentDueEmail };

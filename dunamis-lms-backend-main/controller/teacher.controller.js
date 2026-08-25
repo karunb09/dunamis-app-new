@@ -371,7 +371,8 @@ exports.createTeacher = asyncHandler(async (req, res) => {
     await mailSender(
       normalizedEmail,
       "Your teacher account has been created",
-      sendPasswordTemplate(user, "teacher", password)
+      sendPasswordTemplate(user, "teacher", password),
+      sendPasswordTemplate.attachments
     );
 
     res.status(201).json({

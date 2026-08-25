@@ -1,3 +1,8 @@
+const path = require("path");
+
+const LOGO_PATH = path.resolve(__dirname, "../Dunamis.png");
+const LOGO_CID = "dunamis-logo";
+
 const welcomeEmailTemplate = (email, name) => {
     const BASE_URL= 'https://dashboard.dunamisindia.co.in/';
   return `
@@ -9,19 +14,21 @@ const welcomeEmailTemplate = (email, name) => {
       <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }
         .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        .header { background-color: #1E88E5; padding: 20px; text-align: center; color: white; }
+        .header { background: linear-gradient(135deg,#111827,#1f2937); padding: 24px 20px; text-align: center; color: white; }
+        .header .logo-panel { display: inline-block; background: #ffffff; border-radius: 10px; padding: 8px 14px; margin-bottom: 14px; line-height: 0; }
         .header h1 { margin: 0; font-size: 24px; }
         .content { padding: 20px; }
         .content h2 { color: #333; }
         .content p { color: #666; line-height: 1.6; }
-        .highlight { color: #1E88E5; font-weight: bold; }
-        .cta-button { display: inline-block; padding: 10px 20px; margin: 20px 0; background-color: #1E88E5; color: white; text-decoration: none; border-radius: 5px; }
+        .highlight { color: #CC3700; font-weight: bold; }
+        .cta-button { display: inline-block; padding: 10px 20px; margin: 20px 0; background-color: #f97316; color: white; text-decoration: none; border-radius: 5px; }
         .footer { background-color: #f4f4f4; padding: 10px; text-align: center; color: #999; font-size: 12px; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
+          <div class="logo-panel"><img src="cid:${LOGO_CID}" alt="Dunamis Logo" style="height:32px;width:auto;display:block;" /></div>
           <h1>Welcome to Dunamis</h1>
         </div>
         <div class="content">
@@ -46,5 +53,9 @@ const welcomeEmailTemplate = (email, name) => {
 
   
 };
+
+welcomeEmailTemplate.attachments = [
+  { filename: "Dunamis.png", path: LOGO_PATH, cid: LOGO_CID },
+];
 
 module.exports = welcomeEmailTemplate;
