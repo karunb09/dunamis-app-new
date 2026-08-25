@@ -189,7 +189,8 @@ exports.createStudent = asyncHandler(async (req, res) => {
     await mailSender(
       email,
       "Welcome to Duanamis Institute – Thank You for Trusting Us!",
-      welcomeEmailTemplate(email, firstName)
+      welcomeEmailTemplate(email, firstName),
+      welcomeEmailTemplate.attachments
     );
 
     user.password = undefined;
