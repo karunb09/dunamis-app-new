@@ -56,7 +56,7 @@ export default function ForgotPasswordClient() {
       setLocalError("Password must be at least 6 characters.");
       return;
     }
-    const result = await dispatch(resetPassword({ email, otp, password: newPassword }));
+    const result = await dispatch(resetPassword({ email, otp, newPassword }));
     if (resetPassword.fulfilled.match(result)) {
       setStep(STEPS.DONE);
     }

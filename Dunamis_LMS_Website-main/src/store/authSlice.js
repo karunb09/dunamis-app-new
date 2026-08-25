@@ -219,7 +219,7 @@ export const resetPassword = createAsyncThunk(
       const res = await fetch(`${BASE_URL}/v1/user/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload), // { email, otp, password }
+        body: JSON.stringify(payload), // { email, otp, newPassword }
       });
       const data = await res.json();
       if (!res.ok || data.success === false)
