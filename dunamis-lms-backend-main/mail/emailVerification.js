@@ -71,8 +71,8 @@ const otpTemplate = (otp) => {
 	
 	<body>
 		<div class="container">
-			<a href="https://dunamisindia.co.in"><img class="logo"
-					src="cid:${LOGO_CID}" alt="Dunamis Logo"></a>
+			<a href="https://dunamisindia.co.in" style="display:inline-block;background:#ffffff;border-radius:12px;padding:12px 20px;margin-bottom:20px;"><img class="logo"
+					src="cid:${LOGO_CID}" alt="Dunamis Logo" style="display:block;margin-bottom:0;"></a>
 			<div class="message">OTP Verification Email</div>
 			<div class="body">
 				<p>Dear User,</p>
