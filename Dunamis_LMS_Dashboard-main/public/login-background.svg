@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+  <defs>
+    <radialGradient id="blobRed" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E31E24" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#E31E24" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobOrange" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EF7F1A" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#EF7F1A" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobBlue" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00A0E3" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#00A0E3" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobGreen" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#009846" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#009846" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobPink" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#E5097F" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#E5097F" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blobNavy" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#2B244B" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#2B244B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1600" height="1000" fill="#fffaf4"/>
+
+  <!-- soft color wash, kept away from dead-center where the login card sits -->
+  <circle cx="120" cy="80" r="420" fill="url(#blobOrange)"/>
+  <circle cx="260" cy="220" r="300" fill="url(#blobRed)"/>
+  <circle cx="1520" cy="120" r="380" fill="url(#blobPink)"/>
+  <circle cx="1480" cy="880" r="460" fill="url(#blobBlue)"/>
+  <circle cx="1250" cy="950" r="300" fill="url(#blobGreen)"/>
+  <circle cx="60" cy="920" r="360" fill="url(#blobNavy)"/>
+  <circle cx="200" cy="950" r="260" fill="url(#blobRed)" opacity="0.6"/>
+
+  <!-- faint creative motifs, thin line, low opacity -->
+  <g stroke="#2B244B" stroke-width="6" fill="none" opacity="0.1" stroke-linecap="round" stroke-linejoin="round">
+    <!-- eighth note, top-right -->
+    <g transform="translate(1300,60) scale(1.1)">
+      <path d="M47,74 L47,13 C47,12.4 47.4,12 48,12 L55,12 C72,17 80,30 74,44 C70,36 63,30 55,28 L55,74 C55,75.7 53.7,77 52,77 L50,77 C48.3,77 47,75.7 47,74 Z"/>
+      <ellipse cx="30" cy="76" rx="18" ry="13" transform="rotate(-18 30 76)"/>
+    </g>
+
+    <!-- guitar outline, bottom-left -->
+    <g transform="translate(90,760) scale(1.7)">
+      <path d="M465 7c-9.4-9.4-24.6-9.4-33.9 0L383 55c-2.4 2.4-4.3 5.3-5.5 8.5l-15.4 41-77.5 77.6c-45.1-29.4-99.3-30.2-131 1.6-11 11-18 24.6-21.4 39.6-3.7 16.6-19.1 30.7-36.1 31.6-25.6 1.3-49.3 10.7-67.3 28.6-44.8 44.8-36.4 125.8 18.7 180.9S183.6 528 228.4 483.2c17.9-17.9 27.4-41.7 28.6-67.3 .9-17 15-32.3 31.6-36.1 15-3.4 28.6-10.5 39.6-21.4 31.8-31.8 31-85.9 1.6-131l77.6-77.6 41-15.4c3.2-1.2 6.1-3.1 8.5-5.5l48-48c9.4-9.4 9.4-24.6 0-33.9L465 7zM208 256a48 48 0 1 1 0 96 48 48 0 1 1 0-96z" transform="scale(0.22)"/>
+    </g>
+
+    <!-- small note, bottom-right -->
+    <g transform="translate(1430,760) scale(0.8)">
+      <path d="M47,74 L47,13 C47,12.4 47.4,12 48,12 L55,12 C72,17 80,30 74,44 C70,36 63,30 55,28 L55,74 C55,75.7 53.7,77 52,77 L50,77 C48.3,77 47,75.7 47,74 Z"/>
+      <ellipse cx="30" cy="76" rx="18" ry="13" transform="rotate(-18 30 76)"/>
+    </g>
+  </g>
+</svg>
