@@ -208,36 +208,23 @@ export default function CentersClient({ initialCenters = [] }) {
   const heroStats = useMemo(() => {
     const cityKeys = new Set();
     const teacherKeys = new Set();
-    const studentKeys = new Set();
-    let studentCount = 0;
 
     (Array.isArray(centers) ? centers : []).forEach((center) => {
       const cityName = String(center.city?.cityName || center.city || "").trim();
       if (cityName) cityKeys.add(normalizeCity(cityName));
 
       (center.teachers || []).forEach((teacher, index) => {
-        const teacherKey =
+        teacherKeys.add(
           teacher?._id ||
-          teacher?.id ||
-          teacher?.userId?._id ||
-          `${center._id}-teacher-${index}`;
-        if (teacherKeys.has(teacherKey)) return;
-        teacherKeys.add(teacherKey);
-
-        if (Array.isArray(teacher?.students) && teacher.students.length > 0) {
-          teacher.students.forEach((student) => {
-            const studentKey = student?._id || student?.id || student;
-            if (studentKey) studentKeys.add(String(studentKey));
-          });
-        } else {
-          studentCount += Number(teacher?.studentCount) || 0;
-        }
+            teacher?.id ||
+            teacher?.userId?._id ||
+            `${center._id}-teacher-${index}`
+        );
       });
     });
 
     return {
       cities: cityKeys.size,
-      students: studentKeys.size || studentCount,
       instructors: teacherKeys.size,
     };
   }, [centers]);
@@ -376,7 +363,6 @@ export default function CentersClient({ initialCenters = [] }) {
             style={{ "--fade-y": "20px", "--fade-dur": "0.7s", "--fade-delay": "0.35s" }}
           >
             <StatPill value={heroStats.cities} label="Cities" />
-            <StatPill value={heroStats.students} label="Students" />
             <StatPill value={heroStats.instructors} label="Instructors" />
           </div>
         </div>

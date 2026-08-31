@@ -136,20 +136,6 @@ const StudentDetail = ({ onBack }) => {
                         </div>
                       </>
                     )}
-                    {course.price && course.price.length > 0 && (
-                      <div className="mt-2 flex gap-2 flex-wrap">
-                        {course.price
-                          .filter((p) => p.isSelected)
-                          .map((p, i) => (
-                            <span
-                              key={i}
-                              className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full"
-                            >
-                              ₹{p.monthlyFee}/month
-                            </span>
-                          ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))

@@ -56,23 +56,6 @@ export default function PopularCourses() {
         return (totalRating / teachersWithRating.length).toFixed(1);
       };
 
-      const calculateTotalStudents = () => {
-        if (Number.isFinite(Number(course.totalStudents))) {
-          return Number(course.totalStudents);
-        }
-
-        if (!Array.isArray(course.teacher) || course.teacher.length === 0) {
-          return 0;
-        }
-
-        const aggregateCount = course.teacher.reduce((sum, teacher) => {
-          return sum + (Number(teacher?.studentCount) || 0);
-        }, 0);
-
-        return aggregateCount;
-      };
-
-
       const getTeacherNames = () => {
         if (!Array.isArray(course.teacher) || course.teacher.length === 0) {
           return "Staff";
@@ -92,7 +75,6 @@ export default function PopularCourses() {
         buildBranchSummary(course.branches) || "No branches available";
 
       const courseRating = calculateCourseRating();
-      const enrolledStudents = calculateTotalStudents();
 
       return {
         id: course._id || course.id,
@@ -125,9 +107,6 @@ export default function PopularCourses() {
         ),
         rating: parseFloat(courseRating) || 0,
         averageRating: parseFloat(courseRating) || 0,
-        enrolledStudents: enrolledStudents,
-        totalStudents: enrolledStudents,
-        studentCount: enrolledStudents,
         tags: [
           course.category?.name || course.category,
           course.level,
@@ -218,8 +197,6 @@ export default function PopularCourses() {
               image={course.image}
               fallbackImage={courseFallbackImage}
               rating={course.averageRating}
-              enrolledStudents={course.enrolledStudents}
-              studentCount={course.studentCount}
               type={course.type}
               title={course.name}
               mentor={course.mentor}

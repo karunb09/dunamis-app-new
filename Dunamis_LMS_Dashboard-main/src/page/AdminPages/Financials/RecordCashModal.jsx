@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import { installmentSummary } from "../../../utils/installmentLabel";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
 import { FiX } from "react-icons/fi";
@@ -163,7 +164,7 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
             <div>
               <dt className="text-slate-400">Installment</dt>
               <dd className="font-medium text-slate-700">
-                {installmentNo} of {due.installmentTotal || "—"}
+                {installmentSummary({ ...due, installmentNo })}
               </dd>
             </div>
             <div>

@@ -43,7 +43,29 @@ const normalizeEnrollment = (enrollment) => {
     instructor: getInstructorName(enrollment),
     progress: Number.isFinite(progress) ? Math.max(0, Math.min(100, progress)) : 0,
     status: enrollment?.status || enrollment?.paymentStatus || "Active",
+    schedule: enrollment?.slotDetails || null,
+    meetingLink: enrollment?.slotDetails?.meetingLink || "",
   };
+};
+
+const DAY_LABELS = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
+const formatSchedule = (schedule) => {
+  if (!schedule) return "";
+  const days = (schedule.recurringDays || [])
+    .map((day) => DAY_LABELS[String(day).toLowerCase()] || day)
+    .join(" · ");
+  const time =
+    schedule.startTime && schedule.endTime ? `${schedule.startTime} – ${schedule.endTime}` : "";
+  return [days, time].filter(Boolean).join(" · ");
 };
 
 export default function StudentMyCoursesPage() {
@@ -192,6 +214,22 @@ export default function StudentMyCoursesPage() {
                       <div className="h-full rounded-full bg-orange-600" style={{ width: `${course.progress}%` }} />
                     </div>
                   </div>
+
+                  {formatSchedule(course.schedule) && (
+                    <p className="mt-4 text-sm text-slate-500">{formatSchedule(course.schedule)}</p>
+                  )}
+
+                  {course.meetingLink && (
+                    <a
+                      href={course.meetingLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-100 transition hover:bg-emerald-100"
+                    >
+                      Join class
+                      <HiArrowRight className="h-4 w-4" />
+                    </a>
+                  )}
 
                   <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-sm font-semibold text-emerald-700">{course.status}</span>

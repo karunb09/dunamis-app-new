@@ -33,6 +33,21 @@ const FEE_BADGES = {
 };
 // Display text for the internal fee-status values, used outside the badge.
 const FEE_LABELS = { Paid: "Paid", OnTrack: "On track", Due: "Due", Overdue: "Overdue" };
+
+const LIFECYCLE_BADGES = {
+    paused: {
+        label: "Paused",
+        className: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+        dotClass: "bg-amber-500",
+    },
+    discontinued: {
+        label: "Discontinued",
+        className: "bg-slate-100 text-slate-600 ring-1 ring-slate-200",
+        dotClass: "bg-slate-400",
+    },
+};
+
+const badgeFor = (row) => LIFECYCLE_BADGES[row.lifecycle] || FEE_BADGES[row.feeStatus];
 const PAGE_SIZE_OPTIONS = [12, 24, 48, 96];
 
 const formatDate = (date) => (date ? dayjs(date).format("DD MMM YYYY") : "—");
@@ -102,6 +117,18 @@ const EnrolledStudents = () => {
                 ? Math.round(progressValues.reduce((sum, p) => sum + p, 0) / progressValues.length)
                 : null,
             mode: s.mode || courses[0]?.mode || "",
+            // Lifecycle beats fee status on the badge: a paused student owes
+            // nothing right now, so "On track" would be misleading.
+            lifecycle: (s.enrolledCourses || []).some(
+                (e) => e.active !== false && e.status === "paused"
+            )
+                ? "paused"
+                : (s.enrolledCourses || []).length &&
+                  (s.enrolledCourses || [])
+                      .filter((e) => e.active !== false)
+                      .every((e) => e.status === "discontinued")
+                ? "discontinued"
+                : null,
             feeStatus: getFeeStatus(s),
             joinedAt: getJoinDate(s),
         };
@@ -279,7 +306,7 @@ ${courses || "No courses enrolled"}`;
             minWidth: "110px",
             nowrap: true,
             render: (_, row) => {
-                const badge = FEE_BADGES[row.feeStatus];
+                const badge = badgeFor(row);
                 return (
                     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${badge.className}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${badge.dotClass}`} />
@@ -517,7 +544,7 @@ ${courses || "No courses enrolled"}`;
                             avatarSrc={row.avatar || undefined}
                             name={row.name}
                             subtitle={row.courses[0]?.name || "No course"}
-                            statusBadge={FEE_BADGES[row.feeStatus]}
+                            statusBadge={badgeFor(row)}
                             meta={[
                                 { label: "Student ID", value: row.mockId },
                                 { label: "Course Code", value: row.courses[0]?.code || "N/A" },

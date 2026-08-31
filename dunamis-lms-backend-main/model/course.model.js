@@ -160,6 +160,12 @@ const courseSchema = new mongoose.Schema(
         return this.isPublished;
       },
     },
+    // How long one level runs. Every level is six months; the payment plan a
+    // learner picks (3/6/12) is a billing cycle, not the term.
+    termMonths: {
+      type: Number,
+      default: 6,
+    },
     certification: {
       type: String,
       enum: ["certification", "non-certification"],

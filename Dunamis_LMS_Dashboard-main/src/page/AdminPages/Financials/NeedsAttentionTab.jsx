@@ -7,6 +7,9 @@ import DataTable from "../../../components/Table";
 import Pagination from "../../../components/Pagination";
 import RowActionsMenu from "../../../components/RowActionsMenu";
 import SavingOverlay from "../../../components/SavingOverlay";
+import ExportMenu from "../../../components/ExportMenu";
+import useFinanceExport from "./useFinanceExport";
+import { installmentSummary } from "../../../utils/installmentLabel";
 import {
   REASON_META,
   STATUS_TONES,
@@ -24,18 +27,46 @@ import {
 
 const LIMIT = 50;
 
+const fullName = (person) =>
+  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
+
+const exportColumns = [
+  { header: "Reason", value: (r) => REASON_META[r.reason]?.label || r.reason, width: 24 },
+  { header: "Severity", value: (r) => r.severity },
+  { header: "Age", value: (r) => formatAge(r.ageMs) },
+  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Email", value: (r) => r.student?.email, width: 26 },
+  { header: "Course", value: (r) => r.course?.name, width: 26 },
+  { header: "Amount", value: (r) => r.amount },
+  { header: "Type", value: (r) => r.paymentType },
+  { header: "Installment", value: (r) => (r.paymentType === "Installment" ? r.installmentNo : "") },
+  { header: "Of", value: (r) => (r.courseType === "running" ? "" : r.installmentTotal) },
+  { header: "Local status", value: (r) => r.status },
+  { header: "Cashfree status", value: (r) => r.cashfreeOrderStatus },
+  { header: "Gateway", value: (r) => r.gateway },
+  { header: "Order ID", value: (r) => r.merchantOrderId, width: 26 },
+  { header: "Last error", value: (r) => r.lastError, width: 30 },
+];
+
 const NeedsAttentionTab = () => {
   const [page, setPage] = useState(1);
   const [includeAbandoned, setIncludeAbandoned] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  const { data, isLoading, isError, error, refetch } = useNeedsAttention({
-    page,
-    limit: LIMIT,
-    includeAbandoned,
-  });
+  const params = { page, limit: LIMIT, includeAbandoned };
+  const { data, isLoading, isError, error, refetch } = useNeedsAttention(params);
   const reverify = useReverifyPayment();
 
   const rows = data?.rows || [];
+  const selectedRows = rows.filter((row) => selectedIds.includes(row._id));
+
+  const { exporting, exportAll, exportSelected } = useFinanceExport({
+    scope: "needs-attention",
+    sheetName: "Needs Attention",
+    fileNamePrefix: "dunamis-needs-attention",
+    params,
+    columns: exportColumns,
+  });
 
   const showOutcome = (result, row) => {
     const order = row.merchantOrderId;
@@ -109,9 +140,7 @@ const NeedsAttentionTab = () => {
         <div>
           <p className="font-semibold text-slate-800">{formatInr(value)}</p>
           {row.paymentType === "Installment" && (
-            <p className="text-xs text-slate-500">
-              Inst {row.installmentNo}/{row.installmentTotal}
-            </p>
+            <p className="text-xs text-slate-500">Inst {installmentSummary(row)}</p>
           )}
         </div>
       ),
@@ -172,18 +201,27 @@ const NeedsAttentionTab = () => {
     <div className="space-y-4">
       <SavingOverlay show={reverify.isPending} label="Re-verifying with Cashfree…" />
 
-      <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
-        <input
-          type="checkbox"
-          checked={includeAbandoned}
-          onChange={(e) => {
-            setIncludeAbandoned(e.target.checked);
-            setPage(1);
-          }}
-          className="rounded border-slate-300 text-orange-500 focus:ring-2 focus:ring-orange-100"
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700">
+          <input
+            type="checkbox"
+            checked={includeAbandoned}
+            onChange={(e) => {
+              setIncludeAbandoned(e.target.checked);
+              setPage(1);
+            }}
+            className="rounded border-slate-300 text-orange-500 focus:ring-2 focus:ring-orange-100"
+          />
+          Show abandoned checkouts
+        </label>
+        <ExportMenu
+          onExportAll={exportAll}
+          onExportSelected={() => exportSelected(selectedRows)}
+          totalCount={data?.total || 0}
+          selectedCount={selectedRows.length}
+          exporting={exporting}
         />
-        Show abandoned checkouts
-      </label>
+      </div>
 
       {isLoading ? (
         <TableSkeleton />
@@ -203,7 +241,7 @@ const NeedsAttentionTab = () => {
             data={rows}
             columns={columns}
             itemsPerPage={rows.length}
-            selectable={false}
+            onSelectionChange={setSelectedIds}
             totalCount={data.total}
             rangeOffset={(data.page - 1) * data.limit}
           />

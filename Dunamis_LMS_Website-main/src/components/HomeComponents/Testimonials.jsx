@@ -114,7 +114,7 @@ export default function Testimonials() {
               </span>
             </h2>
             <p className="mt-4 text-white/45 max-w-xl mx-auto text-sm sm:text-base">
-              Join thousands who have discovered their creative potential with Dunamis.
+              Discover your creative potential with Dunamis.
             </p>
           </motion.div>
 

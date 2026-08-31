@@ -75,8 +75,6 @@ export default function StepInstructor({
                           {instructor.averageRating
                             ? `${instructor.averageRating.toFixed(1)} rating`
                             : 'Course instructor'}
-                          {' • '}
-                          {instructor.studentCount || 0} students taught
                         </p>
                       </div>
 

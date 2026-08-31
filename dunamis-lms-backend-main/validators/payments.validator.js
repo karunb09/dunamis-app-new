@@ -69,6 +69,18 @@ const listPaymentsQuerySchema = z.object({
   dir: z.enum(["asc", "desc"]).nullish(),
 });
 
+// One schema for all three finance tabs: the export reuses whichever filters
+// the tab already had, so it carries the union of their query keys minus
+// page/limit (an export is never paged).
+const exportPaymentsQuerySchema = listPaymentsQuerySchema
+  .omit({ page: true, limit: true })
+  .extend({
+    scope: z.enum(["transactions", "dues", "needs-attention"]).nullish(),
+    bucket: z.enum(["0-7", "8-30", "30+"]).nullish(),
+    minDaysLate: z.coerce.number().int().min(0).nullish(),
+    includeAbandoned: boolish,
+  });
+
 const duesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).nullish(),
   limit: z.coerce.number().int().min(1).nullish(),
@@ -104,6 +116,7 @@ module.exports = {
   PAYMENT_STATUSES,
   needsAttentionQuerySchema,
   listPaymentsQuerySchema,
+  exportPaymentsQuerySchema,
   duesQuerySchema,
   cashInstallmentSchema,
 };

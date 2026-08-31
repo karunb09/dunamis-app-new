@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuUsers, LuMapPin, LuLanguages } from "react-icons/lu";
+import { LuSearch, LuSlidersHorizontal, LuX, LuStar, LuMapPin, LuLanguages } from "react-icons/lu";
 import { motion, AnimatePresence } from "framer-motion";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -89,13 +89,6 @@ function CourseCard({ course, courseFallbackImage }) {
           <p className="mt-1 flex items-center gap-1 text-xs text-gray-500">
             <LuMapPin className="w-3 h-3 shrink-0 text-[#CC3700]" />
             <span className="line-clamp-1">{course.branchSummary}</span>
-          </p>
-        )}
-
-        {course.totalStudents > 0 && (
-          <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
-            <LuUsers className="w-3 h-3" />
-            {course.totalStudents.toLocaleString("en-IN")} students enrolled
           </p>
         )}
 
@@ -277,7 +270,6 @@ function CoursesPageContent({ initialCourses = [] }) {
           image: resolveImageUrl(course.image, courseFallbackImage),
           rating: course.rating || 0,
           mentor: course.teacher?.[0] ? buildTeacherName(course.teacher[0]) : "Expert Instructor",
-          totalStudents: course.totalStudents || 0,
           branchSummary: buildBranchSummary(course.branches),
         };
       });

@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { objectId, nonEmpty } = require("./common");
+const { objectId, nonEmpty, meetingLink } = require("./common");
 
 // Mirrors the controller's own required-field + enum checks, enforced at the
 // boundary. looseObject lets teacherId / batchLabel / recurringDays / isRecurring
@@ -19,4 +19,10 @@ const createSlotSchema = z.looseObject({
   teacherId: objectId("teacherId").optional(),
 });
 
-module.exports = { createSlotSchema };
+const meetingLinkSchema = z.object({ meetingLink });
+
+const parentAvailabilityParam = z.object({
+  parentAvailabilityId: objectId("parentAvailabilityId"),
+});
+
+module.exports = { createSlotSchema, meetingLinkSchema, parentAvailabilityParam };

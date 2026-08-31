@@ -29,4 +29,15 @@ const numericString = (label, min = 1) =>
 // a malformed ObjectId into a clean 400 instead of a 500 from Mongoose.
 const idParam = z.object({ id: objectId("id") });
 
-module.exports = { objectId, email, nonEmpty, numericString, idParam };
+// Empty string clears a shared link; anything else must be an https URL so the
+// value is safe to render as an anchor href in emails and dashboards.
+const meetingLink = z
+  .string()
+  .trim()
+  .max(500, "Meeting link must be 500 characters or fewer.")
+  .refine(
+    (value) => value === "" || /^https:\/\/\S+$/.test(value),
+    "Meeting link must be a valid https:// URL."
+  );
+
+module.exports = { objectId, email, nonEmpty, numericString, idParam, meetingLink };

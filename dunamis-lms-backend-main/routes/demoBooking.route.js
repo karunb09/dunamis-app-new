@@ -6,12 +6,16 @@ const {
   getAllBookings,
   getMyBookings,
   updateBooking,
+  rescheduleDemoBooking,
+  cancelDemoBooking,
 } = require("../controller/demoBooking.controller");
 const { accessToRole, isAuth } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const {
   bookDemoSchema,
   updateBookingSchema,
+  rescheduleBookingSchema,
+  cancelBookingSchema,
 } = require("../validators/demoBooking.validator");
 
 const optionalAuth = (req, res, next) => {
@@ -40,6 +44,24 @@ const optionalAuth = (req, res, next) => {
 router.post("/", optionalAuth, validate(bookDemoSchema), bookDemoSlot);
 router.get("/my", isAuth, accessToRole(["student"]), getMyBookings);
 router.get("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), getAllBookings);
+// Students may move or drop their own demo; the 24-hour cutoff is enforced in
+// the controller, where the actor's role is known.
+const bookingActors = accessToRole(["student", "admin", "superadmin", "teacher"]);
+
+router.patch(
+  "/:id/reschedule",
+  isAuth,
+  bookingActors,
+  validate(rescheduleBookingSchema),
+  rescheduleDemoBooking
+);
+router.patch(
+  "/:id/cancel",
+  isAuth,
+  bookingActors,
+  validate(cancelBookingSchema),
+  cancelDemoBooking
+);
 router.put(
   "/:id",
   isAuth,

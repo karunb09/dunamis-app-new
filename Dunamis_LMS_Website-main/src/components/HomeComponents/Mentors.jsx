@@ -68,7 +68,6 @@ export default function Mentors() {
                     ? teacherApp.availability.join(", ")
                     : teacherApp.availability || "Not specified",
                 rating: m.averageRating || 0,
-                studentCount: m.studentCount || 0,
                 courseName: course.name || "N/A",
                 courseCategory: attendance.courseCategory || "N/A",
                 slot: attendance.slot || "Not specified",
@@ -340,8 +339,6 @@ export default function Mentors() {
                                                     </div>
 
                                                     <div className="flex items-center justify-center gap-2 text-xs text-white/40 mt-1">
-                                                        <span>{mentor.studentCount} {mentor.studentCount === 1 ? 'Student' : 'Students'}</span>
-                                                        <span>•</span>
                                                         <span className="capitalize">{mentor.sessionType}</span>
                                                     </div>
                                                 </div>
@@ -365,8 +362,8 @@ export default function Mentors() {
                                                                     <p className="text-xs text-white/65 capitalize">{mentor.gender}</p>
                                                                 </div>
                                                                 <div>
-                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Students</h4>
-                                                                    <p className="text-xs text-white/65">{mentor.studentCount}</p>
+                                                                    <h4 className="font-semibold text-[#CC3700] text-xs mb-1">Mode</h4>
+                                                                    <p className="text-xs text-white/65 capitalize">{mentor.sessionType}</p>
                                                                 </div>
                                                             </div>
                                                             <div>

@@ -8,6 +8,9 @@ import DataTable from "../../../components/Table";
 import Pagination from "../../../components/Pagination";
 import RowActionsMenu from "../../../components/RowActionsMenu";
 import BarRow from "../../../components/insights/BarRow";
+import ExportMenu from "../../../components/ExportMenu";
+import useFinanceExport from "./useFinanceExport";
+import { installmentSummary } from "../../../utils/installmentLabel";
 import { BUCKET_META, formatInr } from "./financeFormat";
 import { Pill, EmptyBox, ErrorBox, TableSkeleton, StudentCell, CourseCell } from "./financeUi";
 
@@ -17,18 +20,48 @@ const BUCKET_ORDER = ["0-7", "8-30", "30+"];
 const inputClass =
   "rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
 
+const fullName = (person) =>
+  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
+
+const exportColumns = [
+  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Email", value: (r) => r.student?.email, width: 26 },
+  { header: "Phone", value: (r) => r.student?.mobileNo },
+  { header: "Course", value: (r) => r.course?.name, width: 26 },
+  { header: "Installment", value: (r) => r.installmentNo },
+  { header: "Of", value: (r) => (r.courseType === "running" ? "" : r.installmentTotal) },
+  { header: "Amount due", value: (r) => r.amountDue },
+  { header: "Due date", value: (r) => (r.dueDate ? dayjs(r.dueDate).format("YYYY-MM-DD") : "") },
+  { header: "Days late", value: (r) => r.daysLate },
+  { header: "Age bucket", value: (r) => BUCKET_META[r.bucket]?.label || r.bucket },
+  {
+    header: "Last reminded",
+    value: (r) => (r.lastRemindedAt ? dayjs(r.lastRemindedAt).format("YYYY-MM-DD") : ""),
+  },
+  { header: "Branch", value: (r) => r.branch?.branchName || "Online" },
+];
+
 const DuesTab = () => {
   const [page, setPage] = useState(1);
   const [bucket, setBucket] = useState("");
   const [cashRow, setCashRow] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
 
-  const { data, isLoading, isError, error, refetch } = useDues({
-    page,
-    limit: LIMIT,
-    bucket: bucket || undefined,
+  const params = { page, limit: LIMIT, bucket: bucket || undefined };
+  const { data, isLoading, isError, error, refetch } = useDues(params);
+
+  // The dues aggregation projects `_id: 0` — DataTable keys selection off
+  // `_id`, so surface the installment's own id under that name.
+  const rows = (data?.rows || []).map((row) => ({ ...row, _id: row.paymentId }));
+  const selectedRows = rows.filter((row) => selectedIds.includes(row._id));
+
+  const { exporting, exportAll, exportSelected } = useFinanceExport({
+    scope: "dues",
+    sheetName: "Dues",
+    fileNamePrefix: "dunamis-dues",
+    params,
+    columns: exportColumns,
   });
-
-  const rows = data?.rows || [];
   const totals = data?.totals || { amount: 0, count: 0, students: 0, maxDaysLate: 0 };
   const agingByBucket = Object.fromEntries((data?.aging || []).map((a) => [a.bucket, a]));
   const agingMax = Math.max(...(data?.aging || []).map((a) => a.amount), 1);
@@ -40,9 +73,7 @@ const DuesTab = () => {
       key: "installmentNo",
       header: "Installment",
       render: (value, row) => (
-        <span className="text-slate-600">
-          {value} of {row.installmentTotal}
-        </span>
+        <span className="text-slate-600">{installmentSummary(row)}</span>
       ),
     },
     {
@@ -145,21 +176,30 @@ const DuesTab = () => {
         </div>
       )}
 
-      <select
-        value={bucket}
-        onChange={(e) => {
-          setBucket(e.target.value);
-          setPage(1);
-        }}
-        className={inputClass}
-      >
-        <option value="">All ages</option>
-        {BUCKET_ORDER.map((b) => (
-          <option key={b} value={b}>
-            {BUCKET_META[b].label}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={bucket}
+          onChange={(e) => {
+            setBucket(e.target.value);
+            setPage(1);
+          }}
+          className={inputClass}
+        >
+          <option value="">All ages</option>
+          {BUCKET_ORDER.map((b) => (
+            <option key={b} value={b}>
+              {BUCKET_META[b].label}
+            </option>
+          ))}
+        </select>
+        <ExportMenu
+          onExportAll={exportAll}
+          onExportSelected={() => exportSelected(selectedRows)}
+          totalCount={data?.total || 0}
+          selectedCount={selectedRows.length}
+          exporting={exporting}
+        />
+      </div>
 
       {isLoading ? (
         <TableSkeleton />
@@ -173,7 +213,7 @@ const DuesTab = () => {
             data={rows}
             columns={columns}
             itemsPerPage={rows.length}
-            selectable={false}
+            onSelectionChange={setSelectedIds}
             totalCount={data.total}
             rangeOffset={(data.page - 1) * data.limit}
           />

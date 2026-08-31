@@ -4,6 +4,7 @@ import { fetchTeacherById } from "../../../redux/Intructor/teacherSlice";
 import { submitCourseRequest, fetchMyRequests } from "../../../redux/courseRequests/courseRequestSlice";
 import { useCategoriesQuery } from "../../../hooks/useCategories";
 import StudentTable from "./StudentTable";
+import ClassLinksPanel from "./ClassLinksPanel";
 import Curriculum from "./Curriculum";
 import toast from "react-hot-toast";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";
@@ -150,12 +151,6 @@ const MyCourses = () => {
     } finally {
       setUploadingDocType(null);
     }
-  };
-
-  const getSelectedMonthlyFee = (priceArr) => {
-    if (!Array.isArray(priceArr)) return 0;
-    const sel = priceArr.find((p) => p.isSelected);
-    return sel ? Number(sel.monthlyFee) : 0;
   };
 
   const getStudentsForCourse = (courseId) => {
@@ -331,7 +326,6 @@ const MyCourses = () => {
                         </div>
                         <h3 className="line-clamp-1 text-sm font-semibold text-slate-900">{course.name}</h3>
                         <p className="mt-1 line-clamp-1 text-xs text-slate-500">{course.description || "No description available"}</p>
-                        <p className="mt-1 text-xs font-medium text-slate-600">₹{getSelectedMonthlyFee(course.price)}/month</p>
                       </div>
                     </button>
                   );
@@ -370,7 +364,7 @@ const MyCourses = () => {
                     <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                       {[
                         { label: "Total Students", value: getStudentsForCourse(selectedCourseData._id).length },
-                        { label: "Course Fee", value: `₹${getSelectedMonthlyFee(selectedCourseData.price)}/mo` },
+                        { label: "Language", value: selectedCourseData.languages?.join(", ") || "English" },
                         { label: "Modules", value: selectedCourseData.content?.[0]?.modules?.length || 0 },
                         { label: "Certification", value: selectedCourseData.certification === "certification" ? "Yes" : "No" },
                       ].map((item) => (
@@ -381,6 +375,8 @@ const MyCourses = () => {
                       ))}
                     </div>
                   </div>
+
+                  <ClassLinksPanel courseId={selectedCourseData._id} />
 
                   <StudentTable
                     groupStudents={getStudentsForCourse(selectedCourseData._id).filter((s) => s.sessionType !== "premium")}

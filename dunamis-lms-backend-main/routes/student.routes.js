@@ -18,7 +18,18 @@ const { idParam } = require("../validators/common");
 const {
   sendOtpSchema,
   createStudentSchema,
+  pauseEnrollmentSchema,
+  discontinueEnrollmentSchema,
+  extendDueDateSchema,
+  enrollmentParam,
+  paymentParam,
 } = require("../validators/student.validator");
+const {
+  pauseEnrollment,
+  resumeEnrollment,
+  discontinueEnrollment,
+  extendDueDate,
+} = require("../controller/studentLifecycle.controller");
 
 const canAccessStudentRecord = (req, res, next) => {
   const accountType = req.user?.accountType;
@@ -55,6 +66,43 @@ router.get("/:id/attendance-homework", isAuth, accessToRole(["admin", "superadmi
 router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, getStudentById);
 // update
 router.put("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, updateStudent);
+// Enrollment lifecycle — admin only. Placed before "/:id" is irrelevant here
+// (all are deeper paths), but they are grouped so the ownership rules stay
+// visible next to each other.
+const adminOnly = accessToRole(["admin", "superadmin"]);
+
+router.patch(
+  "/:id/enrollment/:courseId/pause",
+  isAuth,
+  adminOnly,
+  validate(enrollmentParam, "params"),
+  validate(pauseEnrollmentSchema),
+  pauseEnrollment
+);
+router.patch(
+  "/:id/enrollment/:courseId/resume",
+  isAuth,
+  adminOnly,
+  validate(enrollmentParam, "params"),
+  resumeEnrollment
+);
+router.patch(
+  "/:id/enrollment/:courseId/discontinue",
+  isAuth,
+  adminOnly,
+  validate(enrollmentParam, "params"),
+  validate(discontinueEnrollmentSchema),
+  discontinueEnrollment
+);
+router.patch(
+  "/:id/payment/:paymentId/extend-due-date",
+  isAuth,
+  adminOnly,
+  validate(paymentParam, "params"),
+  validate(extendDueDateSchema),
+  extendDueDate
+);
+
 // delete
 router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), deleteStudent);
 

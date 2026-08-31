@@ -121,19 +121,30 @@ const registerRosterMembership = async (transaction) => {
 // course, so a later reassignment can move them elsewhere. Returns the roster
 // doc found, or null when the enrollment predates ClassRoster (caller must
 // fall back to a direct Slot.students pull).
-const removeRosterMembership = async ({ studentId, courseId, teacherId }) => {
+const removeRosterMembership = async ({ studentId, courseId, teacherId }) =>
+  setRosterMemberStatus({ studentId, courseId, teacherId, status: "removed" });
+
+// Moves a member between active / paused / removed. Pausing keeps the seat
+// against capacity but stops applyRostersToSlots writing them into future
+// slots, which is what takes them off the teacher's register.
+const setRosterMemberStatus = async ({
+  studentId,
+  courseId,
+  teacherId,
+  status,
+  fromStatuses = ["active"],
+}) => {
   const roster = await ClassRoster.findOne({
     teacherId,
     courseId,
     status: "active",
-    "students.studentId": studentId,
-    "students.status": "active",
+    students: { $elemMatch: { studentId, status: { $in: fromStatuses } } },
   });
   if (!roster) return null;
 
   await ClassRoster.updateOne(
     { _id: roster._id, "students.studentId": studentId },
-    { $set: { "students.$.status": "removed" } }
+    { $set: { "students.$.status": status } }
   );
 
   return roster;
@@ -203,7 +214,9 @@ const getStudentSchedules = async (studentId) => {
     "students.status": "active",
     status: "active",
   })
-    .select("teacherId courseId parentAvailabilityId branchId sessionType recurringDays startTime endTime")
+    .select(
+      "teacherId courseId parentAvailabilityId branchId sessionType recurringDays startTime endTime meetingLink"
+    )
     .lean();
 
   return rosters.map((roster) => ({
@@ -215,6 +228,7 @@ const getStudentSchedules = async (studentId) => {
     recurringDays: roster.recurringDays || [],
     startTime: roster.startTime,
     endTime: roster.endTime,
+    meetingLink: roster.meetingLink || "",
   }));
 };
 
@@ -222,10 +236,12 @@ module.exports = {
   ROLLING_WEEKS,
   rollingRange,
   hasSlotStarted,
+  parseTimeMinutes,
   startOfDay,
   endOfDay,
   registerRosterMembership,
   removeRosterMembership,
+  setRosterMemberStatus,
   applyRostersToSlots,
   getStudentSchedules,
 };

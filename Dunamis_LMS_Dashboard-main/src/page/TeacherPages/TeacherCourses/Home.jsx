@@ -12,8 +12,15 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { getStoredUser } from "../../../utils/authSession";
-import { getAllBookings, invalidateBookings, updateBookingStatus } from "../../../redux/DemoBooking/DemoBookingSlice";
+import Swal from "sweetalert2";
+import {
+  cancelBooking,
+  getAllBookings,
+  invalidateBookings,
+  updateBookingStatus,
+} from "../../../redux/DemoBooking/DemoBookingSlice";
 import DemoBookingsPanel from "./DemoBookingsPanel";
+import RescheduleDemoModal from "../../../components/RescheduleDemoModal";
 import SavingOverlay from "../../../components/SavingOverlay";
 import {
   getTeacherRoleId,
@@ -91,6 +98,7 @@ const Dashboard = () => {
   };
 
   const [updatingBookingId, setUpdatingBookingId] = useState(null);
+  const [reschedulingBooking, setReschedulingBooking] = useState(null);
 
   const handleUpdateDemoStatus = async (bookingId, demoStatus) => {
     setUpdatingBookingId(bookingId);
@@ -113,6 +121,33 @@ const Dashboard = () => {
       toast.error(
         typeof err === "string" ? err : err?.message || "Failed to save class link"
       );
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
+
+  const handleCancelDemo = async (booking) => {
+    const { isConfirmed, value } = await Swal.fire({
+      title: "Cancel this demo?",
+      input: "textarea",
+      inputLabel: "Reason (the student is told)",
+      inputPlaceholder: "Why is this demo being cancelled?",
+      showCancelButton: true,
+      confirmButtonText: "Cancel demo",
+      confirmButtonColor: "#e11d48",
+      cancelButtonText: "Keep it",
+    });
+    if (!isConfirmed) return;
+
+    setUpdatingBookingId(booking._id);
+    try {
+      const result = await dispatch(
+        cancelBooking({ id: booking._id, reason: (value || "").trim() || undefined })
+      ).unwrap();
+      toast.success(result.message || "Demo cancelled");
+      handleRefreshDemoBookings();
+    } catch (err) {
+      toast.error(typeof err === "string" ? err : err?.message || "Failed to cancel demo");
     } finally {
       setUpdatingBookingId(null);
     }
@@ -184,11 +219,24 @@ const Dashboard = () => {
               onRefresh={handleRefreshDemoBookings}
               onUpdateStatus={handleUpdateDemoStatus}
               onSaveMeetingLink={handleSaveMeetingLink}
+              onReschedule={setReschedulingBooking}
+              onCancel={handleCancelDemo}
               updatingId={updatingBookingId}
             />
           </section>
         </div>
       </div>
+
+      {reschedulingBooking ? (
+        <RescheduleDemoModal
+          booking={reschedulingBooking}
+          onClose={() => setReschedulingBooking(null)}
+          onDone={() => {
+            setReschedulingBooking(null);
+            handleRefreshDemoBookings();
+          }}
+        />
+      ) : null}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+import { installmentSummary } from "../../../../../utils/installmentLabel";
 import React from "react";
 import dayjs from "dayjs";
 import { FiActivity, FiCalendar, FiCreditCard } from "react-icons/fi";
@@ -115,7 +116,7 @@ const OverviewTab = ({ studentId }) => {
                                     </p>
                                     <p className="mt-0.5 text-xs text-slate-500">
                                         {payment.paymentType === "Installment" && payment.installmentNo != null
-                                            ? `Installment ${payment.installmentNo}${payment.installmentTotal ? `/${payment.installmentTotal}` : ""} · `
+                                            ? `${installmentSummary(payment)} · `
                                             : ""}
                                         {payment.paidAt
                                             ? `Paid ${dayjs(payment.paidAt).format("DD MMM YYYY")}`

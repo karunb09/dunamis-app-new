@@ -15,6 +15,7 @@ const {
   notifyUsers,
 } = require("../utils/notificationService");
 const { recordReferralIfAny } = require("../utils/referral");
+const { installmentLabel, paymentPeriodLabel } = require("../utils/installmentLabel");
 require("dotenv").config();
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -249,6 +250,8 @@ const createCashfreeEnrollmentTransaction = async ({
     installmentNo,
     installmentTotal: pricing.installmentTotal,
     installmentAmount: pricing.installmentAmount,
+    courseType: pricing.courseType || "fixed",
+    termMonths: pricing.termMonths ?? null,
     dueDate,
     amount: pricing.amount,
     originalAmount: pricing.originalAmount ?? null,
@@ -273,7 +276,11 @@ const createCashfreeEnrollmentTransaction = async ({
         amount: pricing.amount,
         detail:
           pricing.paymentType === "Installment"
-            ? `Installment ${installmentNo} of ${pricing.installmentTotal} initiated`
+            ? `${
+                installmentLabel({ ...pricing, installmentNo })
+                  ? `Installment ${installmentLabel({ ...pricing, installmentNo })}`
+                  : `Monthly payment ${installmentNo}`
+              } initiated`
             : pricing.customPlan
             ? `Full payment initiated — ${pricing.customPlan.name}`
             : "Full payment initiated",
@@ -469,6 +476,7 @@ const paymentReceiptEmailTemplate = ({
   paymentId,
   planType,
   installmentText,
+  installmentLabelText = "Installment",
 }) => `
   <div style="max-width:640px;margin:0 auto;padding:24px;background:#f8fafc;font-family:Arial,sans-serif;">
     <div style="background:#ffffff;border-radius:16px;padding:28px;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
@@ -481,7 +489,7 @@ const paymentReceiptEmailTemplate = ({
         <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(instructorName || "N/A")}</p>
         <p style="margin:0 0 8px;color:#334155;"><strong>Amount:</strong> ${formatMoney(amount)}</p>
         <p style="margin:0 0 8px;color:#334155;"><strong>Plan:</strong> ${escapeHtml(planType)}</p>
-        <p style="margin:0 0 8px;color:#334155;"><strong>Installment:</strong> ${escapeHtml(installmentText)}</p>
+        <p style="margin:0 0 8px;color:#334155;"><strong>${escapeHtml(installmentLabelText)}:</strong> ${escapeHtml(installmentText)}</p>
         <p style="margin:0 0 8px;color:#334155;"><strong>Order ID:</strong> ${escapeHtml(orderId)}</p>
         <p style="margin:0;color:#334155;"><strong>Payment ID:</strong> ${escapeHtml(paymentId || "N/A")}</p>
       </div>
@@ -518,14 +526,22 @@ const sendEnrollmentSideEffects = async (transaction) => {
 
     const studentName = getDisplayName(student.userId);
     const instructorName = getDisplayName(teacher?.userId || {});
+    // Running courses show the month paid for, not "3 of 3" — that reads as
+    // "your course has finished" on a course that never finishes.
     const installmentText =
       transaction.paymentType === "Installment"
-        ? `${transaction.installmentNo} of ${transaction.installmentTotal}`
+        ? installmentLabel(transaction) || paymentPeriodLabel(transaction)
         : "Full payment";
     const commonContext = {
       studentName,
       courseName: course.name,
       instructorName,
+      // "Installment 2 of 6" on a fixed course; "Period: Month of March 2026"
+      // on a running one, where a counter would imply an end date.
+      installmentLabelText:
+        transaction.paymentType === "Installment" && !installmentLabel(transaction)
+          ? "Period"
+          : "Installment",
       amount: transaction.amount,
       orderId: transaction.merchantOrderId,
       paymentId: transaction.cashfreePaymentId,
@@ -577,7 +593,11 @@ const sendEnrollmentSideEffects = async (transaction) => {
               transaction.status === "paid_pending_fulfillment"
                 ? "Payment needs fulfillment review"
                 : "Installment received",
-            message: `${studentName} paid ${formatMoney(transaction.amount)} for ${course.name} (installment ${transaction.installmentNo} of ${transaction.installmentTotal}).`,
+            message: `${studentName} paid ${formatMoney(transaction.amount)} for ${course.name} (${
+              installmentLabel(transaction)
+                ? `installment ${installmentLabel(transaction)}`
+                : paymentPeriodLabel(transaction).toLowerCase()
+            }).`,
             creatorId: student.userId._id,
           }),
     ]);

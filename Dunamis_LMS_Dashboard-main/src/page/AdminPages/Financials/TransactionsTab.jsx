@@ -7,6 +7,9 @@ import TransactionTimeline from "./TransactionTimeline";
 import DataTable from "../../../components/Table";
 import Pagination from "../../../components/Pagination";
 import RowActionsMenu from "../../../components/RowActionsMenu";
+import ExportMenu from "../../../components/ExportMenu";
+import useFinanceExport from "./useFinanceExport";
+import { installmentSummary } from "../../../utils/installmentLabel";
 import { STATUS_TONES, formatInr } from "./financeFormat";
 import {
   Pill,
@@ -33,6 +36,42 @@ const STATUS_OPTIONS = [
 const inputClass =
   "rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
 
+const fullName = (person) =>
+  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
+
+const exportColumns = [
+  { header: "Date", value: (r) => dayjs(r.paidAt || r.createdAt).format("YYYY-MM-DD HH:mm") },
+  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Email", value: (r) => r.student?.email, width: 26 },
+  { header: "Course", value: (r) => r.course?.name, width: 26 },
+  { header: "Amount", value: (r) => r.amount },
+  { header: "Captured", value: (r) => r.gatewayCapturedAmount ?? r.amount },
+  { header: "Discount", value: (r) => r.discountAmount ?? 0 },
+  { header: "Referral code", value: (r) => r.referralCode },
+  { header: "Type", value: (r) => r.paymentType },
+  { header: "Course type", value: (r) => r.courseType || "fixed" },
+  { header: "Installment", value: (r) => (r.paymentType === "Installment" ? r.installmentNo : "") },
+  // Blank on a running course: it has no last installment to count towards.
+  { header: "Of", value: (r) => (r.courseType === "running" ? "" : r.installmentTotal) },
+  { header: "Plan", value: (r) => r.planType },
+  { header: "Plan months", value: (r) => r.planMonths },
+  { header: "Session", value: (r) => r.sessionType },
+  { header: "Mode", value: (r) => r.deliveryMode },
+  { header: "Payment mode", value: (r) => r.paymentMode },
+  { header: "Gateway", value: (r) => r.gateway },
+  { header: "Status", value: (r) => r.status },
+  { header: "Branch", value: (r) => r.branch?.branchName },
+  { header: "Order ID", value: (r) => r.merchantOrderId, width: 26 },
+  { header: "Gateway payment ID", value: (r) => r.cashfreePaymentId, width: 24 },
+  { header: "Created at", value: (r) => dayjs(r.createdAt).format("YYYY-MM-DD HH:mm") },
+  { header: "Paid at", value: (r) => (r.paidAt ? dayjs(r.paidAt).format("YYYY-MM-DD HH:mm") : "") },
+  {
+    header: "Fulfilled at",
+    value: (r) => (r.fulfilledAt ? dayjs(r.fulfilledAt).format("YYYY-MM-DD HH:mm") : ""),
+  },
+  { header: "Last error", value: (r) => r.lastError, width: 30 },
+];
+
 const TransactionsTab = ({ initialFilters = {} }) => {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState(initialFilters.status || "");
@@ -43,6 +82,7 @@ const TransactionsTab = ({ initialFilters = {} }) => {
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [timelineId, setTimelineId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Debounced so typing a name doesn't fire a person-lookup per keystroke.
   useEffect(() => {
@@ -74,6 +114,16 @@ const TransactionsTab = ({ initialFilters = {} }) => {
     setter(value);
     setPage(1);
   };
+
+  const { exporting, exportAll, exportSelected } = useFinanceExport({
+    scope: "transactions",
+    sheetName: "Transactions",
+    fileNamePrefix: "dunamis-transactions",
+    params,
+    columns: exportColumns,
+  });
+
+  const selectedRows = rows.filter((row) => selectedIds.includes(row._id));
 
   const columns = [
     {
@@ -111,7 +161,7 @@ const TransactionsTab = ({ initialFilters = {} }) => {
       header: "Type",
       render: (value, row) => (
         <span className="text-slate-600">
-          {value === "Installment" ? `Inst ${row.installmentNo}/${row.installmentTotal}` : "Full"}
+          {value === "Installment" ? `Inst ${installmentSummary(row)}` : "Full"}
         </span>
       ),
     },
@@ -210,6 +260,13 @@ const TransactionsTab = ({ initialFilters = {} }) => {
           onChange={(e) => resetPageAnd(setDateTo)(e.target.value)}
           className={inputClass}
         />
+        <ExportMenu
+          onExportAll={exportAll}
+          onExportSelected={() => exportSelected(selectedRows)}
+          totalCount={data?.total || 0}
+          selectedCount={selectedRows.length}
+          exporting={exporting}
+        />
       </div>
 
       {data && !isLoading && (
@@ -241,7 +298,7 @@ const TransactionsTab = ({ initialFilters = {} }) => {
             data={rows}
             columns={columns}
             itemsPerPage={rows.length}
-            selectable={false}
+            onSelectionChange={setSelectedIds}
             totalCount={data.total}
             rangeOffset={(data.page - 1) * data.limit}
           />

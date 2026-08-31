@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { email, nonEmpty, numericString } = require("./common");
+const { objectId, email, nonEmpty, numericString } = require("./common");
 
 const sendOtpSchema = z.object({ email });
 
@@ -23,4 +23,45 @@ const createStudentSchema = z
     path: ["confirmPassword"],
   });
 
-module.exports = { sendOtpSchema, createStudentSchema };
+const enrollmentParam = z.object({
+  id: objectId("id"),
+  courseId: objectId("courseId"),
+});
+
+const paymentParam = z.object({
+  id: objectId("id"),
+  paymentId: objectId("paymentId"),
+});
+
+const pauseEnrollmentSchema = z.object({
+  reason: z.string().trim().max(500).nullish(),
+  // Advisory only — resuming is always an explicit admin action.
+  resumeOn: z.coerce.date().nullish(),
+});
+
+const discontinueEnrollmentSchema = z.object({
+  reason: z.string().trim().max(500).nullish(),
+});
+
+// Either a day count or an explicit date; the controller rejects a date that
+// is not later than the current one.
+const extendDueDateSchema = z
+  .object({
+    days: z.coerce.number().int().min(1).max(365).nullish(),
+    newDueDate: z.coerce.date().nullish(),
+    reason: z.string().trim().max(500).nullish(),
+  })
+  .refine((d) => d.days != null || d.newDueDate != null, {
+    message: "Provide either days or newDueDate.",
+    path: ["days"],
+  });
+
+module.exports = {
+  sendOtpSchema,
+  createStudentSchema,
+  enrollmentParam,
+  paymentParam,
+  pauseEnrollmentSchema,
+  discontinueEnrollmentSchema,
+  extendDueDateSchema,
+};

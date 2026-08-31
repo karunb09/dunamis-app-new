@@ -1,5 +1,4 @@
-const fs = require("fs");
-const path = require("path");
+const { escapeHtml, brandCard, brandAttachments } = require("./emailLayout");
 
 const DEFAULT_APP_URL =
   process.env.BASE_URL ||
@@ -8,16 +7,6 @@ const DEFAULT_DASHBOARD_URL =
   process.env.DASHBOARD_URL ||
   "https://dashboard.dunamisindia.co.in";
 const DEMO_EMAIL_COURSES_URL = "https://dunamisindia.co.in/courses";
-const DEMO_EMAIL_LOGO_PATH = path.resolve(__dirname, "../Dunamis.png");
-const DEMO_EMAIL_LOGO_CID = "dunamis-logo";
-
-const escapeHtml = (value) =>
-  String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
 
 const toText = (value, fallback = "N/A") => {
   const text = String(value ?? "").trim();
@@ -168,29 +157,12 @@ const buildDemoBookingContext = (input = {}) => {
   };
 };
 
-const buildDemoBookingCard = ({ title, intro, details, ctaText, ctaHref }) => `
-  <div style="max-width:640px;margin:0 auto;padding:24px;background:#f5f7fb;font-family:Arial,sans-serif;">
-    <div style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,0.08);">
-      <div style="padding:24px 28px;background:linear-gradient(135deg,#111827,#1f2937);color:#fff;">
-        <div style="display:inline-block;background:#ffffff;border-radius:10px;padding:8px 14px;margin:0 0 12px;line-height:0;">
-          <img src="cid:${DEMO_EMAIL_LOGO_CID}" alt="Dunamis logo" style="height:32px;width:auto;display:block;" />
-        </div>
-        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#fdba74;">Dunamis LMS</p>
-        <h1 style="margin:0;font-size:24px;line-height:1.2;">${escapeHtml(title)}</h1>
-      </div>
-      <div style="padding:28px;">
-        <p style="margin:0 0 18px;color:#334155;font-size:15px;line-height:1.7;">${escapeHtml(intro)}</p>
-        <div style="border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;background:#f8fafc;">
-          ${details}
-        </div>
-        <div style="margin-top:24px;">
-          <a href="${escapeHtml(ctaHref)}" style="display:inline-block;background:#f97316;color:#fff;text-decoration:none;padding:12px 18px;border-radius:999px;font-weight:700;">${escapeHtml(ctaText)}</a>
-        </div>
-        <p style="margin:24px 0 0;color:#64748b;font-size:12px;line-height:1.6;">If anything looks incorrect, please contact the Dunamis team before the scheduled demo.</p>
-      </div>
-    </div>
-  </div>
-`;
+const buildDemoBookingCard = (input) =>
+  brandCard({
+    ...input,
+    footnote:
+      "If anything looks incorrect, please contact the Dunamis team before the scheduled demo.",
+  });
 
 const studentDemoBookingEmailTemplate = (input = {}) => {
   const ctx = buildDemoBookingContext(input);
@@ -322,24 +294,74 @@ const adminDemoBookingEmailTemplate = (input = {}) => {
   };
 };
 
-const buildDemoEmailAttachments = () => {
-  if (!fs.existsSync(DEMO_EMAIL_LOGO_PATH)) {
-    return [];
-  }
+const buildDemoEmailAttachments = brandAttachments;
 
-  return [
-    {
-      filename: "Dunamis.png",
-      path: DEMO_EMAIL_LOGO_PATH,
-      cid: DEMO_EMAIL_LOGO_CID,
-    },
-  ];
+// `previous` is the pre-move slot/instructor, so the reader can see what
+// changed rather than just what it is now.
+const demoRescheduledEmailTemplate = (input = {}) => {
+  const ctx = buildDemoBookingContext(input);
+  const previous = input.previous || {};
+  const instructorChanged =
+    previous.instructorName && previous.instructorName !== ctx.instructor?.name;
+
+  const details = `
+    <p style="margin:0 0 12px;color:#0f172a;font-weight:700;font-size:16px;">New demo details</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(ctx.course.name)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(ctx.instructor?.name || "Instructor")}${instructorChanged ? ` <span style="color:#64748b;">(was ${escapeHtml(previous.instructorName)})</span>` : ""}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Date:</strong> ${escapeHtml(ctx.slot.date)}${previous.date && previous.date !== ctx.slot.date ? ` <span style="color:#64748b;">(was ${escapeHtml(previous.date)})</span>` : ""}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} – ${ctx.slot.endTime}`)} (20 min)${previous.startTime && previous.startTime !== ctx.slot.startTime ? ` <span style="color:#64748b;">(was ${escapeHtml(previous.startTime)})</span>` : ""}</p>
+    ${input.reason ? `<p style="margin:0;color:#334155;"><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>` : ""}
+  `;
+
+  return {
+    subject: `Your ${ctx.course.name} demo has moved`,
+    html: buildDemoBookingCard({
+      title: "Your demo has been rescheduled",
+      intro: instructorChanged
+        ? "Your demo has moved to a new time with a different instructor. The details below are the ones that now apply."
+        : "Your demo has moved to a new time. The details below are the ones that now apply.",
+      details,
+      ctaText: "View Courses",
+      ctaHref: DEMO_EMAIL_COURSES_URL,
+    }),
+    attachments: buildDemoEmailAttachments(),
+    context: ctx,
+  };
+};
+
+const demoCancelledEmailTemplate = (input = {}) => {
+  const ctx = buildDemoBookingContext(input);
+
+  const details = `
+    <p style="margin:0 0 12px;color:#0f172a;font-weight:700;font-size:16px;">Cancelled demo</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Course:</strong> ${escapeHtml(ctx.course.name)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Instructor:</strong> ${escapeHtml(ctx.instructor?.name || "Instructor")}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Date:</strong> ${escapeHtml(ctx.slot.date)}</p>
+    <p style="margin:0 0 8px;color:#334155;"><strong>Time:</strong> ${escapeHtml(`${ctx.slot.startTime} – ${ctx.slot.endTime}`)}</p>
+    ${input.reason ? `<p style="margin:0;color:#334155;"><strong>Reason:</strong> ${escapeHtml(input.reason)}</p>` : ""}
+  `;
+
+  return {
+    subject: `Your ${ctx.course.name} demo has been cancelled`,
+    html: buildDemoBookingCard({
+      title: "Your demo has been cancelled",
+      intro:
+        "This demo slot has been released. You can book another time whenever you are ready — the course page lists every open slot.",
+      details,
+      ctaText: "Book Another Demo",
+      ctaHref: DEMO_EMAIL_COURSES_URL,
+    }),
+    attachments: buildDemoEmailAttachments(),
+    context: ctx,
+  };
 };
 
 module.exports = {
   adminDemoBookingEmailTemplate,
   buildDemoBookingContext,
   demoLinkEmailTemplate,
+  demoRescheduledEmailTemplate,
+  demoCancelledEmailTemplate,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,
 };

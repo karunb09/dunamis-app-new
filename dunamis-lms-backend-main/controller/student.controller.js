@@ -300,6 +300,7 @@ exports.getStudentById = asyncHandler(async (req, res) => {
                 branchId: schedule.branchId,
                 teacherId: schedule.teacherId,
                 teacherName: teacherNameById.get(String(schedule.teacherId)) || null,
+                meetingLink: schedule.meetingLink || "",
               }
             : null,
         };
@@ -369,6 +370,7 @@ exports.getStudentOverview = asyncHandler(async (req, res) => {
         paymentType: p.paymentType,
         installmentNo: p.installmentNo,
         installmentTotal: p.installmentTotal,
+        courseType: p.courseType || "fixed",
         dueDate: p.dueDate,
         paidAt: p.paidAt,
       }));

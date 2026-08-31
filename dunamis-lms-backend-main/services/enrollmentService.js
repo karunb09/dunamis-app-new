@@ -56,6 +56,15 @@ const buildPricingForPlan = (
     return { error: "Invalid session type" };
   }
 
+  // Snapshotted onto the transaction so the dues engine never has to look the
+  // course up again. termMonths is one level's length (6 by default) and is
+  // deliberately independent of the billing cycle: a quarterly payer is still
+  // inside a six-month term.
+  const courseShape = {
+    courseType: course.courseType === "running" ? "running" : "fixed",
+    termMonths: Number(course.termMonths) || null,
+  };
+
   // Custom offers are full payment only, so they never enter the installment
   // chain — installmentTotal 1 stops getNextInstallmentDueDate at its guard.
   if (customPlanId) {
@@ -75,6 +84,7 @@ const buildPricingForPlan = (
       installmentTotal: 1,
       installmentAmount: null,
       customPlan,
+      ...courseShape,
     };
   }
 
@@ -95,6 +105,7 @@ const buildPricingForPlan = (
         planMonths: months,
         installmentTotal: months,
         installmentAmount: monthly,
+        ...courseShape,
       };
     }
 
@@ -109,6 +120,7 @@ const buildPricingForPlan = (
       planMonths: months,
       installmentTotal: 1,
       installmentAmount: null,
+      ...courseShape,
     };
   }
 
@@ -127,6 +139,7 @@ const buildPricingForPlan = (
       planMonths: null,
       installmentTotal: installments,
       installmentAmount: amount,
+      ...courseShape,
     };
   }
 
@@ -142,6 +155,7 @@ const buildPricingForPlan = (
     planMonths: null,
     installmentTotal: 1,
     installmentAmount: null,
+    ...courseShape,
   };
 };
 
@@ -287,9 +301,16 @@ const mapStudentPaymentMode = (paymentGroup) => {
   return "Other";
 };
 
+const isRunningCourse = (record) => record?.courseType === "running";
+
+// A running course has no finish line: once a 3- or 6-month tenure is paid off
+// the learner rolls onto month-to-month. Capping at installmentTotal there ends
+// billing permanently and tells the student the course is over.
 const getNextInstallmentDueDate = (transaction) => {
+  if (transaction.paymentType !== "Installment") return null;
+
   if (
-    transaction.paymentType !== "Installment" ||
+    !isRunningCourse(transaction) &&
     transaction.installmentNo >= transaction.installmentTotal
   ) {
     return null;
@@ -300,6 +321,25 @@ const getNextInstallmentDueDate = (transaction) => {
   nextDueDate.setMonth(nextDueDate.getMonth() + 1);
   return nextDueDate;
 };
+
+// An enrollment only blocks re-enrolling while it is live. "completed" and
+// "discontinued" are terminal, and active:false rows were reassigned away —
+// all three are history, so the student may buy the course again.
+const LIVE_ENROLLMENT_STATUSES = ["in-progress", "paused"];
+
+const liveEnrollmentMatch = (courseId) => ({
+  courseId,
+  active: { $ne: false },
+  status: { $in: LIVE_ENROLLMENT_STATUSES },
+});
+
+const hasLiveEnrollment = (student, courseId) =>
+  (student?.enrolledCourses || []).some(
+    (enrollment) =>
+      String(enrollment.courseId?._id || enrollment.courseId) === String(courseId) &&
+      enrollment.active !== false &&
+      LIVE_ENROLLMENT_STATUSES.includes(enrollment.status)
+  );
 
 const applyStudentFulfillment = async (transaction) => {
   const nextInstallmentDueDate = getNextInstallmentDueDate(transaction);
@@ -319,14 +359,20 @@ const applyStudentFulfillment = async (transaction) => {
     installmentNo: transaction.installmentNo,
     installmentTotal: transaction.installmentTotal,
     installmentAmount: transaction.installmentAmount,
+    planMonths: transaction.planMonths ?? null,
+    courseType: transaction.courseType || "fixed",
+    termMonths: transaction.termMonths || null,
     dueDate: nextInstallmentDueDate,
     paymentMode: mapStudentPaymentMode(transaction.paymentMode),
     transactionId: transaction.cashfreePaymentId || transaction.merchantOrderId,
     paidAt: transaction.paidAt || new Date(),
     feeStatus: "Paid",
+    // Running courses never reach "completed" on their own — the enrollment is
+    // only closed by an admin discontinuing it.
     monthlyPaymentStatus:
       transaction.paymentType === "Installment" &&
-      transaction.installmentNo < transaction.installmentTotal
+      (isRunningCourse(transaction) ||
+        transaction.installmentNo < transaction.installmentTotal)
         ? "pending"
         : "completed",
     paymentGateway: transaction.gateway || "cashfree",
@@ -351,7 +397,9 @@ const applyStudentFulfillment = async (transaction) => {
   await Student.updateOne(
     {
       _id: transaction.studentId,
-      "enrolledCourses.courseId": { $ne: transaction.courseId },
+      enrolledCourses: {
+        $not: { $elemMatch: liveEnrollmentMatch(transaction.courseId) },
+      },
     },
     {
       $push: {
@@ -372,7 +420,7 @@ const applyStudentFulfillment = async (transaction) => {
       _id: transaction.studentId,
       enrolledCourses: {
         $elemMatch: {
-          courseId: transaction.courseId,
+          ...liveEnrollmentMatch(transaction.courseId),
           $or: [{ slotId: null }, { slotId: { $exists: false } }],
         },
       },
@@ -520,6 +568,9 @@ const recomputeStudentMode = async (studentId) => {
   const modes = new Set(
     student.enrolledCourses
       .filter((ec) => ec.active !== false)
+      // A paused or discontinued enrollment must not keep the student flagged
+      // as hybrid for a course they are no longer attending.
+      .filter((ec) => !["paused", "discontinued"].includes(ec.status))
       .map((ec) => ec.courseId?.mode)
       .filter(Boolean)
   );
@@ -537,6 +588,11 @@ const recomputeStudentMode = async (studentId) => {
 // the live dueDate, so every "does this student owe money" question starts here.
 // Shared by getOverdueInstallmentPayments, the installment reminder cron, and
 // the dues aggregation — keep the grouping in one place.
+// Deliberately does NOT require a dueDate. The final installment of a fixed
+// course is written with dueDate null, so filtering on it here skipped that row
+// and made installment N-1 the "latest" — which reported the already-paid final
+// installment as still owed. The monthlyPaymentStatus check below is what
+// decides whether anything is outstanding.
 const getLatestInstallmentPerEnrollment = (student) => {
   const latestByEnrollment = new Map();
 
@@ -544,8 +600,7 @@ const getLatestInstallmentPerEnrollment = (student) => {
     .filter(
       (payment) =>
         payment.paymentType === "Installment" &&
-        payment.PaymentStatus === "completed" &&
-        payment.dueDate
+        payment.PaymentStatus === "completed"
     )
     .forEach((payment) => {
       const key = [
@@ -567,9 +622,28 @@ const DAY_MS = 86400000;
 // Pending rows decorated with their timing. Deliberately does NOT cap on
 // installmentTotal: aggregateOutstandingInstallments doesn't either, and
 // tests/dues.aggregation.integration.test.js asserts the two agree exactly.
-const getPendingInstallmentEntries = (student, asOf = new Date()) =>
-  getLatestInstallmentPerEnrollment(student)
-    .filter((payment) => payment.monthlyPaymentStatus === "pending")
+// Enrollments an admin has taken out of billing. A paused student keeps their
+// seat but stops accruing; a discontinued one is closed entirely.
+const FROZEN_ENROLLMENT_STATUSES = ["paused", "discontinued"];
+
+const frozenCourseIds = (student) =>
+  new Set(
+    (student?.enrolledCourses || [])
+      .filter((enrollment) => FROZEN_ENROLLMENT_STATUSES.includes(enrollment.status))
+      .map((enrollment) => String(enrollment.courseId?._id || enrollment.courseId))
+  );
+
+const getPendingInstallmentEntries = (student, asOf = new Date()) => {
+  const frozen = frozenCourseIds(student);
+
+  return getLatestInstallmentPerEnrollment(student)
+    .filter(
+      (payment) =>
+        payment.monthlyPaymentStatus === "pending" &&
+        payment.dueDate &&
+        !payment.writtenOffAt &&
+        !frozen.has(String(payment.courseId?._id || payment.courseId))
+    )
     .map((payment) => {
       const dueDate = new Date(payment.dueDate);
       const dayDelta = Math.floor((asOf - dueDate) / DAY_MS);
@@ -583,10 +657,14 @@ const getPendingInstallmentEntries = (student, asOf = new Date()) =>
         installmentNo: Number(payment.installmentNo || 0),
         nextInstallmentNo: Number(payment.installmentNo || 0) + 1,
         installmentTotal: Number(payment.installmentTotal || 1),
+        planMonths: payment.planMonths ?? null,
+        courseType: payment.courseType || "fixed",
+        termMonths: payment.termMonths || null,
         amountDue: payment.installmentAmount || payment.amount,
       };
     })
     .sort((a, b) => a.dueDate - b.dueDate);
+};
 
 // Every installment the student may pay right now. The previous one is settled,
 // so the next is payable whether or not its due date has passed — paying early
@@ -594,7 +672,7 @@ const getPendingInstallmentEntries = (student, asOf = new Date()) =>
 // the portal then refused to accept.
 const getPayableInstallments = (student, asOf = new Date()) =>
   getPendingInstallmentEntries(student, asOf).filter(
-    (entry) => entry.nextInstallmentNo <= entry.installmentTotal
+    (entry) => isRunningCourse(entry) || entry.nextInstallmentNo <= entry.installmentTotal
   );
 
 const getOverdueInstallmentPayments = (student, asOf = new Date()) =>
@@ -642,11 +720,34 @@ const aggregateOutstandingInstallments = async ({
         },
       },
       { $unwind: "$payments" },
+      // Course ids the admin has paused or discontinued for this student. The
+      // JS path does the same via frozenCourseIds — the two must agree, which
+      // tests/dues.aggregation.integration.test.js enforces.
       {
+        $addFields: {
+          frozenCourseIds: {
+            $map: {
+              input: {
+                $filter: {
+                  input: { $ifNull: ["$enrolledCourses", []] },
+                  as: "ec",
+                  cond: { $in: ["$$ec.status", FROZEN_ENROLLMENT_STATUSES] },
+                },
+              },
+              as: "ec",
+              in: "$$ec.courseId",
+            },
+          },
+        },
+      },
+      {
+        // No dueDate filter — see getLatestInstallmentPerEnrollment. The
+        // "latest.dueDate < asOf" match after the $group excludes nulls anyway.
         $match: {
           "payments.paymentType": "Installment",
           "payments.PaymentStatus": "completed",
-          "payments.dueDate": { $ne: null },
+          "payments.writtenOffAt": null,
+          $expr: { $not: [{ $in: ["$payments.courseId", "$frozenCourseIds"] }] },
           ...(courseId ? { "payments.courseId": courseId } : {}),
         },
       },
@@ -745,6 +846,8 @@ const aggregateOutstandingInstallments = async ({
                     dueDate: "$latest.dueDate",
                     installmentNo: "$latest.installmentNo",
                     installmentTotal: "$latest.installmentTotal",
+                    courseType: { $ifNull: ["$latest.courseType", "fixed"] },
+                    termMonths: "$latest.termMonths",
                     sessionType: "$_id.sessionType",
                     lastRemindedAt: {
                       $ifNull: ["$latest.overdueNoticeSentAt", "$latest.reminderSentAt"],
@@ -845,6 +948,7 @@ module.exports = {
   mapStudentPaymentMode,
   getNextInstallmentDueDate,
   applyStudentFulfillment,
+  hasLiveEnrollment,
   addStudentToSlot,
   reassignStudentEnrollment,
   recomputeStudentMode,
