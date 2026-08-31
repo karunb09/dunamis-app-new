@@ -88,6 +88,7 @@ const buildHistory = (student) =>
       paymentMode: payment.paymentMode || "Online",
       installmentNo: payment.installmentNo,
       installmentTotal: payment.installmentTotal,
+      courseType: payment.courseType || "fixed",
       transactionId: payment.transactionId || payment.cashfreePaymentId || null,
       orderId: payment.cashfreeOrderId || null,
       gateway: payment.paymentGateway || "cashfree",
@@ -153,7 +154,9 @@ exports.getFeesSummary = asyncHandler(async (req, res) => {
       installmentNo: entry.nextInstallmentNo,
       installmentTotal: entry.installmentTotal,
       installmentsPaid: entry.installmentNo,
-      planMonths: entry.installmentTotal,
+      courseType: entry.courseType || "fixed",
+      termMonths: entry.termMonths || null,
+      planMonths: entry.planMonths || entry.installmentTotal,
       activeOrder: openOrder
         ? { ...serializeOrder(openOrder), transactionId: openOrder._id }
         : null,
@@ -279,11 +282,14 @@ exports.createInstallmentOrder = asyncHandler(async (req, res) => {
       .json({ success: false, message: context.error.message });
   }
 
+  // The tenure the learner signed up on, not the installment count — past the
+  // tenure of a running course those diverge, and installmentTotal would no
+  // longer resolve to a real plan.
   const pricing = buildPricingForPlan(
     context.course,
     payment.sessionType,
     "monthly",
-    payment.installmentTotal
+    payment.planMonths || payment.installmentTotal
   );
   if (pricing.error) {
     return res.status(400).json({ success: false, message: pricing.error });
@@ -392,6 +398,7 @@ exports.getTransactionDetail = asyncHandler(async (req, res) => {
       planLabel: transaction.customPlanName || null,
       installmentNo: transaction.installmentNo,
       installmentTotal: transaction.installmentTotal,
+      courseType: transaction.courseType || "fixed",
       paymentMode: transaction.paymentMode,
       course: transaction.courseId,
       createdAt: transaction.createdAt,

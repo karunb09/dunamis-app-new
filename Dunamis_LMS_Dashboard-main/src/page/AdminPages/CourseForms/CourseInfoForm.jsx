@@ -442,6 +442,22 @@ const CourseInfoForm = ({ courseInfo, setCourseInfo, setContent, branches, setBr
             </div>
 
             <div>
+                <label className="block text-sm font-medium mb-1">Level duration (months)</label>
+                <input
+                    type="number"
+                    name="termMonths"
+                    min="1"
+                    value={courseInfo?.termMonths ?? 6}
+                    onChange={handleChange}
+                    className="w-full border px-3 py-2 rounded-2xl bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                    How long this level runs. Separate from the payment plan — a learner paying
+                    quarterly is still inside the same term.
+                </p>
+            </div>
+
+            <div>
                 <label className="block text-sm font-medium mb-1">Teaching Languages</label>
                 <ReactSelect
                     isMulti

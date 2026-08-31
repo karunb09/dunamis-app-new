@@ -31,6 +31,9 @@ const COMMUNICATION_MATRIX = {
   signUp: { instructor: false, aa: true, bde: true, channel: "notification" },
   courseEnrolled: { instructor: true, aa: true, bde: true, channel: "email" },
   classReminder: { instructor: true, aa: true, bde: false, channel: "notification", contentType: "Reminder" },
+  // Fires 15 minutes before a class. AA/BDE excluded — nothing for them to act
+  // on, and one row per class per day would bury every other notice.
+  classJoinLink: { instructor: true, aa: false, bde: false, channel: "notification", contentType: "Reminder" },
   classAttendance: { instructor: true, aa: true, bde: true, channel: "notification" },
   feeReminder: { instructor: false, aa: true, bde: true, channel: "notification", contentType: "Reminder" },
   feeReceived: { instructor: false, aa: true, bde: true, channel: "notification" },

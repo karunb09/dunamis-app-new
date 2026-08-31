@@ -1081,8 +1081,6 @@ export default function BookDemoModal({
                                       {instructor.averageRating
                                         ? `${instructor.averageRating.toFixed(1)} rating`
                                         : 'Demo instructor'}
-                                      {' • '}
-                                      {instructor.studentCount || 0} students taught
                                     </p>
                                   </div>
                                   <button

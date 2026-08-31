@@ -3,10 +3,18 @@ const asyncHandler = require("../utils/asyncHandler");
 const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Category = require("../model/category.model");
+// Registers the schemas the branch/city populates below resolve against. Without
+// these the controller only works once something else has required them.
+require("../model/branch.model");
+require("../model/city.model");
+const Teacher = require("../model/teacher.model");
+const { slotStartInstant } = require("../utils/slotTime");
 const mailSender = require("../utils/mailSender");
 const {
   adminDemoBookingEmailTemplate,
   demoLinkEmailTemplate,
+  demoRescheduledEmailTemplate,
+  demoCancelledEmailTemplate,
   instructorDemoBookingEmailTemplate,
   studentDemoBookingEmailTemplate,
 } = require("../mail/demoBookingEmail");
@@ -197,6 +205,117 @@ const buildBookingDetails = async (bookingDoc, slot, student) => {
 };
 
 // Book a demo slot for either an authenticated student or a guest lead.
+const ACTIVE_DEMO_STATUSES = ["Booked", "Rescheduled"];
+
+// Demo bookings never write to Slot.students, so capacity has to be counted
+// from the bookings themselves. Without this two people can hold the same
+// 20-minute slot, and a reschedule would happily move onto an occupied one.
+const countActiveDemoBookings = (slotId, excludeBookingId = null) =>
+  DemoBooking.countDocuments({
+    slotId,
+    demoStatus: { $in: ACTIVE_DEMO_STATUSES },
+    ...(excludeBookingId ? { _id: { $ne: excludeBookingId } } : {}),
+  });
+
+// Every rule a demo slot must satisfy for a given course/instructor/mode.
+// Shared by booking and rescheduling so the two can never drift apart.
+const validateDemoSlotSelection = async ({
+  slotId,
+  courseId,
+  teacherId,
+  deliveryMode,
+  branchId,
+  excludeBookingId = null,
+}) => {
+  const fail = (status, message) => ({ ok: false, status, message });
+
+    const slot = await Slot.findById(slotId)
+      .populate({
+        path: "courseId",
+        select: "name code category mode teacher",
+        populate: [
+          { path: "category", model: "Category", select: "_id name" },
+          { path: "teacher", model: "teacher", select: "_id userId" },
+        ],
+      })
+      .populate({
+        path: "branchId",
+        select: "branchName location city branchTimings",
+        populate: { path: "city", select: "cityName" },
+      })
+      .populate({
+        path: "createdBy",
+        populate: { path: "userId", select: "name email mobileNo image" },
+      });
+
+    if (!slot) {
+      return fail(404, "Slot not found");
+    }
+
+    if (slot.slotType !== "demo") {
+      return fail(400, "This slot is not open for demo booking");
+    }
+
+    if (!slot.courseId || slot.courseId._id.toString() !== courseId) {
+      return fail(400, "Selected slot does not belong to the chosen course");
+    }
+
+    const assignedTeacherIds = Array.isArray(slot.courseId.teacher)
+      ? slot.courseId.teacher.map((teacher) => toIdString(teacher))
+      : [];
+
+    const resolvedTeacherId = teacherId || slot.createdBy?._id?.toString();
+    if (!assignedTeacherIds.includes(resolvedTeacherId)) {
+      return fail(400, "Teacher does not teach this course");
+    }
+
+    if (
+      !resolvedTeacherId ||
+      !slot.createdBy ||
+      slot.createdBy._id.toString() !== resolvedTeacherId
+    ) {
+      return fail(400, "Selected slot does not belong to the chosen instructor");
+    }
+
+    const resolvedDeliveryMode = normalizeText(
+      deliveryMode || slot.courseId?.mode || "online"
+    ).toLowerCase();
+    if (!["online", "offline"].includes(resolvedDeliveryMode)) {
+      return fail(400, "deliveryMode must be either online or offline");
+    }
+
+    if (
+      slot.courseId?.mode &&
+      slot.courseId.mode !== resolvedDeliveryMode
+    ) {
+      return fail(400, "Delivery mode does not match the selected course");
+    }
+
+    const resolvedBranchId = branchId || slot.branchId?._id?.toString() || null;
+    if (resolvedDeliveryMode === "offline") {
+      if (!resolvedBranchId) {
+        return fail(400, "branchId is required for offline demo booking");
+      }
+
+      if (!slot.branchId || slot.branchId._id.toString() !== resolvedBranchId) {
+        return fail(400, "Selected slot does not belong to the chosen branch");
+      }
+    }
+
+    const activeBookings = await countActiveDemoBookings(slot._id, excludeBookingId);
+    if (slot.maxStudents && activeBookings >= slot.maxStudents) {
+      return fail(400, "Selected demo slot is already booked");
+    }
+
+  return {
+    ok: true,
+    slot,
+    resolvedTeacherId,
+    resolvedDeliveryMode,
+    resolvedBranchId,
+  };
+};
+
 exports.bookDemoSlot = asyncHandler(async (req, res) => {
     const {
       slotId,
@@ -221,115 +340,17 @@ exports.bookDemoSlot = asyncHandler(async (req, res) => {
             .populate("enrolledCourses.courseId", "code name category")
         : null;
 
-    const slot = await Slot.findById(slotId)
-      .populate({
-        path: "courseId",
-        select: "name code category mode teacher",
-        populate: [
-          { path: "category", model: "Category", select: "_id name" },
-          { path: "teacher", model: "teacher", select: "_id userId" },
-        ],
-      })
-      .populate({
-        path: "branchId",
-        select: "branchName location city branchTimings",
-        populate: { path: "city", select: "cityName" },
-      })
-      .populate({
-        path: "createdBy",
-        populate: { path: "userId", select: "name email mobileNo image" },
-      });
-
-    if (!slot) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Slot not found" });
+    const check = await validateDemoSlotSelection({
+      slotId,
+      courseId,
+      teacherId,
+      deliveryMode,
+      branchId,
+    });
+    if (!check.ok) {
+      return res.status(check.status).json({ success: false, message: check.message });
     }
-
-    if (slot.slotType !== "demo") {
-      return res.status(400).json({
-        success: false,
-        message: "This slot is not open for demo booking",
-      });
-    }
-
-    if (!slot.courseId || slot.courseId._id.toString() !== courseId) {
-      return res.status(400).json({
-        success: false,
-        message: "Selected slot does not belong to the chosen course",
-      });
-    }
-
-    const assignedTeacherIds = Array.isArray(slot.courseId.teacher)
-      ? slot.courseId.teacher.map((teacher) => toIdString(teacher))
-      : [];
-
-    const resolvedTeacherId = teacherId || slot.createdBy?._id?.toString();
-    if (!assignedTeacherIds.includes(resolvedTeacherId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Teacher does not teach this course",
-      });
-    }
-
-    if (
-      !resolvedTeacherId ||
-      !slot.createdBy ||
-      slot.createdBy._id.toString() !== resolvedTeacherId
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Selected slot does not belong to the chosen instructor",
-      });
-    }
-
-    const resolvedDeliveryMode = normalizeText(
-      deliveryMode || slot.courseId?.mode || "online"
-    ).toLowerCase();
-    if (!["online", "offline"].includes(resolvedDeliveryMode)) {
-      return res.status(400).json({
-        success: false,
-        message: "deliveryMode must be either online or offline",
-      });
-    }
-
-    if (
-      slot.courseId?.mode &&
-      slot.courseId.mode !== resolvedDeliveryMode
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Delivery mode does not match the selected course",
-      });
-    }
-
-    const resolvedBranchId = branchId || slot.branchId?._id?.toString() || null;
-    if (resolvedDeliveryMode === "offline") {
-      if (!resolvedBranchId) {
-        return res.status(400).json({
-          success: false,
-          message: "branchId is required for offline demo booking",
-        });
-      }
-
-      if (!slot.branchId || slot.branchId._id.toString() !== resolvedBranchId) {
-        return res.status(400).json({
-          success: false,
-          message: "Selected slot does not belong to the chosen branch",
-        });
-      }
-    }
-
-    if (
-      Array.isArray(slot.students) &&
-      slot.maxStudents &&
-      slot.students.length >= slot.maxStudents
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Selected demo slot is already full",
-      });
-    }
+    const { slot, resolvedTeacherId, resolvedDeliveryMode, resolvedBranchId } = check;
 
     const leadPayload = student
       ? buildLeadFromStudent(student)
@@ -737,4 +758,320 @@ exports.updateBooking = asyncHandler(async (req, res) => {
       message: "Booking updated successfully",
       booking: updatedBooking,
     });
+});
+
+const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
+  ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
+  : "Contact IT support if this issue persists.";
+
+const RESCHEDULE_CUTOFF_HOURS = 24;
+
+// Students self-serve only outside the cutoff; staff move demos at any time
+// (same-day instructor illness is exactly when the tool is needed most).
+const assertActorWindow = (req, slot) => {
+  if (req.user.accountType !== "student") return null;
+
+  const hoursUntil = (slotStartInstant(slot) - Date.now()) / 3600000;
+  if (hoursUntil >= RESCHEDULE_CUTOFF_HOURS) return null;
+
+  return {
+    status: 400,
+    message:
+      hoursUntil < 0
+        ? "This demo has already started."
+        : `Demos can only be changed more than ${RESCHEDULE_CUTOFF_HOURS} hours in advance. Please contact us to move this one.`,
+    hint: IT_SUPPORT_HINT,
+  };
+};
+
+// Owner check per role. Students own a booking by studentId OR by the lead
+// email they booked with — a guest who signed up later still owns their demo.
+const assertBookingActor = async (req, booking) => {
+  const { accountType, roleId, email } = req.user;
+
+  if (accountType === "admin" || accountType === "superadmin") return null;
+
+  if (accountType === "teacher") {
+    const ownsBooking =
+      toIdString(booking.teacherId) === String(roleId) ||
+      toIdString(booking.slotId?.createdBy || booking.slotId) === String(roleId);
+    return ownsBooking
+      ? null
+      : { status: 403, message: "You can only change demo bookings assigned to you" };
+  }
+
+  const ownsBooking =
+    toIdString(booking.studentId) === String(roleId) ||
+    (booking.lead?.email && booking.lead.email === normalizeEmail(email));
+  return ownsBooking
+    ? null
+    : { status: 403, message: "You can only change your own demo booking" };
+};
+
+const loadBookingForChange = (id) =>
+  DemoBooking.findById(id).populate({
+    path: "slotId",
+    select: "date startTime endTime createdBy",
+  });
+
+
+// Learner + both instructors (outgoing and incoming) + admins. Mirrors
+// sendDemoLinkNotifications: never allowed to fail the request that triggered it.
+const sendDemoChangeNotifications = async ({
+  bookingId,
+  kind,
+  reason,
+  previousSlot = null,
+  previousTeacherId = null,
+}) => {
+  const booking = await DemoBooking.findById(bookingId)
+    .populate({
+      path: "studentId",
+      select: "userId",
+      populate: { path: "userId", select: "name email" },
+    })
+    .populate({
+      path: "slotId",
+      select: "date startTime endTime branchId",
+      populate: [
+        {
+          path: "branchId",
+          select: "branchName location branchTimings city",
+          populate: { path: "city", select: "cityName" },
+        },
+        {
+          path: "createdBy",
+          select: "userId",
+          populate: { path: "userId", select: "name email" },
+        },
+      ],
+    })
+    .populate({ path: "courseId", select: "name code mode" });
+
+  if (!booking) return;
+
+  const studentUser = booking.studentId?.userId || null;
+  const recipientEmail = booking.lead?.email || studentUser?.email || "";
+  const courseName = booking.courseId?.name || "your course";
+  const isCancel = kind === "cancelled";
+
+  let previousInstructorName = null;
+  let previousInstructorEmail = null;
+  if (previousTeacherId) {
+    const previousTeacher = await Teacher.findById(previousTeacherId)
+      .select("userId")
+      .populate("userId", "name email");
+    if (previousTeacher?.userId) {
+      previousInstructorName = `${previousTeacher.userId.name?.firstName || ""} ${previousTeacher.userId.name?.lastName || ""}`.trim();
+      previousInstructorEmail = previousTeacher.userId.email || null;
+    }
+  }
+
+  const template = isCancel ? demoCancelledEmailTemplate : demoRescheduledEmailTemplate;
+  const { subject, html, attachments = [] } = template({
+    student: studentUser ? { name: studentUser.name, email: studentUser.email } : booking.lead,
+    course: booking.courseId,
+    slot: booking.slotId,
+    branch: booking.slotId?.branchId || null,
+    instructor: booking.slotId?.createdBy,
+    reason,
+    previous: {
+      instructorName: previousInstructorName,
+      date: previousSlot?.date ? new Date(previousSlot.date).toLocaleDateString("en-IN") : null,
+      startTime: previousSlot?.startTime || null,
+    },
+  });
+
+  const noticeTitle = isCancel ? "Demo cancelled" : "Demo rescheduled";
+  const deliveries = [];
+
+  if (recipientEmail) {
+    deliveries.push({
+      type: "student-email",
+      task: mailSender(recipientEmail, subject, html, attachments),
+    });
+  }
+
+  if (studentUser?._id) {
+    deliveries.push({
+      type: "student-notice",
+      task: createDashboardNotice({
+        title: noticeTitle,
+        message: isCancel
+          ? `Your ${courseName} demo has been cancelled.`
+          : `Your ${courseName} demo has moved to ${booking.slotId?.startTime} on ${new Date(booking.slotId?.date).toLocaleDateString("en-IN")}.`,
+        userIds: [studentUser._id],
+        creatorId: studentUser._id,
+      }),
+    });
+  }
+
+  // The incoming instructor, and the outgoing one when the demo moved away.
+  const instructorUsers = [booking.slotId?.createdBy?.userId].filter(Boolean);
+  if (instructorUsers.length) {
+    deliveries.push({
+      type: "instructor-notice",
+      task: createDashboardNotice({
+        title: noticeTitle,
+        message: isCancel
+          ? `A ${courseName} demo assigned to you was cancelled.`
+          : `A ${courseName} demo was moved into your ${booking.slotId?.startTime} slot.`,
+        userIds: instructorUsers.map((user) => user._id),
+      }),
+    });
+  }
+
+  if (previousInstructorEmail && !isCancel) {
+    deliveries.push({
+      type: "previous-instructor-email",
+      task: mailSender(
+        previousInstructorEmail,
+        `A ${courseName} demo has moved off your schedule`,
+        html,
+        attachments
+      ),
+    });
+  }
+
+  const admins = await getAdminUsers();
+  if (admins.length) {
+    deliveries.push({
+      type: "admin-notice",
+      task: createDashboardNotice({
+        title: noticeTitle,
+        message: `${courseName} demo ${isCancel ? "cancelled" : "rescheduled"}${reason ? ` — ${reason}` : ""}.`,
+        userIds: admins.map((admin) => admin._id),
+      }),
+    });
+  }
+
+  const results = await Promise.allSettled(deliveries.map((delivery) => delivery.task));
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") return;
+    console.error("Demo change notification failed", {
+      bookingId: String(bookingId),
+      type: deliveries[index].type,
+      error: result.reason?.message || result.reason,
+    });
+  });
+};
+
+exports.rescheduleDemoBooking = asyncHandler(async (req, res) => {
+    const { slotId, teacherId, reason } = req.body;
+
+    const booking = await loadBookingForChange(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Demo booking not found" });
+    }
+
+    if (booking.demoStatus === "Cancelled") {
+      return res
+        .status(400)
+        .json({ success: false, message: "This demo was cancelled and cannot be moved" });
+    }
+
+    const actorError = await assertBookingActor(req, booking);
+    if (actorError) return res.status(actorError.status).json({ success: false, ...actorError });
+
+    // The cutoff applies to the slot being left, not the one being taken.
+    const windowError = assertActorWindow(req, booking.slotId);
+    if (windowError) return res.status(windowError.status).json({ success: false, ...windowError });
+
+    const check = await validateDemoSlotSelection({
+      slotId,
+      courseId: toIdString(booking.courseId),
+      teacherId,
+      deliveryMode: booking.deliveryMode,
+      branchId: booking.branchId ? toIdString(booking.branchId) : undefined,
+      excludeBookingId: booking._id,
+    });
+    if (!check.ok) {
+      return res.status(check.status).json({ success: false, message: check.message });
+    }
+
+    const previousSlot = booking.slotId;
+    const previousTeacherId = toIdString(booking.teacherId);
+    const instructorChanged = previousTeacherId !== check.resolvedTeacherId;
+
+    booking.slotId = check.slot._id;
+    booking.teacherId = check.resolvedTeacherId;
+    booking.branchId = check.resolvedBranchId;
+    booking.demoStatus = "Rescheduled";
+    // A new instructor means a new room; a stale link is worse than none.
+    if (instructorChanged) {
+      booking.meetingLink = "";
+      booking.meetingLinkUpdatedAt = null;
+      booking.meetingLinkSetBy = null;
+    }
+    booking.joinReminderSentAt = null;
+    booking.history.push({
+      action: instructorChanged ? "reassigned" : "rescheduled",
+      actorUserId: req.user.userId,
+      actorRole: req.user.accountType,
+      fromSlotId: previousSlot?._id || null,
+      toSlotId: check.slot._id,
+      fromTeacherId: previousTeacherId || null,
+      toTeacherId: check.resolvedTeacherId,
+      reason: reason || "",
+    });
+    await booking.save();
+
+    sendDemoChangeNotifications({
+      bookingId: booking._id,
+      kind: "rescheduled",
+      reason,
+      previousSlot,
+      previousTeacherId,
+    }).catch((error) =>
+      console.error("Demo reschedule notification failed", error.message)
+    );
+
+    res.status(200).json({
+      success: true,
+      message: instructorChanged
+        ? "Demo moved to a new instructor and time"
+        : "Demo rescheduled",
+      booking,
+    });
+});
+
+exports.cancelDemoBooking = asyncHandler(async (req, res) => {
+    const { reason } = req.body;
+
+    const booking = await loadBookingForChange(req.params.id);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: "Demo booking not found" });
+    }
+
+    if (booking.demoStatus === "Cancelled") {
+      return res
+        .status(400)
+        .json({ success: false, message: "This demo is already cancelled" });
+    }
+
+    const actorError = await assertBookingActor(req, booking);
+    if (actorError) return res.status(actorError.status).json({ success: false, ...actorError });
+
+    const windowError = assertActorWindow(req, booking.slotId);
+    if (windowError) return res.status(windowError.status).json({ success: false, ...windowError });
+
+    booking.demoStatus = "Cancelled";
+    booking.cancelledAt = new Date();
+    booking.cancelledBy = req.user.userId;
+    booking.cancelReason = reason || "";
+    booking.history.push({
+      action: "cancelled",
+      actorUserId: req.user.userId,
+      actorRole: req.user.accountType,
+      fromSlotId: booking.slotId?._id || null,
+      fromTeacherId: toIdString(booking.teacherId) || null,
+      reason: reason || "",
+    });
+    await booking.save();
+
+    sendDemoChangeNotifications({ bookingId: booking._id, kind: "cancelled", reason }).catch(
+      (error) => console.error("Demo cancellation notification failed", error.message)
+    );
+
+    res.status(200).json({ success: true, message: "Demo cancelled", booking });
 });

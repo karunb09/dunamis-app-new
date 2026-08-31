@@ -2,6 +2,7 @@ import React from "react";
 import dayjs from "dayjs";
 import SlideOver from "../../../components/SlideOver";
 import { usePaymentDetail } from "../../../hooks/usePayments";
+import { installmentSummary } from "../../../utils/installmentLabel";
 import { STATUS_TONES, formatInr } from "./financeFormat";
 import { Pill } from "./financeUi";
 
@@ -99,9 +100,7 @@ const TransactionTimeline = ({ open, transactionId, onClose }) => {
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
                 <p className="text-[11px] text-slate-500">Installment</p>
                 <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {txn.paymentType === "Installment"
-                    ? `${txn.installmentNo}/${txn.installmentTotal}`
-                    : "Full"}
+                  {txn.paymentType === "Installment" ? installmentSummary(txn) : "Full"}
                 </p>
               </div>
             </div>

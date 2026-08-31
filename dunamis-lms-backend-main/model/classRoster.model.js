@@ -18,7 +18,9 @@ const rosterMemberSchema = new mongoose.Schema(
       ref: "PaymentTransaction",
       default: null,
     },
-    status: { type: String, enum: ["active", "removed"], default: "active" },
+    // "paused" keeps the seat reserved but stops the member being written into
+    // future slots — applyRostersToSlots only propagates active members.
+    status: { type: String, enum: ["active", "removed", "paused"], default: "active" },
   },
   { _id: false }
 );
@@ -59,6 +61,10 @@ const classRosterSchema = new mongoose.Schema(
     },
     students: [rosterMemberSchema],
     status: { type: String, enum: ["active", "archived"], default: "active" },
+    // Set once per weekly batch; every generated Slot inherits it.
+    meetingLink: { type: String, trim: true, default: "" },
+    meetingLinkUpdatedAt: { type: Date, default: null },
+    meetingLinkSetBy: { type: mongoose.Schema.Types.ObjectId, ref: "user", default: null },
   },
   { timestamps: true }
 );

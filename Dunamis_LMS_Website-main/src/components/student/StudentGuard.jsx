@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
 import { getWebsiteToken, getWebsiteUser } from "@/lib/authSession";
@@ -31,6 +31,12 @@ export default function StudentGuard({ children }) {
     };
   }, [auth.token, auth.user]);
 
+  // Read inside the effect without making it a dependency — the access check
+  // is per session, not per navigation, and refiring it on every route change
+  // burns the backend payment rate limit.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -40,7 +46,9 @@ export default function StudentGuard({ children }) {
 
     if (!session.token) {
       setChecked(false);
-      router.replace(`/login?portal=student&next=${encodeURIComponent(pathname)}`);
+      router.replace(
+        `/login?portal=student&next=${encodeURIComponent(pathnameRef.current)}`,
+      );
       return;
     }
 
@@ -51,12 +59,6 @@ export default function StudentGuard({ children }) {
     }
 
     const checkPaymentAccess = async () => {
-      if (PAYMENT_ALLOWED_PATHS.has(pathname)) {
-        setRestriction(null);
-        setChecked(true);
-        return;
-      }
-
       try {
         const response = await fetch(`${BASE_URL}/v1/enrollment/access-status`, {
           credentials: "include",
@@ -83,7 +85,9 @@ export default function StudentGuard({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [auth.hydrating, pathname, router, session.token, session.user]);
+  }, [auth.hydrating, router, session.token, session.user]);
+
+  const blocked = restriction?.accessRestricted && !PAYMENT_ALLOWED_PATHS.has(pathname);
 
   if (!checked) {
     return (
@@ -100,7 +104,7 @@ export default function StudentGuard({ children }) {
     );
   }
 
-  if (restriction?.accessRestricted) {
+  if (blocked) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 py-16">
         <div className="max-w-xl rounded-3xl border border-red-100 bg-white px-8 py-7 text-center shadow-sm">

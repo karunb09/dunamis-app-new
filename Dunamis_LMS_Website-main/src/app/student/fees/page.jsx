@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { installmentSummary, isRunning, paymentPeriodLabel } from "@/lib/installmentLabel";
 import toast from "react-hot-toast";
 import { useSelector } from "react-redux";
 import {
@@ -100,6 +101,7 @@ function SummaryCard({ label, value, hint, tone = "slate" }) {
 
 function DueCard({ due, onPay, paying }) {
   const meta = STATUS_META[due.status] || STATUS_META.upcoming;
+  const running = isRunning(due);
   const paidCount = Number(due.installmentsPaid || 0);
   const total = Number(due.installmentTotal || 1);
   const progress = Math.min(100, Math.round((paidCount / total) * 100));
@@ -138,15 +140,29 @@ function DueCard({ due, onPay, paying }) {
               : `in ${due.daysUntilDue} day${due.daysUntilDue === 1 ? "" : "s"}`}
           </p>
         </div>
-        <div>
-          <p className="text-xs text-slate-500">Installment</p>
-          <p className="text-sm font-semibold text-slate-800">
-            {due.installmentNo} of {due.installmentTotal}
-          </p>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
-            <div className="h-full rounded-full bg-orange-500" style={{ width: `${progress}%` }} />
+        {running ? (
+          // No counter and no progress bar: this course has no last payment, and
+          // a bar filling toward a total reads as "nearly finished".
+          <div>
+            <p className="text-xs text-slate-500">Paying for</p>
+            <p className="text-sm font-semibold text-slate-800">{paymentPeriodLabel(due)}</p>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {paidCount > 0
+                ? `${paidCount} month${paidCount === 1 ? "" : "s"} paid so far`
+                : "Your first month"}
+            </p>
           </div>
-        </div>
+        ) : (
+          <div>
+            <p className="text-xs text-slate-500">Installment</p>
+            <p className="text-sm font-semibold text-slate-800">
+              {due.installmentNo} of {due.installmentTotal}
+            </p>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-orange-500" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -191,7 +207,7 @@ function ReceiptPanel({ open, onClose, receipt, timeline, loading }) {
               <dt className="text-xs text-slate-500">Payment type</dt>
               <dd className="font-medium text-slate-900">
                 {receipt.paymentType === "Installment"
-                  ? `Installment ${receipt.installmentNo} of ${receipt.installmentTotal}`
+                  ? installmentSummary(receipt)
                   : receipt.planLabel || "Full payment"}
               </dd>
             </div>
@@ -576,7 +592,7 @@ export default function StudentFeesPage() {
                           <td className="px-5 py-3 text-slate-600">{formatDate(row.paidAt)}</td>
                           <td className="px-5 py-3 text-slate-600">
                             {row.paymentType === "Installment"
-                              ? `${row.installmentNo} of ${row.installmentTotal}`
+                              ? installmentSummary(row)
                               : row.planLabel || "Full"}
                           </td>
                           <td className="px-5 py-3">

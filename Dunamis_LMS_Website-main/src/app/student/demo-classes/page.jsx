@@ -13,8 +13,13 @@ import {
   HiVideoCamera,
 } from "react-icons/hi";
 import StudentShell from "@/components/student/StudentShell";
+import RescheduleDemoModal from "@/components/student/RescheduleDemoModal";
 import { getWebsiteToken } from "@/lib/authSession";
 import { API_BASE } from "@/lib/apiBase";
+
+// Students self-serve only outside this window; the server enforces the same
+// rule, this just avoids offering a button that will be refused.
+const CHANGE_CUTOFF_HOURS = 24;
 
 const STATUS_STYLES = {
   Booked: "bg-sky-50 text-sky-700",
@@ -55,11 +60,29 @@ const isOffline = (booking) =>
   String(booking?.deliveryMode || booking?.courseId?.mode || "online").toLowerCase() ===
   "offline";
 
-const DemoCard = ({ booking, past }) => {
+const slotStartsAt = (booking) => {
+  const date = getSlotDate(booking);
+  if (!date) return null;
+  const [hours, minutes] = String(booking?.slotId?.startTime || "0:0")
+    .split(":")
+    .map((n) => parseInt(n, 10) || 0);
+  const start = new Date(date);
+  start.setHours(hours, minutes, 0, 0);
+  return start;
+};
+
+const canChange = (booking) => {
+  const start = slotStartsAt(booking);
+  if (!start) return false;
+  return (start.getTime() - Date.now()) / 3600000 >= CHANGE_CUTOFF_HOURS;
+};
+
+const DemoCard = ({ booking, past, onReschedule, onCancel, busy }) => {
   const branch = getBranch(booking);
   const offline = isOffline(booking);
   const link = booking?.meetingLink || "";
   const cityName = branch?.city?.cityName || "";
+  const changeable = !past && canChange(booking);
 
   return (
     <article className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-sm transition hover:shadow-md">
@@ -106,6 +129,36 @@ const DemoCard = ({ booking, past }) => {
         ) : null}
       </div>
 
+      {!past && booking?.demoStatus !== "Cancelled" ? (
+        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-stone-100 pt-4">
+          {changeable ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onReschedule(booking)}
+                disabled={busy}
+                className="rounded-full border border-stone-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-orange-200 hover:text-orange-700 disabled:opacity-50"
+              >
+                Reschedule
+              </button>
+              <button
+                type="button"
+                onClick={() => onCancel(booking)}
+                disabled={busy}
+                className="rounded-full border border-stone-200 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50"
+              >
+                Cancel demo
+              </button>
+            </>
+          ) : (
+            <p className="text-sm text-slate-500">
+              Demos can only be changed more than {CHANGE_CUTOFF_HOURS} hours in advance.
+              Contact us if you need to move this one.
+            </p>
+          )}
+        </div>
+      ) : null}
+
       {offline ? null : (
         <div className="mt-5 border-t border-stone-100 pt-4">
           {link ? (
@@ -138,6 +191,9 @@ export default function StudentDemoClassesPage() {
   const [error, setError] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
   const [tab, setTab] = useState("upcoming");
+  const [rescheduling, setRescheduling] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const [notice, setNotice] = useState("");
 
   const fetchBookings = async () => {
     setLoading(true);
@@ -191,11 +247,58 @@ export default function StudentDemoClassesPage() {
 
   const visible = tab === "upcoming" ? upcoming : past;
 
+  const cancelDemo = async (booking) => {
+    const reason = window.prompt("Let us know why you're cancelling (optional):", "");
+    if (reason === null) return;
+
+    setBusyId(booking._id);
+    setError("");
+    try {
+      const token = authToken || getWebsiteToken();
+      const res = await fetch(`${API_BASE}/v1/demoBookings/${booking._id}/cancel`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason: reason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        throw new Error([data.message, data.hint].filter(Boolean).join(" "));
+      }
+      setNotice("Your demo has been cancelled.");
+      await fetchBookings();
+    } catch (err) {
+      setError(err.message || "Could not cancel this demo.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <StudentShell
       title="My Demo Classes"
       description="Your booked demo sessions, join links, and past demo history."
     >
+      {notice ? (
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {notice}
+        </div>
+      ) : null}
+
+      {rescheduling ? (
+        <RescheduleDemoModal
+          booking={rescheduling}
+          onClose={() => setRescheduling(null)}
+          onDone={async (message) => {
+            setRescheduling(null);
+            setNotice(message);
+            await fetchBookings();
+          }}
+        />
+      ) : null}
       {loading ? (
         <div className="mt-6 grid gap-4">
           {[0, 1].map((i) => (
@@ -279,7 +382,14 @@ export default function StudentDemoClassesPage() {
           ) : (
             <div className="grid gap-4 lg:grid-cols-2">
               {visible.map((booking) => (
-                <DemoCard key={booking._id} booking={booking} past={tab === "past"} />
+                <DemoCard
+                  key={booking._id}
+                  booking={booking}
+                  past={tab === "past"}
+                  busy={busyId === booking._id}
+                  onReschedule={setRescheduling}
+                  onCancel={cancelDemo}
+                />
               ))}
             </div>
           )}

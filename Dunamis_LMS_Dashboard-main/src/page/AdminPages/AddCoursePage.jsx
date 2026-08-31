@@ -96,6 +96,7 @@ const AddCoursePage = () => {
                     endDate: formatDateForInput(passedCourseData.endDate),
                     mode: passedCourseData.mode || "",
                     level: passedCourseData.level || "",
+                    termMonths: passedCourseData.termMonths ?? 6,
                     languages: Array.isArray(passedCourseData.languages) && passedCourseData.languages.length
                         ? passedCourseData.languages
                         : [...DEFAULT_TEACHING_LANGUAGES],
@@ -285,6 +286,7 @@ const AddCoursePage = () => {
             subCategory: courseData.info.subCategory,
             mode: courseData.info.mode,
             level: courseData.info.level,
+            termMonths: parseInt(courseData.info.termMonths, 10) || 6,
             languages: Array.isArray(courseData.info.languages) && courseData.info.languages.length
                 ? courseData.info.languages
                 : [...DEFAULT_TEACHING_LANGUAGES],
@@ -303,7 +305,6 @@ const AddCoursePage = () => {
                     monthlyFee: parseFloat(session.monthlyFee) || 0,
                     fullPayment: parseFloat(session.fullPayment) || 0,
                     discount: parseFloat(session.discount) || 0,
-                    totalInstallments: parseInt(session.totalInstallments ?? session.installments, 10) || 1,
                     installments: parseInt(session.totalInstallments ?? session.installments, 10) || 1,
                     isActive: true,
                     isSelected: type === "standard",

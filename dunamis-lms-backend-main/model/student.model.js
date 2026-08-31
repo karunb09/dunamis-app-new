@@ -61,13 +61,46 @@ const studentSchema = new mongoose.Schema(
           type: Number,
           default: 0,
         },
+        // "paused" freezes billing and drops the student off future classes
+        // while holding their seat; "discontinued" is terminal and releases it.
         status: {
           type: String,
-          enum: ["in-progress", "completed"],
+          enum: ["in-progress", "completed", "paused", "discontinued"],
           default: "in-progress",
         },
         completedAt: {
           type: Date,
+          default: null,
+        },
+        pausedAt: {
+          type: Date,
+          default: null,
+        },
+        // Optional: what the admin expects the student to come back. Advisory
+        // only — resuming is always a deliberate admin action.
+        pausedUntil: {
+          type: Date,
+          default: null,
+        },
+        pauseReason: {
+          type: String,
+          default: "",
+        },
+        resumedAt: {
+          type: Date,
+          default: null,
+        },
+        discontinuedAt: {
+          type: Date,
+          default: null,
+        },
+        discontinuedReason: {
+          type: String,
+          default: "",
+        },
+        lifecycleActorId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "user",
           default: null,
         },
         joinedAt: {
@@ -224,11 +257,62 @@ const studentSchema = new mongoose.Schema(
           type: Number,
           default: null,
         },
+        // The tenure the learner chose (3/6/12). Diverges from installmentTotal
+        // once a running course rolls past its tenure, so the renewal order has
+        // to price off this rather than the installment count.
+        planMonths: {
+          type: Number,
+          default: null,
+        },
+        // Snapshotted from the course. Running courses roll month-to-month past
+        // the tenure instead of ending at installmentTotal.
+        courseType: {
+          type: String,
+          enum: ["fixed", "running"],
+          default: "fixed",
+        },
+        termMonths: {
+          type: Number,
+          default: null,
+        },
         dueDate: {
           type: Date,
+          // Only a *pending* installment must know when the next payment falls
+          // due. The final installment of a fixed course is written with
+          // dueDate null by design (getNextInstallmentDueDate returns null once
+          // the ladder ends), so requiring it for every installment made those
+          // rows fail full-document validation. Nothing noticed while payments
+          // were written with updateOne/$push, which skips validators — but any
+          // save() on the student then failed on a row it never touched.
           required: function () {
-            return this.paymentType === "Installment";
+            return (
+              this.paymentType === "Installment" &&
+              this.monthlyPaymentStatus === "pending"
+            );
           },
+        },
+        // Every due-date change an admin makes, and why. The due date itself is
+        // otherwise written only by the fulfillment path.
+        dueDateAdjustments: [
+          {
+            _id: false,
+            at: { type: Date, default: Date.now },
+            byUserId: { type: mongoose.Schema.Types.ObjectId, ref: "user", default: null },
+            fromDate: { type: Date, default: null },
+            toDate: { type: Date, default: null },
+            days: { type: Number, default: 0 },
+            reason: { type: String, default: "" },
+          },
+        ],
+        // Set when an enrollment is discontinued with money still outstanding,
+        // so the row leaves the dues queue without pretending it was paid.
+        writtenOffAt: {
+          type: Date,
+          default: null,
+        },
+        writtenOffReason: {
+          type: String,
+          default: "",
         },
         reminderSentAt: {
           type: Date,

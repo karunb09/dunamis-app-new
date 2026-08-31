@@ -131,7 +131,7 @@ const authLimiter = rateLimit({
 
 const paymentLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: isProd ? 20 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many requests, please try again later." },
@@ -155,6 +155,7 @@ require("./cronJobs/assignment.cron")
 require("./cronJobs/attendanceDigest.cron");
 require("./cronJobs/missedAttendanceReminder.cron");
 require("./cronJobs/classReminder.cron");
+require("./cronJobs/classJoinLinkReminder.cron");
 require("./cronJobs/monthlyInsights.cron");
 require("./cronJobs/paymentReconciler.cron");
 
@@ -226,7 +227,10 @@ app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/zone", zoneRoutes);
 app.use("/api/v1/course", courseRoutes);
 app.use("/api/v1/teachers", teacherRoutes);
-app.use("/api/v1/enrollment", paymentLimiter, enrollmentRoutes);
+app.use("/api/v1/enrollment/create-order", paymentLimiter);
+app.use("/api/v1/enrollment/verify-payment", paymentLimiter);
+app.use("/api/v1/enrollment/generate-installments", paymentLimiter);
+app.use("/api/v1/enrollment", enrollmentRoutes);
 app.use("/api/v1/slots", slotRoutes);
 app.use("/api/v1/demoBookings", demoBookingRoutes);
 app.use("/api/v1/enquiry", enquiryRoutes);

@@ -85,6 +85,16 @@ const slotSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Overrides the recurring class's link for this one session only.
+    meetingLinkOverride: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    joinLinkNotifiedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

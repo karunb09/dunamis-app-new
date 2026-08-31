@@ -121,7 +121,7 @@ const StudentProfile = () => {
 
         <div className="min-w-0 flex-1">
           {activeTab === "Overview" && <OverviewTab studentId={id} />}
-          {activeTab === "Courses" && <CoursesTab student={student} />}
+          {activeTab === "Courses" && <CoursesTab student={student} onRefresh={refetch} />}
           {activeTab === "Assessments" && <AssessmentsTab student={student} />}
           {activeTab === "Assignments" && <AssignmentsTab student={student} />}
           {activeTab === "Schedules" && <SchedulesTab student={student} />}

@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { installmentSummary } from "../../../../../utils/installmentLabel";
 import { FaSearch, FaSortAmountDown, FaFilter } from "react-icons/fa";
 import { FiClock, FiX } from "react-icons/fi";
 import DataTable from "../../../../../components/Table";
 import RecordCashModal from "../../../Financials/RecordCashModal";
 import TransactionTimeline from "../../../Financials/TransactionTimeline";
 import { getPendingInstallments } from "../../../../../utils/feeStatus";
+import Swal from "sweetalert2";
+import { toast } from "react-hot-toast";
+import { extendDueDate } from "../../../../../api/studentLifecycleApi";
 
 const SORT_OPTIONS = [
     { value: "dateDesc", label: "Date (Newest First)" },
@@ -26,6 +30,7 @@ const PaymentsTab = ({ student, onRefresh }) => {
     const [statusFilter, setStatusFilter] = useState("");
     const [paymentTypeFilter, setPaymentTypeFilter] = useState("");
     const [cashDue, setCashDue] = useState(null);
+    const [extendingId, setExtendingId] = useState(null);
     const [timelineId, setTimelineId] = useState(null);
 
     const sortRef = useRef(null);
@@ -34,6 +39,50 @@ const PaymentsTab = ({ student, onRefresh }) => {
 
     // Everything this student still owes — the source for cash recording.
     const pendingInstallments = useMemo(() => getPendingInstallments(student), [student]);
+
+    // Compensation for missed classes — pushes one installment's due date out.
+    // Never pulls it earlier; the server refuses that.
+    const handleExtendDueDate = async (due) => {
+        const { isConfirmed, value } = await Swal.fire({
+            title: "Extend this due date",
+            html: `<p class="text-sm text-slate-600">${due.course?.name || "Course"} · currently due ${new Date(
+                due.dueDate
+            ).toLocaleDateString("en-IN")}</p>`,
+            input: "number",
+            inputLabel: "Days to extend by",
+            inputValue: 7,
+            inputAttributes: { min: 1, max: 365 },
+            showCancelButton: true,
+            confirmButtonText: "Extend",
+            confirmButtonColor: "#FF6B35",
+            inputValidator: (v) => (Number(v) > 0 ? undefined : "Enter at least 1 day"),
+        });
+        if (!isConfirmed) return;
+
+        const { value: reason } = await Swal.fire({
+            title: "Why?",
+            input: "text",
+            inputPlaceholder: "e.g. instructor was unwell for two weeks",
+            showCancelButton: true,
+            confirmButtonColor: "#FF6B35",
+        });
+
+        setExtendingId(due.payment?._id);
+        try {
+            const result = await extendDueDate({
+                studentId: student?._id,
+                paymentId: due.payment?._id,
+                days: Number(value),
+                reason: (reason || "").trim() || undefined,
+            });
+            toast.success(result.message);
+            onRefresh?.();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setExtendingId(null);
+        }
+    };
 
     // Close sort dropdown when clicking outside
     useEffect(() => {
@@ -91,9 +140,11 @@ const PaymentsTab = ({ student, onRefresh }) => {
                 payment.razorpayOrderId ||
                 "-",
             status: payment.feeStatus || "Paid",
-            installmentInfo: payment.installmentNo
-                ? `${payment.installmentNo}/${payment.installmentTotal}`
-                : "-"
+            // Guard on the payment type, not installmentNo — a Full payment
+            // carries installmentNo 1, and would otherwise fall through to the
+            // running-course period label and read as a month.
+            installmentInfo:
+                payment.paymentType === "Installment" ? installmentSummary(payment) : "-"
         };
     });
 
@@ -244,7 +295,7 @@ const PaymentsTab = ({ student, onRefresh }) => {
                                         {due.course?.name || "Course"}
                                     </p>
                                     <p className="text-xs text-slate-500">
-                                        Installment {due.installmentNo + 1} of {due.installmentTotal} ·{" "}
+                                        {installmentSummary({ ...due, installmentNo: due.installmentNo + 1 })} ·{" "}
                                         {due.isOverdue ? (
                                             <span className="font-medium text-rose-600">
                                                 overdue since {new Date(due.dueDate).toLocaleDateString("en-IN")}
@@ -273,6 +324,14 @@ const PaymentsTab = ({ student, onRefresh }) => {
                                         className="rounded-2xl bg-[#FF6B35] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#fd5a1f]"
                                     >
                                         Record cash
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleExtendDueDate(due)}
+                                        disabled={extendingId === due.payment?._id}
+                                        className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 transition hover:border-orange-200 hover:text-orange-600 disabled:opacity-50"
+                                    >
+                                        Extend due date
                                     </button>
                                 </div>
                             </div>

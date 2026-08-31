@@ -4,6 +4,8 @@ const Course = require("../model/course.model");
 const Branch = require("../model/branch.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
+const ClassRoster = require("../model/classRoster.model");
+const DemoBooking = require("../model/demoBooking.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
 const { getMaxStudents, isUnlimited } = require("../utils/slotCapacity");
 const { hasSlotStarted } = require("../utils/classRoster");
@@ -508,6 +510,30 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
     const now = new Date();
     slots = slots.filter((slot) => !hasSlotStarted(slot, now));
 
+    // Demo bookings never write to Slot.students, so a demo slot's own capacity
+    // fields always read as empty. Ask the bookings instead, or every booked
+    // demo keeps showing as free.
+    const demoSlotIds = slots
+      .filter((slot) => slot.slotType === "demo")
+      .map((slot) => slot._id);
+    if (demoSlotIds.length) {
+      const taken = await DemoBooking.aggregate([
+        {
+          $match: {
+            slotId: { $in: demoSlotIds },
+            demoStatus: { $in: ["Booked", "Rescheduled"] },
+          },
+        },
+        { $group: { _id: "$slotId", count: { $sum: 1 } } },
+      ]);
+      const bookedBySlot = new Map(taken.map((row) => [String(row._id), row.count]));
+      slots = slots.filter(
+        (slot) =>
+          slot.slotType !== "demo" ||
+          (bookedBySlot.get(String(slot._id)) || 0) < (slot.maxStudents || 1)
+      );
+    }
+
     const teacherIds = [
       ...new Set(
         slots
@@ -616,6 +642,95 @@ exports.updateSlot = asyncHandler(async (req, res) => {
     await slot.save();
 
     res.status(200).json({ message: "Slot updated successfully", slot });
+});
+
+// The teacher's recurring classes with their standing join links. Admins may
+// pass ?teacherId= to inspect someone else's.
+exports.getMyClasses = asyncHandler(async (req, res) => {
+  const isTeacher = req.user.accountType === "teacher";
+  const teacherId = isTeacher ? req.user.roleId : req.query.teacherId || req.user.roleId;
+
+  const rosters = await ClassRoster.find({ teacherId, status: "active" })
+    .populate("courseId", "name code mode")
+    .populate("branchId", "branchName")
+    .select(
+      "courseId branchId parentAvailabilityId sessionType deliveryMode recurringDays startTime endTime students meetingLink meetingLinkUpdatedAt"
+    )
+    .lean();
+
+  const classes = rosters.map((roster) => ({
+    parentAvailabilityId: roster.parentAvailabilityId,
+    course: roster.courseId,
+    branch: roster.branchId,
+    sessionType: roster.sessionType,
+    deliveryMode: roster.deliveryMode,
+    recurringDays: roster.recurringDays || [],
+    startTime: roster.startTime,
+    endTime: roster.endTime,
+    studentCount: (roster.students || []).filter((m) => m.status === "active").length,
+    meetingLink: roster.meetingLink || "",
+    meetingLinkUpdatedAt: roster.meetingLinkUpdatedAt,
+  }));
+
+  res.status(200).json({ success: true, classes });
+});
+
+// The standing room for a weekly batch. Every dated slot generated from this
+// recurring class inherits it, so the teacher sets it once rather than weekly.
+exports.setClassMeetingLink = asyncHandler(async (req, res) => {
+  const { parentAvailabilityId } = req.params;
+  const { meetingLink } = req.validated?.body || req.body;
+
+  const roster = await ClassRoster.findOne({ parentAvailabilityId });
+  if (!roster) {
+    return res.status(404).json({ message: "Class not found" });
+  }
+
+  if (
+    req.user.accountType === "teacher" &&
+    String(roster.teacherId) !== String(req.user.roleId)
+  ) {
+    return res
+      .status(403)
+      .json({ message: "You can only set the join link for your own classes" });
+  }
+
+  roster.meetingLink = meetingLink;
+  roster.meetingLinkUpdatedAt = meetingLink ? new Date() : null;
+  roster.meetingLinkSetBy = meetingLink ? req.user.userId : null;
+  await roster.save();
+
+  res.status(200).json({
+    message: meetingLink ? "Join link saved" : "Join link cleared",
+    meetingLink: roster.meetingLink,
+  });
+});
+
+// A one-off room change for a single dated session.
+exports.setSlotMeetingLink = asyncHandler(async (req, res) => {
+  const { meetingLink } = req.validated?.body || req.body;
+
+  const slot = await Slot.findById(req.params.id).select("createdBy meetingLinkOverride");
+  if (!slot) {
+    return res.status(404).json({ message: "Class not found" });
+  }
+
+  if (
+    req.user.accountType === "teacher" &&
+    String(slot.createdBy) !== String(req.user.roleId)
+  ) {
+    return res
+      .status(403)
+      .json({ message: "You can only set the join link for your own classes" });
+  }
+
+  slot.meetingLinkOverride = meetingLink;
+  await slot.save();
+
+  res.status(200).json({
+    message: meetingLink ? "Join link saved for this session" : "Session override cleared",
+    meetingLinkOverride: slot.meetingLinkOverride,
+  });
 });
 
 // Delete a slot

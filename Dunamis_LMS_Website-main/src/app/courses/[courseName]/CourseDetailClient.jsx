@@ -26,6 +26,7 @@ import {
 import { buildTeacherName, formatTimeLabel } from "@/helpers/courseSlots";
 import { getActiveCustomPlans } from "@/helpers/tenurePlans";
 import { slugifyBranch } from "@/lib/serverCenters";
+import { API_BASE } from "@/lib/apiBase";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
 const TABS = ["Overview", "Curriculum", "Instructors", "Fee Structure"];
@@ -76,7 +77,6 @@ const buildInstructorCards = (courseRecord) =>
     return {
       id: teacher?._id || teacher?.id, name,
       branch: courseRecord?.category?.name || "Department",
-      exp: `${teacher?.studentCount || 0} students taught`,
       rating: Number(teacher?.averageRating) || 0,
       image: getInstructorImage(teacher, courseRecord?.image, name),
       profileVideo: resolveImageUrl(teacher?.teacherDetail?.profileVideo || teacher?.profileVideo, ""),
@@ -171,7 +171,6 @@ const transformCourseData = (courseRecord, courseFallbackImage) => {
     price: selectedPrice ? `₹${selectedPrice.monthlyFee}/month` : "Price not available",
     image: resolveImageUrl(courseRecord?.image, courseFallbackImage),
     rating: courseRecord?.rating || 0,
-    reviewsCount: courseRecord?.totalStudents || courseRecord?.enrolledStudents?.length || 0,
     learn: courseRecord?.objectives?.length > 0 ? courseRecord.objectives : ["Comprehensive understanding of core concepts", "Practical hands-on experience", "Industry-relevant skills", "Project-based learning"],
     curriculum: buildCurriculum(courseRecord?.content),
     instructors: buildInstructorCards(courseRecord),
@@ -240,11 +239,39 @@ export default function CourseDetailClient({ initialCourse = null }) {
   );
   const [rawCourse, setRawCourse] = useState(initialCourse || null);
 
+  const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
+
   const hasActiveAuth = () => Boolean(token);
   const isStudentAccount = (account = user) => String(account?.accountType || "").toLowerCase() === "student";
   const showStudentOnlyMessage = (action) => toast.error(`Only student accounts can ${action}.`);
 
   useEffect(() => { dispatch(fetchCourses()); }, [dispatch]);
+
+  // Same source of truth as the createOrder guard: only a live enrollment
+  // (in-progress/paused) blocks; completed and discontinued courses may be
+  // bought again.
+  useEffect(() => {
+    const courseId = rawCourse?._id;
+    if (!courseId || !token || !isStudentAccount()) {
+      setAlreadyEnrolled(false);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/v1/enrollment/course-status/${courseId}`, {
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!cancelled) setAlreadyEnrolled(res.ok && Boolean(data.enrolled));
+      } catch {
+        if (!cancelled) setAlreadyEnrolled(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [rawCourse?._id, token, user]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -295,6 +322,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
     if (pendingQueryAction === "enroll") {
       if (hasActiveAuth()) {
         if (!isStudentAccount()) { showStudentOnlyMessage("enroll in courses"); setPendingQueryAction(null); return; }
+        if (alreadyEnrolled) { toast.error("You are already enrolled in this course."); setPendingQueryAction(null); return; }
         clearEnrollmentResume(); setEnrollTermOpen(true);
       } else {
         if (pathname) saveEnrollmentResume(`${pathname}?action=enroll`);
@@ -302,12 +330,13 @@ export default function CourseDetailClient({ initialCourse = null }) {
       }
       setPendingQueryAction(null);
     }
-  }, [pathname, pendingQueryAction, rawCourse, token, user]);
+  }, [alreadyEnrolled, pathname, pendingQueryAction, rawCourse, token, user]);
 
   const openEnrollmentFlow = (instructorId = "") => {
     setPreferredInstructorId(instructorId);
     if (hasActiveAuth()) {
       if (!isStudentAccount()) { showStudentOnlyMessage("enroll in courses"); return; }
+      if (alreadyEnrolled) { toast.error("You are already enrolled in this course."); return; }
       clearEnrollmentResume(); setPendingEnrollmentAuth(false); setEnrollTermOpen(true); return;
     }
     if (pathname) saveEnrollmentResume(`${pathname}?action=enroll`);
@@ -367,7 +396,6 @@ export default function CourseDetailClient({ initialCourse = null }) {
               {course.rating > 0 && (
                 <span className="flex items-center gap-1 font-semibold text-amber-400 text-sm">
                   <IoMdStar className="w-4 h-4" />{course.rating}
-                  {course.reviewsCount > 0 && <span className="text-white/55 font-normal text-xs ml-0.5">({course.reviewsCount})</span>}
                 </span>
               )}
               <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${course.mode === "online" ? "bg-emerald-500/80 text-white" : "bg-slate-500/80 text-white"}`}>
@@ -403,8 +431,13 @@ export default function CourseDetailClient({ initialCourse = null }) {
               <p className="text-2xl font-extrabold text-[#CC3700]">{course.price}</p>
               {course.branchCount > 0 && <p className="text-xs text-gray-400 mt-0.5">{course.branchCount} branch{course.branchCount > 1 ? "es" : ""} · <span className="capitalize">{course.mode}</span></p>}
               <div className="flex items-stretch gap-3 mt-4">
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => openEnrollmentFlow()}
-                  className="flex-1 rounded-xl bg-[#CC3700] py-2.5 text-sm font-bold text-white hover:bg-[#B83100] transition">Enroll Now</motion.button>
+                {alreadyEnrolled ? (
+                  <Link href="/student/my-courses"
+                    className="flex-1 rounded-xl bg-emerald-600 py-2.5 text-center text-sm font-bold text-white hover:bg-emerald-700 transition">Go to My Courses</Link>
+                ) : (
+                  <motion.button whileTap={{ scale: 0.96 }} onClick={() => openEnrollmentFlow()}
+                    className="flex-1 rounded-xl bg-[#CC3700] py-2.5 text-sm font-bold text-white hover:bg-[#B83100] transition">Enroll Now</motion.button>
+                )}
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => openDemoFlow()}
                   className="flex-1 rounded-xl border-2 border-gray-200 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">Book Demo</motion.button>
                 <ContactActionsMenu onRequestCallback={() => setCallbackOpen(true)} />
@@ -579,7 +612,6 @@ export default function CourseDetailClient({ initialCourse = null }) {
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-gray-900 text-sm">{instructor.name}</p>
                             <p className="text-xs text-gray-500 mt-0.5">{instructor.expertise || instructor.branch}</p>
-                            <p className="text-xs text-gray-400 mt-1">{instructor.exp}</p>
                             {instructor.yearsExperience && (
                               <span className="mt-2 inline-block rounded-full bg-orange-50 border border-orange-100 px-2 py-0.5 text-[11px] font-medium text-orange-600">{instructor.yearsExperience}</span>
                             )}
@@ -660,10 +692,17 @@ export default function CourseDetailClient({ initialCourse = null }) {
                 {course.branchCount > 0 && <p className="text-white/65 text-xs mt-1">{course.branchCount} branch{course.branchCount > 1 ? "es" : ""} available</p>}
               </div>
               <div className="p-6 space-y-3">
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => openEnrollmentFlow()}
-                  className="w-full rounded-xl bg-[#CC3700] py-3 text-sm font-bold text-white hover:bg-[#B83100] transition shadow-md shadow-orange-100">
-                  Enroll Now
-                </motion.button>
+                {alreadyEnrolled ? (
+                  <Link href="/student/my-courses"
+                    className="block w-full rounded-xl bg-emerald-600 py-3 text-center text-sm font-bold text-white hover:bg-emerald-700 transition shadow-md shadow-emerald-100">
+                    Go to My Courses
+                  </Link>
+                ) : (
+                  <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }} onClick={() => openEnrollmentFlow()}
+                    className="w-full rounded-xl bg-[#CC3700] py-3 text-sm font-bold text-white hover:bg-[#B83100] transition shadow-md shadow-orange-100">
+                    Enroll Now
+                  </motion.button>
+                )}
                 <div className="flex items-stretch gap-3">
                   <motion.button whileTap={{ scale: 0.97 }} onClick={() => openDemoFlow()}
                     className="flex-1 rounded-xl border-2 border-gray-200 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition">
@@ -722,9 +761,8 @@ export default function CourseDetailClient({ initialCourse = null }) {
                   </div>
                 </aside>
                 <div className="space-y-4 p-5 sm:p-7">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
                     {[
-                      { label: "Students", value: activeInstructor.exp?.split(" ")[0] || "—" },
                       { label: "Rating", value: activeInstructor.rating > 0 ? `${activeInstructor.rating.toFixed(1)}/5` : "New" },
                       { label: "Mode", value: activeInstructor.mode || "Online" },
                     ].map(({ label, value }) => (

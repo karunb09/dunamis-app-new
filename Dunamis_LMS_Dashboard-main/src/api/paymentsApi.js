@@ -27,6 +27,17 @@ export async function fetchPayments(params = {}) {
   }
 }
 
+// Unpaged rows for an .xlsx. `scope` picks the finance tab; every other param
+// is the same filter the tab is already showing.
+export async function exportPayments(params = {}) {
+  try {
+    const { data } = await axios.get("/payments/export", { params: clean(params) });
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to export payments");
+  }
+}
+
 export async function fetchNeedsAttention({ page = 1, limit = 50, includeAbandoned = false } = {}) {
   try {
     const { data } = await axios.get("/payments/needs-attention", {

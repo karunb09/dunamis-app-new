@@ -24,6 +24,7 @@ const {
 } = require("../services/enrollmentService");
 const { applyReferralDiscount } = require("../utils/referral");
 const { istDayStart, istDayEndExclusive } = require("../utils/istMonth");
+const { installmentLabel } = require("../utils/installmentLabel");
 
 const PAID_GRACE_MS = 15 * 60 * 1000;
 const STALE_PENDING_MS = 2 * 60 * 60 * 1000;
@@ -162,10 +163,47 @@ const buildSearchMatch = async (raw) => {
   return { studentId: { $in: students.map((s) => s._id) } };
 };
 
-exports.listPayments = asyncHandler(async (req, res) => {
-  const q = req.validated?.query || {};
-  const page = q.page || 1;
-  const limit = Math.min(MAX_LIMIT, q.limit || DEFAULT_LIMIT);
+const paymentRowStages = [
+  studentLookup,
+  courseLookup,
+  branchLookup,
+  {
+    $project: {
+      merchantOrderId: 1,
+      cashfreePaymentId: 1,
+      status: 1,
+      feeStatus: 1,
+      gateway: 1,
+      amount: 1,
+      gatewayCapturedAmount: 1,
+      gatewayOfferDiscount: 1,
+      discountAmount: 1,
+      referralCode: 1,
+      paymentType: 1,
+      installmentNo: 1,
+      installmentTotal: 1,
+      courseType: 1,
+      termMonths: 1,
+      planType: 1,
+      planMonths: 1,
+      sessionType: 1,
+      deliveryMode: 1,
+      paymentMode: 1,
+      createdAt: 1,
+      paidAt: 1,
+      coreFulfilledAt: 1,
+      fulfilledAt: 1,
+      lastError: 1,
+      student: studentProjection,
+      course: { $first: "$course" },
+      branch: { $first: "$branch" },
+    },
+  },
+];
+
+// Shared by listPayments and exportPayments so an export can never disagree
+// with the ledger the admin is looking at.
+const buildPaymentsQuery = async (q) => {
   const dateField = q.dateField || "createdAt";
   const sortField = q.sort || (dateField === "paidAt" ? "paidAt" : "createdAt");
   const dir = q.dir === "asc" ? 1 : -1;
@@ -205,6 +243,15 @@ exports.listPayments = asyncHandler(async (req, res) => {
         ]
       : [];
 
+  return { match, recognizedStages, sortField, dir };
+};
+
+exports.listPayments = asyncHandler(async (req, res) => {
+  const q = req.validated?.query || {};
+  const page = q.page || 1;
+  const limit = Math.min(MAX_LIMIT, q.limit || DEFAULT_LIMIT);
+  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q);
+
   const [result] = await PaymentTransaction.aggregate([
     { $match: match },
     ...recognizedStages,
@@ -212,43 +259,7 @@ exports.listPayments = asyncHandler(async (req, res) => {
     {
       $facet: {
         // $skip/$limit inside the facet so the lookups run on <=100 docs.
-        rows: [
-          { $skip: (page - 1) * limit },
-          { $limit: limit },
-          studentLookup,
-          courseLookup,
-          branchLookup,
-          {
-            $project: {
-              merchantOrderId: 1,
-              cashfreePaymentId: 1,
-              status: 1,
-              feeStatus: 1,
-              gateway: 1,
-              amount: 1,
-              gatewayCapturedAmount: 1,
-              gatewayOfferDiscount: 1,
-              discountAmount: 1,
-              referralCode: 1,
-              paymentType: 1,
-              installmentNo: 1,
-              installmentTotal: 1,
-              planType: 1,
-              planMonths: 1,
-              sessionType: 1,
-              deliveryMode: 1,
-              paymentMode: 1,
-              createdAt: 1,
-              paidAt: 1,
-              coreFulfilledAt: 1,
-              fulfilledAt: 1,
-              lastError: 1,
-              student: studentProjection,
-              course: { $first: "$course" },
-              branch: { $first: "$branch" },
-            },
-          },
-        ],
+        rows: [{ $skip: (page - 1) * limit }, { $limit: limit }, ...paymentRowStages],
         total: [{ $count: "count" }],
         totals: [
           {
@@ -340,6 +351,7 @@ exports.listNeedsAttention = asyncHandler(async (req, res) => {
               paymentType: 1,
               installmentNo: 1,
               installmentTotal: 1,
+              courseType: 1,
               createdAt: 1,
               paidAt: 1,
               coreFulfilledAt: 1,
@@ -371,6 +383,115 @@ exports.listNeedsAttention = asyncHandler(async (req, res) => {
     total,
     pages: Math.ceil(total / limit) || 1,
     rows: result?.rows || [],
+  });
+});
+
+// Rows for an .xlsx the admin builds client-side. Paging is dropped so the
+// export matches the filter, not the page — capped so one wide date range
+// cannot pull the whole ledger into memory.
+const EXPORT_MAX_ROWS = 10000;
+
+const exportTransactions = async (q) => {
+  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q);
+
+  const [result] = await PaymentTransaction.aggregate([
+    { $match: match },
+    ...recognizedStages,
+    { $sort: { [sortField]: dir, _id: -1 } },
+    {
+      $facet: {
+        rows: [{ $limit: EXPORT_MAX_ROWS }, ...paymentRowStages],
+        total: [{ $count: "count" }],
+      },
+    },
+  ]);
+
+  return { rows: result?.rows || [], total: result?.total?.[0]?.count || 0 };
+};
+
+const exportDues = async (q) => {
+  const result = await aggregateOutstandingInstallments({
+    asOf: new Date(),
+    page: 1,
+    limit: EXPORT_MAX_ROWS,
+    bucket: q.bucket || null,
+    branchId: q.branchId ? new mongoose.Types.ObjectId(q.branchId) : null,
+    courseId: q.courseId ? new mongoose.Types.ObjectId(q.courseId) : null,
+    studentId: q.studentId ? new mongoose.Types.ObjectId(q.studentId) : null,
+    minDaysLate: q.minDaysLate ?? null,
+    withRows: true,
+  });
+
+  return { rows: result.rows || [], total: result.total?.[0]?.count || 0 };
+};
+
+const exportNeedsAttention = async (q) => {
+  const now = new Date();
+
+  const [result] = await PaymentTransaction.aggregate([
+    { $match: buildNeedsAttentionMatch(now) },
+    ...decorateStages(now),
+    ...(q.includeAbandoned ? [] : [{ $match: { severity: "critical" } }]),
+    { $addFields: { severityRank: { $cond: [{ $eq: ["$severity", "critical"] }, 0, 1] } } },
+    { $sort: { severityRank: 1, ageMs: -1, _id: -1 } },
+    {
+      $facet: {
+        rows: [
+          { $limit: EXPORT_MAX_ROWS },
+          studentLookup,
+          courseLookup,
+          {
+            $project: {
+              merchantOrderId: 1,
+              cashfreePaymentId: 1,
+              status: 1,
+              gateway: 1,
+              amount: 1,
+              paymentType: 1,
+              installmentNo: 1,
+              installmentTotal: 1,
+              courseType: 1,
+              createdAt: 1,
+              paidAt: 1,
+              expiresAt: 1,
+              cashfreeOrderStatus: 1,
+              reconciledAt: 1,
+              lastError: 1,
+              reason: 1,
+              severity: 1,
+              ageMs: 1,
+              student: studentProjection,
+              course: { $first: "$course" },
+            },
+          },
+        ],
+        total: [{ $count: "count" }],
+      },
+    },
+  ]);
+
+  return { rows: result?.rows || [], total: result?.total?.[0]?.count || 0 };
+};
+
+exports.exportPayments = asyncHandler(async (req, res) => {
+  const q = req.validated?.query || {};
+  const scope = q.scope || "transactions";
+
+  const exporters = {
+    transactions: exportTransactions,
+    dues: exportDues,
+    "needs-attention": exportNeedsAttention,
+  };
+
+  const { rows, total } = await exporters[scope](q);
+
+  res.status(200).json({
+    success: true,
+    scope,
+    total,
+    truncated: total > rows.length,
+    maxRows: EXPORT_MAX_ROWS,
+    rows,
   });
 });
 
@@ -536,14 +657,24 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
   );
   const expectedAmount = discounted.amount;
 
+  // "installment 2 of 6" on a fixed course; running courses have no
+  // denominator, so they describe the payment by its number alone.
+  const collectionLabel = installmentLabel({
+    paymentType: "Installment",
+    courseType: entry.courseType,
+    installmentNo: entry.nextInstallmentNo,
+    installmentTotal: entry.installmentTotal,
+  });
+  const collectionPhrase = collectionLabel
+    ? `installment ${collectionLabel}`
+    : `monthly payment ${entry.nextInstallmentNo}`;
+
   // Full installment only: a short cash collection must not silently close the
   // installment and roll the due date forward.
   if (!amountMatches(amount, expectedAmount)) {
     return res.status(400).json({
       success: false,
-      message: `The amount to collect for installment ${
-        entry.nextInstallmentNo
-      } is ${formatMoney(expectedAmount)}${
+      message: `The amount to collect for ${collectionPhrase} is ${formatMoney(expectedAmount)}${
         discounted.discountAmount
           ? ` (${formatMoney(entry.amountDue)} less a ${formatMoney(
               discounted.discountAmount
@@ -601,6 +732,8 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
     paymentType: "Installment",
     installmentNo: entry.nextInstallmentNo,
     installmentTotal: entry.installmentTotal,
+    courseType: entry.courseType || "fixed",
+    termMonths: entry.termMonths ?? null,
     // The contractual installment, not the discounted one — a one-off waiver
     // must not reprice the rest of the schedule.
     installmentAmount: entry.amountDue,
@@ -626,9 +759,7 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
         actorUserId: req.user.userId,
         status: "paid",
         amount,
-        detail: `Cash of ${formatMoney(amount)} collected at the centre for installment ${
-          entry.nextInstallmentNo
-        } of ${entry.installmentTotal}${
+        detail: `Cash of ${formatMoney(amount)} collected at the centre for ${collectionPhrase}${
           discounted.discountAmount
             ? ` — ${formatMoney(discounted.discountAmount)} waived off ${formatMoney(
                 entry.amountDue
@@ -662,7 +793,9 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
 
   return res.status(201).json({
     success: true,
-    message: `Installment ${entry.nextInstallmentNo} of ${entry.installmentTotal} recorded as paid in cash.`,
+    message: `${
+      collectionPhrase.charAt(0).toUpperCase() + collectionPhrase.slice(1)
+    } recorded as paid in cash.`,
     transactionId: transaction._id,
     merchantOrderId,
     amount,

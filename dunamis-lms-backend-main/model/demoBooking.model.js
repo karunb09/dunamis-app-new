@@ -1,5 +1,25 @@
 const mongoose = require("mongoose");
 
+// Append-only trail of who moved or cancelled a demo, and from where.
+const demoHistorySchema = new mongoose.Schema(
+  {
+    at: { type: Date, default: Date.now },
+    action: {
+      type: String,
+      enum: ["rescheduled", "cancelled", "reassigned"],
+      required: true,
+    },
+    actorUserId: { type: mongoose.Schema.Types.ObjectId, ref: "user", default: null },
+    actorRole: { type: String, default: null },
+    fromSlotId: { type: mongoose.Schema.Types.ObjectId, ref: "Slot", default: null },
+    toSlotId: { type: mongoose.Schema.Types.ObjectId, ref: "Slot", default: null },
+    fromTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: "teacher", default: null },
+    toTeacherId: { type: mongoose.Schema.Types.ObjectId, ref: "teacher", default: null },
+    reason: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
 const demoBookingSchema = new mongoose.Schema(
   {
     studentId: {
@@ -94,6 +114,25 @@ const demoBookingSchema = new mongoose.Schema(
       ref: "user",
       default: null,
     },
+    joinReminderSentAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "user",
+      default: null,
+    },
+    cancelReason: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    history: [demoHistorySchema],
     followUp: {
       type: String,
       enum: ["Pending", "Contacted", "Closed"],
@@ -106,5 +145,8 @@ const demoBookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Backs the per-slot capacity count that keeps two people off one demo slot.
+demoBookingSchema.index({ slotId: 1, demoStatus: 1 });
 
 module.exports = mongoose.model("DemoBooking", demoBookingSchema);

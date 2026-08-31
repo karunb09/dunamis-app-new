@@ -240,10 +240,11 @@ const courseBranchPopulate = {
   },
 };
 
-const withPublicCourseTotals = async (courses = []) => {
-  if (!courses.length) return [];
+// Enrolment counts are withheld from the public site until they are large
+// enough to be a useful signal. Flip to true to restore them everywhere.
+const EXPOSE_PUBLIC_STUDENT_COUNTS = false;
 
-  const courseIds = courses.map((course) => course._id);
+const countStudentsPerCourse = async (courseIds) => {
   const studentCounts = await Student.aggregate([
     { $unwind: "$enrolledCourses" },
     {
@@ -260,10 +261,18 @@ const withPublicCourseTotals = async (courses = []) => {
     },
   ]);
 
-  const studentCountByCourseId = studentCounts.reduce((acc, item) => {
+  return studentCounts.reduce((acc, item) => {
     acc[String(item._id)] = item.totalStudents;
     return acc;
   }, {});
+};
+
+const withPublicCourseTotals = async (courses = []) => {
+  if (!courses.length) return [];
+
+  const countByCourseId = EXPOSE_PUBLIC_STUDENT_COUNTS
+    ? await countStudentsPerCourse(courses.map((course) => course._id))
+    : null;
 
   return courses.map((course) => ({
     ...course,
@@ -271,7 +280,9 @@ const withPublicCourseTotals = async (courses = []) => {
       ? course.teacher.map(formatPublicTeacherForCourse).filter(Boolean)
       : [],
     branchCount: course.branches?.length || 0,
-    totalStudents: studentCountByCourseId[String(course._id)] || 0,
+    ...(countByCourseId
+      ? { totalStudents: countByCourseId[String(course._id)] || 0 }
+      : {}),
   }));
 };
 
@@ -287,6 +298,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       mode,
       courseType,
       level,
+      termMonths,
       certification,
       languages,
       startDate,
@@ -353,6 +365,7 @@ exports.createCourse = asyncHandler(async (req, res) => {
       mode,
       courseType,
       level,
+      termMonths,
       certification,
       languages: parseLanguagesField(languages),
       startDate,
@@ -447,16 +460,19 @@ exports.getCourseById = asyncHandler(async (req, res) => {
         .json({ success: false, message: "Course not found" });
     }
 
-    const totalStudents = await Student.countDocuments({
-      "enrolledCourses.courseId": id,
-    });
-
     const publicCourse = {
       ...course,
       teacher: Array.isArray(course.teacher)
         ? course.teacher.map(formatPublicTeacherForCourse).filter(Boolean)
         : [],
-      totalStudents,
+      ...(EXPOSE_PUBLIC_STUDENT_COUNTS
+        ? {
+            totalStudents: await Student.countDocuments({
+              "enrolledCourses.courseId": id,
+              "enrolledCourses.active": { $ne: false },
+            }),
+          }
+        : {}),
       branchCount: course.branches?.length || 0,
     };
 

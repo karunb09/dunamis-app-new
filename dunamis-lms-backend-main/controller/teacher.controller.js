@@ -782,6 +782,17 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
     // Get courses IDs
     const courseIds = teacher.course.map((c) => c._id);
 
+    // Course pricing is admin data. An instructor loads this same endpoint for
+    // My Courses / My Students, so stripping it in the UI alone would still
+    // leave every tenure plan in the network response and in Redux.
+    const hidePricing = req.user?.accountType === "teacher";
+    const stripCoursePricing = (course) => {
+      if (!course) return course;
+      const plain = course.toObject ? course.toObject() : { ...course };
+      delete plain.price;
+      return plain;
+    };
+
     // Students actually assigned to THIS teacher. A course may have several
     // teachers, so matching by courseId alone leaks every teacher's roster into
     // each profile. ClassRoster is the live source of truth (kept current by
@@ -902,7 +913,7 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
               content: course?.content,
               objectives: course?.objectives,
               image: course?.image,
-              price: course?.price,
+              ...(hidePricing ? {} : { price: course?.price }),
               enrollmentDate: ec.enrollmentDate,
               schedule: scheduleByStudentCourse[`${s._id}_${course?._id}`] || null,
             };
@@ -946,7 +957,7 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
           }
         : null,
       weeklyAvailability: teacher.weeklyAvailability,
-      courses: teacher.course,
+      courses: hidePricing ? teacher.course.map(stripCoursePricing) : teacher.course,
       students: formattedStudents,
       remunerations: teacher.remunerations,
       bankDetails: teacher.bankDetails

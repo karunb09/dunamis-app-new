@@ -74,6 +74,40 @@ export const updateBookingStatus = createAsyncThunk(
   }
 );
 
+// Move a demo to another slot. Picking a slot owned by a different instructor
+// reassigns it — the server derives that, there is no separate flag.
+export const rescheduleBooking = createAsyncThunk(
+  "demoBookings/reschedule",
+  async ({ id, slotId, teacherId, reason }, thunkAPI) => {
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/demoBookings/${id}/reschedule`,
+        { slotId, teacherId, reason },
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
+export const cancelBooking = createAsyncThunk(
+  "demoBookings/cancel",
+  async ({ id, reason }, thunkAPI) => {
+    try {
+      const response = await axios.patch(
+        `${BASE_URL}/demoBookings/${id}/cancel`,
+        { reason },
+        { headers: getAuthHeaders() }
+      );
+      return response.data;
+    } catch (error) {
+      return thunkAPI.rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
+
 // Demo Booking Slice
 const demoBookingSlice = createSlice({
   name: "demoBookings",

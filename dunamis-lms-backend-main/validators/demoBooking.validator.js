@@ -1,5 +1,5 @@
 const { z } = require("zod");
-const { objectId } = require("./common");
+const { objectId, meetingLink } = require("./common");
 
 // Public/optional-auth demo booking (POST /demoBookings). Reject malformed ids
 // at the boundary (Slot.findById(badId) would otherwise throw a 500). lead and
@@ -13,17 +13,6 @@ const bookDemoSchema = z.looseObject({
   lead: z.object({}).loose().optional(),
 });
 
-// Empty string clears a shared link; anything else must be an https URL so the
-// value is safe to render as an anchor href in emails and dashboards.
-const meetingLink = z
-  .string()
-  .trim()
-  .max(500, "Meeting link must be 500 characters or fewer.")
-  .refine(
-    (value) => value === "" || /^https:\/\/\S+$/.test(value),
-    "Meeting link must be a valid https:// URL."
-  );
-
 const updateBookingSchema = z.object({
   demoStatus: z
     .enum(["Booked", "Rescheduled", "Cancelled", "Attended", "Missed"])
@@ -34,4 +23,22 @@ const updateBookingSchema = z.object({
   meetingLink: meetingLink.nullish(),
 });
 
-module.exports = { bookDemoSchema, updateBookingSchema };
+// Deliberately not an extension of updateBookingSchema: rescheduling moves the
+// booking, it does not patch status fields, and mixing the two would let a
+// caller set demoStatus by hand and skip the audit row.
+const rescheduleBookingSchema = z.object({
+  slotId: objectId("slotId"),
+  teacherId: objectId("teacherId").nullish(),
+  reason: z.string().trim().max(500).nullish(),
+});
+
+const cancelBookingSchema = z.object({
+  reason: z.string().trim().max(500).nullish(),
+});
+
+module.exports = {
+  bookDemoSchema,
+  updateBookingSchema,
+  rescheduleBookingSchema,
+  cancelBookingSchema,
+};

@@ -2,9 +2,16 @@ import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { FaSearch, FaFilter, FaList, FaSortAmountDown, FaTh } from "react-icons/fa";
-import { FiClipboard, FiCopy, FiExternalLink, FiX } from "react-icons/fi";
+import { FiCalendar, FiClipboard, FiCopy, FiExternalLink, FiSlash, FiX } from "react-icons/fi";
+import Swal from "sweetalert2";
 import dayjs from "dayjs";
-import { getAllBookings, invalidateBookings, updateBookingStatus } from "../../../../redux/DemoBooking/DemoBookingSlice";
+import {
+    cancelBooking,
+    getAllBookings,
+    invalidateBookings,
+    updateBookingStatus,
+} from "../../../../redux/DemoBooking/DemoBookingSlice";
+import RescheduleDemoModal from "../../../../components/RescheduleDemoModal";
 import DataCards from "../../../../components/DataCards";
 import DataTable from "../../../../components/Table";
 import PersonCard from "../../../../components/cards/PersonCard";
@@ -229,6 +236,7 @@ const DemoStudents = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [exporting, setExporting] = useState(false);
     const [savingId, setSavingId] = useState(null);
+    const [rescheduling, setRescheduling] = useState(null);
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -358,11 +366,49 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
         }
     };
 
+    const handleCancelDemo = async (row) => {
+        const { isConfirmed, value } = await Swal.fire({
+            title: "Cancel this demo?",
+            input: "textarea",
+            inputLabel: "Reason (recorded on the booking)",
+            inputPlaceholder: "Why is this demo being cancelled?",
+            showCancelButton: true,
+            confirmButtonText: "Cancel demo",
+            confirmButtonColor: "#e11d48",
+            cancelButtonText: "Keep it",
+        });
+        if (!isConfirmed) return;
+
+        try {
+            const result = await dispatch(
+                cancelBooking({ id: row._id, reason: (value || "").trim() || undefined })
+            ).unwrap();
+            toast.success(result.message || "Demo cancelled");
+            dispatch(invalidateBookings());
+            dispatch(getAllBookings());
+        } catch (err) {
+            toast.error(err?.message || "Could not cancel this demo");
+        }
+    };
+
     const buildMenuItems = (row) => [
         {
             label: "Copy Details",
             icon: <FiClipboard size={14} />,
             onClick: () => handleCopyDetails([row]),
+        },
+        {
+            label: "Reschedule",
+            icon: <FiCalendar size={14} />,
+            onClick: () => setRescheduling(row),
+            disabled: row.demoStatus === "Cancelled",
+        },
+        {
+            label: "Cancel demo",
+            icon: <FiSlash size={14} />,
+            onClick: () => handleCancelDemo(row),
+            danger: true,
+            disabled: row.demoStatus === "Cancelled",
         },
     ];
 
@@ -775,6 +821,18 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
             ) : (
                 <DataTable {...sharedListProps} columns={tableColumns} />
             )}
+
+            {rescheduling ? (
+                <RescheduleDemoModal
+                    booking={rescheduling}
+                    onClose={() => setRescheduling(null)}
+                    onDone={() => {
+                        setRescheduling(null);
+                        dispatch(invalidateBookings());
+                        dispatch(getAllBookings());
+                    }}
+                />
+            ) : null}
         </div>
     );
 };

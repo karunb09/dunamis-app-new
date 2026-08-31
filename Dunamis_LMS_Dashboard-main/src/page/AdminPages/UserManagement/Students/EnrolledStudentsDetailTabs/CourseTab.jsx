@@ -1,7 +1,21 @@
 import { useState } from "react";
-import { FiRepeat } from "react-icons/fi";
+import { FiPause, FiPlay, FiRepeat, FiSlash } from "react-icons/fi";
+import Swal from "sweetalert2";
+import { toast } from "react-hot-toast";
 import { resolveImageUrl } from "../../../../../utils/resolveImageUrl";
 import ReassignEnrollmentModal from "../ReassignEnrollmentModal";
+import {
+    pauseEnrollment,
+    resumeEnrollment,
+    discontinueEnrollment,
+} from "../../../../../api/studentLifecycleApi";
+
+const STATUS_BADGE = {
+    completed: "bg-green-100 text-green-700",
+    "in-progress": "bg-blue-100 text-blue-700",
+    paused: "bg-amber-100 text-amber-700",
+    discontinued: "bg-slate-200 text-slate-600",
+};
 
 // Helper: convert hex color to rgba with alpha
 function hexToRgba(hex, alpha = 1) {
@@ -16,9 +30,58 @@ function hexToRgba(hex, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const CoursesTab = ({ student }) => {
+const CoursesTab = ({ student, onRefresh }) => {
     const enrolledCourses = student?.enrolledCourses || [];
     const [reassignTarget, setReassignTarget] = useState(null);
+    const [busyId, setBusyId] = useState(null);
+
+    const runLifecycle = async (item, action) => {
+        const courseId = item.courseId?._id || item.courseId;
+        setBusyId(item._id);
+        try {
+            const result = await action({ studentId: student?._id, courseId });
+            toast.success(result.message);
+            onRefresh?.();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setBusyId(null);
+        }
+    };
+
+    const handlePause = async (item) => {
+        const { isConfirmed, value } = await Swal.fire({
+            title: "Pause this enrollment?",
+            text: "Billing freezes and the student comes off future classes. Their seat is held.",
+            input: "text",
+            inputLabel: "Reason",
+            inputPlaceholder: "e.g. exams, travel",
+            showCancelButton: true,
+            confirmButtonText: "Pause",
+            confirmButtonColor: "#FF6B35",
+        });
+        if (!isConfirmed) return;
+        await runLifecycle(item, (args) =>
+            pauseEnrollment({ ...args, reason: (value || "").trim() || undefined })
+        );
+    };
+
+    const handleDiscontinue = async (item) => {
+        const { isConfirmed, value } = await Swal.fire({
+            title: "Discontinue this enrollment?",
+            text: "This is final. The seat is released and any outstanding fee is written off.",
+            input: "text",
+            inputLabel: "Reason",
+            inputPlaceholder: "e.g. moved city",
+            showCancelButton: true,
+            confirmButtonText: "Discontinue",
+            confirmButtonColor: "#e11d48",
+        });
+        if (!isConfirmed) return;
+        await runLifecycle(item, (args) =>
+            discontinueEnrollment({ ...args, reason: (value || "").trim() || undefined })
+        );
+    };
 
     if (enrolledCourses.length === 0) {
         return <p className="text-gray-500">No courses enrolled.</p>;
@@ -103,12 +166,9 @@ const CoursesTab = ({ student }) => {
                                         {/* Status badge */}
                                         {isActive ? (
                                             <span
-                                                className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${status === 'completed'
-                                                        ? 'bg-green-100 text-green-700'
-                                                        : status === 'in-progress'
-                                                            ? 'bg-blue-100 text-blue-700'
-                                                            : 'bg-gray-100 text-gray-700'
-                                                    }`}
+                                                className={`text-[11px] px-2 py-0.5 rounded-full capitalize ${
+                                                    STATUS_BADGE[status] || "bg-gray-100 text-gray-700"
+                                                }`}
                                             >
                                                 {status.replace('-', ' ')}
                                             </span>
@@ -119,16 +179,51 @@ const CoursesTab = ({ student }) => {
                                         )}
                                     </div>
 
-                                    {isActive && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setReassignTarget(item)}
-                                            title="Reassign instructor / course"
-                                            className="shrink-0 inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
-                                        >
-                                            <FiRepeat size={11} />
-                                            Reassign
-                                        </button>
+                                    {isActive && status !== "discontinued" && (
+                                        <div className="flex shrink-0 flex-wrap items-center gap-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setReassignTarget(item)}
+                                                title="Reassign instructor / course"
+                                                className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:border-orange-300 hover:bg-orange-50 hover:text-orange-700"
+                                            >
+                                                <FiRepeat size={11} />
+                                                Reassign
+                                            </button>
+                                            {status === "paused" ? (
+                                                <button
+                                                    type="button"
+                                                    disabled={busyId === item._id}
+                                                    onClick={() => runLifecycle(item, resumeEnrollment)}
+                                                    title="Resume — the due date moves out by the paused days"
+                                                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50 disabled:opacity-50"
+                                                >
+                                                    <FiPlay size={11} />
+                                                    Resume
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    type="button"
+                                                    disabled={busyId === item._id}
+                                                    onClick={() => handlePause(item)}
+                                                    title="Pause — freezes billing, holds the seat"
+                                                    className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:border-amber-300 hover:bg-amber-50 disabled:opacity-50"
+                                                >
+                                                    <FiPause size={11} />
+                                                    Pause
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                disabled={busyId === item._id}
+                                                onClick={() => handleDiscontinue(item)}
+                                                title="Discontinue — final; releases the seat"
+                                                className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px] font-medium text-rose-600 hover:border-rose-300 hover:bg-rose-50 disabled:opacity-50"
+                                            >
+                                                <FiSlash size={11} />
+                                                Discontinue
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 

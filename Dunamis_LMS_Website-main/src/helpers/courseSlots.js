@@ -288,7 +288,6 @@ export const buildInstructorOptions = (
         ""
       ),
       averageRating: teacher?.averageRating || 0,
-      studentCount: teacher?.studentCount || 0,
       teachLanguages:
         teacher?.teacherDetail?.teachLanguages ||
         teacher?.teacherDetail?.language?.teach ||
@@ -332,7 +331,6 @@ export const buildInstructorOptions = (
         ""
       ),
       averageRating: 0,
-      studentCount: 0,
       mode: normalizedSlot.deliveryMode,
       slots: [],
     };

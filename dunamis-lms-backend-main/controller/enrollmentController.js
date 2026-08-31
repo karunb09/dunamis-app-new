@@ -22,6 +22,7 @@ const {
   normalizeMode,
   reassignStudentEnrollment,
   recomputeStudentMode,
+  hasLiveEnrollment,
 } = require("../services/enrollmentService");
 const { getStudentSchedules } = require("../utils/classRoster");
 const { notifyEvent, notifyUsers } = require("../utils/notificationService");
@@ -103,6 +104,15 @@ exports.createOrder = async (req, res) => {
     const student = await Student.findOne({ userId }).populate("userId");
     if (!student) {
       return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    // The pending-order lookup below keys on slot/session/plan, so it cannot
+    // catch a student re-buying the same course on a different slot or plan.
+    if (hasLiveEnrollment(student, courseId)) {
+      return res.status(409).json({
+        success: false,
+        message: "You are already enrolled in this course",
+      });
     }
 
     const context = await loadValidatedEnrollmentContext({
@@ -495,6 +505,21 @@ exports.handleCashfreeWebhook = async (req, res) => {
   }
 };
 
+exports.getCourseEnrollmentStatus = asyncHandler(async (req, res) => {
+  if (!isStudentRequest(req)) return studentOnlyResponse(res);
+
+  const userId = new mongoose.Types.ObjectId(req.user.userId);
+  const student = await Student.findOne({ userId }).select("enrolledCourses");
+  if (!student) {
+    return res.status(404).json({ success: false, message: "Student not found" });
+  }
+
+  return res.status(200).json({
+    success: true,
+    enrolled: hasLiveEnrollment(student, req.params.courseId),
+  });
+});
+
 exports.getEnrolledCourses = asyncHandler(async (req, res) => {
     if (!isStudentRequest(req)) return studentOnlyResponse(res);
 
@@ -825,6 +850,8 @@ exports.adminEnrollStudent = async (req, res) => {
       installmentNo: 1,
       installmentTotal: pricing.installmentTotal,
       installmentAmount: pricing.installmentAmount,
+      courseType: pricing.courseType || "fixed",
+      termMonths: pricing.termMonths ?? null,
       amount: parsedAmount,
       originalAmount: discounted.originalAmount ?? null,
       discountAmount: discounted.discountAmount ?? 0,

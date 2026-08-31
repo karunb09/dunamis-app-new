@@ -7,11 +7,13 @@ const { idParam } = require("../validators/common");
 const {
   needsAttentionQuerySchema,
   listPaymentsQuerySchema,
+  exportPaymentsQuerySchema,
   duesQuerySchema,
   cashInstallmentSchema,
 } = require("../validators/payments.validator");
 const {
   listPayments,
+  exportPayments,
   listDues,
   listNeedsAttention,
   getNeedsAttentionCount,
@@ -25,6 +27,13 @@ const adminOnly = accessToRole(["admin", "superadmin"]);
 // Static segments before the ":id" route so "needs-attention" is never
 // swallowed as an id.
 router.get("/", isAuth, adminOnly, validate(listPaymentsQuerySchema, "query"), listPayments);
+router.get(
+  "/export",
+  isAuth,
+  adminOnly,
+  validate(exportPaymentsQuerySchema, "query"),
+  exportPayments
+);
 router.get(
   "/needs-attention",
   isAuth,

@@ -114,6 +114,13 @@ const paymentTransactionSchema = new mongoose.Schema(
     installmentNo: { type: Number, default: 1 },
     installmentTotal: { type: Number, default: 1 },
     installmentAmount: { type: Number, default: null },
+    // Snapshotted from the course so the dues engine never re-reads it. A
+    // running course keeps billing month-to-month past its tenure.
+    courseType: { type: String, enum: ["fixed", "running"], default: "fixed" },
+    // One level's length (6 months). Independent of the billing cycle — kept
+    // for the "N of 6" display that switches on once levels are enforced.
+    termMonths: { type: Number, default: null },
+    termStartAt: { type: Date, default: null },
     dueDate: { type: Date, default: null },
     amount: { type: Number, required: true, min: 1 },
     currency: { type: String, enum: ["INR"], default: "INR" },
