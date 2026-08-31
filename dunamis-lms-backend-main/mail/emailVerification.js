@@ -12,7 +12,7 @@ const otpTemplate = (otp) => {
 		<title>OTP Verification Email</title>
 		<style>
 			body {
-				background-color:#54F116;;
+				background-color: #fffaf4;
 				font-family: Arial, sans-serif;
 				font-size: 16px;
 				line-height: 1.4;
@@ -20,12 +20,15 @@ const otpTemplate = (otp) => {
 				margin: 0;
 				padding: 0;
 			}
-	
+
 			.container {
 				max-width: 600px;
-				margin: 0 auto;
-				padding: 20px;
+				margin: 32px auto;
+				padding: 32px 24px;
 				text-align: center;
+				background: #ffffff;
+				border-radius: 20px;
+				box-shadow: 0 20px 60px -30px rgba(15, 23, 42, 0.35);
 			}
 	
 			.logo {
@@ -61,9 +64,21 @@ const otpTemplate = (otp) => {
 				color: #999999;
 				margin-top: 20px;
 			}
+
+			.support a {
+				color: #CC3700;
+			}
 	
 			.highlight {
+				display: inline-block;
+				margin: 4px 0 8px;
+				padding: 10px 28px;
+				background-color: #fff1e8;
+				color: #CC3700;
+				border-radius: 12px;
+				font-size: 28px;
 				font-weight: bold;
+				letter-spacing: 0.2em;
 			}
 		</style>
 	

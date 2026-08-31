@@ -104,7 +104,7 @@ async function runAssessmentCycle() {
         const studentName = student.userId?.name
           ? `${student.userId.name.firstName} ${student.userId.name.lastName}`.trim()
           : "A student";
-        const { subject, html } = buildAssessmentDueEmail({
+        const { subject, html, attachments } = buildAssessmentDueEmail({
           studentName,
           courseName: course.name,
           dueDate: normalizedNextDue,
@@ -116,6 +116,7 @@ async function runAssessmentCycle() {
             instructorUser: teacher?.userId,
             subject,
             html,
+            attachments,
           }),
           student.userId?._id
             ? createDashboardNotice({

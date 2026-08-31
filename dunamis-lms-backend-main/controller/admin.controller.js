@@ -76,7 +76,8 @@ exports.createAdmin = asyncHandler(async (req, res) => {
     await mailSender(
       email,
       `Your ${role} Account created`,
-      sendPasswordTemplate(user, role, password)
+      sendPasswordTemplate(user, role, password),
+      sendPasswordTemplate.attachments
     );
 
     user.password = undefined;

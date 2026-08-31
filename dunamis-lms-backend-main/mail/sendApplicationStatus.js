@@ -94,7 +94,7 @@ const sendApplicationStatusTemplate = (firstName, email, status) => {
           margin-top: 20px;
         }
         a {
-          color: #007BFF;
+          color: #CC3700;
           text-decoration: none;
         }
         a:hover {
