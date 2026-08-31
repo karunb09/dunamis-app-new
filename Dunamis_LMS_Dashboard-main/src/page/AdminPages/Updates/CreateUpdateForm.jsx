@@ -222,7 +222,7 @@ const CreateUpdateForm = () => {
               type="text"
               name="specificUsers"
               onChange={handleChange}
-              placeholder="e.g., 63f1ab9a4d3f1c1234abcd12, 63f1ab9a4d3f1c1234abcd13"
+              placeholder="Enter user IDs separated by commas"
               className="w-full border rounded-xl px-4 py-2"
             />
           </div>
@@ -240,8 +240,10 @@ const CreateUpdateForm = () => {
             className="w-full border rounded-xl px-4 py-2"
           />
         </div>
+        </div>
 
         {/* Notification Type */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm mb-1">Notification Type</label>
           <select
@@ -278,7 +280,7 @@ const CreateUpdateForm = () => {
 
         {/* Recurrence Duration */}
         {formData.contentType === "Recurrent" && (
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm mb-1">Recurrence Duration</label>
             <input
               type="text"
@@ -292,7 +294,7 @@ const CreateUpdateForm = () => {
         )}
 
         {/* Mode of Update */}
-        <div className="md:col-span-2">
+        <div>
           <label className="block text-sm mb-1">Mode of Update</label>
           <select
             name="modeOfUpdate"
@@ -306,10 +308,11 @@ const CreateUpdateForm = () => {
             <option value="Both">Both</option>
           </select>
         </div>
+        </div>
 
         {/* Upload Section */}
         <div
-          className="md:col-span-2 border-dashed border-2 rounded-xl p-6 flex flex-col items-center justify-center text-gray-500 w-full"
+          className="md:col-span-2 border-dashed border-2 rounded-xl p-6 flex flex-col items-center justify-center text-gray-500 w-full mt-4"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
@@ -362,7 +365,7 @@ const CreateUpdateForm = () => {
             </div>
           )}
         </div>
-      </div>
+  
 
       {/* Buttons */}
       <div className="flex justify-between items-center mt-6">

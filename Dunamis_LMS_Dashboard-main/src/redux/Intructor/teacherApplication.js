@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getStoredToken } from "../../utils/authSession";
-import { fetchTeachers } from "./teacherSlice";
+import { fetchTeachers, invalidateTeachers } from "./teacherSlice";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 // get all applications
@@ -9,7 +9,7 @@ export const fetchAllApplications = createAsyncThunk(
   async (_, thunkAPI) => {
     try {
       const token = getStoredToken();
-      const res = await fetch(`${BASE_URL}/teacherApplication/get-all`, {
+      const res = await fetch(`${BASE_URL}/teacherApplication/get-all?limit=1000`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         credentials: "include",
       });
@@ -17,10 +17,17 @@ export const fetchAllApplications = createAsyncThunk(
       if (!data.success) {
         throw new Error(data.message || "Failed to fetch applications");
       }
-      return data.data;
+      // pagination carries the true total; data.data is capped by `limit`.
+      return { items: data.data, total: data.pagination?.totalApplications ?? data.data.length };
     } catch (err) {
       return thunkAPI.rejectWithValue(err.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { listStatus } = getState().application;
+      return listStatus === "idle" || listStatus === "failed";
+    },
   }
 );
 
@@ -71,6 +78,8 @@ export const updateApplicationStatus = createAsyncThunk(
         throw new Error(data.message || "Failed to update status");
       }
       if (status === "selected") {
+        // A new teacher was just created server-side, so the cached list is stale.
+        thunkAPI.dispatch(invalidateTeachers());
         thunkAPI.dispatch(fetchTeachers());
       }
       return {
@@ -111,41 +120,52 @@ const applicationSlice = createSlice({
   name: "application",
   initialState: {
     loading: false,
+    listLoading: false,
+    detailLoading: false,
+    listStatus: "idle",
     error: null,
     data: null,
     status: "",
     allApplications: [],
+    totalApplications: 0,
   },
-  reducers: {},
+  reducers: {
+    invalidateApplications: (state) => {
+      state.listStatus = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       // get all
       .addCase(fetchAllApplications.pending, (state) => {
-        state.loading = true;
+        state.listLoading = true;
+        state.listStatus = "loading";
         state.error = null;
       })
       .addCase(fetchAllApplications.fulfilled, (state, action) => {
-        state.loading = false;
-        state.allApplications = action.payload;
+        state.listLoading = false;
+        state.listStatus = "succeeded";
+        state.allApplications = action.payload.items;
+        state.totalApplications = action.payload.total;
       })
       .addCase(fetchAllApplications.rejected, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "failed";
         state.error = action.payload || "Failed to fetch applications";
       })
 
       // get by ID
       .addCase(fetchApplicationById.pending, (state) => {
-        state.loading = true;
+        state.detailLoading = true;
         state.error = null;
-        state.data = null;
       })
       .addCase(fetchApplicationById.fulfilled, (state, action) => {
-        state.loading = false;
+        state.detailLoading = false;
         state.data = action.payload;
         state.status = action.payload.status;
       })
       .addCase(fetchApplicationById.rejected, (state, action) => {
-        state.loading = false;
+        state.detailLoading = false;
         state.error = action.payload || "Error loading application";
       })
 
@@ -177,4 +197,5 @@ const applicationSlice = createSlice({
   },
 });
 
+export const { invalidateApplications } = applicationSlice.actions;
 export default applicationSlice.reducer;

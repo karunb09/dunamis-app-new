@@ -12,7 +12,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { getStoredUser } from "../../../utils/authSession";
-import { getAllBookings, updateBookingStatus } from "../../../redux/DemoBooking/DemoBookingSlice";
+import { getAllBookings, invalidateBookings, updateBookingStatus } from "../../../redux/DemoBooking/DemoBookingSlice";
 import DemoBookingsPanel from "./DemoBookingsPanel";
 import SavingOverlay from "../../../components/SavingOverlay";
 import {
@@ -68,7 +68,7 @@ const liveAreas = [
 const Dashboard = () => {
   const dispatch = useDispatch();
   const authUser = useSelector((state) => state.auth?.user);
-  const { bookings, loading: demoLoading, error: demoError } = useSelector(
+  const { bookings, listLoading: demoLoading, error: demoError } = useSelector(
     (state) => state.demoBookings || {}
   );
   const storedUser = getStoredUser() || {};
@@ -86,6 +86,7 @@ const Dashboard = () => {
   }, [dispatch, teacherId]);
 
   const handleRefreshDemoBookings = () => {
+    dispatch(invalidateBookings());
     dispatch(getAllBookings(teacherId ? { teacherId } : {}));
   };
 
@@ -96,7 +97,6 @@ const Dashboard = () => {
     try {
       await dispatch(updateBookingStatus({ id: bookingId, updatedData: { demoStatus } })).unwrap();
       toast.success(`Demo marked as ${demoStatus}`);
-      dispatch(getAllBookings(teacherId ? { teacherId } : {}));
     } catch (err) {
       toast.error(typeof err === "string" ? err : err?.message || "Failed to update demo status");
     } finally {
@@ -109,7 +109,6 @@ const Dashboard = () => {
     try {
       await dispatch(updateBookingStatus({ id: bookingId, updatedData: { meetingLink } })).unwrap();
       toast.success(meetingLink ? "Class link shared with the student" : "Class link removed");
-      dispatch(getAllBookings(teacherId ? { teacherId } : {}));
     } catch (err) {
       toast.error(
         typeof err === "string" ? err : err?.message || "Failed to save class link"

@@ -252,7 +252,7 @@ const MyStudent = () => {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2.5">
-                          <img src={s.avatar} alt={s.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover object-top" />
+                          <img loading="lazy" decoding="async" src={s.avatar} alt={s.name} className="h-8 w-8 rounded-full border border-slate-200 object-cover object-top" />
                           <span className="font-medium text-slate-800">{s.name}</span>
                         </div>
                       </td>
@@ -290,7 +290,7 @@ const MyStudent = () => {
                     className="rounded-[24px] border border-amber-100 bg-amber-50 p-4 text-left transition hover:shadow-sm"
                   >
                     <div className="mb-2 flex items-center gap-3">
-                      <img src={s.avatar} alt={s.name} className="h-10 w-10 rounded-full border border-slate-200 object-cover object-top" />
+                      <img loading="lazy" decoding="async" src={s.avatar} alt={s.name} className="h-10 w-10 rounded-full border border-slate-200 object-cover object-top" />
                       <p className="font-semibold text-slate-900">{s.name}</p>
                     </div>
                     <div className="flex items-center justify-between text-sm">

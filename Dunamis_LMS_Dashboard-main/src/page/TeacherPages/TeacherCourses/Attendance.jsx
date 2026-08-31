@@ -85,7 +85,7 @@ const formatTime = (value) => {
 const Avatar = ({ name, src }) => {
   if (src)
     return (
-      <img src={src} alt={name} className="h-9 w-9 rounded-full object-cover object-top" />
+      <img src={src} alt={name} loading="lazy" decoding="async" className="h-9 w-9 rounded-full object-cover object-top" />
     );
   return (
     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-700">

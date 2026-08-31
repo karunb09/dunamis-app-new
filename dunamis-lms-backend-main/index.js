@@ -73,6 +73,7 @@ const corsOptions = {
     }
   },
   credentials: true,
+  maxAge: 86400,
 };
 
 const enrollmentRoutes = require("./routes/enrollment.routes");
@@ -177,11 +178,13 @@ app.post(
 // Mounted below the Cashfree webhook so that route keeps its raw body.
 app.use(compression({ threshold: 1024 }));
 
+// Above the body parsers so an OPTIONS preflight short-circuits without them.
+app.use(cors(corsOptions));
+
 // Cap JSON body size to blunt oversized-payload abuse (file uploads use the
 // separate express-fileupload pipeline below, not JSON).
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
-app.use(cors(corsOptions));
 
 // Upload size cap. 300MB is very high for an LMS — kept as the default to avoid
 // breaking existing large uploads, but now tunable via MAX_UPLOAD_MB. Lower this
@@ -198,7 +201,13 @@ app.use(
   })
 );
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    maxAge: "30d",
+    immutable: true,
+  })
+);
 
 app.use("/api/", generalLimiter);
 app.use("/api/v1/user/login", authLimiter);

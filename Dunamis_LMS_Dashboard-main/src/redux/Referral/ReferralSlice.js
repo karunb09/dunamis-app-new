@@ -13,6 +13,12 @@ export const fetchReferrals = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { referralsStatus } = getState().referral;
+      return referralsStatus === "idle" || referralsStatus === "failed";
+    },
   }
 );
 
@@ -42,6 +48,12 @@ export const fetchPartners = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { partnersStatus } = getState().referral;
+      return partnersStatus === "idle" || partnersStatus === "failed";
+    },
   }
 );
 
@@ -87,25 +99,37 @@ export const deletePartner = createAsyncThunk(
 const referralSlice = createSlice({
   name: "referral",
   initialState: {
+    referralsStatus: "idle",
+    partnersStatus: "idle",
     referrals: [],
     partners: [],
     loading: false,
     partnersLoading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    invalidateReferrals: (state) => {
+      state.referralsStatus = "idle";
+    },
+    invalidatePartners: (state) => {
+      state.partnersStatus = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(fetchReferrals.pending, (state) => {
         state.loading = true;
+        state.referralsStatus = "loading";
         state.error = null;
       })
       .addCase(fetchReferrals.fulfilled, (state, action) => {
         state.loading = false;
+        state.referralsStatus = "succeeded";
         state.referrals = action.payload;
       })
       .addCase(fetchReferrals.rejected, (state, action) => {
         state.loading = false;
+        state.referralsStatus = "failed";
         state.error = action.payload;
       })
       .addCase(updateReferralReward.fulfilled, (state, action) => {
@@ -122,13 +146,16 @@ const referralSlice = createSlice({
       })
       .addCase(fetchPartners.pending, (state) => {
         state.partnersLoading = true;
+        state.partnersStatus = "loading";
       })
       .addCase(fetchPartners.fulfilled, (state, action) => {
         state.partnersLoading = false;
+        state.partnersStatus = "succeeded";
         state.partners = action.payload;
       })
       .addCase(fetchPartners.rejected, (state, action) => {
         state.partnersLoading = false;
+        state.partnersStatus = "failed";
         state.error = action.payload;
       })
       .addCase(createPartner.fulfilled, (state, action) => {
@@ -145,4 +172,5 @@ const referralSlice = createSlice({
   },
 });
 
+export const { invalidateReferrals, invalidatePartners } = referralSlice.actions;
 export default referralSlice.reducer;

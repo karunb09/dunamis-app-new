@@ -341,7 +341,7 @@ const CategoryManagement = () => {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-2">
                   {category.icon?.startsWith("http") ? (
-                    <img src={category.icon} alt={category.name} className="w-12 h-12 rounded-2xl object-cover" />
+                    <img src={category.icon} alt={category.name} loading="lazy" decoding="async" className="w-12 h-12 rounded-2xl object-cover" />
                   ) : (
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-xl text-gray-700">{category.icon || "✦"}</span>
                   )}

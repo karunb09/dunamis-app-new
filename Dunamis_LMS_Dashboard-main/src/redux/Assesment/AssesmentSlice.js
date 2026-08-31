@@ -38,6 +38,12 @@ export const fetchTeacherAssessments = createAsyncThunk(
           "Failed to fetch teacher assessments"
       );
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { listStatus } = getState().assessment;
+      return listStatus === "idle" || listStatus === "failed";
+    },
   }
 );
 
@@ -155,6 +161,8 @@ export const fetchAllAssessments = createAsyncThunk(
 const assessmentSlice = createSlice({
   name: "assessment",
   initialState: {
+    listLoading: false,
+    listStatus: "idle",
     teacherAssessments: [],
     studentAssessments: [],
     allAssessments: [],
@@ -164,6 +172,9 @@ const assessmentSlice = createSlice({
     submitError: null,
   },
   reducers: {
+    invalidateTeacherAssessments: (state) => {
+      state.listStatus = "idle";
+    },
     clearError: (state) => {
       state.error = null;
       state.submitError = null;
@@ -173,15 +184,18 @@ const assessmentSlice = createSlice({
     builder
       // Teacher assessments
       .addCase(fetchTeacherAssessments.pending, (state) => {
-        state.loading = true;
+        state.listLoading = true;
+        state.listStatus = "loading";
         state.error = null;
       })
       .addCase(fetchTeacherAssessments.fulfilled, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "succeeded";
         state.teacherAssessments = action.payload;
       })
       .addCase(fetchTeacherAssessments.rejected, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "failed";
         state.error = action.payload || action.error.message;
       })
       // Student assessments
@@ -237,6 +251,6 @@ const assessmentSlice = createSlice({
   },
 });
 
-export const { clearError } = assessmentSlice.actions;
+export const { invalidateTeacherAssessments, clearError } = assessmentSlice.actions;
 
 export default assessmentSlice.reducer;

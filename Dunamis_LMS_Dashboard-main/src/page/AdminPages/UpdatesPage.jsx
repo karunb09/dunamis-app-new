@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { FiFilter, FiPlus, FiSearch } from "react-icons/fi";
 import { LuArrowDownUp } from "react-icons/lu";
 import dayjs from "dayjs";
-import { getAllNotices } from "../../redux/AdminNotice/AdminNoticeSlice";
+import { getAllNotices, invalidateNotices } from "../../redux/AdminNotice/AdminNoticeSlice";
+import RefreshButton from "../../components/RefreshButton";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const SORT_OPTIONS = [
@@ -21,7 +22,7 @@ const ITEMS_PER_PAGE = 12;
 export default function UpdatesPage() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { notices, loading, error } = useSelector((state) => state.notice);
+  const { notices, listLoading: loading, error } = useSelector((state) => state.notice);
 
   const [search, setSearch] = useState("");
   const [sortOption, setSortOption] = useState("date-desc");
@@ -32,6 +33,11 @@ export default function UpdatesPage() {
   const sortRef = useRef(null);
 
   useEffect(() => { dispatch(getAllNotices()); }, [dispatch]);
+
+  const handleRefresh = () => {
+    dispatch(invalidateNotices());
+    dispatch(getAllNotices());
+  };
 
   useEffect(() => {
     const close = (e) => {
@@ -141,6 +147,8 @@ export default function UpdatesPage() {
               </span>
             )}
           </button>
+
+          <RefreshButton onRefresh={handleRefresh} busy={loading} />
 
           <button
             onClick={() => navigate("/admin/updates/create-updates")}

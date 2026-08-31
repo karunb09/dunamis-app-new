@@ -4,12 +4,13 @@ import { FaCheckCircle, FaClock, FaFilter, FaSearch, FaSortAmountDown, FaTrash, 
 import { FiClipboard, FiEdit2 } from "react-icons/fi";
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { fetchTeachers, updateTeacher, deleteTeacher } from '../../../../redux/Intructor/teacherSlice';
+import { fetchTeachers, invalidateTeachers, updateTeacher, deleteTeacher } from '../../../../redux/Intructor/teacherSlice';
 import { updateUser } from '../../../../redux/User/UserSlice';
 import { FiX } from "react-icons/fi";
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
 import Swal from 'sweetalert2';
 import ActionProgressBar from '../../../../components/ActionProgressBar';
+import RefreshButton from '../../../../components/RefreshButton';
 import IconActionButton from '../../../../components/IconActionButton';
 import DataCards from '../../../../components/DataCards';
 import PersonCard from '../../../../components/cards/PersonCard';
@@ -45,7 +46,7 @@ const mapTeacherToInstructor = (teacher) => {
 const Instructor = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
-    const { teachers, loading, error } = useSelector((state) => state.teachers);
+    const { teachers, listLoading, error } = useSelector((state) => state.teachers);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOpen, setSortOpen] = useState(false);
@@ -64,6 +65,11 @@ const Instructor = () => {
     useEffect(() => {
         dispatch(fetchTeachers());
     }, [dispatch]);
+
+    const handleRefresh = () => {
+        dispatch(invalidateTeachers());
+        dispatch(fetchTeachers());
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -169,7 +175,6 @@ const Instructor = () => {
             loadingMessage: `Saving changes for ${row.name}`,
             action: async () => {
                 await dispatch(updateTeacher({ id: row.id, updatedData: payload })).unwrap();
-                await dispatch(fetchTeachers());
             },
             successTitle: 'Instructor updated',
             successText: `${row.name}'s details have been updated.`,
@@ -179,7 +184,7 @@ const Instructor = () => {
             .catch(() => {});
     };
 
-    if (loading) return <p className="py-10 text-center text-slate-500">Loading instructors…</p>;
+    if (listLoading && !teachers.length) return <p className="py-10 text-center text-slate-500">Loading instructors…</p>;
     if (error) return <p className="py-10 text-center text-rose-600">Error: {error}</p>;
 
     return (
@@ -199,6 +204,7 @@ const Instructor = () => {
                     />
                 </div>
                 <div className="flex items-center gap-2">
+                    <RefreshButton onRefresh={handleRefresh} busy={listLoading} />
                     <button
                         type="button"
                         className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
@@ -357,6 +363,7 @@ const Instructor = () => {
                                         loadingMessage: `Applying status change for ${row.name}`,
                                         action: async () => {
                                             await dispatch(updateUser({ id: row.userId, userData: { accountStatus: nextStatus }, token: localStorage.getItem('token') })).unwrap();
+                                            dispatch(invalidateTeachers());
                                             await dispatch(fetchTeachers());
                                         },
                                         successTitle: 'Instructor status updated',
@@ -378,7 +385,6 @@ const Instructor = () => {
                                         loadingMessage: `Deleting ${row.name}`,
                                         action: async () => {
                                             await dispatch(deleteTeacher(row.id)).unwrap();
-                                            await dispatch(fetchTeachers());
                                         },
                                         successTitle: 'Instructor deleted',
                                         successText: `${row.name} has been removed successfully.`,
@@ -424,7 +430,6 @@ const Instructor = () => {
                                         loadingMessage: `Saving salary status for ${row.name}`,
                                         action: async () => {
                                             await dispatch(updateTeacher({ id: row.id, updatedData: { salaryStatus: newStatus } })).unwrap();
-                                            await dispatch(fetchTeachers());
                                         },
                                         successTitle: 'Salary status updated',
                                         successText: `${row.name}'s salary status is now ${newStatus}.`,

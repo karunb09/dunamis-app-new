@@ -46,6 +46,12 @@ export const getAllBookings = createAsyncThunk(
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data || error.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { listStatus } = getState().demoBookings;
+      return listStatus === "idle" || listStatus === "failed";
+    },
   }
 );
 
@@ -72,11 +78,17 @@ export const updateBookingStatus = createAsyncThunk(
 const demoBookingSlice = createSlice({
   name: "demoBookings",
   initialState: {
+    listLoading: false,
+    listStatus: "idle",
     bookings: [],
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    invalidateBookings: (state) => {
+      state.listStatus = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       // Book Demo Slot
@@ -98,14 +110,17 @@ const demoBookingSlice = createSlice({
 
       // Get All Bookings
       .addCase(getAllBookings.pending, (state) => {
-        state.loading = true;
+        state.listLoading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllBookings.fulfilled, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "succeeded";
         state.bookings = Array.isArray(action.payload) ? action.payload : [];
       })
       .addCase(getAllBookings.rejected, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "failed";
         state.error = action.payload;
       })
 
@@ -129,4 +144,5 @@ const demoBookingSlice = createSlice({
   },
 });
 
+export const { invalidateBookings } = demoBookingSlice.actions;
 export default demoBookingSlice.reducer;

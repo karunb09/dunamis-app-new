@@ -38,6 +38,12 @@ export const fetchTeachers = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { listStatus } = getState().teachers;
+      return listStatus === "idle" || listStatus === "failed";
+    },
   }
 );
 
@@ -146,21 +152,31 @@ const teacherSlice = createSlice({
     loadingById: {},    // { [id]: boolean }
     errorById: {},      // { [id]: string | null }
     loading: false,
+    listLoading: false,
+    listStatus: "idle",
     error: null,
+  },
+  reducers: {
+    invalidateTeachers: (state) => {
+      state.listStatus = "idle";
+    },
   },
   extraReducers: (builder) => {
     builder
       // Fetch all teachers
       .addCase(fetchTeachers.pending, (state) => {
-        state.loading = true;
+        state.listLoading = true;
+        state.listStatus = "loading";
         state.error = null;
       })
       .addCase(fetchTeachers.fulfilled, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "succeeded";
         state.teachers = action.payload;
       })
       .addCase(fetchTeachers.rejected, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "failed";
         state.error = action.payload || action.error.message;
       })
 
@@ -288,4 +304,5 @@ const teacherSlice = createSlice({
   },
 });
 
+export const { invalidateTeachers } = teacherSlice.actions;
 export default teacherSlice.reducer;

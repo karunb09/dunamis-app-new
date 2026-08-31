@@ -30,6 +30,12 @@ export const getAllNotices = createAsyncThunk(
     } catch (error) {
       return thunkAPI.rejectWithValue(error.response?.data);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { listStatus } = getState().notice;
+      return listStatus === "idle" || listStatus === "failed";
+    },
   }
 );
 
@@ -89,12 +95,18 @@ export const sendNotice = createAsyncThunk(
 const noticeSlice = createSlice({
   name: "notice",
   initialState: {
+    listLoading: false,
+    listStatus: "idle",
     notices: [],
     notice: null,
     loading: false,
     error: null,
   },
-  reducers: {},
+  reducers: {
+    invalidateNotices: (state) => {
+      state.listStatus = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(createNotice.pending, (state) => {
@@ -110,14 +122,17 @@ const noticeSlice = createSlice({
       })
 
       .addCase(getAllNotices.pending, (state) => {
-        state.loading = true;
+        state.listLoading = true;
+        state.listStatus = "loading";
       })
       .addCase(getAllNotices.fulfilled, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "succeeded";
         state.notices = action.payload.notices || action.payload;
       })
       .addCase(getAllNotices.rejected, (state, action) => {
-        state.loading = false;
+        state.listLoading = false;
+        state.listStatus = "failed";
         state.error = action.payload;
       })
 
@@ -177,4 +192,5 @@ const noticeSlice = createSlice({
   },
 });
 
+export const { invalidateNotices } = noticeSlice.actions;
 export default noticeSlice.reducer;

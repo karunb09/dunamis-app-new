@@ -4,10 +4,12 @@ import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
   fetchAllRequests,
+  invalidateAllRequests,
   updateCourseRequestStatus,
   updateCourseItemStatus,
 } from "../../../redux/courseRequests/courseRequestSlice";
 import DataCards from "../../../components/DataCards";
+import RefreshButton from "../../../components/RefreshButton";
 import PersonCard from "../../../components/cards/PersonCard";
 import SlideOver from "../../../components/SlideOver";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../../utils/resolveImageUrl";
@@ -48,7 +50,7 @@ const getStatusLabel = (req) => {
 
 const CourseRequestsPage = () => {
   const dispatch = useDispatch();
-  const { allRequests, loading } = useSelector((state) => state.courseRequests);
+  const { allRequests, allRequestsLoading } = useSelector((state) => state.courseRequests);
 
   const [filterTab, setFilterTab] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -138,8 +140,13 @@ const CourseRequestsPage = () => {
   };
 
   useEffect(() => {
-    dispatch(fetchAllRequests(filterTab === "all" ? "" : filterTab));
-  }, [dispatch, filterTab]);
+    dispatch(fetchAllRequests());
+  }, [dispatch]);
+
+  const handleRefresh = () => {
+    dispatch(invalidateAllRequests());
+    dispatch(fetchAllRequests());
+  };
 
   const handleUpdateStatus = async (id, newStatus) => {
     const result = await Swal.fire({
@@ -167,6 +174,8 @@ const CourseRequestsPage = () => {
   };
 
   const filtered = allRequests.filter((req) => {
+    // Raw status, not getStatusLabel() — that returns a display string for "mixed".
+    if (filterTab !== "all" && req.status !== filterTab) return false;
     if (!searchTerm.trim()) return true;
     const name = getInstructorName(req).toLowerCase();
     const email = (req.instructor?.userId?.email || "").toLowerCase();
@@ -223,10 +232,13 @@ const CourseRequestsPage = () => {
   return (
     <div className="min-h-screen bg-white p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Admin</p>
-        <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-950">Course Requests</h1>
-        <p className="mt-1 text-sm text-slate-500">Review and approve instructor course requests.</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Admin</p>
+          <h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-slate-950">Course Requests</h1>
+          <p className="mt-1 text-sm text-slate-500">Review and approve instructor course requests.</p>
+        </div>
+        <RefreshButton onRefresh={handleRefresh} busy={allRequestsLoading} />
       </div>
 
       {/* Filter tabs + search */}
@@ -257,7 +269,7 @@ const CourseRequestsPage = () => {
         </div>
       </div>
 
-      {loading ? (
+      {allRequestsLoading && !allRequests.length ? (
         <div className="flex min-h-[200px] items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-slate-900" />
         </div>

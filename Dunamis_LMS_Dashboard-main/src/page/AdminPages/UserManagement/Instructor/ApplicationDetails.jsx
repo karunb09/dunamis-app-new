@@ -36,7 +36,7 @@ const ApplicationDetails = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const { data: application, loading, error, status } = useSelector(
+    const { data: application, detailLoading: loading, error, status } = useSelector(
         (state) => state.application
     );
 

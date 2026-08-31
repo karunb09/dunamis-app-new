@@ -55,6 +55,8 @@ const PersonCard = ({
                         <img
                             src={avatarSrc}
                             alt={name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-11 w-11 rounded-2xl object-cover object-top"
                             onError={(e) => {
                                 e.target.onerror = null;

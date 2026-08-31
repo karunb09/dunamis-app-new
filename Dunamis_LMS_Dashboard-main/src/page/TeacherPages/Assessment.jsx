@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   fetchTeacherAssessments,
   submitAssessment,
+  invalidateTeacherAssessments,
 } from "../../redux/Assesment/AssesmentSlice";
 
 const formatDate = (isoString) => {
@@ -40,7 +41,7 @@ const Assessment = () => {
 
   const {
     teacherAssessments,
-    loading,
+    listLoading: loading,
     error,
     submitLoading,
     submitError,
@@ -101,6 +102,7 @@ const Assessment = () => {
         })
       ).unwrap();
 
+      dispatch(invalidateTeacherAssessments());
       dispatch(fetchTeacherAssessments());
 
       setFormData({

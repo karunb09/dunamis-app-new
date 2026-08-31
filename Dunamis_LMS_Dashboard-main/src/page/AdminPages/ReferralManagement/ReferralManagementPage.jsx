@@ -7,8 +7,11 @@ import { FiPlus, FiX } from "react-icons/fi";
 import PageTabBar from "../../../components/PageTabBar";
 import DataCards from "../../../components/DataCards";
 import PersonCard from "../../../components/cards/PersonCard";
+import RefreshButton from "../../../components/RefreshButton";
 import {
     fetchReferrals,
+    invalidateReferrals,
+    invalidatePartners,
     updateReferralReward,
     fetchPartners,
     createPartner,
@@ -64,6 +67,13 @@ const ReferralManagementPage = () => {
         dispatch(fetchReferrals());
         dispatch(fetchPartners());
     }, [dispatch]);
+
+    const handleRefresh = () => {
+        dispatch(invalidateReferrals());
+        dispatch(invalidatePartners());
+        dispatch(fetchReferrals());
+        dispatch(fetchPartners());
+    };
 
     const filteredReferrals = useMemo(() => {
         const term = searchTerm.trim().toLowerCase();
@@ -227,12 +237,15 @@ const ReferralManagementPage = () => {
 
     return (
         <div className="p-6 space-y-6">
-            <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Referral Management</p>
-                <h1 className="mt-1 text-2xl font-bold text-slate-900">Referrals & Freelancers</h1>
-                <p className="mt-1 text-sm text-slate-500">
-                    Track referral codes entered by students at payment and manage freelancer codes.
-                </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Referral Management</p>
+                    <h1 className="mt-1 text-2xl font-bold text-slate-900">Referrals & Freelancers</h1>
+                    <p className="mt-1 text-sm text-slate-500">
+                        Track referral codes entered by students at payment and manage freelancer codes.
+                    </p>
+                </div>
+                <RefreshButton onRefresh={handleRefresh} busy={loading || partnersLoading} />
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -286,7 +299,7 @@ const ReferralManagementPage = () => {
             {error && <p className="text-sm text-rose-600">{error}</p>}
 
             {activeTab === "Referrals" ? (
-                loading ? (
+                loading && !referrals.length ? (
                     <p className="text-sm text-slate-500">Loading referrals...</p>
                 ) : (
                     <DataCards
@@ -320,7 +333,7 @@ const ReferralManagementPage = () => {
                         )}
                     />
                 )
-            ) : partnersLoading ? (
+            ) : partnersLoading && !partners.length ? (
                 <p className="text-sm text-slate-500">Loading freelancers...</p>
             ) : (
                 <DataCards

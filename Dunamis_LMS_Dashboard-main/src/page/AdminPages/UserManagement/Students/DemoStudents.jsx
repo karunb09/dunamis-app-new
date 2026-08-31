@@ -4,12 +4,13 @@ import toast from "react-hot-toast";
 import { FaSearch, FaFilter, FaList, FaSortAmountDown, FaTh } from "react-icons/fa";
 import { FiClipboard, FiCopy, FiExternalLink, FiX } from "react-icons/fi";
 import dayjs from "dayjs";
-import { getAllBookings, updateBookingStatus } from "../../../../redux/DemoBooking/DemoBookingSlice";
+import { getAllBookings, invalidateBookings, updateBookingStatus } from "../../../../redux/DemoBooking/DemoBookingSlice";
 import DataCards from "../../../../components/DataCards";
 import DataTable from "../../../../components/Table";
 import PersonCard from "../../../../components/cards/PersonCard";
 import RowActionsMenu from "../../../../components/RowActionsMenu";
 import ExportMenu from "../../../../components/ExportMenu";
+import RefreshButton from "../../../../components/RefreshButton";
 import SavingOverlay from "../../../../components/SavingOverlay";
 import usePersistedState from "../../../../hooks/usePersistedState";
 import { exportToExcel } from "../../../../utils/exportToExcel";
@@ -216,7 +217,7 @@ const BookingLinkField = ({ booking, saving, onCommit }) => {
 
 const DemoStudents = () => {
     const dispatch = useDispatch();
-    const { bookings, loading, error } = useSelector((state) => state.demoBookings);
+    const { bookings, listLoading: loading, error } = useSelector((state) => state.demoBookings);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
@@ -247,7 +248,6 @@ const DemoStudents = () => {
         try {
             await dispatch(updateBookingStatus({ id, updatedData: { [key]: value } })).unwrap();
             toast.success("Updated successfully!");
-            dispatch(getAllBookings());
         } catch (err) {
             toast.error(typeof err === "string" ? err : err?.message || "Update failed!");
         } finally {
@@ -589,6 +589,13 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                             </span>
                         )}
                     </button>
+                    <RefreshButton
+                        onRefresh={() => {
+                            dispatch(invalidateBookings());
+                            dispatch(getAllBookings());
+                        }}
+                        busy={loading}
+                    />
                     <ExportMenu
                         onExportAll={() => runExport(filteredStudents)}
                         onExportSelected={() => runExport(selectedRows)}

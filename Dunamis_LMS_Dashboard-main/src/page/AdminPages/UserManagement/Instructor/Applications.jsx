@@ -6,8 +6,10 @@ import { useNavigate } from "react-router-dom";
 import {
     deleteApplication,
     fetchAllApplications,
+    invalidateApplications,
     updateApplicationStatus,
 } from "../../../../redux/Intructor/teacherApplication";
+import RefreshButton from "../../../../components/RefreshButton";
 import CredentialModal from "./CredentialModal";
 import { FaFilter, FaSearch, FaSortAmountDown, FaTrash } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
@@ -53,7 +55,7 @@ const getFullName = (name) =>
 const Applications = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
-    const { allApplications, loading, error } = useSelector((state) => state.application);
+    const { allApplications, totalApplications, listLoading, error } = useSelector((state) => state.application);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [sortOpen, setSortOpen] = useState(false);
@@ -70,6 +72,11 @@ const Applications = () => {
     useEffect(() => {
         dispatch(fetchAllApplications());
     }, [dispatch]);
+
+    const handleRefresh = () => {
+        dispatch(invalidateApplications());
+        dispatch(fetchAllApplications());
+    };
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -179,7 +186,7 @@ const Applications = () => {
     };
 
     const stats = [
-        { label: "Total Applications", value: allApplications.length, tone: "from-slate-900 to-slate-700 text-white" },
+        { label: "Total Applications", value: totalApplications, tone: "from-slate-900 to-slate-700 text-white" },
         { label: "New", value: allApplications.filter((app) => app.status === "new").length, tone: "from-sky-100 to-white text-slate-900" },
         { label: "Shortlisted", value: allApplications.filter((app) => app.status === "shortlisted").length, tone: "from-amber-100 to-white text-slate-900" },
         { label: "Selected", value: allApplications.filter((app) => app.status === "selected").length, tone: "from-emerald-100 to-white text-slate-900" },
@@ -187,7 +194,7 @@ const Applications = () => {
 
     return (
         <div className="p-4">
-            {loading ? (
+            {listLoading && !allApplications.length ? (
                 <p className="py-10 text-center text-slate-500">Loading applications…</p>
             ) : (
                 <div className="space-y-6">
@@ -219,6 +226,7 @@ const Applications = () => {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3">
+                                <RefreshButton onRefresh={handleRefresh} busy={listLoading} />
                                 <div className="relative" ref={dropdownRef}>
                                     <button
                                         onClick={() => setSortOpen(!sortOpen)}

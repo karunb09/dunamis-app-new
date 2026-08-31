@@ -52,12 +52,13 @@ export const fetchMyRequests = createAsyncThunk(
   }
 );
 
+// Unfiltered: the status tabs filter client-side, so the whole list is fetched
+// once and reused. Argument-free, which is what makes the cache guard safe.
 export const fetchAllRequests = createAsyncThunk(
   "courseRequests/fetchAll",
-  async (status = "", { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const qs = status ? `?status=${status}` : "";
-      const res = await fetch(`${BASE_URL}/course-requests${qs}`, {
+      const res = await fetch(`${BASE_URL}/course-requests`, {
         headers: jsonHeaders(),
         credentials: "include",
       });
@@ -67,6 +68,12 @@ export const fetchAllRequests = createAsyncThunk(
     } catch (err) {
       return rejectWithValue(err.message);
     }
+  },
+  {
+    condition: (_arg, { getState }) => {
+      const { allRequestsStatus } = getState().courseRequests;
+      return allRequestsStatus === "idle" || allRequestsStatus === "failed";
+    },
   }
 );
 
@@ -114,9 +121,15 @@ const courseRequestSlice = createSlice({
     myRequests: [],
     allRequests: [],
     loading: false,
+    allRequestsLoading: false,
+    allRequestsStatus: "idle",
     error: null,
   },
-  reducers: {},
+  reducers: {
+    invalidateAllRequests: (state) => {
+      state.allRequestsStatus = "idle";
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(submitCourseRequest.pending, (state) => { state.loading = true; state.error = null; })
@@ -130,9 +143,21 @@ const courseRequestSlice = createSlice({
       .addCase(fetchMyRequests.fulfilled, (state, action) => { state.loading = false; state.myRequests = action.payload; })
       .addCase(fetchMyRequests.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
 
-      .addCase(fetchAllRequests.pending, (state) => { state.loading = true; state.error = null; })
-      .addCase(fetchAllRequests.fulfilled, (state, action) => { state.loading = false; state.allRequests = action.payload; })
-      .addCase(fetchAllRequests.rejected, (state, action) => { state.loading = false; state.error = action.payload; })
+      .addCase(fetchAllRequests.pending, (state) => {
+        state.allRequestsLoading = true;
+        state.allRequestsStatus = "loading";
+        state.error = null;
+      })
+      .addCase(fetchAllRequests.fulfilled, (state, action) => {
+        state.allRequestsLoading = false;
+        state.allRequestsStatus = "succeeded";
+        state.allRequests = action.payload;
+      })
+      .addCase(fetchAllRequests.rejected, (state, action) => {
+        state.allRequestsLoading = false;
+        state.allRequestsStatus = "failed";
+        state.error = action.payload;
+      })
 
       .addCase(updateCourseRequestStatus.fulfilled, (state, action) => {
         const { id, status, adminNotes } = action.payload;
@@ -153,4 +178,5 @@ const courseRequestSlice = createSlice({
   },
 });
 
+export const { invalidateAllRequests } = courseRequestSlice.actions;
 export default courseRequestSlice.reducer;
