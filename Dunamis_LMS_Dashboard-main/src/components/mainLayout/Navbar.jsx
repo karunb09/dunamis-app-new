@@ -172,19 +172,23 @@ const Navigation = ({ onMenuClick }) => {
       return true;
     });
 
-    const capitalizedTitle = filteredPath
-      .map((segment) =>
-        segment
-          .replace(/-/g, " ")
-          .replace(/_/g, " ")
-          .replace(/\b\w/g, (char) => char.toUpperCase())
-      )
-      .join(" ");
+    const titleCase = (segment) =>
+      segment
+        .replace(/-/g, " ")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (char) => char.toUpperCase());
 
-    return capitalizedTitle || "Dashboard";
+    // Only the leaf segment is the page. Joining the whole path produced
+    // titles like "Student Management Students", which just truncate on mobile.
+    const leaf = filteredPath[filteredPath.length - 1];
+
+    return {
+      title: leaf ? titleCase(leaf) : "Dashboard",
+      parents: filteredPath.slice(0, -1).map(titleCase),
+    };
   };
 
-  const title = generateTitle(location.pathname);
+  const { title, parents: titleParents } = generateTitle(location.pathname);
 
   const HOME_PATHS = new Set(["/", "/admin", "/teacher"]);
   const showBackButton = !HOME_PATHS.has(location.pathname);
@@ -484,8 +488,8 @@ const Navigation = ({ onMenuClick }) => {
           {showBackButton && <BackButton />}
 
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              {roleLabel}
+            <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+              {[roleLabel, ...titleParents].join(" · ")}
             </p>
             <h1 className="truncate text-lg font-semibold text-slate-900 sm:text-2xl">
               {title}
