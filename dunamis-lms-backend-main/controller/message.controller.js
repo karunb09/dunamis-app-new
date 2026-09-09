@@ -138,6 +138,115 @@ exports.getUnreadCount = asyncHandler(async (req, res) => {
   res.status(200).json({ success: true, unread: result?.unread || 0 });
 });
 
+// Who the caller may start a thread with — the same pairs isTeachingPair
+// accepts, so the picker can never offer something the create call refuses.
+exports.listContacts = asyncHandler(async (req, res) => {
+  const role = callerRole(req);
+  if (role === "admin") {
+    return res.status(200).json({ success: true, contacts: [] });
+  }
+
+  const roleId = new mongoose.Types.ObjectId(String(req.user.roleId));
+
+  const rosters = await ClassRoster.find(
+    role === "student"
+      ? { students: { $elemMatch: { studentId: roleId, status: { $ne: "removed" } } } }
+      : { teacherId: roleId }
+  )
+    .populate("courseId", "name code")
+    .populate({
+      path: "teacherId",
+      select: "userId",
+      populate: { path: "userId", select: "name image" },
+    })
+    .lean();
+
+  const pairs = new Map();
+  const add = ({ studentId, teacherId, teacherUser, courseId, courseName, courseCode }) => {
+    const key = `${toId(studentId)}|${toId(teacherId)}|${toId(courseId)}`;
+    if (!pairs.has(key)) {
+      pairs.set(key, {
+        studentId: toId(studentId),
+        teacherId: toId(teacherId),
+        teacherName: formatUserName(teacherUser?.name, "Instructor"),
+        teacherImage: teacherUser?.image || null,
+        courseId: toId(courseId),
+        courseName: courseName || "Course",
+        courseCode: courseCode || "",
+      });
+    }
+  };
+
+  if (role === "student") {
+    rosters.forEach((roster) =>
+      add({
+        studentId: roleId,
+        teacherId: roster.teacherId?._id,
+        teacherUser: roster.teacherId?.userId,
+        courseId: roster.courseId?._id,
+        courseName: roster.courseId?.name,
+        courseCode: roster.courseId?.code,
+      })
+    );
+  } else {
+    const studentIds = [
+      ...new Set(
+        rosters.flatMap((roster) =>
+          (roster.students || [])
+            .filter((member) => member.status !== "removed")
+            .map((member) => toId(member.studentId))
+        )
+      ),
+    ];
+    const students = await Student.find({ _id: { $in: studentIds } })
+      .select("userId")
+      .populate("userId", "name image")
+      .lean();
+    const studentById = new Map(students.map((item) => [toId(item._id), item]));
+
+    rosters.forEach((roster) =>
+      (roster.students || [])
+        .filter((member) => member.status !== "removed")
+        .forEach((member) =>
+          add({
+            studentId: member.studentId,
+            teacherId: roleId,
+            teacherUser: null,
+            courseId: roster.courseId?._id,
+            courseName: roster.courseId?.name,
+            courseCode: roster.courseId?.code,
+          })
+        )
+    );
+
+    pairs.forEach((pair) => {
+      const student = studentById.get(pair.studentId);
+      pair.studentName = formatUserName(student?.userId?.name, "Learner");
+      pair.studentImage = student?.userId?.image || null;
+    });
+  }
+
+  // So the picker can open an existing thread instead of offering a duplicate.
+  const existing = await Conversation.find(
+    role === "student" ? { studentId: roleId } : { teacherId: roleId }
+  )
+    .select("studentId teacherId courseId")
+    .lean();
+  const existingByKey = new Map(
+    existing.map((item) => [
+      `${toId(item.studentId)}|${toId(item.teacherId)}|${toId(item.courseId)}`,
+      toId(item._id),
+    ])
+  );
+
+  const contacts = [...pairs.entries()].map(([key, pair]) => ({
+    ...pair,
+    conversationId: existingByKey.get(key) || null,
+  }));
+
+  res.status(200).json({ success: true, count: contacts.length, contacts });
+});
+
 exports.resolveConversation = asyncHandler(async (req, res) => {
   const role = callerRole(req);
   if (role === "admin") {

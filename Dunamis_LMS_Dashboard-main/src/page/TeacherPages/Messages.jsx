@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { toast } from "react-hot-toast";
-import { FiMessageSquare, FiSend } from "react-icons/fi";
+import { FiMessageSquare, FiPlus, FiSend } from "react-icons/fi";
 import {
+  useContacts,
   useConversations,
   useMarkRead,
   useSendMessage,
+  useStartConversation,
   useThread,
 } from "../../hooks/useMessages";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../utils/resolveImageUrl";
@@ -23,11 +25,36 @@ const timeLabel = (value) => {
 const Messages = () => {
   const [activeId, setActiveId] = useState(null);
   const [draft, setDraft] = useState("");
+  const [picking, setPicking] = useState(false);
   const scrollRef = useRef(null);
 
   const { data, isLoading, isError, error } = useConversations();
+  const { data: contactData } = useContacts();
+  const startConversation = useStartConversation();
   const conversations = data?.conversations || [];
+  const contacts = contactData?.contacts || [];
   const active = conversations.find((item) => item._id === activeId) || null;
+
+  // Resolve-or-create: a learner the instructor already has a thread with opens
+  // that thread rather than a second one.
+  const startWith = async (contact) => {
+    if (contact.conversationId) {
+      setPicking(false);
+      setActiveId(contact.conversationId);
+      return;
+    }
+
+    try {
+      const result = await startConversation.mutateAsync({
+        studentId: contact.studentId,
+        courseId: contact.courseId,
+      });
+      setPicking(false);
+      setActiveId(result.conversation._id);
+    } catch (err) {
+      toast.error(err.message || "Could not start that conversation");
+    }
+  };
 
   const { data: threadData, isLoading: threadLoading } = useThread(activeId);
   const sendMessage = useSendMessage(activeId);
@@ -85,6 +112,45 @@ const Messages = () => {
 
       <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
         <aside className="rounded-3xl border border-slate-200 bg-white p-2">
+          {contacts.length > 0 && (
+            <div className="p-1">
+              <button
+                type="button"
+                onClick={() => setPicking((open) => !open)}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-200 px-3 py-2.5 text-sm font-semibold text-orange-600 transition hover:bg-orange-50"
+              >
+                <FiPlus />
+                {picking ? "Close" : "New message"}
+              </button>
+
+              {picking && (
+                <div className="mt-2 grid max-h-64 gap-1.5 overflow-y-auto border-b border-slate-100 pb-3">
+                  {contacts.map((contact) => (
+                    <button
+                      key={`${contact.studentId}-${contact.courseId}`}
+                      type="button"
+                      onClick={() => startWith(contact)}
+                      disabled={startConversation.isPending}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 px-3 py-2.5 text-left transition hover:border-orange-200 hover:bg-orange-50/60 disabled:opacity-50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-900">
+                          {contact.studentName}
+                        </span>
+                        <span className="block truncate text-xs text-slate-500">
+                          {contact.courseName}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs font-semibold text-orange-600">
+                        {contact.conversationId ? "Open" : "Message"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {isLoading ? (
             <div className="space-y-2 p-2">
               <div className="h-16 animate-pulse rounded-2xl bg-slate-100" />
@@ -94,7 +160,9 @@ const Messages = () => {
             <div className="flex flex-col items-center gap-2 px-4 py-12 text-center text-slate-400">
               <FiMessageSquare className="text-2xl" />
               <p className="text-sm">
-                Nothing here yet — a thread appears when a learner messages you.
+                {contacts.length
+                  ? "Nothing here yet — start a thread with one of your learners above."
+                  : "Nothing here yet — threads appear once you have learners on a roster."}
               </p>
             </div>
           ) : (

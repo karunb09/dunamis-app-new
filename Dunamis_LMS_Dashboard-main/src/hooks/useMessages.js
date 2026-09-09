@@ -4,6 +4,7 @@ import * as api from "../api/messagesApi";
 export const messageKeys = {
   all: ["messages"],
   conversations: ["messages", "conversations"],
+  contacts: ["messages", "contacts"],
   unread: ["messages", "unread"],
   thread: (id) => ["messages", "thread", id],
 };
@@ -18,6 +19,22 @@ export function useConversations() {
     queryFn: api.fetchConversations,
     refetchInterval: pollWhileVisible(30_000),
     staleTime: 15_000,
+  });
+}
+
+export function useContacts() {
+  return useQuery({
+    queryKey: messageKeys.contacts,
+    queryFn: api.fetchContacts,
+    staleTime: 120_000,
+  });
+}
+
+export function useStartConversation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.startConversation,
+    onSettled: () => queryClient.invalidateQueries({ queryKey: messageKeys.all }),
   });
 }
 

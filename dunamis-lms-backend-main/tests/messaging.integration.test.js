@@ -151,6 +151,51 @@ const openThread = async () => {
   return res.payload.conversation;
 };
 
+test("a learner's contacts are the instructors who teach them", async () => {
+  const res = await run(controller.listContacts, asStudent(student));
+
+  assert.equal(res.payload.count, 1);
+  const [contact] = res.payload.contacts;
+  assert.equal(contact.teacherId, String(teacher._id));
+  assert.equal(contact.teacherName, "Nidhi Instructor");
+  assert.equal(contact.courseName, "Carnatic Vocals");
+  assert.equal(contact.conversationId, null, "no thread exists yet");
+});
+
+test("an instructor's contacts are the learners on their roster", async () => {
+  const res = await run(controller.listContacts, asTeacher(teacher));
+
+  assert.equal(res.payload.count, 1);
+  assert.equal(res.payload.contacts[0].studentName, "Asha Learner");
+  assert.equal(res.payload.contacts[0].studentId, String(student._id));
+});
+
+test("a contact points at its thread once one exists", async () => {
+  const conversation = await openThread();
+  const res = await run(controller.listContacts, asStudent(student));
+
+  assert.equal(res.payload.contacts[0].conversationId, String(conversation._id));
+});
+
+test("contacts never offer a pair the create call would refuse", async () => {
+  const res = await run(controller.listContacts, asStudent(otherStudent));
+
+  assert.equal(res.payload.count, 0, "this learner is on no roster");
+});
+
+test("a removed roster member is not a contact", async () => {
+  await ClassRoster.updateOne(
+    { teacherId: teacher._id },
+    { $set: { "students.0.status": "removed" } }
+  );
+
+  const forStudent = await run(controller.listContacts, asStudent(student));
+  const forTeacher = await run(controller.listContacts, asTeacher(teacher));
+
+  assert.equal(forStudent.payload.count, 0);
+  assert.equal(forTeacher.payload.count, 0);
+});
+
 test("a learner can open a thread with an instructor who teaches them", async () => {
   const res = await run(
     controller.resolveConversation,

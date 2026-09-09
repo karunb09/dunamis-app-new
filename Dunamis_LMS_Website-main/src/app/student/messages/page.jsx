@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { HiChatAlt2, HiPaperAirplane } from "react-icons/hi";
+import { HiChatAlt2, HiPaperAirplane, HiPlus } from "react-icons/hi";
 import StudentShell from "@/components/student/StudentShell";
 import { getWebsiteToken } from "@/lib/authSession";
 import { API_BASE } from "@/lib/apiBase";
@@ -10,6 +10,25 @@ import { API_BASE } from "@/lib/apiBase";
 // Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
 const BASE_URL = API_BASE;
 const POLL_MS = 15000;
+
+const ContactRow = ({ contact, busy, onSelect }) => (
+  <button
+    type="button"
+    onClick={onSelect}
+    disabled={busy}
+    className="flex w-full items-center justify-between gap-3 rounded-2xl border border-stone-200 px-4 py-3 text-left transition hover:border-orange-200 hover:bg-orange-50/60 disabled:opacity-50"
+  >
+    <span className="min-w-0">
+      <span className="block truncate text-sm font-semibold text-slate-950">
+        {contact.teacherName}
+      </span>
+      <span className="block truncate text-xs text-slate-500">{contact.courseName}</span>
+    </span>
+    <span className="shrink-0 text-xs font-semibold text-orange-600">
+      {busy ? "Opening..." : contact.conversationId ? "Open" : "Message"}
+    </span>
+  </button>
+);
 
 const timeLabel = (value) => {
   const date = value ? new Date(value) : null;
@@ -28,11 +47,14 @@ const timeLabel = (value) => {
 export default function StudentMessagesPage() {
   const authToken = useSelector((state) => state.auth?.token);
   const [conversations, setConversations] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [starting, setStarting] = useState("");
+  const [picking, setPicking] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef(null);
 
@@ -73,6 +95,39 @@ export default function StudentMessagesPage() {
     }
   }, [request]);
 
+  const loadContacts = useCallback(async () => {
+    try {
+      const data = await request("/contacts");
+      setContacts(data.contacts || []);
+    } catch {
+      // The picker is optional — a failure here must not blank the thread list.
+    }
+  }, [request]);
+
+  // Resolve-or-create: an instructor the learner already has a thread with
+  // reuses it rather than opening a second one.
+  const startWith = async (contact) => {
+    const key = `${contact.teacherId}|${contact.courseId}`;
+    setStarting(key);
+    try {
+      const data = await request("/conversations", {
+        method: "POST",
+        body: JSON.stringify({
+          teacherId: contact.teacherId,
+          courseId: contact.courseId,
+        }),
+      });
+      setPicking(false);
+      await loadConversations();
+      await loadContacts();
+      setActiveId(data.conversation._id);
+    } catch (err) {
+      setError(err.message || "Could not start that conversation.");
+    } finally {
+      setStarting("");
+    }
+  };
+
   const loadThread = useCallback(
     async (conversationId) => {
       if (!conversationId) return;
@@ -88,7 +143,8 @@ export default function StudentMessagesPage() {
 
   useEffect(() => {
     loadConversations();
-  }, [loadConversations]);
+    loadContacts();
+  }, [loadConversations, loadContacts]);
 
   useEffect(() => {
     if (!activeId && conversations.length) setActiveId(conversations[0]._id);
@@ -164,14 +220,66 @@ export default function StudentMessagesPage() {
         <div className="rounded-[2rem] border border-orange-100 bg-white p-10 text-center">
           <HiChatAlt2 className="mx-auto h-8 w-8 text-orange-400" />
           <h2 className="mt-3 text-lg font-bold text-slate-950">No conversations yet</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Once you are enrolled in a class, your instructor can start a thread
-            here — and you can reply any time, during class or after.
-          </p>
+          {contacts.length === 0 ? (
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
+              Once you are enrolled in a class, your instructor appears here and
+              you can message them any time — during class or after.
+            </p>
+          ) : (
+            <>
+              <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">
+                Message an instructor about a class, homework, or anything you
+                missed.
+              </p>
+              <div className="mx-auto mt-6 grid max-w-lg gap-2">
+                {contacts.map((contact) => (
+                  <ContactRow
+                    key={`${contact.teacherId}-${contact.courseId}`}
+                    contact={contact}
+                    busy={starting === `${contact.teacherId}|${contact.courseId}`}
+                    onSelect={() => startWith(contact)}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
           <aside className="rounded-[2rem] border border-orange-100 bg-white p-2">
+            {contacts.length > 0 ? (
+              <div className="p-1">
+                <button
+                  type="button"
+                  onClick={() => setPicking((open) => !open)}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-200 px-3 py-2.5 text-sm font-semibold text-orange-700 transition hover:bg-orange-50"
+                >
+                  <HiPlus className="h-4 w-4" />
+                  {picking ? "Close" : "New message"}
+                </button>
+
+                {picking ? (
+                  <div className="mt-2 grid gap-1.5 border-b border-stone-100 pb-3">
+                    {contacts.map((contact) => (
+                      <ContactRow
+                        key={`${contact.teacherId}-${contact.courseId}`}
+                        contact={contact}
+                        busy={starting === `${contact.teacherId}|${contact.courseId}`}
+                        onSelect={() => {
+                          if (contact.conversationId) {
+                            setPicking(false);
+                            setActiveId(contact.conversationId);
+                            return;
+                          }
+                          startWith(contact);
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <ul className="max-h-[60vh] space-y-1 overflow-y-auto">
               {conversations.map((item) => (
                 <li key={item._id}>

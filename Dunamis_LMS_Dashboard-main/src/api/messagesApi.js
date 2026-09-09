@@ -20,6 +20,26 @@ export async function fetchConversations() {
   }
 }
 
+// Who the caller may start a thread with — the picker never offers a pair the
+// create call would refuse.
+export async function fetchContacts() {
+  try {
+    const { data } = await axios.get("/messages/contacts");
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to load contacts");
+  }
+}
+
+export async function startConversation(body) {
+  try {
+    const { data } = await axios.post("/messages/conversations", body);
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to start the conversation");
+  }
+}
+
 export async function fetchUnreadCount() {
   try {
     const { data } = await axios.get("/messages/unread-count");

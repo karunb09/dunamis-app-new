@@ -11,6 +11,7 @@ const {
 } = require("../validators/message.validator");
 const {
   listConversations,
+  listContacts,
   getUnreadCount,
   resolveConversation,
   listMessages,
@@ -28,6 +29,7 @@ const participantsAndAdmins = accessToRole([
 
 router.get("/conversations", isAuth, participantsAndAdmins, listConversations);
 router.get("/unread-count", isAuth, participantsAndAdmins, getUnreadCount);
+router.get("/contacts", isAuth, participantsAndAdmins, listContacts);
 router.post(
   "/conversations",
   isAuth,
