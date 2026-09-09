@@ -65,8 +65,11 @@ const FinancialPage = () => {
   ];
 
   const changeTab = (id) => {
-    // Drop the deep-link filters when the user navigates by hand.
-    setSearchParams(id === "needs-attention" ? {} : { tab: id });
+    // Replacing the whole param set drops the deep-link filters (?month, ?status)
+    // the user may have arrived with. Needs-attention used to clear them by
+    // writing no params at all, which left ?tab unset — and an unset tab falls
+    // back to Transactions, so that tab could never be opened by clicking it.
+    setSearchParams({ tab: id });
   };
 
   return (
