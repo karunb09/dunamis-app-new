@@ -97,6 +97,7 @@ const adminNoticeRoutes = require("./routes/adminNotice.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
 const remunerationRoutes = require("./routes/remuneration.routes");
 const instructorRateRoutes = require("./routes/instructorRate.routes");
+const messageRoutes = require("./routes/message.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
@@ -241,6 +242,7 @@ app.use("/api/v1/adminNotice", adminNoticeRoutes);
 app.use("/api/v1/feedback", feedbackRoutes);
 app.use("/api/v1/remuneration", remunerationRoutes);
 app.use("/api/v1/instructor-rates", instructorRateRoutes);
+app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/assignment", assignmentRoutes);
 app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);
