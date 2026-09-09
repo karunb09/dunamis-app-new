@@ -8,9 +8,17 @@ import { useNeedsAttentionCount, paymentKeys } from "../../hooks/usePayments";
 import NeedsAttentionTab from "./Financials/NeedsAttentionTab";
 import TransactionsTab from "./Financials/TransactionsTab";
 import DuesTab from "./Financials/DuesTab";
+import InstructorPayTab from "./Financials/InstructorPayTab";
+import RateCardTab from "./Financials/RateCardTab";
 import { Pill } from "./Financials/financeUi";
 
-const TAB_IDS = ["needs-attention", "transactions", "dues"];
+const TAB_IDS = [
+  "needs-attention",
+  "transactions",
+  "dues",
+  "instructor-pay",
+  "rate-card",
+];
 
 const FinancialPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,7 +59,9 @@ const FinancialPage = () => {
           {critical > 0 && <Pill tone="rose">{critical}</Pill>}
         </span>
       ),
-    }
+    },
+    { id: "instructor-pay", label: "Instructor pay" },
+    { id: "rate-card", label: "Rate card" },
   ];
 
   const changeTab = (id) => {
@@ -85,6 +95,8 @@ const FinancialPage = () => {
         <TransactionsTab key={searchParams.toString()} initialFilters={initialFilters} />
       )}
       {activeTab === "dues" && <DuesTab />}
+      {activeTab === "instructor-pay" && <InstructorPayTab />}
+      {activeTab === "rate-card" && <RateCardTab />}
     </div>
   );
 };
