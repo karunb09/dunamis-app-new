@@ -782,15 +782,26 @@ const aggregateOutstandingInstallments = async ({
               $divide: [{ $subtract: [asOf, "$latest.dueDate"] }, 86400000],
             },
           },
-          // The payment carries its own branch and mode; the student-level
-          // branch is only a fallback for rows written before those fields
-          // existed. Mode falls back to whether the payment named a branch —
-          // an offline enrollment always does.
-          branchRef: { $ifNull: ["$latest.branchId", "$branch"] },
+          // The payment carries its own mode; rows written before that field
+          // existed fall back to whether the payment named a branch, since an
+          // offline enrollment always does.
           deliveryMode: {
             $ifNull: [
               "$latest.deliveryMode",
               { $cond: [{ $ifNull: ["$latest.branchId", false] }, "offline", "online"] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          // The student-level branch is only a fallback for offline rows that
+          // predate payments.branchId. Applying it to an online row would put a
+          // branch on it just because the student also attends one in person.
+          branchRef: {
+            $ifNull: [
+              "$latest.branchId",
+              { $cond: [{ $eq: ["$deliveryMode", "offline"] }, "$branch", null] },
             ],
           },
         },
