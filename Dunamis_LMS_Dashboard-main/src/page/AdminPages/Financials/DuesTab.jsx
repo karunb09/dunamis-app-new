@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { FiCopy, FiDollarSign } from "react-icons/fi";
+import { fetchAllBranches } from "../../../redux/Branch/branchSlice";
 import { useDues } from "../../../hooks/usePayments";
 import RecordCashModal from "./RecordCashModal";
 import DataTable from "../../../components/Table";
@@ -38,16 +40,32 @@ const exportColumns = [
     header: "Last reminded",
     value: (r) => (r.lastRemindedAt ? dayjs(r.lastRemindedAt).format("YYYY-MM-DD") : ""),
   },
+  { header: "Mode", value: (r) => r.deliveryMode || "" },
   { header: "Branch", value: (r) => r.branch?.branchName || "Online" },
 ];
 
 const DuesTab = () => {
+  const dispatch = useDispatch();
   const [page, setPage] = useState(1);
   const [bucket, setBucket] = useState("");
+  const [deliveryMode, setDeliveryMode] = useState("");
+  const [branchId, setBranchId] = useState("");
   const [cashRow, setCashRow] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const params = { page, limit: LIMIT, bucket: bucket || undefined };
+  const branches = useSelector((state) => state.branch?.branches) || [];
+
+  useEffect(() => {
+    if (!branches.length) dispatch(fetchAllBranches());
+  }, [dispatch, branches.length]);
+
+  const params = {
+    page,
+    limit: LIMIT,
+    bucket: bucket || undefined,
+    deliveryMode: deliveryMode || undefined,
+    branchId: branchId || undefined,
+  };
   const { data, isLoading, isError, error, refetch } = useDues(params);
 
   // The dues aggregation projects `_id: 0` — DataTable keys selection off
@@ -109,6 +127,11 @@ const DuesTab = () => {
           {value ? dayjs(value).format("D MMM YYYY") : "—"}
         </span>
       ),
+    },
+    {
+      key: "deliveryMode",
+      header: "Mode",
+      render: (value) => <span className="capitalize text-slate-600">{value || "—"}</span>,
     },
     {
       key: "branch",
@@ -189,6 +212,37 @@ const DuesTab = () => {
           {BUCKET_ORDER.map((b) => (
             <option key={b} value={b}>
               {BUCKET_META[b].label}
+            </option>
+          ))}
+        </select>
+        <select
+          value={deliveryMode}
+          onChange={(e) => {
+            setDeliveryMode(e.target.value);
+            // A branch only means something for offline dues.
+            if (e.target.value !== "offline") setBranchId("");
+            setPage(1);
+          }}
+          className={inputClass}
+        >
+          <option value="">All modes</option>
+          <option value="online">Online</option>
+          <option value="offline">Offline</option>
+        </select>
+        <select
+          value={branchId}
+          disabled={deliveryMode !== "offline"}
+          onChange={(e) => {
+            setBranchId(e.target.value);
+            setPage(1);
+          }}
+          className={`${inputClass} disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400`}
+          title={deliveryMode === "offline" ? "" : "Select Offline mode to filter by branch"}
+        >
+          <option value="">All branches</option>
+          {branches.map((branch) => (
+            <option key={branch._id} value={branch._id}>
+              {branch.branchName}
             </option>
           ))}
         </select>

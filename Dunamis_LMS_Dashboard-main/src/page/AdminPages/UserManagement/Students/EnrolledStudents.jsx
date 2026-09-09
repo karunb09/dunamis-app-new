@@ -75,7 +75,7 @@ const EnrolledStudents = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filters, setFilters] = useState({ category: "", feeStatus: "", mode: "", joinFrom: "", joinTo: "" });
+    const [filters, setFilters] = useState({ category: "", feeStatus: "", mode: "", branch: "", joinFrom: "", joinTo: "" });
     const [view, setView] = usePersistedState("enrolledStudentsView", "cards");
     const [pageSize, setPageSize] = usePersistedState("enrolledStudentsPageSize", 12);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -117,6 +117,7 @@ const EnrolledStudents = () => {
                 ? Math.round(progressValues.reduce((sum, p) => sum + p, 0) / progressValues.length)
                 : null,
             mode: s.mode || courses[0]?.mode || "",
+            branch: s.branch?.branchName || "",
             // Lifecycle beats fee status on the badge: a paused student owes
             // nothing right now, so "On track" would be misleading.
             lifecycle: (s.enrolledCourses || []).some(
@@ -135,11 +136,13 @@ const EnrolledStudents = () => {
     });
 
     const categoryOptions = [...new Set(rows.flatMap((r) => r.categories))].sort();
+    const branchOptions = [...new Set(rows.map((r) => r.branch).filter(Boolean))].sort();
 
     let displayed = rows;
     if (filters.category) displayed = displayed.filter((r) => r.categories.includes(filters.category));
     if (filters.feeStatus) displayed = displayed.filter((r) => r.feeStatus === filters.feeStatus);
     if (filters.mode) displayed = displayed.filter((r) => r.mode === filters.mode);
+    if (filters.branch) displayed = displayed.filter((r) => r.branch === filters.branch);
     if (filters.joinFrom) {
         const from = new Date(filters.joinFrom);
         displayed = displayed.filter((r) => r.joinedAt && r.joinedAt >= from);
@@ -193,6 +196,8 @@ const EnrolledStudents = () => {
                 return `Name: ${r.name}
 Email: ${r.email}
 Mobile: ${r.phone || "N/A"}
+Mode: ${r.mode || "N/A"}
+Branch: ${r.branch || "N/A"}
 Fee Status: ${FEE_LABELS[r.feeStatus] || r.feeStatus}
 Joined: ${formatDate(r.joinedAt)}
 Courses:
@@ -212,6 +217,7 @@ ${courses || "No courses enrolled"}`;
         { header: "Category", value: (r) => r.categories.join("; "), width: 18 },
         { header: "Avg Progress", value: (r) => (r.avgProgress != null ? `${r.avgProgress}%` : "") },
         { header: "Mode", value: (r) => r.mode },
+        { header: "Branch", value: (r) => r.branch, width: 20 },
         { header: "Fee Status", value: (r) => FEE_LABELS[r.feeStatus] || r.feeStatus },
         { header: "Joined", value: (r) => formatDate(r.joinedAt), width: 14 },
     ];
@@ -299,6 +305,12 @@ ${courses || "No courses enrolled"}`;
             minWidth: "100px",
             nowrap: true,
             render: (_, row) => modeBadge(row.mode),
+        },
+        {
+            key: "branch",
+            header: "Branch",
+            minWidth: "140px",
+            render: (_, row) => row.branch || "—",
         },
         {
             key: "feeStatus",
@@ -487,7 +499,14 @@ ${courses || "No courses enrolled"}`;
                                 <label className="mb-1.5 block text-sm font-medium text-slate-700">Enrollment Mode</label>
                                 <select
                                     value={filters.mode}
-                                    onChange={(e) => setFilters((f) => ({ ...f, mode: e.target.value }))}
+                                    onChange={(e) =>
+                                        setFilters((f) => ({
+                                            ...f,
+                                            mode: e.target.value,
+                                            // A branch only means something for offline students.
+                                            branch: e.target.value === "offline" ? f.branch : "",
+                                        }))
+                                    }
                                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                                 >
                                     <option value="">All</option>
@@ -495,6 +514,23 @@ ${courses || "No courses enrolled"}`;
                                     <option value="offline">Offline</option>
                                     <option value="hybrid">Hybrid</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Branch</label>
+                                <select
+                                    value={filters.branch}
+                                    disabled={filters.mode !== "offline"}
+                                    onChange={(e) => setFilters((f) => ({ ...f, branch: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                                >
+                                    <option value="">All branches</option>
+                                    {branchOptions.map((branch) => (
+                                        <option key={branch} value={branch}>{branch}</option>
+                                    ))}
+                                </select>
+                                {filters.mode !== "offline" ? (
+                                    <p className="mt-1 text-xs text-slate-400">Select Offline mode to filter by branch.</p>
+                                ) : null}
                             </div>
                             <div>
                                 <label className="mb-1.5 block text-sm font-medium text-slate-700">Joined From</label>
@@ -519,7 +555,7 @@ ${courses || "No courses enrolled"}`;
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => setFilters({ category: "", feeStatus: "", mode: "", joinFrom: "", joinTo: "" })}
+                                onClick={() => setFilters({ category: "", feeStatus: "", mode: "", branch: "", joinFrom: "", joinTo: "" })}
                                 className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
@@ -546,7 +582,9 @@ ${courses || "No courses enrolled"}`;
                             subtitle={row.courses[0]?.name || "No course"}
                             statusBadge={badgeFor(row)}
                             meta={[
-                                { label: "Student ID", value: row.mockId },
+                                row.branch
+                                    ? { label: "Branch", value: row.branch }
+                                    : { label: "Student ID", value: row.mockId },
                                 { label: "Course Code", value: row.courses[0]?.code || "N/A" },
                                 { label: "Progress", value: row.avgProgress != null ? `${row.avgProgress}%` : "N/A" },
                                 { label: "Mode", value: row.mode, render: modeBadge },

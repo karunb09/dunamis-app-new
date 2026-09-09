@@ -657,8 +657,14 @@ exports.getMyBookings = asyncHandler(async (req, res) => {
 
 // Update booking
 exports.updateBooking = asyncHandler(async (req, res) => {
-    const { demoStatus, enrollmentStatus, followUp, response, meetingLink } =
-      req.body;
+    const {
+      demoStatus,
+      enrollmentStatus,
+      followUp,
+      response,
+      meetingLink,
+      teacherFeedback,
+    } = req.body;
 
     const booking = await DemoBooking.findById(req.params.id)
       .populate({
@@ -690,7 +696,8 @@ exports.updateBooking = asyncHandler(async (req, res) => {
       }
     }
 
-    // Teachers may set the demo status and the join link; the rest is admin-managed
+    // Teachers may set the demo status, the join link and their own feedback;
+    // the rest is admin-managed
     const updateFields = {};
     if (demoStatus) {
       updateFields.demoStatus = demoStatus;
@@ -709,6 +716,11 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         updateFields.meetingLinkSetBy = nextLink ? req.user?.userId || null : null;
         sharedLink = nextLink;
       }
+    }
+
+    if (teacherFeedback !== undefined) {
+      updateFields.teacherFeedback = teacherFeedback;
+      updateFields.teacherFeedbackAt = teacherFeedback ? new Date() : null;
     }
 
     if (!isTeacher) {
