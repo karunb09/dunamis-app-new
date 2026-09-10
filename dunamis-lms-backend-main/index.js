@@ -96,6 +96,8 @@ const callbackRequestRoutes = require("./routes/callbackRequest.routes")
 const adminNoticeRoutes = require("./routes/adminNotice.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
 const remunerationRoutes = require("./routes/remuneration.routes");
+const instructorRateRoutes = require("./routes/instructorRate.routes");
+const messageRoutes = require("./routes/message.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
@@ -158,6 +160,7 @@ require("./cronJobs/classReminder.cron");
 require("./cronJobs/classJoinLinkReminder.cron");
 require("./cronJobs/monthlyInsights.cron");
 require("./cronJobs/paymentReconciler.cron");
+require("./cronJobs/instructorPayout.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -238,6 +241,8 @@ app.use("/api/v1/callback-request", callbackRequestRoutes);
 app.use("/api/v1/adminNotice", adminNoticeRoutes);
 app.use("/api/v1/feedback", feedbackRoutes);
 app.use("/api/v1/remuneration", remunerationRoutes);
+app.use("/api/v1/instructor-rates", instructorRateRoutes);
+app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/assignment", assignmentRoutes);
 app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);

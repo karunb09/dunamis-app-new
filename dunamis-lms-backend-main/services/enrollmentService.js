@@ -701,6 +701,7 @@ const aggregateOutstandingInstallments = async ({
   page = 1,
   limit = 50,
   branchId = null,
+  deliveryMode = null,
   courseId = null,
   studentId = null,
   minDaysLate = null,
@@ -711,12 +712,14 @@ const aggregateOutstandingInstallments = async ({
     [
       // Cheap candidate narrowing only. Without $elemMatch this matches across
       // different array elements; correctness is enforced after $unwind.
+      // Branch and delivery mode are deliberately NOT pre-matched here: they
+      // live on the payment, and one student can hold both an online and an
+      // offline enrollment.
       {
         $match: {
           "payments.paymentType": "Installment",
           "payments.monthlyPaymentStatus": "pending",
           ...(studentId ? { _id: studentId } : {}),
-          ...(branchId ? { branch: branchId } : {}),
         },
       },
       { $unwind: "$payments" },
@@ -779,8 +782,32 @@ const aggregateOutstandingInstallments = async ({
               $divide: [{ $subtract: [asOf, "$latest.dueDate"] }, 86400000],
             },
           },
+          // The payment carries its own mode; rows written before that field
+          // existed fall back to whether the payment named a branch, since an
+          // offline enrollment always does.
+          deliveryMode: {
+            $ifNull: [
+              "$latest.deliveryMode",
+              { $cond: [{ $ifNull: ["$latest.branchId", false] }, "offline", "online"] },
+            ],
+          },
         },
       },
+      {
+        $addFields: {
+          // The student-level branch is only a fallback for offline rows that
+          // predate payments.branchId. Applying it to an online row would put a
+          // branch on it just because the student also attends one in person.
+          branchRef: {
+            $ifNull: [
+              "$latest.branchId",
+              { $cond: [{ $eq: ["$deliveryMode", "offline"] }, "$branch", null] },
+            ],
+          },
+        },
+      },
+      ...(deliveryMode ? [{ $match: { deliveryMode } }] : []),
+      ...(branchId ? [{ $match: { branchRef: branchId } }] : []),
       {
         $addFields: {
           bucket: {
@@ -827,7 +854,7 @@ const aggregateOutstandingInstallments = async ({
                 {
                   $lookup: {
                     from: "branches",
-                    localField: "branch",
+                    localField: "branchRef",
                     foreignField: "_id",
                     pipeline: [{ $project: { branchName: 1 } }],
                     as: "branchDoc",
@@ -843,6 +870,7 @@ const aggregateOutstandingInstallments = async ({
                     amountDue: 1,
                     daysLate: 1,
                     bucket: 1,
+                    deliveryMode: 1,
                     dueDate: "$latest.dueDate",
                     installmentNo: "$latest.installmentNo",
                     installmentTotal: "$latest.installmentTotal",

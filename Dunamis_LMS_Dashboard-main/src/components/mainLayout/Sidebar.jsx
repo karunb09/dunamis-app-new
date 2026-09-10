@@ -14,6 +14,7 @@ import {
   FiUserCheck,
   FiDollarSign,
   FiMessageCircle,
+  FiMessageSquare,
   FiGift,
   FiBell,
   FiChevronLeft,
@@ -72,6 +73,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
+    { to: "/teacher/messages", icon: <FiMessageSquare />, text: "Messages" },
   ];
 
   const adminMenu = [

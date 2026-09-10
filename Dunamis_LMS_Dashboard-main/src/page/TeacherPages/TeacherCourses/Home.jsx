@@ -126,6 +126,22 @@ const Dashboard = () => {
     }
   };
 
+  const handleSaveDemoFeedback = async (bookingId, teacherFeedback) => {
+    setUpdatingBookingId(bookingId);
+    try {
+      await dispatch(
+        updateBookingStatus({ id: bookingId, updatedData: { teacherFeedback } })
+      ).unwrap();
+      toast.success(teacherFeedback ? "Feedback saved" : "Feedback cleared");
+    } catch (err) {
+      toast.error(
+        typeof err === "string" ? err : err?.message || "Failed to save feedback"
+      );
+    } finally {
+      setUpdatingBookingId(null);
+    }
+  };
+
   const handleCancelDemo = async (booking) => {
     const { isConfirmed, value } = await Swal.fire({
       title: "Cancel this demo?",
@@ -219,6 +235,7 @@ const Dashboard = () => {
               onRefresh={handleRefreshDemoBookings}
               onUpdateStatus={handleUpdateDemoStatus}
               onSaveMeetingLink={handleSaveMeetingLink}
+              onSaveFeedback={handleSaveDemoFeedback}
               onReschedule={setReschedulingBooking}
               onCancel={handleCancelDemo}
               updatingId={updatingBookingId}

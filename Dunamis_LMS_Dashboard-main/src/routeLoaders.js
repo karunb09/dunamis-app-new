@@ -26,6 +26,7 @@ export const routeLoaders = {
   "/teacher/assignments": () => import("./page/TeacherPages/Assignment"),
   "/teacher/assessments": () => import("./page/TeacherPages/Assessment"),
   "/teacher/attendance": () => import("./page/TeacherPages/TeacherCourses/Attendance"),
+  "/teacher/messages": () => import("./page/TeacherPages/Messages"),
 };
 
 // import() is module-cached, so repeated hovers cost nothing after the first.

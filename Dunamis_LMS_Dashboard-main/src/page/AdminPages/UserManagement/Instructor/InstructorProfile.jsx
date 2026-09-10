@@ -17,14 +17,12 @@ import {
   FiMessageSquare,
   FiCompass,
   FiDollarSign,
-  FiTrendingUp,
   FiFolder,
 } from "react-icons/fi";
 import { FaMusic, FaLanguage, FaPersonBooth } from "react-icons/fa";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 
-import DataTable from "../../../../components/Table";
 import IconTabBar from "../../../../components/IconTabBar";
 import PageTabBar from "../../../../components/PageTabBar";
 import EditInstructorModal from "./EditInstructorModal";
@@ -57,7 +55,6 @@ const InstructorProfile = () => {
 
   const [activeTab, setActiveTab] = useState("Courses");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [instructorDocs, setInstructorDocs] = useState(null);
   const [docsLoading, setDocsLoading] = useState(false);
   const [courseDocs, setCourseDocs] = useState(null);
@@ -116,7 +113,6 @@ const InstructorProfile = () => {
     { id: "Reviews", label: "Reviews", icon: FiMessageSquare },
     { id: "Orientations", label: "Orientations", icon: FiCompass },
     { id: "Remuneration", label: "Remuneration", icon: FiDollarSign },
-    { id: "Financial History", label: "Financial History", icon: FiTrendingUp },
     { id: "Documents", label: "Documents", icon: FiFolder },
   ];
 
@@ -138,37 +134,6 @@ const InstructorProfile = () => {
         .finally(() => setDocsLoading(false));
     }
   };
-
-  const columns = [
-    { key: "timeDate", header: "Time & Date" },
-    { key: "workDays", header: "Work days" },
-    { key: "transactionId", header: "Transaction ID" },
-    { key: "percentage", header: "Percentage" },
-    { key: "basic", header: "Basic" },
-    { key: "deductions", header: "Deductions" },
-    { key: "totalEarnings", header: "Total Earnings" },
-    { key: "totalEarningsWords", header: "Total Earnings (in words)" },
-    {
-      key: "status",
-      header: "Status",
-      render: (value) => (
-        <span
-          className={`inline-block px-2 py-1 rounded-full text-xs ${value === "Paid" ? "text-green-600" : "text-orange-600"
-            }`}
-        >
-          {value}
-        </span>
-      ),
-    },
-  ];
-
-  const filteredFinancialData =
-    selectedTeacher.financialData?.filter(
-      (data) =>
-        data.timeDate.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        data.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        data.status.toLowerCase().includes(searchTerm.toLowerCase())
-    ) || [];
 
   const handleSaveInstructor = async (updated) => {
     const payload = new FormData();
@@ -389,9 +354,6 @@ const InstructorProfile = () => {
           {activeTab === "Reviews" && <ReviewsTab instructor={selectedTeacher} />}
           {activeTab === "Orientations" && <OrientationsTab />}
           {activeTab === "Remuneration" && <RemunerationTab remunerations={selectedTeacher.remunerations} employeeId={selectedTeacher.user?.employeeId} />}
-          {activeTab === "Financial History" && (
-            <DataTable columns={columns} data={filteredFinancialData} selectable={false} />
-          )}
           {activeTab === "Documents" && (
             <DocumentsTab docs={instructorDocs} courseDocs={courseDocs} loading={docsLoading} />
           )}

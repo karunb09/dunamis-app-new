@@ -8,9 +8,17 @@ import { useNeedsAttentionCount, paymentKeys } from "../../hooks/usePayments";
 import NeedsAttentionTab from "./Financials/NeedsAttentionTab";
 import TransactionsTab from "./Financials/TransactionsTab";
 import DuesTab from "./Financials/DuesTab";
+import InstructorPayTab from "./Financials/InstructorPayTab";
+import RateCardTab from "./Financials/RateCardTab";
 import { Pill } from "./Financials/financeUi";
 
-const TAB_IDS = ["needs-attention", "transactions", "dues"];
+const TAB_IDS = [
+  "needs-attention",
+  "transactions",
+  "dues",
+  "instructor-pay",
+  "rate-card",
+];
 
 const FinancialPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,20 +51,16 @@ const FinancialPage = () => {
   const tabs = [
     { id: "transactions", label: "Transactions" },
     { id: "dues", label: "Dues" },
-    {
-      id: "needs-attention",
-      label: (
-        <span className="flex items-center gap-2">
-          Needs attention
-          {critical > 0 && <Pill tone="rose">{critical}</Pill>}
-        </span>
-      ),
-    }
+    { id: "instructor-pay", label: "Instructor pay" },
+    { id: "rate-card", label: "Rate card" },
   ];
 
   const changeTab = (id) => {
-    // Drop the deep-link filters when the user navigates by hand.
-    setSearchParams(id === "needs-attention" ? {} : { tab: id });
+    // Replacing the whole param set drops the deep-link filters (?month, ?status)
+    // the user may have arrived with. Needs-attention used to clear them by
+    // writing no params at all, which left ?tab unset — and an unset tab falls
+    // back to Transactions, so that tab could never be opened by clicking it.
+    setSearchParams({ tab: id });
   };
 
   return (
@@ -85,6 +89,8 @@ const FinancialPage = () => {
         <TransactionsTab key={searchParams.toString()} initialFilters={initialFilters} />
       )}
       {activeTab === "dues" && <DuesTab />}
+      {activeTab === "instructor-pay" && <InstructorPayTab />}
+      {activeTab === "rate-card" && <RateCardTab />}
     </div>
   );
 };

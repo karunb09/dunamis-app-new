@@ -10,7 +10,7 @@ import RowActionsMenu from "../../../components/RowActionsMenu";
 import ExportMenu from "../../../components/ExportMenu";
 import useFinanceExport from "./useFinanceExport";
 import { installmentSummary } from "../../../utils/installmentLabel";
-import { STATUS_TONES, formatInr } from "./financeFormat";
+import { STATUS_TONES, formatInr, studentName } from "./financeFormat";
 import {
   Pill,
   EmptyBox,
@@ -36,12 +36,9 @@ const STATUS_OPTIONS = [
 const inputClass =
   "rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
 
-const fullName = (person) =>
-  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
-
 const exportColumns = [
   { header: "Date", value: (r) => dayjs(r.paidAt || r.createdAt).format("YYYY-MM-DD HH:mm") },
-  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Student", value: (r) => studentName(r.student), width: 24 },
   { header: "Email", value: (r) => r.student?.email, width: 26 },
   { header: "Course", value: (r) => r.course?.name, width: 26 },
   { header: "Amount", value: (r) => r.amount },
@@ -114,6 +111,32 @@ const TransactionsTab = ({ initialFilters = {} }) => {
     setter(value);
     setPage(1);
   };
+
+  // Shows a month in the picker only when the range is exactly that month, so a
+  // hand-edited range never reads as one.
+  const monthValue =
+    dateFrom &&
+    dateTo &&
+    dateFrom === dayjs(dateFrom).startOf("month").format("YYYY-MM-DD") &&
+    dateTo === dayjs(dateFrom).endOf("month").format("YYYY-MM-DD")
+      ? dayjs(dateFrom).format("YYYY-MM")
+      : "";
+
+  const pickMonth = (month) => {
+    if (!month) {
+      setDateFrom("");
+      setDateTo("");
+    } else {
+      const start = dayjs(`${month}-01`);
+      setDateFrom(start.format("YYYY-MM-DD"));
+      setDateTo(start.endOf("month").format("YYYY-MM-DD"));
+    }
+    setPage(1);
+  };
+
+  // Exactly one bound is a range open at the other end — the filter is doing
+  // what it was told, but it does not look like it.
+  const halfOpenRange = Boolean(dateFrom) !== Boolean(dateTo);
 
   const { exporting, exportAll, exportSelected } = useFinanceExport({
     scope: "transactions",
@@ -248,18 +271,34 @@ const TransactionsTab = ({ initialFilters = {} }) => {
           <option value="paidAt">Paid</option>
           <option value="recognized">Recognized</option>
         </select>
+        {/* Filling one bound only is an unbounded range, which reads as a
+            broken filter ("I asked for August and got July"). The month picker
+            sets both at once, which is what people actually mean. */}
         <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => resetPageAnd(setDateFrom)(e.target.value)}
+          type="month"
+          value={monthValue}
+          onChange={(e) => pickMonth(e.target.value)}
+          title="Filter to a whole month"
           className={inputClass}
         />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => resetPageAnd(setDateTo)(e.target.value)}
-          className={inputClass}
-        />
+        <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          From
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => resetPageAnd(setDateFrom)(e.target.value)}
+            className={inputClass}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-slate-500">
+          To
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => resetPageAnd(setDateTo)(e.target.value)}
+            className={inputClass}
+          />
+        </label>
         <ExportMenu
           onExportAll={exportAll}
           onExportSelected={() => exportSelected(selectedRows)}
@@ -268,6 +307,23 @@ const TransactionsTab = ({ initialFilters = {} }) => {
           exporting={exporting}
         />
       </div>
+
+      {halfOpenRange && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span>
+            {dateFrom
+              ? `Showing everything from ${dayjs(dateFrom).format("D MMM YYYY")} onwards — set a To date to close the range.`
+              : `Showing everything up to ${dayjs(dateTo).format("D MMM YYYY")}, including earlier months — set a From date to close the range.`}
+          </span>
+          <button
+            type="button"
+            onClick={() => pickMonth(dayjs(dateFrom || dateTo).format("YYYY-MM"))}
+            className="rounded-2xl border border-amber-300 px-3 py-1.5 text-xs font-semibold text-amber-900 transition hover:bg-amber-100"
+          >
+            Limit to {dayjs(dateFrom || dateTo).format("MMMM YYYY")}
+          </button>
+        </div>
+      )}
 
       {data && !isLoading && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

@@ -230,7 +230,7 @@ const DemoStudents = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filters, setFilters] = useState({ demoStatus: "", enrollmentStatus: "", followUp: "", mode: "", bookedFrom: "", bookedTo: "" });
+    const [filters, setFilters] = useState({ demoStatus: "", enrollmentStatus: "", followUp: "", mode: "", feedback: "", bookedFrom: "", bookedTo: "" });
     const [view, setView] = usePersistedState("demoStudentsView", "cards");
     const [pageSize, setPageSize] = usePersistedState("demoStudentsPageSize", 12);
     const [selectedIds, setSelectedIds] = useState([]);
@@ -283,6 +283,15 @@ const DemoStudents = () => {
     if (filters.enrollmentStatus) filteredStudents = filteredStudents.filter((s) => s.enrollmentStatus === filters.enrollmentStatus);
     if (filters.followUp) filteredStudents = filteredStudents.filter((s) => s.followUp === filters.followUp);
     if (filters.mode) filteredStudents = filteredStudents.filter((s) => getBookingMode(s) === filters.mode);
+    if (filters.feedback === "received") {
+        filteredStudents = filteredStudents.filter((s) => Boolean((s.teacherFeedback || "").trim()));
+    } else if (filters.feedback === "awaiting") {
+        filteredStudents = filteredStudents.filter((s) => !(s.teacherFeedback || "").trim());
+    } else if (filters.feedback === "followUpPending") {
+        filteredStudents = filteredStudents.filter(
+            (s) => Boolean((s.teacherFeedback || "").trim()) && s.followUp !== "Closed"
+        );
+    }
     if (filters.bookedFrom) {
         const from = new Date(filters.bookedFrom);
         filteredStudents = filteredStudents.filter((s) => {
@@ -319,9 +328,11 @@ Email: ${student.email}
 Phone: ${student.phone}
 Course: ${course?.name || "N/A"}
 Assigned Instructor: ${getBookingTeacherName(s)}
+Applied On: ${s.createdAt ? dayjs(s.createdAt).format("DD MMM YYYY") : "N/A"}
 Mode: ${getBookingMode(s)}
 Demo Status: ${s.demoStatus || "N/A"}
 Enrollment Status: ${s.enrollmentStatus || "N/A"}
+Instructor Feedback: ${s.teacherFeedback || "Awaiting feedback"}
 Follow Up: ${s.followUp || "N/A"}
 Response: ${s.response || "N/A"}
 Slot: ${getBookingSlotLabel(s)}
@@ -338,11 +349,13 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
         { header: "Phone", value: (r) => getBookingStudentMeta(r).phone, width: 16 },
         { header: "Course", value: (r) => getBookingCourse(r)?.name || "", width: 24 },
         { header: "Instructor", value: (r) => getBookingTeacherName(r), width: 20 },
+        { header: "Applied On", value: (r) => (r.createdAt ? dayjs(r.createdAt).format("DD MMM YYYY") : ""), width: 14 },
         { header: "Slot Date", value: (r) => (r.slotId?.date ? dayjs(r.slotId.date).format("DD MMM YYYY") : ""), width: 14 },
         { header: "Slot Time", value: (r) => (r.slotId ? `${r.slotId.startTime || "?"} - ${r.slotId.endTime || "?"}` : ""), width: 16 },
         { header: "Mode", value: (r) => getBookingMode(r) },
         { header: "Demo Status", value: (r) => r.demoStatus || "" },
         { header: "Enrollment Status", value: (r) => r.enrollmentStatus || "", width: 16 },
+        { header: "Instructor Feedback", value: (r) => r.teacherFeedback || "", width: 40 },
         { header: "Follow Up", value: (r) => r.followUp || "" },
         { header: "Response", value: (r) => r.response || "", width: 32 },
         { header: "Class Link", value: (r) => r.meetingLink || "", width: 36 },
@@ -447,6 +460,13 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
             render: (_, row) => getBookingTeacherName(row),
         },
         {
+            key: "appliedOn",
+            header: "Applied On",
+            minWidth: "130px",
+            nowrap: true,
+            render: (_, row) => (row.createdAt ? dayjs(row.createdAt).format("DD MMM YYYY") : "—"),
+        },
+        {
             key: "slot",
             header: "Slot",
             minWidth: "160px",
@@ -485,6 +505,17 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                     onChange={(value) => updateStudent(row._id, "enrollmentStatus", value)}
                 />
             ),
+        },
+        {
+            key: "teacherFeedback",
+            header: "Instructor Feedback",
+            minWidth: "220px",
+            render: (_, row) =>
+                row.teacherFeedback ? (
+                    <p className="whitespace-pre-line text-xs text-slate-600">{row.teacherFeedback}</p>
+                ) : (
+                    <span className="text-xs text-slate-400">Awaiting feedback</span>
+                ),
         },
         {
             key: "followUp",
@@ -697,6 +728,19 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                                 </select>
                             </div>
                             <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Instructor Feedback</label>
+                                <select
+                                    value={filters.feedback}
+                                    onChange={(e) => setFilters((f) => ({ ...f, feedback: e.target.value }))}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    <option value="followUpPending">Feedback received, follow-up pending</option>
+                                    <option value="received">Feedback received</option>
+                                    <option value="awaiting">Awaiting feedback</option>
+                                </select>
+                            </div>
+                            <div>
                                 <label className="mb-1.5 block text-sm font-medium text-slate-700">Booked From</label>
                                 <input
                                     type="date"
@@ -719,7 +763,7 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => setFilters({ demoStatus: "", enrollmentStatus: "", followUp: "", mode: "", bookedFrom: "", bookedTo: "" })}
+                                onClick={() => setFilters({ demoStatus: "", enrollmentStatus: "", followUp: "", mode: "", feedback: "", bookedFrom: "", bookedTo: "" })}
                                 className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
@@ -755,7 +799,10 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                                         : undefined
                                 }
                                 meta={[
-                                    { label: "Booking ID", value: row.mockId },
+                                    {
+                                        label: "Applied On",
+                                        value: row.createdAt ? dayjs(row.createdAt).format("DD MMM YYYY") : "N/A",
+                                    },
                                     { label: "Course", value: course?.name || "N/A" },
                                     { label: "Instructor", value: getBookingTeacherName(row) },
                                     { label: "Slot", value: getBookingSlotLabel(row) },
@@ -787,6 +834,18 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
                                                 onChange={(value) => updateStudent(row._id, "enrollmentStatus", value)}
                                             />
                                         </div>
+                                    </div>
+                                    <div>
+                                        <p className="mb-1 text-[10px] text-slate-400">Instructor Feedback</p>
+                                        {row.teacherFeedback ? (
+                                            <p className="whitespace-pre-line rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
+                                                {row.teacherFeedback}
+                                            </p>
+                                        ) : (
+                                            <p className="rounded-xl bg-slate-50 px-2.5 py-1.5 text-xs italic text-slate-400">
+                                                Awaiting feedback
+                                            </p>
+                                        )}
                                     </div>
                                     <div>
                                         <p className="mb-1 text-[10px] text-slate-400">Follow Up</p>
