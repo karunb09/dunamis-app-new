@@ -150,7 +150,7 @@ const SignIn = () => {
   };
 
   return (
-    <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-6 sm:px-6 sm:py-10 bg-[url('/paper-geometric-shape.jpg')] bg-cover bg-center">
+    <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-6 sm:px-6 sm:py-10 bg-[url('/login-background.svg')] bg-cover bg-center">
       <div className="w-full max-w-xs rounded-2xl bg-white/85 p-4 shadow-lg backdrop-blur-sm sm:max-w-md sm:p-8">
         <h2 className="text-2xl font-semibold text-center mb-6">
           {step === 1
