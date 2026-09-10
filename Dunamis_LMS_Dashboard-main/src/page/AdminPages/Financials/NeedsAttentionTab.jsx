@@ -15,6 +15,7 @@ import {
   STATUS_TONES,
   formatInr,
   formatAge,
+  studentName,
 } from "./financeFormat";
 import {
   Pill,
@@ -27,14 +28,11 @@ import {
 
 const LIMIT = 50;
 
-const fullName = (person) =>
-  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
-
 const exportColumns = [
   { header: "Reason", value: (r) => REASON_META[r.reason]?.label || r.reason, width: 24 },
   { header: "Severity", value: (r) => r.severity },
   { header: "Age", value: (r) => formatAge(r.ageMs) },
-  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Student", value: (r) => studentName(r.student), width: 24 },
   { header: "Email", value: (r) => r.student?.email, width: 26 },
   { header: "Course", value: (r) => r.course?.name, width: 26 },
   { header: "Amount", value: (r) => r.amount },

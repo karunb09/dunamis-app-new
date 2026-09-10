@@ -13,7 +13,7 @@ import BarRow from "../../../components/insights/BarRow";
 import ExportMenu from "../../../components/ExportMenu";
 import useFinanceExport from "./useFinanceExport";
 import { installmentSummary } from "../../../utils/installmentLabel";
-import { BUCKET_META, formatInr } from "./financeFormat";
+import { BUCKET_META, formatInr, studentName } from "./financeFormat";
 import { Pill, EmptyBox, ErrorBox, TableSkeleton, StudentCell, CourseCell } from "./financeUi";
 
 const LIMIT = 50;
@@ -22,11 +22,8 @@ const BUCKET_ORDER = ["0-7", "8-30", "30+"];
 const inputClass =
   "rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
 
-const fullName = (person) =>
-  [person?.name?.firstName, person?.name?.lastName].filter(Boolean).join(" ").trim();
-
 const exportColumns = [
-  { header: "Student", value: (r) => fullName(r.student), width: 24 },
+  { header: "Student", value: (r) => studentName(r.student), width: 24 },
   { header: "Email", value: (r) => r.student?.email, width: 26 },
   { header: "Phone", value: (r) => r.student?.mobileNo },
   { header: "Course", value: (r) => r.course?.name, width: 26 },

@@ -51,15 +51,6 @@ const FinancialPage = () => {
   const tabs = [
     { id: "transactions", label: "Transactions" },
     { id: "dues", label: "Dues" },
-    {
-      id: "needs-attention",
-      label: (
-        <span className="flex items-center gap-2">
-          Needs attention
-          {critical > 0 && <Pill tone="rose">{critical}</Pill>}
-        </span>
-      ),
-    },
     { id: "instructor-pay", label: "Instructor pay" },
     { id: "rate-card", label: "Rate card" },
   ];
