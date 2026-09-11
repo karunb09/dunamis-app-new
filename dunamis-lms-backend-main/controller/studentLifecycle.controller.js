@@ -7,6 +7,7 @@
 
 const asyncHandler = require("../utils/asyncHandler");
 const Student = require("../model/student.model");
+const Assessment = require("../model/assessment.model");
 const {
   setRosterMemberStatus,
   applyRostersToSlots,
@@ -126,6 +127,9 @@ exports.resumeEnrollment = asyncHandler(async (req, res) => {
   enrollment.resumedAt = resumedAt;
   enrollment.pausedUntil = null;
   enrollment.lifecycleActorId = req.user.userId;
+  // Feeds the assessment and assignment cycles, which must not count frozen
+  // time towards a learner's next due date.
+  enrollment.pausedDaysTotal = (enrollment.pausedDaysTotal || 0) + pausedDays;
 
   const payment = findOpenPayment(student, courseId);
   if (payment && pausedDays > 0 && payment.dueDate) {
@@ -142,6 +146,31 @@ exports.resumeEnrollment = asyncHandler(async (req, res) => {
   }
 
   await student.save();
+
+  // The learning clock gets the same credit the billing clock just got: an
+  // assessment that came due while the learner was frozen was never late.
+  if (pausedDays > 0) {
+    const openAssessment = await Assessment.findOne({
+      studentId: student._id,
+      courseId,
+      status: { $in: ["Pending", "Sent", "Submitted", "Overdue"] },
+    }).sort({ dueDate: 1 });
+
+    if (openAssessment) {
+      const fromDate = new Date(openAssessment.dueDate);
+      const toDate = new Date(fromDate.getTime() + pausedDays * DAY_MS);
+      openAssessment.dueDate = toDate;
+      if (openAssessment.status === "Overdue") openAssessment.status = "Pending";
+      openAssessment.dueDateAdjustments.push({
+        byUserId: req.user.userId,
+        fromDate,
+        toDate,
+        days: pausedDays,
+        reason: `Resumed after ${pausedDays} paused day${pausedDays === 1 ? "" : "s"}`,
+      });
+      await openAssessment.save();
+    }
+  }
 
   const roster = await setRosterMemberStatus({
     studentId: student._id,

@@ -90,6 +90,14 @@ const studentSchema = new mongoose.Schema(
           type: Date,
           default: null,
         },
+        // Running total across every pause this enrollment has taken. A single
+        // pausedAt/resumedAt pair cannot answer "how long has this been frozen
+        // in total", and the assessment/assignment clocks need that to credit
+        // paused time back.
+        pausedDaysTotal: {
+          type: Number,
+          default: 0,
+        },
         discontinuedAt: {
           type: Date,
           default: null,
