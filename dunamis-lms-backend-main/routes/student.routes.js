@@ -13,6 +13,7 @@ const {
   searchStudents,
 } = require("../controller/student.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
+const { getMyDashboard } = require("../controller/studentDashboard.controller");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -62,6 +63,9 @@ router.get("/search", isAuth, accessToRole(["admin", "superadmin"]), searchStude
 router.get("/:id/overview", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), getStudentOverview);
 // attendance & homework (admin view of full history)
 router.get("/:id/attendance-homework", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), getStudentAttendanceHomework);
+// the logged-in student's own Overview + Performance data (before "/:id" so
+// "me" is never read as an id)
+router.get("/me/dashboard", isAuth, accessToRole(["student"]), getMyDashboard);
 // get by id
 router.get("/:id", isAuth, accessToRole(["student", "admin", "superadmin"]), validate(idParam, "params"), canAccessStudentRecord, getStudentById);
 // update

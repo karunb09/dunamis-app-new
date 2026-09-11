@@ -17,7 +17,6 @@ import noticeReducer from "./AdminNotice/AdminNoticeSlice";
 import feedbackReducer from "./Feedback/FeedbackSlice";
 import assignmentReducer from "./Assignment/AssignmentSlice";
 import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSlice";
-import assessmentReducer from "./Assesment/AssesmentSlice";
 import siteContentReducer from "./SiteContent/SiteContentSlice";
 import courseRequestReducer from "./courseRequests/courseRequestSlice";
 import referralReducer from "./Referral/ReferralSlice";
@@ -60,7 +59,6 @@ const appReducer = combineReducers({
   feedback: feedbackReducer,
   assignment: assignmentReducer,
   attendanceHomework: attendanceHomeworkReducer,
-  assessment: assessmentReducer,
   siteContent: siteContentReducer,
   courseRequests: courseRequestReducer,
   referral: referralReducer,

@@ -1,434 +1,435 @@
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import React, { useMemo, useState } from "react";
+import dayjs from "dayjs";
+import { toast } from "react-hot-toast";
+import Swal from "sweetalert2";
+import { FiAward, FiDownload, FiExternalLink, FiInbox, FiSend } from "react-icons/fi";
+import PageTabBar from "../../components/PageTabBar";
+import SlideOver from "../../components/SlideOver";
 import {
-  fetchTeacherAssessments,
-  submitAssessment,
-  invalidateTeacherAssessments,
-} from "../../redux/Assesment/AssesmentSlice";
+  useIssueCertificate,
+  useScoreAssessment,
+  useSendQuestionnaire,
+  useTeacherAssessments,
+} from "../../hooks/useAssessments";
+import { useQuestionnaires } from "../../hooks/useQuestionnaires";
+import { downloadCertificate } from "../../api/assessmentsApi";
 
-const formatDate = (isoString) => {
-  if (!isoString) return "N/A";
-  const options = { year: "numeric", month: "short", day: "numeric" };
-  return new Date(isoString).toLocaleDateString(undefined, options);
-};
+const RATINGS = [
+  { key: "homework", label: "Homework" },
+  { key: "practice", label: "Practice" },
+  { key: "speed", label: "Learning speed" },
+  { key: "performance", label: "Performance" },
+];
 
-const InitialsAvatar = ({ firstName, lastName }) => {
-  const initials = `${firstName?.charAt(0) || ""}${lastName?.charAt(0) || ""}`;
+const fullName = (name) =>
+  [name?.firstName, name?.lastName].filter(Boolean).join(" ") || "Learner";
+
+const formatDate = (value) => (value ? dayjs(value).format("D MMM YYYY") : "—");
+
+const EmptyState = ({ text }) => (
+  <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-slate-400">
+    <FiInbox className="text-2xl" />
+    <p className="text-sm">{text}</p>
+  </div>
+);
+
+const StatusPill = ({ status }) => {
+  const tone = {
+    Pending: "bg-sky-50 text-sky-700 ring-sky-200",
+    Overdue: "bg-rose-50 text-rose-700 ring-rose-200",
+    Sent: "bg-amber-50 text-amber-700 ring-amber-200",
+    Submitted: "bg-orange-50 text-orange-700 ring-orange-200",
+    Completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  }[status];
   return (
-    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold text-lg select-none">
-      {initials.toUpperCase()}
-    </div>
+    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${tone || ""}`}>
+      {status}
+    </span>
   );
 };
 
 const Assessment = () => {
-  const [activeTab, setActiveTab] = useState("pending");
-  const [view, setView] = useState("list");
-  const [selectedStudent, setSelectedStudent] = useState(null);
-  const [formData, setFormData] = useState({
-    homework: "",
-    practice: "",
-    speed: "",
-    performance: "",
-    feedback: "",
-    total: "",
-  });
-  const [completedData, setCompletedData] = useState([]);
+  const [tab, setTab] = useState("to-send");
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [questionnaireId, setQuestionnaireId] = useState("");
+  const [scoring, setScoring] = useState({ open: false, row: null });
+  const [downloadingId, setDownloadingId] = useState(null);
 
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { data, isLoading, isError, error } = useTeacherAssessments();
+  const { data: libraryData } = useQuestionnaires({ status: "published" });
+  const sendQuestionnaire = useSendQuestionnaire();
+  const issueCertificate = useIssueCertificate();
 
-  const {
-    teacherAssessments,
-    listLoading: loading,
-    error,
-    submitLoading,
-    submitError,
-  } = useSelector((state) => state.assessment);
-
-  useEffect(() => {
-    dispatch(fetchTeacherAssessments());
-  }, [dispatch]);
-
-  const pendingStudents = teacherAssessments?.data?.pending || [];
-  const completedStudents = teacherAssessments?.data?.completed || [];
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    let updatedData = { ...formData, [name]: value };
-
-    if (
-      updatedData.homework &&
-      updatedData.practice &&
-      updatedData.speed &&
-      updatedData.performance
-    ) {
-      const total =
-        Number(updatedData.homework) +
-        Number(updatedData.practice) +
-        Number(updatedData.speed) +
-        Number(updatedData.performance);
-      updatedData.total = `${total}/20`;
-    } else {
-      updatedData.total = "";
-    }
-
-    setFormData(updatedData);
+  const grouped = data?.data || {};
+  const toSend = [...(grouped.overdue || []), ...(grouped.pending || [])];
+  const rowsByTab = {
+    "to-send": toSend,
+    sent: grouped.sent || [],
+    submitted: grouped.submitted || [],
+    completed: grouped.completed || [],
   };
+  const rows = rowsByTab[tab] || [];
+  const published = libraryData?.questionnaires || [];
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedStudent) return;
+  const tabs = [
+    { id: "to-send", label: `To send (${toSend.length})` },
+    { id: "sent", label: `Awaiting learner (${rowsByTab.sent.length})` },
+    { id: "submitted", label: `Ready to score (${rowsByTab.submitted.length})` },
+    { id: "completed", label: `Completed (${rowsByTab.completed.length})` },
+  ];
 
-    const submissionData = {
-      homework: Number(formData.homework),
-      practice: Number(formData.practice),
-      speed: Number(formData.speed),
-      performance: Number(formData.performance),
-      trainerFeedback: formData.feedback,
-      totalScore:
-        Number(formData.homework) +
-        Number(formData.practice) +
-        Number(formData.speed) +
-        Number(formData.performance),
-    };
+  const toggle = (id) =>
+    setSelectedIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+
+  const allSelected = toSend.length > 0 && toSend.every((row) => selectedIds.includes(row._id));
+
+  const runSend = async () => {
+    if (!questionnaireId) return toast.error("Pick a published questionnaire first.");
+    if (!selectedIds.length) return toast.error("Pick at least one learner.");
+
+    const questionnaire = published.find((q) => q._id === questionnaireId);
+    const { isConfirmed } = await Swal.fire({
+      title: `Send "${questionnaire?.title}"?`,
+      text: `${selectedIds.length} learner${selectedIds.length === 1 ? "" : "s"} will be asked to answer it and add a video link.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Send",
+      confirmButtonColor: "#FF6B35",
+    });
+    if (!isConfirmed) return;
 
     try {
-      await dispatch(
-        submitAssessment({
-          assessmentId: selectedStudent._id,
-          submissionData,
-        })
-      ).unwrap();
-
-      dispatch(invalidateTeacherAssessments());
-      dispatch(fetchTeacherAssessments());
-
-      setFormData({
-        homework: "",
-        practice: "",
-        speed: "",
-        performance: "",
-        feedback: "",
-        total: "",
+      const result = await sendQuestionnaire.mutateAsync({
+        questionnaireId,
+        assessmentIds: selectedIds,
       });
-      setSelectedStudent(null);
-      setView("list");
-      setActiveTab("completed");
+      toast.success(result.message);
+      setSelectedIds([]);
+      setTab("sent");
     } catch (err) {
-      console.error("Submission failed:", err);
+      toast.error(err.message);
     }
   };
 
-  const handleCancel = () => {
-    setView("list");
-    setSelectedStudent(null);
+  const runIssue = async (row) => {
+    const { isConfirmed } = await Swal.fire({
+      title: `Award a certificate to ${fullName(row.studentName)}?`,
+      text: `For completing ${row.courseTitle}. It carries the school's name and a unique number, and cannot be withdrawn from here.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Issue certificate",
+      confirmButtonColor: "#FF6B35",
+    });
+    if (!isConfirmed) return;
+
+    try {
+      const result = await issueCertificate.mutateAsync(row._id);
+      toast.success(`Certificate ${result.certificate.certificateNumber} issued`);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const runDownload = async (row) => {
+    setDownloadingId(row.certificateId);
+    try {
+      const blob = await downloadCertificate(row.certificateId);
+      const href = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = href;
+      anchor.download = `certificate-${fullName(row.studentName).replace(/\s+/g, "-")}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
-    <div className="w-full min-h-screen bg-white p-4 md:p-6 flex justify-center">
-      <div className="w-full max-w-6xl">
-        <div className="flex gap-6 border-b mb-6">
-          <button
-            onClick={() => {
-              setActiveTab("pending");
-              setView("list");
-            }}
-            className={`pb-2 text-sm font-medium ${activeTab === "pending"
-              ? "border-b-2 border-black text-black"
-              : "text-gray-500"
-              }`}
+    <div className="space-y-6 p-6">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Assessments</p>
+        <h1 className="text-2xl font-bold text-slate-900">Six-month assessments</h1>
+        <p className="text-sm text-slate-500">
+          Send a questionnaire, read what your learners send back, score it, and award the level certificate.
+        </p>
+      </div>
+
+      <PageTabBar tabs={tabs} activeTab={tab} onChange={setTab} />
+
+      {tab === "to-send" && toSend.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-4">
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={() => setSelectedIds(allSelected ? [] : toSend.map((row) => row._id))}
+              className="h-4 w-4 accent-orange-500"
+            />
+            Select all
+          </label>
+          <select
+            value={questionnaireId}
+            onChange={(e) => setQuestionnaireId(e.target.value)}
+            className="min-w-[220px] flex-1 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
           >
-            Pending
-          </button>
+            <option value="">
+              {published.length ? "Choose a published questionnaire" : "No published questionnaires yet"}
+            </option>
+            {published.map((q) => (
+              <option key={q._id} value={q._id}>
+                {q.title} · {q.questions.length} question{q.questions.length === 1 ? "" : "s"}
+              </option>
+            ))}
+          </select>
           <button
-            onClick={() => {
-              setActiveTab("completed");
-              setView("list");
-            }}
-            className={`pb-2 text-sm font-medium ${activeTab === "completed"
-              ? "border-b-2 border-black text-black"
-              : "text-gray-500"
-              }`}
+            type="button"
+            onClick={runSend}
+            disabled={sendQuestionnaire.isPending || !selectedIds.length || !questionnaireId}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] disabled:opacity-50"
           >
-            Completed
+            <FiSend />
+            {sendQuestionnaire.isPending
+              ? "Sending..."
+              : `Send to ${selectedIds.length || ""} learner${selectedIds.length === 1 ? "" : "s"}`}
           </button>
         </div>
+      )}
 
-        {loading && <p>Loading assessments...</p>}
-        {error && <p className="text-red-500">Error: {error}</p>}
-
-        {activeTab === "pending" && view === "list" && !loading && !error && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {pendingStudents.length === 0 && <p>No pending assessments</p>}
-            {pendingStudents.map((item) => {
-              const student = item.studentName || {};
-              const dueDateFormatted = formatDate(item.dueDate);
-              return (
-                <div
-                  key={item._id}
-                  className="border rounded-2xl shadow-sm p-6 bg-gray-50"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <InitialsAvatar
-                      firstName={student.firstName}
-                      lastName={student.lastName}
-                    />
-                    <div>
-                      <p className="font-medium text-gray-800">
-                        {student.firstName} {student.lastName}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Due: {dueDateFormatted}
-                      </p>
-                    </div>
-                    <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">
-                      {item.status}
-                    </span>
+      {isLoading ? (
+        <div className="h-48 animate-pulse rounded-2xl bg-slate-100" />
+      ) : isError ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error?.message}</div>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          text={
+            {
+              "to-send": "Nothing here yet — assessments appear when a learner reaches six months.",
+              sent: "Nothing here yet — nobody is working on a questionnaire.",
+              submitted: "Nothing here yet — no answers waiting to be scored.",
+              completed: "Nothing here yet — no assessments scored.",
+            }[tab]
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {rows.map((row) => (
+            <div key={row._id} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="flex items-start gap-3">
+                {tab === "to-send" && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(row._id)}
+                    onChange={() => toggle(row._id)}
+                    className="mt-1 h-4 w-4 accent-orange-500"
+                    aria-label={`Select ${fullName(row.studentName)}`}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-slate-900">{fullName(row.studentName)}</p>
+                    <StatusPill status={row.status} />
                   </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => navigate("/teacher/students")}
-                      className="border rounded-full px-4 py-1 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      View Progress
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedStudent(item);
-                        setView("form");
-                      }}
-                      className="bg-gray-800 text-white rounded-full px-4 py-1 text-sm hover:bg-black"
-                    >
-                      Assess
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {activeTab === "pending" && view === "form" && selectedStudent && (
-          <div className="bg-gray-50 border rounded-2xl p-6 md:p-8 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
-              <div className="flex items-center gap-3">
-                <InitialsAvatar
-                  firstName={selectedStudent.studentName.firstName}
-                  lastName={selectedStudent.studentName.lastName}
-                />
-                <div>
-                  <p className="font-medium text-gray-800 text-sm sm:text-base">
-                    {selectedStudent.studentName.firstName}{" "}
-                    {selectedStudent.studentName.lastName}
+                  <p className="text-sm text-slate-500">{row.courseTitle}</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Due {formatDate(row.dueDate)}
+                    {row.sentAt ? ` · sent ${formatDate(row.sentAt)}` : ""}
+                    {row.questionnaire?.title ? ` · ${row.questionnaire.title}` : ""}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 sm:ml-auto">
-                <span className="text-xs sm:text-sm px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-600">
-                  {selectedStudent.status}
-                </span>
-                <p className="text-xs sm:text-sm text-red-500">
-                  Due: {formatDate(selectedStudent.dueDate)}
-                </p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-600 text-sm mb-1">
-                    Homework
-                  </label>
-                  <input
-                    type="number"
-                    name="homework"
-                    min="0"
-                    max="5"
-                    value={formData.homework}
-                    onChange={handleChange}
-                    placeholder="0/5"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
+              {tab === "completed" && (
+                <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  {[
+                    ["Homework", row.homework],
+                    ["Practice", row.practice],
+                    ["Speed", row.learningSpeed],
+                    ["Performance", row.performanceSkills],
+                    ["Total", row.totalScore != null ? `${row.totalScore}/20` : null],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-slate-50 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-slate-400">{label}</p>
+                      <p className="text-sm font-semibold text-slate-800">{value ?? "—"}</p>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className="block text-gray-600 text-sm mb-1">
-                    Practice
-                  </label>
-                  <input
-                    type="number"
-                    name="practice"
-                    min="0"
-                    max="5"
-                    value={formData.practice}
-                    onChange={handleChange}
-                    placeholder="0/5"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-600 text-sm mb-1">Speed</label>
-                  <input
-                    type="number"
-                    name="speed"
-                    min="0"
-                    max="5"
-                    value={formData.speed}
-                    onChange={handleChange}
-                    placeholder="0/5"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-600 text-sm mb-1">
-                    Performance
-                  </label>
-                  <input
-                    type="number"
-                    name="performance"
-                    min="0"
-                    max="5"
-                    value={formData.performance}
-                    onChange={handleChange}
-                    placeholder="0/5"
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-600 text-sm mb-1">Total Score</label>
-                <input
-                  type="text"
-                  name="total"
-                  value={formData.total}
-                  readOnly
-                  placeholder="00/20"
-                  className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 focus:outline-none"
-                />
-              </div>
-
-              {submitLoading && (
-                <p className="text-sm text-gray-600">Submitting assessment...</p>
-              )}
-              {submitError && (
-                <p className="text-sm text-red-500">Submit error: {submitError}</p>
               )}
 
-              <div className="flex flex-wrap justify-between items-center gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="border rounded-full px-4 py-2 text-center text-gray-700 font-medium text-sm sm:text-base hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-
-                <div className="flex gap-3">
+              <div className="mt-4 flex flex-wrap gap-2">
+                {(tab === "sent" || tab === "submitted") && (
                   <button
                     type="button"
-                    onClick={() => navigate("/teacher/students")}
-                    className="border rounded-full px-4 py-2 text-center text-gray-700 font-medium text-sm sm:text-base hover:bg-gray-100"
+                    onClick={() => setScoring({ open: true, row })}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${
+                      tab === "submitted"
+                        ? "bg-[#FF6B35] text-white hover:bg-[#fd5a1f]"
+                        : "border border-slate-200 text-slate-600 hover:border-orange-200 hover:text-orange-600"
+                    }`}
                   >
-                    View Profile
+                    {tab === "submitted" ? "Read & score" : "Score without a response"}
                   </button>
+                )}
+                {tab === "completed" && !row.certificateId && (
                   <button
-                    type="submit"
-                    disabled={
-                      submitLoading ||
-                      !formData.homework ||
-                      !formData.practice ||
-                      !formData.speed ||
-                      !formData.performance
-                    }
-                    className={`rounded-full px-4 py-2 font-medium text-sm sm:text-base ${formData.homework &&
-                      formData.practice &&
-                      formData.speed &&
-                      formData.performance &&
-                      !submitLoading
-                      ? "bg-black text-white hover:bg-gray-900"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                      }`}
+                    type="button"
+                    onClick={() => runIssue(row)}
+                    disabled={issueCertificate.isPending}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] disabled:opacity-50"
                   >
-                    {submitLoading ? "Submitting..." : "Submit"}
+                    <FiAward />
+                    Issue certificate
                   </button>
-                </div>
+                )}
+                {tab === "completed" && row.certificateId && (
+                  <button
+                    type="button"
+                    onClick={() => runDownload(row)}
+                    disabled={downloadingId === row.certificateId}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50"
+                  >
+                    <FiDownload />
+                    {downloadingId === row.certificateId ? "Preparing..." : "Certificate issued"}
+                  </button>
+                )}
               </div>
-            </form>
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+      )}
 
-        {activeTab === "completed" && view === "list" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {completedStudents.length === 0 && <p>No completed assessments</p>}
-            {completedStudents.map((item) => {
-              const student = item.studentName || {};
-              return (
-                <div
-                  key={item._id}
-                  className="border rounded-2xl shadow-sm bg-white overflow-hidden"
-                >
-                  <div className="flex items-center gap-3 p-4 sm:p-6">
-                    <InitialsAvatar
-                      firstName={student.firstName}
-                      lastName={student.lastName}
-                    />
-                    <div>
-                      <p className="font-medium text-gray-800 text-sm sm:text-base">
-                        {student.firstName} {student.lastName}
-                      </p>
-                      <p className="text-xs sm:text-sm text-gray-500">Assessment</p>
-                      <p className="text-[10px] sm:text-xs text-gray-400">
-                        Submitted on {formatDate(item.assessmentDate)}
-                      </p>
-                    </div>
-                    <span className="ml-auto bg-green-100 text-green-600 text-[10px] sm:text-xs px-2 py-0.5 rounded-full">
-                      Completed
-                    </span>
-                  </div>
+      <SlideOver open={scoring.open} onClose={() => setScoring((prev) => ({ ...prev, open: false }))}>
+        {scoring.row ? (
+          <ScorePanel
+            key={scoring.row._id}
+            row={scoring.row}
+            onDone={() => {
+              setScoring((prev) => ({ ...prev, open: false }));
+              setTab("completed");
+            }}
+          />
+        ) : null}
+      </SlideOver>
+    </div>
+  );
+};
 
-                  <div className="bg-gray-50 border-t px-4 sm:px-6 py-3 sm:py-4">
-                    <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm text-gray-700 gap-x-3 gap-y-2 mb-3">
-                      <div className="grid w-full grid-cols-2 gap-3 sm:flex sm:w-auto sm:gap-10 sm:divide-x sm:divide-gray-300">
-                        <div>
-                          <p className="text-gray-500">Homework *</p>
-                          <p className="text-lg font-semibold">{item.homework || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Practice *</p>
-                          <p className="text-lg font-semibold">{item.practice || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Speed *</p>
-                          <p className="text-lg font-semibold">{item.speed || 0}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Performance *</p>
-                          <p className="text-lg font-semibold">{item.performance || 0}</p>
-                        </div>
-                      </div>
-                    </div>
+const ScorePanel = ({ row, onDone }) => {
+  const [ratings, setRatings] = useState({ homework: "", practice: "", speed: "", performance: "" });
+  const [feedback, setFeedback] = useState("");
+  const scoreAssessment = useScoreAssessment();
 
-                    {item.trainerFeedback && (
-                      <div className="mb-3">
-                        <p className="text-[10px] sm:text-xs text-gray-400">Feedback (opt)</p>
-                        <p className="text-xs sm:text-sm text-gray-600">{item.trainerFeedback}</p>
-                      </div>
-                    )}
+  const complete = RATINGS.every(({ key }) => ratings[key] !== "");
+  const total = useMemo(
+    () => RATINGS.reduce((sum, { key }) => sum + (Number(ratings[key]) || 0), 0),
+    [ratings]
+  );
 
-                    <p className="text-xs text-gray-500">Total Score *</p>
-                    <p className="text-lg font-semibold">{item.totalScore || 0}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+  const submit = async () => {
+    try {
+      await scoreAssessment.mutateAsync({
+        id: row._id,
+        homework: Number(ratings.homework),
+        practice: Number(ratings.practice),
+        speed: Number(ratings.speed),
+        performance: Number(ratings.performance),
+        trainerFeedback: feedback.trim(),
+      });
+      toast.success("Assessment scored");
+      onDone();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const submission = row.submission;
+
+  return (
+    <div className="space-y-5 px-6 pb-6 pt-16">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">{row.courseTitle}</p>
+        <h2 className="mt-1 text-2xl font-bold text-slate-900">{fullName(row.studentName)}</h2>
+        <p className="text-sm text-slate-500">
+          {submission ? `Answered ${formatDate(submission.submittedAt)}` : "No response from the learner yet"}
+        </p>
+      </div>
+
+      {submission?.videoUrl ? (
+        <a
+          href={submission.videoUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm font-semibold text-orange-700 transition hover:bg-orange-100"
+        >
+          <span className="truncate">Watch the learner's video</span>
+          <FiExternalLink className="shrink-0" />
+        </a>
+      ) : null}
+
+      {submission?.answers?.length ? (
+        <div className="space-y-3">
+          {submission.answers.map((answer, index) => (
+            <div key={index} className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs font-semibold text-slate-500">
+                {index + 1}. {answer.prompt}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-sm text-slate-800">
+                {answer.type === "checkbox"
+                  ? answer.selected?.length
+                    ? answer.selected.join(", ")
+                    : "Nothing ticked"
+                  : answer.text || "Left blank"}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-sm font-semibold text-slate-900">Your assessment</p>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {RATINGS.map(({ key, label }) => (
+            <label key={key} className="block">
+              <span className="mb-1 block text-xs text-slate-500">{label} (0–5)</span>
+              <select
+                value={ratings[key]}
+                onChange={(e) => setRatings((r) => ({ ...r, [key]: e.target.value }))}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+              >
+                <option value="">—</option>
+                {[0, 1, 2, 3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+        <textarea
+          rows={3}
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Feedback for the learner (optional)"
+          className="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+        />
+        <div className="mt-3 flex items-center justify-between">
+          <p className="text-sm text-slate-500">
+            Total <span className="font-semibold text-slate-900">{complete ? `${total}/20` : "—"}</span>
+          </p>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!complete || scoreAssessment.isPending}
+            className="rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] disabled:opacity-50"
+          >
+            {scoreAssessment.isPending ? "Saving..." : "Save score"}
+          </button>
+        </div>
       </div>
     </div>
   );

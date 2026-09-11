@@ -9,7 +9,8 @@ const isAdmin = (req) => ["admin", "superadmin"].includes(req.user?.accountType)
 
 // A learner sees their own, an instructor the ones they awarded, an admin all.
 const scopeFor = async (req) => {
-  if (isAdmin(req)) return {};
+  // Admins may narrow to one learner (the student profile page does).
+  if (isAdmin(req)) return req.query?.studentId ? { studentId: req.query.studentId } : {};
 
   if (req.user?.accountType === "teacher") {
     return { teacherId: req.user.roleId };

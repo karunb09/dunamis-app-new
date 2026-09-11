@@ -338,9 +338,13 @@ exports.getTeacherAssessments = asyncHandler(async (req, res) => {
       .populate("courseId", "name")
       .sort({ dueDate: -1 });
 
+    // Every status needs a bucket — an assessment whose status has no bucket
+    // silently disappears from the instructor's page.
     const grouped = {
       pending: [],
       overdue: [],
+      sent: [],
+      submitted: [],
       completed: [],
     };
 
@@ -360,11 +364,21 @@ exports.getTeacherAssessments = asyncHandler(async (req, res) => {
         practice: assessment.practice || null,
         totalScore: assessment.totalScore || null,
         trainerFeedback: assessment.trainerFeedback || "",
+        studentId: assessment.studentId?._id,
+        questionnaire: assessment.sentAt ? assessment.questionnaire : null,
+        sentAt: assessment.sentAt || null,
+        submission: assessment.submission?.submittedAt ? assessment.submission : null,
+        certificateId: assessment.certificateId || null,
       };
 
-      if (assessment.status === "Pending") grouped.pending.push(data);
-      else if (assessment.status === "Overdue") grouped.overdue.push(data);
-      else if (assessment.status === "Completed") grouped.completed.push(data);
+      const bucket = {
+        Pending: grouped.pending,
+        Overdue: grouped.overdue,
+        Sent: grouped.sent,
+        Submitted: grouped.submitted,
+        Completed: grouped.completed,
+      }[assessment.status];
+      if (bucket) bucket.push(data);
     });
 
     res.status(200).json({

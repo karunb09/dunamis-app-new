@@ -1,28 +1,87 @@
-import { FiAward } from "react-icons/fi";
+import { useState } from "react";
+import dayjs from "dayjs";
+import { toast } from "react-hot-toast";
+import { useQuery } from "@tanstack/react-query";
+import { FiAward, FiDownload } from "react-icons/fi";
+import axios from "../../../../../api/axios";
+import { downloadCertificate } from "../../../../../api/assessmentsApi";
 
+const LEVEL_ORDER = ["beginner", "intermediate", "advanced"];
+const titleCase = (value) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : "");
+
+// Certificates are awarded by the instructor at the end of a six-month
+// assessment; this reads them from the certificates collection, which is the
+// learner's level history.
 const CertificationsTab = ({ student }) => {
-    const certifications = student.certifications || [];
+    const [downloadingId, setDownloadingId] = useState(null);
 
-    if (certifications.length === 0) {
-        return <div className="text-sm text-gray-500 text-center py-6">No certifications available.</div>;
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ["certificates", "student", student?._id],
+        queryFn: async () => {
+            const res = await axios.get("/certificates", { params: { studentId: student._id } });
+            return res.data;
+        },
+        enabled: Boolean(student?._id),
+    });
+
+    const certificates = (data?.certificates || [])
+        .slice()
+        .sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level));
+
+    const save = async (certificate) => {
+        setDownloadingId(certificate._id);
+        try {
+            const blob = await downloadCertificate(certificate._id);
+            const href = URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = href;
+            anchor.download = `${certificate.certificateNumber}.pdf`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(href);
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    if (isLoading) {
+        return <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />;
+    }
+
+    if (isError) {
+        return <div className="py-6 text-center text-sm text-rose-600">Could not load certificates.</div>;
+    }
+
+    if (certificates.length === 0) {
+        return <div className="py-6 text-center text-sm text-gray-500">No certificates awarded yet.</div>;
     }
 
     return (
-        <div className="relative space-y-4">
-            <button className="bg-amber-100 absolute top-2 right-0 mb-2 mr-2 border px-3 py-1.5 rounded-2xl text-sm flex items-center gap-1 hover:bg-amber-200">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 13l-5 5m0 0l-5-5m5 5V6" />
-                </svg>
-                Download All
-            </button>
-            {certifications.map((cert) => (
-                <div key={cert.id} className="bg-amber-50 text-center border border-amber-100 text-sm rounded-2xl py-6 px-4 space-y-3">
-                    <FiAward className="text-yellow-600 text-2xl mx-auto" />
-                    <h2 className="text-lg font-semibold text-black">{cert.course}</h2>
-                    <p className="text-gray-700 max-w-2xl mx-auto">
-                        This certificate is awarded to <strong>{cert.awardedTo}</strong> for completing <strong>{cert.course}</strong> on {cert.date}.
-                    </p>
-                    <div className="text-xs font-medium text-gray-700 uppercase tracking-wider">{cert.platform}</div>
+        <div className="space-y-3">
+            {certificates.map((cert) => (
+                <div key={cert._id} className="flex items-center gap-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-4">
+                    <FiAward className="shrink-0 text-2xl text-amber-600" />
+                    <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-900">
+                            {titleCase(cert.level)} · {cert.courseName}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                            {cert.certificateNumber} · awarded {dayjs(cert.issuedAt).format("D MMM YYYY")}
+                            {cert.instructorName ? ` by ${cert.instructorName}` : ""}
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => save(cert)}
+                        disabled={downloadingId === cert._id}
+                        className="inline-flex items-center gap-1.5 rounded-2xl border border-amber-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-amber-100 disabled:opacity-50"
+                    >
+                        <FiDownload />
+                        {downloadingId === cert._id ? "Preparing..." : "PDF"}
+                    </button>
                 </div>
             ))}
         </div>

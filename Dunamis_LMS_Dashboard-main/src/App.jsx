@@ -48,6 +48,7 @@ const MySchedule = lazy(routeLoaders["/teacher/schedule"]);
 const Attendance = lazy(routeLoaders["/teacher/attendance"]);
 const Assessment = lazy(routeLoaders["/teacher/assessments"]);
 const TeacherMessages = lazy(routeLoaders["/teacher/messages"]);
+const TeacherQuestionnaires = lazy(routeLoaders["/teacher/questionnaires"]);
 const StudentDetail = lazy(() => import("./page/TeacherPages/TeacherCourses/StudentDetail"));
 const Profile = lazy(() => import("./page/TeacherPages/profile"));
 
@@ -237,6 +238,7 @@ const App = () => {
               <Route path="/teacher/schedule" element={<RequireAuth allowedRoles={["teacher"]}><MySchedule /></RequireAuth>} />
               <Route path="/teacher/attendance" element={<RequireAuth allowedRoles={["teacher"]}><Attendance /></RequireAuth>} />
               <Route path="/teacher/assessments" element={<RequireAuth allowedRoles={["teacher"]}><Assessment /></RequireAuth>} />
+              <Route path="/teacher/questionnaires" element={<RequireAuth allowedRoles={["teacher"]}><TeacherQuestionnaires /></RequireAuth>} />
               <Route path="/teacher/messages" element={<RequireAuth allowedRoles={["teacher"]}><TeacherMessages /></RequireAuth>} />
               <Route
                 path="/teacher/studentDetail/:id"

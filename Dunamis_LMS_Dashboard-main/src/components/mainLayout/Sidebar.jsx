@@ -68,6 +68,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiCheckSquare />,
       text: "Assessments",
     },
+    { to: "/teacher/questionnaires", icon: <FiFileText />, text: "Questionnaires" },
     {
       to: "/teacher/attendance",
       icon: <FiEdit3 />,
