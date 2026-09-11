@@ -1,7 +1,20 @@
 const Assessment = require("../model/assessment.model");
 const asyncHandler = require("../utils/asyncHandler");
 const Teacher = require("../model/teacher.model");
-const Student = require("../model/student.model")
+const Student = require("../model/student.model");
+const Certificate = require("../model/certificate.model");
+const Course = require("../model/course.model");
+const Questionnaire = require("../model/questionnaire.model");
+const { formatUserName } = require("../utils/formatName");
+const { createDashboardNotice } = require("../utils/notificationService");
+const { nextCertificateNumber } = require("../services/certificatePdf");
+
+const toId = (value) => String(value?._id || value || "");
+
+// The teacher record behind the logged-in user. req.user.roleId already holds
+// it, but the existing handlers look it up by userId — keep that consistent.
+const teacherFor = async (req) =>
+  Teacher.findOne({ userId: req.user.userId }).select("_id userId");
 
 exports.submitAssessment = asyncHandler(async (req, res) => {
     const { assessmentId } = req.params;
@@ -74,6 +87,232 @@ exports.submitAssessment = asyncHandler(async (req, res) => {
       message: "Assessment submitted successfully.",
       data: assessment,
     });
+});
+
+// Sends one questionnaire to any number of the instructor's own assessments —
+// a whole class or a single learner, the caller supplies the ids.
+exports.sendQuestionnaire = asyncHandler(async (req, res) => {
+  const { questionnaireId, assessmentIds } = req.body;
+
+  const teacher = await teacherFor(req);
+  if (!teacher) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Teacher not found or unauthorized." });
+  }
+
+  const questionnaire = await Questionnaire.findById(questionnaireId);
+  if (!questionnaire || toId(questionnaire.teacherId) !== toId(teacher._id)) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Questionnaire not found." });
+  }
+
+  if (questionnaire.status !== "published") {
+    return res.status(400).json({
+      success: false,
+      message: "Publish this questionnaire before sending it.",
+    });
+  }
+
+  if (!questionnaire.questions.length) {
+    return res
+      .status(400)
+      .json({ success: false, message: "This questionnaire has no questions yet." });
+  }
+
+  const assessments = await Assessment.find({
+    _id: { $in: assessmentIds },
+    teacherId: teacher._id,
+    status: { $in: ["Pending", "Overdue", "Sent"] },
+  }).populate("courseId", "name");
+
+  if (!assessments.length) {
+    return res.status(404).json({
+      success: false,
+      message: "No assessments of yours are waiting to be sent.",
+    });
+  }
+
+  // Snapshot, so editing the questionnaire later never rewrites what a learner
+  // was asked — and the answers stay readable if it is deleted.
+  const snapshot = {
+    title: questionnaire.title,
+    questions: questionnaire.questions.map((q) => ({
+      prompt: q.prompt,
+      type: q.type,
+      options: q.options,
+      required: q.required,
+    })),
+  };
+
+  const sentAt = new Date();
+  await Assessment.updateMany(
+    { _id: { $in: assessments.map((a) => a._id) } },
+    {
+      $set: {
+        questionnaireId: questionnaire._id,
+        questionnaire: snapshot,
+        sentAt,
+        sentBy: req.user.userId,
+        status: "Sent",
+      },
+    }
+  );
+
+  const students = await Student.find({
+    _id: { $in: assessments.map((a) => a.studentId) },
+  })
+    .select("userId")
+    .lean();
+
+  await createDashboardNotice({
+    title: "Assessment form ready",
+    message: `Your instructor has sent "${questionnaire.title}". Answer it and add your video link from the Assessments page.`,
+    userIds: students.map((s) => s.userId).filter(Boolean),
+    contentType: "Reminder",
+  });
+
+  res.status(200).json({
+    success: true,
+    message: `Sent to ${assessments.length} learner${
+      assessments.length === 1 ? "" : "s"
+    }.`,
+    count: assessments.length,
+  });
+});
+
+// The learner's side: their video link and their answers.
+exports.submitAssessmentResponse = asyncHandler(async (req, res) => {
+  const { videoUrl, answers } = req.body;
+
+  const student = await Student.findOne({ userId: req.user.userId }).select("_id");
+  if (!student) {
+    return res.status(404).json({ success: false, message: "Student not found." });
+  }
+
+  const assessment = await Assessment.findOne({
+    _id: req.params.id,
+    studentId: student._id,
+  });
+
+  if (!assessment) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Assessment not found." });
+  }
+
+  if (!assessment.sentAt) {
+    return res.status(409).json({
+      success: false,
+      message: "Your instructor has not sent this assessment yet.",
+    });
+  }
+
+  if (assessment.status === "Completed") {
+    return res.status(409).json({
+      success: false,
+      message: "This assessment has already been scored and can no longer be changed.",
+    });
+  }
+
+  const missing = (assessment.questionnaire?.questions || []).filter((q, index) => {
+    if (!q.required) return false;
+    const answer = answers[index];
+    return q.type === "checkbox"
+      ? !(answer?.selected || []).length
+      : !(answer?.text || "").trim();
+  });
+
+  if (missing.length) {
+    return res.status(400).json({
+      success: false,
+      message: `Answer every required question — ${missing.length} still empty.`,
+    });
+  }
+
+  assessment.submission = {
+    videoUrl: videoUrl || "",
+    answers: (assessment.questionnaire?.questions || []).map((q, index) => ({
+      prompt: q.prompt,
+      type: q.type,
+      text: q.type === "fill_blank" ? answers[index]?.text || "" : "",
+      selected: q.type === "checkbox" ? answers[index]?.selected || [] : [],
+    })),
+    submittedAt: new Date(),
+  };
+  assessment.status = "Submitted";
+  await assessment.save();
+
+  res.status(200).json({ success: true, data: assessment });
+});
+
+// The explicit award. Idempotent: a second tick returns the same certificate
+// rather than minting a second number.
+exports.issueCertificate = asyncHandler(async (req, res) => {
+  const teacher = await teacherFor(req);
+  if (!teacher) {
+    return res
+      .status(403)
+      .json({ success: false, message: "Teacher not found or unauthorized." });
+  }
+
+  const assessment = await Assessment.findOne({
+    _id: req.params.id,
+    teacherId: teacher._id,
+  });
+
+  if (!assessment) {
+    return res
+      .status(404)
+      .json({ success: false, message: "Assessment not found." });
+  }
+
+  if (assessment.status !== "Completed") {
+    return res.status(409).json({
+      success: false,
+      message: "Score the assessment before issuing a certificate.",
+    });
+  }
+
+  const existing = await Certificate.findOne({ assessmentId: assessment._id });
+  if (existing) {
+    return res.status(200).json({ success: true, certificate: existing });
+  }
+
+  const [student, course, teacherUser] = await Promise.all([
+    Student.findById(assessment.studentId).populate("userId", "name").lean(),
+    Course.findById(assessment.courseId).populate("category", "name").lean(),
+    Teacher.findById(teacher._id).populate("userId", "name").lean(),
+  ]);
+
+  const certificate = await Certificate.create({
+    studentId: assessment.studentId,
+    courseId: assessment.courseId,
+    teacherId: teacher._id,
+    assessmentId: assessment._id,
+    level: course?.level || "beginner",
+    studentName: formatUserName(student?.userId?.name, "Student"),
+    courseName: course?.name || "Course",
+    categoryName: course?.category?.name || "",
+    instructorName: formatUserName(teacherUser?.userId?.name, "Instructor"),
+    certificateNumber: await nextCertificateNumber(),
+    issuedBy: req.user.userId,
+  });
+
+  assessment.certificateId = certificate._id;
+  await assessment.save();
+
+  if (student?.userId?._id) {
+    await createDashboardNotice({
+      title: "Certificate awarded",
+      message: `Your ${certificate.level} certificate for ${certificate.courseName} is ready to download from your profile.`,
+      userIds: [student.userId._id],
+      contentType: "Transactional",
+    });
+  }
+
+  res.status(201).json({ success: true, certificate });
 });
 
 exports.getTeacherAssessments = asyncHandler(async (req, res) => {
@@ -177,6 +416,10 @@ exports.getStudentAssessments = asyncHandler(async (req, res) => {
       status: a.status,
       dueDate: a.dueDate,
       assessmentDate: a.assessmentDate,
+      questionnaire: a.sentAt ? a.questionnaire : null,
+      sentAt: a.sentAt,
+      submission: a.submission?.submittedAt ? a.submission : null,
+      certificateId: a.certificateId,
       createdAt: a.createdAt,
       updatedAt: a.updatedAt,
     }));

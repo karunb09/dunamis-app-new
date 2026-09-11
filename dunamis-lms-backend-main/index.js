@@ -101,6 +101,8 @@ const messageRoutes = require("./routes/message.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
+const questionnaireRoutes = require("./routes/questionnaire.routes");
+const certificateRoutes = require("./routes/certificate.routes");
 const siteContentRoutes = require("./routes/siteContent.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const courseRequestRoutes = require("./routes/courseRequest.routes");
@@ -246,6 +248,8 @@ app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/assignment", assignmentRoutes);
 app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);
+app.use("/api/v1/questionnaires", questionnaireRoutes);
+app.use("/api/v1/certificates", certificateRoutes);
 app.use("/api/v1/siteContent", siteContentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course-requests", courseRequestRoutes);
