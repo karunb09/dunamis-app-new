@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import dayjs from "dayjs";
 import { toast } from "react-hot-toast";
 import Swal from "sweetalert2";
-import { FiAward, FiDownload, FiExternalLink, FiInbox, FiSend } from "react-icons/fi";
+import { FiAward, FiDownload, FiExternalLink, FiFileText, FiInbox, FiSend } from "react-icons/fi";
 import PageTabBar from "../../components/PageTabBar";
 import SlideOver from "../../components/SlideOver";
 import {
@@ -151,12 +152,21 @@ const Assessment = () => {
 
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Assessments</p>
-        <h1 className="text-2xl font-bold text-slate-900">Six-month assessments</h1>
-        <p className="text-sm text-slate-500">
-          Send a questionnaire, read what your learners send back, score it, and award the level certificate.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Assessments</p>
+          <h1 className="text-2xl font-bold text-slate-900">Six-month assessments</h1>
+          <p className="text-sm text-slate-500">
+            Send a questionnaire, read what your learners send back, score it, and award the level certificate.
+          </p>
+        </div>
+        <Link
+          to="/teacher/questionnaires"
+          className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-orange-300 hover:text-orange-600"
+        >
+          <FiFileText />
+          Questionnaires
+        </Link>
       </div>
 
       <PageTabBar tabs={tabs} activeTab={tab} onChange={setTab} />
@@ -186,6 +196,14 @@ const Assessment = () => {
               </option>
             ))}
           </select>
+          {published.length === 0 && (
+            <Link
+              to="/teacher/questionnaires"
+              className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+            >
+              Create one →
+            </Link>
+          )}
           <button
             type="button"
             onClick={runSend}

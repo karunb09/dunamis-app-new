@@ -2,10 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getAssignmentsByStatus, createAssignment, reviewSubmission } from "../../redux/Assignment/AssignmentSlice";
 import toast from "react-hot-toast";
-import { FiMusic } from "react-icons/fi";
+import { useQuery } from "@tanstack/react-query";
+import { FiMusic, FiPlus } from "react-icons/fi";
+import api from "../../api/axios";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const Tabs = ["All", "Pending", "Reviewed", "Overdue", "Reminders"];
+
+const inputClass =
+  "w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
 
 function Assignments() {
   const dispatch = useDispatch();
@@ -73,11 +78,18 @@ function Assignments() {
     return true;
   });
 
+  const openCreate = () => {
+    setSelectedAssignment(null);
+    setSelectedStudent(null);
+    setModalType("assign");
+    setShowModal(true);
+  };
+
   const handleActionClick = (action, assignment) => {
     setSelectedAssignment(assignment);
     setSelectedStudent(assignment.studentData);
 
-    if (action === "Assign") {
+    if (action === "Set assignment") {
       setModalType("assign");
       setShowModal(true);
     }
@@ -96,6 +108,9 @@ function Assignments() {
   };
 
   const getActionButton = (status) => {
+    if (status === "reminder") {
+      return { action: "Set assignment", color: "bg-[#FF6B35]" };
+    }
     if (status === "pending") {
       return { action: "Review", color: "bg-green-500" };
     }
@@ -117,6 +132,7 @@ function Assignments() {
       reviewed: <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">● Reviewed</span>,
       overdue: <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs">● Overdue</span>,
       assigned: <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full text-xs">● Assigned</span>,
+      reminder: <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs">● Monthly assignment due</span>,
     };
     return badges[status] || null;
   };
@@ -185,10 +201,14 @@ function Assignments() {
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </div>
-        <div className="flex gap-3 text-xl text-gray-700">
-          <button className="hover:text-gray-900">☰</button>
-          <button className="hover:text-gray-900">⇅</button>
-        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+        >
+          <FiPlus />
+          Create assignment
+        </button>
       </div>
 
       <div className="flex gap-4 sm:gap-6 mb-6 text-gray-500 text-xs sm:text-sm md:text-base border-b overflow-x-auto whitespace-nowrap">
@@ -214,6 +234,16 @@ function Assignments() {
               ? "Create your first assignment"
               : `No ${activeTab.toLowerCase()} assignments`}
           </p>
+          {activeTab === "All" && (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+            >
+              <FiPlus />
+              Create assignment
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -240,9 +270,9 @@ function Assignments() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <h3 className="font-semibold">{item.title}</h3>
+                  <h3 className="font-semibold">{item.title || "Not set yet"}</h3>
                   <span className="text-xs text-gray-500">
-                    {formatDate(item.dueDate)}
+                    {item.dueDate ? formatDate(item.dueDate) : "Due date not set"}
                   </span>
                 </div>
                 <div className="flex gap-2 text-xs flex-wrap">
@@ -291,6 +321,11 @@ function Assignments() {
             </button>
             {modalType === "assign" && (
               <CreateAssignment
+                preset={
+                  selectedAssignment
+                    ? { courseId: selectedAssignment.course?._id, studentIds: [selectedStudent?._id] }
+                    : null
+                }
                 onClose={() => {
                   setShowModal(false);
                   dispatch(getAssignmentsByStatus("all"));
@@ -333,31 +368,43 @@ function Assignments() {
   );
 }
 
-function CreateAssignment({ onClose }) {
+// Learners come from the instructor's own class rosters, so an assignment can
+// only ever go to someone they teach. A learner whose monthly slot is open gets
+// that slot filled server-side rather than a second assignment.
+function CreateAssignment({ onClose, preset }) {
   const dispatch = useDispatch();
-  const [formData, setFormData] = useState({
-    title: "",
-    dueDate: "",
-    description: "",
-    courseId: "",
-    studentIds: [],
-  });
+  const [courseId, setCourseId] = useState(preset?.courseId || "");
+  const [studentIds, setStudentIds] = useState(preset?.studentIds?.filter(Boolean) || []);
+  const [title, setTitle] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const { data, isLoading } = useQuery({
+    queryKey: ["assignment", "learners"],
+    queryFn: async () => (await api.get("/assignment/learners")).data,
+  });
+
+  const learners = data?.learners || [];
+  const courses = [...new Map(learners.map((l) => [l.courseId, l.courseName])).entries()];
+  const inCourse = learners.filter((l) => l.courseId === courseId);
+  const allSelected = inCourse.length > 0 && inCourse.every((l) => studentIds.includes(l.studentId));
+
+  const toggle = (id) =>
+    setStudentIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
 
   const handleAssign = async () => {
-    if (!formData.title || !formData.dueDate) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+    if (!courseId) return toast.error("Pick a course");
+    if (!studentIds.length) return toast.error("Pick at least one learner");
+    if (!title.trim()) return toast.error("Give the assignment a title");
+    if (!dueDate) return toast.error("Pick a due date");
 
     setIsSubmitting(true);
     try {
-      await dispatch(createAssignment(formData)).unwrap();
-      toast.success("Assignment created successfully");
+      const result = await dispatch(
+        createAssignment({ courseId, studentIds, title: title.trim(), description: description.trim(), dueDate })
+      ).unwrap();
+      toast.success(result?.message || "Assignment created");
       onClose();
     } catch (error) {
       toast.error(error || "Failed to create assignment");
@@ -367,62 +414,110 @@ function CreateAssignment({ onClose }) {
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-semibold mb-6">Create Assignment</h2>
-      <div className="flex items-center gap-4 mb-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-semibold text-gray-700">
-          S
-        </div>
-        <div>
-          <p className="font-medium">Select Student</p>
-          <div className="flex gap-2 mt-1 text-sm text-black-500">
-            <span className="flex items-center gap-1 border rounded-full px-2 py-0.5 bg-cyan-50 text-xs">
-              <FiMusic className="w-3 h-3" />
-              Music
-            </span>
-            <span>Course</span>
-          </div>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Assignment</p>
+        <h2 className="text-lg font-bold text-slate-900">
+          {preset ? "Set this month's assignment" : "Create assignment"}
+        </h2>
+        <p className="text-xs text-slate-500">Learners submit a video link; you review it with feedback and a rating.</p>
       </div>
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <input
-          type="text"
-          name="title"
-          placeholder="Assignment Title *"
-          value={formData.title}
-          onChange={handleChange}
-          className="flex-1 border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-gray-200"
-        />
-        <input
-          type="datetime-local"
-          name="dueDate"
-          value={formData.dueDate}
-          onChange={handleChange}
-          className="flex-1 border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-gray-200"
-        />
-      </div>
-      <textarea
-        name="description"
-        placeholder="Assignment Description"
-        value={formData.description}
-        onChange={handleChange}
-        className="w-full border rounded-lg p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-gray-200"
-        rows={4}
-      />
-      <div className="flex justify-end gap-4">
+
+      {isLoading ? (
+        <div className="h-20 animate-pulse rounded-2xl bg-slate-100" />
+      ) : learners.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500">
+          You have no learners in any class yet.
+        </p>
+      ) : (
+        <>
+          <select
+            value={courseId}
+            onChange={(e) => {
+              setCourseId(e.target.value);
+              setStudentIds([]);
+            }}
+            className={inputClass}
+          >
+            <option value="">Choose a course</option>
+            {courses.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          {courseId && (
+            <div className="rounded-2xl border border-slate-200 p-3">
+              <label className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-2 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={() => setStudentIds(allSelected ? [] : inCourse.map((l) => l.studentId))}
+                  className="h-4 w-4 accent-orange-500"
+                />
+                Whole class ({inCourse.length})
+              </label>
+              <div className="grid max-h-44 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                {inCourse.map((l) => (
+                  <label key={l.studentId} className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={studentIds.includes(l.studentId)}
+                      onChange={() => toggle(l.studentId)}
+                      className="h-4 w-4 accent-orange-500"
+                    />
+                    {l.studentName}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title — e.g. Record the C major scale"
+            maxLength={200}
+            className={inputClass}
+          />
+          <label className="block">
+            <span className="mb-1 block text-xs text-slate-500">Due</span>
+            <input
+              type="datetime-local"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className={inputClass}
+            />
+          </label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What should the learner record or practise?"
+            rows={3}
+            maxLength={2000}
+            className={inputClass}
+          />
+        </>
+      )}
+
+      <div className="flex justify-end gap-2">
         <button
-          className="px-4 py-2 border rounded-lg text-gray-700 hover:bg-gray-200"
+          type="button"
           onClick={onClose}
           disabled={isSubmitting}
+          className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
         >
           Cancel
         </button>
         <button
-          className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50"
+          type="button"
           onClick={handleAssign}
-          disabled={isSubmitting}
+          disabled={isSubmitting || learners.length === 0}
+          className="rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] disabled:opacity-50"
         >
-          {isSubmitting ? "Creating..." : "Create Assignment"}
+          {isSubmitting ? "Assigning..." : `Assign${studentIds.length ? ` to ${studentIds.length}` : ""}`}
         </button>
       </div>
     </div>
