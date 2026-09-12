@@ -66,13 +66,17 @@ const CenterDetailsPage = lazy(() => import("./page/AdminPages/OfflineCentersDet
 const ApplicationDetails = lazy(() => import("./page/AdminPages/UserManagement/Instructor/ApplicationDetails"));
 const CourseDetails = lazy(() => import("./page/AdminPages/CourseDetails"));
 
+const SHIMMER =
+  "relative overflow-hidden bg-slate-200/70 before:absolute before:inset-0 before:-translate-x-full before:bg-gradient-to-r before:from-transparent before:via-white/60 before:to-transparent motion-safe:before:animate-shimmer";
+
+// Delayed fade so a fast chunk load doesn't flash the skeleton for a frame.
 const RouteFallback = () => (
-  <div className="animate-pulse space-y-4">
-    <div className="h-3 w-24 rounded-full bg-slate-200" />
-    <div className="h-8 w-64 rounded-2xl bg-slate-200" />
+  <div className="space-y-4 motion-safe:animate-fade-in" style={{ animationDelay: "150ms" }}>
+    <div className={`h-3 w-24 rounded-full ${SHIMMER}`} />
+    <div className={`h-8 w-64 rounded-2xl ${SHIMMER}`} />
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="h-40 rounded-[30px] bg-slate-200/70" />
+        <div key={i} className={`h-40 rounded-[30px] ${SHIMMER}`} />
       ))}
     </div>
   </div>
@@ -126,6 +130,8 @@ const App = () => {
         <main className="flex-1 px-4 pb-6 pt-4 sm:px-6 lg:px-8">
           <div className="mx-auto w-full max-w-[1600px]">
             <Suspense fallback={<RouteFallback />}>
+              {/* Keyed on pathname so every navigation remounts and replays the entrance. */}
+              <div key={location.pathname} className="motion-safe:animate-fade-in-up">
               <Routes>
               {/* Student Routes */}
               <Route path="/home" element={<StudentPortalRedirect />} />
@@ -246,6 +252,7 @@ const App = () => {
               />
               <Route path="/teacher/profile" element={<RequireAuth allowedRoles={["teacher"]}><Profile /></RequireAuth>} />
               </Routes>
+              </div>
             </Suspense>
           </div>
         </main>

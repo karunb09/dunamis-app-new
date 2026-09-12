@@ -18,7 +18,6 @@ import {
   FiGift,
   FiBell,
   FiChevronLeft,
-  FiChevronRight,
   FiX,
 } from "react-icons/fi";
 import { PiStudentBold } from "react-icons/pi";
@@ -237,7 +236,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       return menu.map((section, index) => (
         <div key={index} className="mb-4">
           {section.section && isExpanded && (
-            <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <div className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500 motion-safe:animate-fade-in">
               {section.section}
             </div>
           )}
@@ -272,15 +271,15 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       <div
         className={clsx(
-          "fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-opacity lg:hidden",
-          { hidden: !isOpen }
+          "fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm transition-[opacity,visibility] duration-300 lg:hidden",
+          isOpen ? "visible opacity-100" : "invisible opacity-0"
         )}
         onClick={onClose}
       />
 
       <div
         className={clsx(
-          "fixed inset-y-0 left-0 z-40 flex w-[290px] max-w-[84vw] flex-col border-r border-slate-800 bg-slate-950 shadow-2xl transition-all duration-300 ease-in-out lg:sticky lg:top-0 lg:h-screen lg:max-w-none lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-[290px] max-w-[84vw] flex-col border-r border-slate-800 bg-slate-950 shadow-2xl transition-all duration-300 ease-drawer lg:sticky lg:top-0 lg:h-screen lg:max-w-none lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full",
           isDesktopOpen ? "lg:w-72" : "lg:w-20"
         )}
@@ -288,12 +287,15 @@ const Sidebar = ({ isOpen, onClose }) => {
         <div className="absolute top-1/2 -right-4 z-50 hidden -translate-y-1/2 lg:block">
           <button
             onClick={() => setIsDesktopOpen(!isDesktopOpen)}
-            className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-700 shadow-lg transition hover:bg-slate-50"
+            className="rounded-full border border-slate-200 bg-white p-1.5 text-slate-700 shadow-lg transition duration-300 hover:scale-110 hover:bg-slate-50 active:scale-95"
             aria-label={isDesktopOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            <span className="text-lg transition-transform duration-200">
-              {isDesktopOpen ? <FiChevronLeft /> : <FiChevronRight />}
-            </span>
+            <FiChevronLeft
+              className={clsx(
+                "text-lg transition-transform duration-300 ease-drawer",
+                !isDesktopOpen && "rotate-180"
+              )}
+            />
           </button>
         </div>
 
@@ -314,7 +316,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                   />
                 </div>
                 {isExpanded && (
-                  <div className="min-w-0">
+                  <div className="min-w-0 motion-safe:animate-fade-in">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-500">
                       Dunamis
                     </p>
@@ -328,7 +330,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 lg:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:rotate-90 hover:bg-white/10 lg:hidden"
                 aria-label="Close sidebar"
               >
                 <FiX className="text-lg" />
@@ -337,7 +339,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
             <div className="px-4 py-5 pb-6">
               {isExpanded && (
-                <div className="mb-5 rounded-3xl border border-white/10 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent px-4 py-4">
+                <div className="mb-5 rounded-3xl border border-white/10 bg-gradient-to-br from-orange-500/20 via-orange-500/8 to-transparent px-4 py-4 motion-safe:animate-fade-in-up">
                   <p className="text-xs font-medium uppercase tracking-[0.2em] text-orange-200/80">
                     Workspace
                   </p>
@@ -358,15 +360,15 @@ const Sidebar = ({ isOpen, onClose }) => {
               href={WEBSITE_URL}
               onClick={onClose}
               className={clsx(
-                "flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white",
+                "group/back flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition duration-300 ease-out-expo hover:bg-white/10 hover:text-white active:scale-[0.98]",
                 isExpanded ? "justify-start gap-3" : "justify-center"
               )}
               title={!isExpanded ? "Back to Website" : ""}
             >
-              <span className="text-xl">
+              <span className="text-xl transition-transform duration-300 ease-out-expo group-hover/back:-translate-x-1">
                 <FiChevronLeft />
               </span>
-              {isExpanded && <span>Back to Website</span>}
+              {isExpanded && <span className="motion-safe:animate-fade-in">Back to Website</span>}
             </a>
           </div>
         </div>
@@ -386,16 +388,27 @@ const SidebarLink = ({ icon, text, to, onClick, isExpanded }) => (
     title={!isExpanded ? text : ""}
     className={({ isActive }) =>
       clsx(
-        "flex items-center rounded-2xl px-4 py-3 text-sm transition-all",
+        "group/link flex items-center rounded-2xl px-4 py-3 text-sm transition-all duration-300 ease-out-expo active:scale-[0.98]",
         isExpanded ? "justify-start gap-3" : "justify-center",
         isActive
           ? "bg-white text-slate-950 shadow-lg shadow-slate-950/20"
-          : "text-slate-300 hover:bg-white/10 hover:text-white"
+          : clsx("text-slate-300 hover:bg-white/10 hover:text-white", isExpanded && "hover:translate-x-1")
       )
     }
   >
-    <span className="text-xl">{icon}</span>
-    {isExpanded && <span className="font-medium">{text}</span>}
+    {({ isActive }) => (
+      <>
+        <span
+          className={clsx(
+            "text-xl transition-[color,transform] duration-300 ease-out-expo group-hover/link:scale-110",
+            isActive && "text-[#FF6B35]"
+          )}
+        >
+          {icon}
+        </span>
+        {isExpanded && <span className="font-medium motion-safe:animate-fade-in">{text}</span>}
+      </>
+    )}
   </NavLink>
 );
 

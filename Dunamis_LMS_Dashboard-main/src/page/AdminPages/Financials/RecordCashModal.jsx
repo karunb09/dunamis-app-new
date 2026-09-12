@@ -122,10 +122,10 @@ const RecordCashModal = ({ open, due, onClose, onRecorded }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 py-6 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-3 py-6 backdrop-blur-sm sm:items-center motion-safe:animate-fade-in">
       <form
         onSubmit={submit}
-        className="relative my-auto w-full max-w-md rounded-3xl bg-white p-6 shadow-xl"
+        className="relative my-auto w-full max-w-md rounded-3xl bg-white p-6 shadow-xl motion-safe:animate-modal-in"
       >
         <button
           type="button"

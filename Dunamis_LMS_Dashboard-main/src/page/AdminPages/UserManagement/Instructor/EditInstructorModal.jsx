@@ -77,8 +77,8 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
     const coursesText = Array.isArray(form.courses) ? form.courses.join(', ') : '';
 
     return (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-30 px-3 py-4 sm:items-center sm:px-4">
-            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-30 px-3 py-4 sm:items-center sm:px-4 motion-safe:animate-fade-in">
+            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6 motion-safe:animate-modal-in">
                 <h2 className="text-xl font-semibold mb-4">Edit Instructor Details</h2>
 
                 <div className="mb-5 flex flex-col items-start gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center">

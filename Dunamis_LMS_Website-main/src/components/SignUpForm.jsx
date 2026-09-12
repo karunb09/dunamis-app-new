@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
-import { HiArrowLeft, HiCheckCircle, HiEye, HiEyeOff } from "react-icons/hi";
+import { HiArrowLeft, HiEye, HiEyeOff } from "react-icons/hi";
+import SuccessSplash from "@/components/auth/SuccessSplash";
 import { useDispatch, useSelector } from "react-redux";
 import { sendOtp, createStudent, setStep } from "../store/signupSlice";
 import { Country } from "country-state-city";
@@ -612,7 +613,7 @@ export default function SignUpForm() {
                   {isOtpLoading ? <ButtonSpinner label="Sending OTP" /> : "Send OTP"}
                 </button>
               ) : countdown > 0 ? (
-                <p className="text-sm text-slate-500">
+                <p className="enter-fade text-sm text-slate-500">
                   Resend OTP in <span className="font-semibold text-orange-500">{countdown}s</span>
                 </p>
               ) : (
@@ -760,18 +761,13 @@ export default function SignUpForm() {
         </div>
       )}
 
-      {/* Step 3 */}
+      {/* Step 3 — the server accepted the OTP, so the email is verified here. */}
       {step === 3 && (
-        <div className="flex flex-col items-center py-10 text-center">
-          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 ring-8 ring-emerald-50/60">
-            <HiCheckCircle className="text-5xl text-emerald-500" />
-          </div>
-          <h2 className="mb-2 text-2xl font-bold text-slate-900 sm:text-3xl">
-            Account Created Successfully!
-          </h2>
-          <p className="mb-8 max-w-sm text-sm leading-6 text-slate-500">
-            Welcome {firstName}! You can now sign in and continue your course enrollment.
-          </p>
+        <SuccessSplash
+          className="py-10"
+          title="Email verified — account created!"
+          message={`Welcome ${firstName}! Your email is confirmed and you can now sign in to continue your course enrollment.`}
+        >
           <button
             onClick={() => {
               if (resumeHref && resumeHref !== "/courses") {
@@ -780,11 +776,11 @@ export default function SignUpForm() {
               }
               router.push("/courses");
             }}
-            className="rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105"
+            className="rounded-2xl bg-gradient-to-r from-[#FF6B35] to-[#fd5a1f] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:shadow-xl hover:shadow-orange-500/35 hover:brightness-105 active:scale-[0.98]"
           >
             {resumeHref && resumeHref !== "/courses" ? "Continue to sign in" : "Done"}
           </button>
-        </div>
+        </SuccessSplash>
       )}
 
       {isLoginOpen && (

@@ -70,7 +70,7 @@ export default function StudentHomePage() {
       ) : null}
 
       {/* Join the Class — the thing a learner opens the portal for, so it leads. */}
-      <div className="rounded-[2rem] bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-white shadow-lg sm:p-8">
+      <div className="enter-up rounded-[2rem] bg-gradient-to-br from-orange-500 to-orange-600 p-6 text-white shadow-lg sm:p-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Next class</p>
@@ -108,7 +108,7 @@ export default function StudentHomePage() {
         </div>
       </div>
 
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <div className="stagger mt-6 grid gap-4 md:grid-cols-2">
         <Card
           icon={HiBookOpen}
           label="Homework"

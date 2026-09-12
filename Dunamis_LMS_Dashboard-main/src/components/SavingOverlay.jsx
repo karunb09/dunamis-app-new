@@ -15,8 +15,8 @@ const SavingOverlay = ({ show, label = "Saving changes…", delay = 400 }) => {
     if (!visible) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/60 backdrop-blur-sm">
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-6 py-4 shadow-lg shadow-slate-200/60">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/60 backdrop-blur-sm motion-safe:animate-fade-in">
+            <div className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-6 py-4 shadow-lg shadow-slate-200/60 motion-safe:animate-modal-in">
                 <span className="h-5 w-5 animate-spin rounded-full border-2 border-slate-200 border-t-[#FF6B35]" />
                 <p className="text-sm font-medium text-slate-700">{label}</p>
             </div>

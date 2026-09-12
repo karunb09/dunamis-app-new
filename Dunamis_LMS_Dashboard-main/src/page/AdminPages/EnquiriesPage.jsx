@@ -198,8 +198,8 @@ const EnquiriesPage = () => {
 
             {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl motion-safe:animate-modal-in">
                         <button
                             type="button"
                             onClick={() => setFilterOpen(false)}
@@ -352,8 +352,8 @@ const EnquiriesPage = () => {
 
             {/* Assign & Respond Modal */}
             {modalOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-4 sm:items-center sm:px-4">
-                    <div className="my-auto w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-3 py-4 sm:items-center sm:px-4 motion-safe:animate-fade-in">
+                    <div className="my-auto w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl motion-safe:animate-modal-in">
                         <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Enquiry</p>
                         <h3 className="mt-1 text-lg font-bold text-slate-900">Assign & Respond</h3>
 

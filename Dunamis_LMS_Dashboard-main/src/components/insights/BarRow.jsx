@@ -18,7 +18,10 @@ const BarRow = ({ label, value, displayValue, max, tone = "orange" }) => {
         {label}
       </span>
       <div className="h-2 flex-1 rounded-full bg-slate-100">
-        <div className={`h-2 rounded-full ${TONE_CLASSES[tone] || TONE_CLASSES.orange}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-2 rounded-full transition-[width] duration-700 ease-out-expo motion-safe:animate-grow-width ${TONE_CLASSES[tone] || TONE_CLASSES.orange}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
       <span className="w-20 shrink-0 text-right text-xs font-semibold text-slate-700">
         {displayValue ?? value}

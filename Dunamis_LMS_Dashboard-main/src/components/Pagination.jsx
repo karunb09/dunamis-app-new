@@ -37,7 +37,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
                 <FaArrowLeft />
                 Previous
@@ -56,9 +56,9 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
                         <button
                             key={idx}
                             onClick={() => goToPage(page)}
-                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
+                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition duration-300 active:scale-90 ${
                                 page === currentPage
-                                    ? "bg-[#FF6B35] text-white shadow-sm"
+                                    ? "bg-[#FF6B35] text-white shadow-md shadow-orange-500/30"
                                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                             }`}
                         >
@@ -71,7 +71,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
             <button
                 onClick={() => goToPage(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
             >
                 Next
                 <FaArrowRight />

@@ -167,13 +167,24 @@ export default function StudentShell({ children, title, description }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                  aria-current={active ? "page" : undefined}
+                  className={`group relative flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition duration-300 ${
                     active
                       ? "bg-orange-50 text-orange-700"
-                      : "text-slate-600 hover:bg-stone-50 hover:text-slate-950"
+                      : "text-slate-600 hover:translate-x-1 hover:bg-stone-50 hover:text-slate-950"
                   }`}
                 >
-                  <Icon className="h-5 w-5" />
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-2 left-0 w-1 rounded-full bg-orange-500 transition-all duration-300 ${
+                      active ? "scale-y-100 opacity-100" : "scale-y-0 opacity-0"
+                    }`}
+                  />
+                  <Icon
+                    className={`h-5 w-5 transition-transform duration-300 ${
+                      active ? "scale-110" : "group-hover:scale-110"
+                    }`}
+                  />
                   {item.label}
                 </Link>
               );
@@ -209,19 +220,22 @@ export default function StudentShell({ children, title, description }) {
                 <button
                   type="button"
                   onClick={() => setIsNotificationMenuOpen((open) => !open)}
-                  className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 text-orange-600 transition hover:border-orange-200 hover:bg-orange-100"
+                  className="group relative inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-orange-100 bg-orange-50 text-orange-600 transition duration-300 hover:border-orange-200 hover:bg-orange-100 active:scale-95"
                   aria-label="Notifications"
                 >
-                  <HiBell className="h-6 w-6" />
+                  <HiBell className="h-6 w-6 transition-transform duration-300 group-hover:scale-110" />
                   {unreadCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
+                    <span
+                      key={unreadCount}
+                      className="badge-pop absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
+                    >
                       {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                   ) : null}
                 </button>
 
                 {isNotificationMenuOpen ? (
-                  <div className="absolute right-0 top-full z-30 mt-3 w-[calc(100vw-2rem)] max-w-[360px] overflow-hidden rounded-3xl border border-orange-100 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
+                  <div className="pop-in absolute right-0 top-full z-30 mt-3 w-[calc(100vw-2rem)] max-w-[360px] origin-top-right overflow-hidden rounded-3xl border border-orange-100 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
                     <div className="border-b border-slate-100 px-3 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-sm font-semibold text-slate-950">Notifications</p>
@@ -324,7 +338,10 @@ export default function StudentShell({ children, title, description }) {
             </div>
           </div>
 
-          {children}
+          {/* Keyed on pathname so every portal page replays the entrance. */}
+          <div key={pathname} className="enter-up">
+            {children}
+          </div>
         </section>
       </div>
     </div>

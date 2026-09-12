@@ -128,8 +128,20 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
 
           {/* OTP block */}
           {emailVerified ? (
-            <p className="mt-2 flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-              <span className="text-base">✓</span> Email verified
+            <p className="badge-pop mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 ring-1 ring-emerald-200">
+              <svg viewBox="0 0 52 52" className="h-4 w-4 text-emerald-600" aria-hidden="true">
+                <path
+                  className="check-draw"
+                  d="M14 27 l8 8 l16 -18"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="48"
+                />
+              </svg>
+              Email verified
             </p>
           ) : (
             <div className="mt-2">
@@ -138,12 +150,12 @@ export default function Step2Contact({ formData, setFormData, errors = {}, email
                   type="button"
                   disabled={!isValidEmail || sending}
                   onClick={handleSendOtp}
-                  className="rounded-xl bg-orange-500 px-4 py-1.5 text-sm font-medium text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl bg-orange-500 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-orange-600 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {sending ? "Sending…" : "Send Verification Code"}
                 </button>
               ) : (
-                <div className="flex flex-col gap-2">
+                <div className="enter-up flex flex-col gap-2">
                   <div className="flex items-center gap-2">
                     <input
                       type="text"

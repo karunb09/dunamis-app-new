@@ -422,10 +422,10 @@ const AttendanceSlideOver = ({ course, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* backdrop */}
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/30 motion-safe:animate-fade-in" onClick={onClose} />
 
       {/* panel */}
-      <div className="relative z-10 flex h-full w-full max-w-md flex-col bg-white shadow-xl">
+      <div className="relative z-10 flex h-full w-full max-w-md flex-col bg-white shadow-xl motion-safe:animate-slide-in-right">
         {/* header */}
         <div className="border-b px-5 py-4">
           <div className="flex items-center justify-between">

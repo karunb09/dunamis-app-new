@@ -1,5 +1,6 @@
 import React from "react";
 import { FiArrowUp, FiArrowDown } from "react-icons/fi";
+import AnimatedNumber from "../AnimatedNumber";
 import Sparkline from "./Sparkline";
 
 const defaultFormat = (v) => (v ?? 0).toLocaleString("en-IN");
@@ -17,10 +18,10 @@ const StatTile = ({
   const down = delta < 0;
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 transition-shadow duration-300 hover:shadow-[0_18px_40px_-24px_rgba(15,23,42,0.3)]">
       <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">
-        {format(current)}
+      <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">
+        <AnimatedNumber value={current} format={format} />
         {suffix}
       </p>
       <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold">

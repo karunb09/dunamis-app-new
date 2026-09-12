@@ -5,7 +5,7 @@ const FunnelBar = ({ stages = [] }) => {
 
   return (
     <div className="space-y-3">
-      {stages.map((stage) => {
+      {stages.map((stage, index) => {
         const pct = Math.max(4, Math.round((stage.value / max) * 100));
         return (
           <div key={stage.key}>
@@ -17,8 +17,8 @@ const FunnelBar = ({ stages = [] }) => {
             </div>
             <div className="h-8 rounded-xl bg-slate-100">
               <div
-                className="flex h-8 items-center rounded-xl bg-orange-400 px-3 text-sm font-semibold text-white transition-all"
-                style={{ width: `${pct}%` }}
+                className="flex h-8 items-center rounded-xl bg-orange-400 px-3 text-sm font-semibold text-white transition-[width] duration-700 ease-out-expo motion-safe:animate-grow-width"
+                style={{ width: `${pct}%`, animationDelay: `${index * 90}ms` }}
               >
                 {stage.value.toLocaleString("en-IN")}
               </div>

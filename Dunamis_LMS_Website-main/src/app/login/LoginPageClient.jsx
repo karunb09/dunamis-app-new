@@ -2,16 +2,23 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from "react-icons/hi";
 import { login, logoutSession } from "@/store/authSlice";
 import FloatingInput from "@/components/FloatingInput";
+import SuccessSplash from "@/components/auth/SuccessSplash";
 import {
   getPortalForAccountType,
   getPortalLabel,
   getRoleDestination,
 } from "@/lib/roleRouting";
+
+const getFirstName = (user) => {
+  const name = user?.name;
+  if (typeof name === "string") return name.trim().split(/\s+/)[0];
+  return name?.firstName || user?.firstName || "";
+};
 
 export default function LoginPageClient() {
   const router = useRouter();
@@ -22,6 +29,10 @@ export default function LoginPageClient() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [staffPortalNotice, setStaffPortalNotice] = useState(null);
+  const [signedInAs, setSignedInAs] = useState(null);
+  const redirectTimer = useRef(null);
+
+  useEffect(() => () => clearTimeout(redirectTimer.current), []);
 
   const signupHref = useMemo(() => {
     const query = new URLSearchParams();
@@ -52,16 +63,28 @@ export default function LoginPageClient() {
       return;
     }
 
-    if (actualPortal === "student" && nextHref) {
-      router.replace(nextHref);
-      return;
-    }
+    const target = actualPortal === "student" && nextHref ? nextHref : destination;
 
-    router.replace(destination);
+    // Hold on the success burst for a beat before the redirect takes the page away.
+    setSignedInAs(getFirstName(action.payload?.user));
+    redirectTimer.current = setTimeout(() => router.replace(target), 1150);
   };
 
   return (
     <div className="bg-[radial-gradient(circle_at_top_left,#fff1e8,transparent_32%),#fffaf4] px-4 py-12 sm:px-6 lg:px-8">
+      {signedInAs !== null ? (
+        <div className="enter-fade fixed inset-0 z-[110] flex items-center justify-center bg-white/85 px-6 backdrop-blur-sm">
+          <SuccessSplash
+            title="Signed in"
+            message={
+              signedInAs
+                ? `Welcome back, ${signedInAs}! Taking you to your dashboard…`
+                : "Taking you to your dashboard…"
+            }
+          />
+        </div>
+      ) : null}
+
       <div className="mx-auto grid max-w-6xl overflow-hidden rounded-[2.25rem] border border-orange-100 bg-white shadow-[0_30px_100px_-60px_rgba(15,23,42,0.75)] lg:grid-cols-[0.9fr_1.1fr]">
         {staffPortalNotice ? (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-sm">

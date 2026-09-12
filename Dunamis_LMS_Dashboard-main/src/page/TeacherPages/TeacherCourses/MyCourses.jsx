@@ -693,8 +693,8 @@ const MyCourses = () => {
 
       {/* ── REQUEST MODAL ── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-lg rounded-t-[32px] bg-white p-6 sm:rounded-[32px]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center motion-safe:animate-fade-in">
+          <div className="w-full max-w-lg rounded-t-[32px] bg-white p-6 sm:rounded-[32px] motion-safe:animate-modal-in">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">
                 {modalStep === 1 && "Request Type"}

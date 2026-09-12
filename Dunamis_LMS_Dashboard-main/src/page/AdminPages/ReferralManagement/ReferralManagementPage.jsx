@@ -379,9 +379,9 @@ const ReferralManagementPage = () => {
             )}
 
             {partnerModal.open && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={closePartnerModal}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 motion-safe:animate-fade-in" onClick={closePartnerModal}>
                     <div
-                        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl"
+                        className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl motion-safe:animate-modal-in"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <div className="mb-4 flex items-center justify-between">

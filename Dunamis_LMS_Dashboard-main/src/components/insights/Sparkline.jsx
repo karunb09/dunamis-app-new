@@ -29,7 +29,7 @@ const Sparkline = ({ data = [], label = "", height = 32, className = "" }) => {
     <svg
       viewBox="0 0 100 32"
       preserveAspectRatio="none"
-      className={`w-full ${className}`}
+      className={`w-full motion-safe:animate-reveal-x ${className}`}
       style={{ height }}
       role="img"
       aria-label={`${label} trend: ${values[0]} to ${values[n - 1]} over ${n} months`}

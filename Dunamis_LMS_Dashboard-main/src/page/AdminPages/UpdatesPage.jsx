@@ -247,8 +247,8 @@ export default function UpdatesPage() {
       )}
 
       {filterOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center">
-          <div className="w-full max-w-md rounded-t-[32px] bg-white p-6 sm:rounded-[32px]">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center motion-safe:animate-fade-in">
+          <div className="w-full max-w-md rounded-t-[32px] bg-white p-6 sm:rounded-[32px] motion-safe:animate-modal-in">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-slate-900">Filter Updates</h2>
               <button

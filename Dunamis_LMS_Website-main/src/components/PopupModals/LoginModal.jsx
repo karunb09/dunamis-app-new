@@ -12,7 +12,14 @@ import {
 } from '@/lib/roleRouting';
 import { HiEye, HiEyeOff, HiLockClosed, HiMail } from 'react-icons/hi';
 import FloatingInput from '@/components/FloatingInput';
+import SuccessSplash from '@/components/auth/SuccessSplash';
 import { useModalA11y } from '@/hooks/useModalA11y';
+
+const getFirstName = (user) => {
+    const name = user?.name;
+    if (typeof name === 'string') return name.trim().split(/\s+/)[0];
+    return name?.firstName || user?.firstName || '';
+};
 
 export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const dispatch = useDispatch();
@@ -20,6 +27,7 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
     const { loading, error } = useSelector((s) => s.auth);
     const [showPassword, setShowPassword] = useState(false);
     const [staffPortalNotice, setStaffPortalNotice] = useState(null);
+    const [signedInAs, setSignedInAs] = useState(null);
     const panelRef = useRef(null);
     useModalA11y(open, onClose, panelRef);
 
@@ -58,8 +66,15 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                 return;
             }
 
+            // Hold on the success burst before handing off to the caller's redirect.
+            setSignedInAs(getFirstName(action.payload?.user));
+            await new Promise((resolve) => setTimeout(resolve, 950));
+
             const result = await onSuccess?.(action.payload);
-            if (result === false) return;
+            if (result === false) {
+                setSignedInAs(null);
+                return;
+            }
 
             if (nextHref && !onSuccess) {
                 router.replace(nextHref);
@@ -112,7 +127,14 @@ export default function LoginModal({ open, onClose, onSuccess, nextHref }) {
                         </div>
 
                         <div className="p-5 sm:p-8">
-                            {staffPortalNotice ? (
+                            {signedInAs !== null ? (
+                                <div className="flex min-h-[440px] flex-col justify-center">
+                                    <SuccessSplash
+                                        title="Signed in"
+                                        message={signedInAs ? `Welcome back, ${signedInAs}!` : 'One moment…'}
+                                    />
+                                </div>
+                            ) : staffPortalNotice ? (
                                 <div className="flex min-h-[440px] flex-col justify-center text-center">
                                     <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">Staff Portal Required</p>
                                     <h3 className="mt-3 text-2xl font-semibold text-gray-900">Use the dashboard to sign in</h3>

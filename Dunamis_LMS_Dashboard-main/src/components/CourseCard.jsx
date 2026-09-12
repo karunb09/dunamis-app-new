@@ -125,14 +125,14 @@ const CourseCard = ({ course }) => {
     return (
         <div
             className="group cursor-pointer relative overflow-hidden bg-white rounded-3xl border border-orange-100 shadow-sm w-full
-        hover:-translate-y-1 hover:shadow-xl transition duration-200"
+        hover:-translate-y-1 hover:shadow-xl transition duration-300 ease-out-expo"
             onClick={handleCardClick}
         >
             <div className="relative h-44 overflow-hidden bg-gray-100">
                 <img
                     src={resolveImageUrl(image, DEFAULT_COURSE_IMAGE)}
                     alt={title}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    className="h-full w-full object-cover transition duration-700 ease-out-expo group-hover:scale-105"
                     draggable={false}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
@@ -180,7 +180,7 @@ const CourseCard = ({ course }) => {
                         <FiMoreHorizontal size={20} />
                     </button>
                     {menuOpen && (
-                        <div className="absolute right-0 z-30 mt-2 w-48 rounded-2xl border border-gray-200 bg-white p-2 text-sm font-medium shadow-lg">
+                        <div className="absolute right-0 z-30 mt-2 w-48 origin-top-right rounded-2xl border border-gray-200 bg-white p-2 text-sm font-medium shadow-lg motion-safe:animate-pop-in">
                             <button
                                 type="button"
                                 className="w-full rounded-xl px-3 py-2 text-left text-gray-700 transition hover:bg-gray-100"

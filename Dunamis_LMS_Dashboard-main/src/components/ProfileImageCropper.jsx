@@ -114,8 +114,8 @@ export default function ProfileImageCropper({ file, onApply, onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-      <div className="my-auto w-full max-w-3xl overflow-hidden rounded-[1.5rem] bg-white shadow-2xl sm:rounded-[2rem]">
+    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/70 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4 motion-safe:animate-fade-in">
+      <div className="my-auto w-full max-w-3xl overflow-hidden rounded-[1.5rem] bg-white shadow-2xl sm:rounded-[2rem] motion-safe:animate-modal-in">
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-4 sm:gap-4 sm:p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">

@@ -2,14 +2,21 @@ import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { FiSmile } from "react-icons/fi";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { login, forgotPassword, verifyOTP, resetPassword } from "../redux/authSlice";
 import { clearAuthSession } from "../utils/authSession";
 import { STUDENT_PORTAL_URL } from "../utils/portalUrls";
+import SuccessCheck from "./SuccessCheck";
+
+const getFirstName = (user) => {
+  const name = user?.name;
+  if (typeof name === "string") return name.trim().split(/\s+/)[0];
+  return name?.firstName || user?.firstName || "";
+};
 
 const SignIn = () => {
   const [step, setStep] = useState(1);
+  const [signedInAs, setSignedInAs] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -55,8 +62,6 @@ const SignIn = () => {
         return;
       }
 
-      toast.success("Login successful!");
-
       const requestedPath = location.state?.from?.pathname;
 
       const defaultRoute =
@@ -71,7 +76,9 @@ const SignIn = () => {
         return;
       }
 
-      navigate(requestedPath || defaultRoute, { replace: true });
+      // Hold on the success check for a beat before the dashboard takes over.
+      setSignedInAs(getFirstName(result.user));
+      setTimeout(() => navigate(requestedPath || defaultRoute, { replace: true }), 1100);
     } catch (err) {
       if (err?.toLowerCase().includes("user is not registered")) {
         toast.error("User not found. Please sign up first.");
@@ -151,7 +158,20 @@ const SignIn = () => {
 
   return (
     <div className="flex min-h-[calc(100vh-72px)] items-center justify-center px-4 py-6 sm:px-6 sm:py-10 bg-[url('/paper-geometric-shape.jpg')] bg-cover bg-center">
-      <div className="w-full max-w-xs rounded-2xl bg-white/85 p-4 shadow-lg backdrop-blur-sm sm:max-w-md sm:p-8">
+      {signedInAs !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-6 backdrop-blur-sm motion-safe:animate-fade-in">
+          <SuccessCheck
+            title="Signed in"
+            message={
+              signedInAs
+                ? `Welcome back, ${signedInAs}! Loading your dashboard…`
+                : "Loading your dashboard…"
+            }
+          />
+        </div>
+      ) : null}
+
+      <div className="w-full max-w-xs rounded-2xl bg-white/85 p-4 shadow-lg backdrop-blur-sm motion-safe:animate-fade-in-up sm:max-w-md sm:p-8">
         <h2 className="text-2xl font-semibold text-center mb-6">
           {step === 1
             ? "Admin & Instructor Sign In"
@@ -360,15 +380,13 @@ const SignIn = () => {
         )}
 
         {step === 6 && (
-          <div className="flex flex-col items-center justify-center p-6 rounded-2xl max-w-md mx-auto">
-            <div className="mb-6 text-center">
-              <span className="text-center">
-                <FiSmile className="h-20 w-64 text-[#58896c]" />
-              </span>
-              <p className="mt-4 text-gray-700">Your password has been reset successfully!</p>
-            </div>
+          <SuccessCheck
+            className="mx-auto max-w-md p-2"
+            title="Password updated"
+            message="Your password has been reset successfully."
+          >
             <button
-              className="bg-gray-800 text-white rounded-2xl px-6 py-2 hover:bg-gray-900 transition"
+              className="rounded-2xl bg-gray-800 px-6 py-2 text-white transition hover:bg-gray-900 active:scale-[0.98]"
               onClick={() => {
                 setStep(1);
                 setEmail("");
@@ -381,7 +399,7 @@ const SignIn = () => {
             >
               Back to Sign In
             </button>
-          </div>
+          </SuccessCheck>
         )}
       </div>
     </div>
