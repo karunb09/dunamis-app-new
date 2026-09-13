@@ -29,7 +29,7 @@ const RowActionsMenu = ({ items = [] }) => {
                 <FiMoreVertical size={16} />
             </button>
             {open && (
-                <div className="absolute right-0 top-full z-40 mt-1 w-48 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
+                <div className="absolute right-0 top-full z-40 mt-1 w-48 max-w-[calc(100vw-2rem)] origin-top-right overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50 motion-safe:animate-pop-in">
                     <div className="max-h-64 overflow-y-auto">
                         {items.map((item, i) => (
                             <button

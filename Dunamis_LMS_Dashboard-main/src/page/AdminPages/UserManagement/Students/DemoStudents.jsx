@@ -685,8 +685,8 @@ Class Link: ${s.meetingLink || "Not shared"}`.trim();
 
             {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4">
-                    <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-3xl">
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4 motion-safe:animate-fade-in">
+                    <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-3xl motion-safe:animate-modal-in">
                         <button
                             type="button"
                             onClick={() => setFilterOpen(false)}

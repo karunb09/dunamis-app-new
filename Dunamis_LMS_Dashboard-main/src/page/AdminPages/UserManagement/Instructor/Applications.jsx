@@ -288,8 +288,8 @@ const Applications = () => {
 
                     {/* Filter modal */}
                     {filterOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-                            <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in">
+                            <div className="relative w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl motion-safe:animate-modal-in">
                                 <button
                                     onClick={() => setFilterOpen(false)}
                                     className="absolute right-4 top-4 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"

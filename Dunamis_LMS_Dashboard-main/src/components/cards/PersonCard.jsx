@@ -35,7 +35,7 @@ const PersonCard = ({
     return (
         <div
             onClick={onView || undefined}
-            className={`flex flex-col rounded-2xl border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition-shadow hover:shadow-[0_12px_32px_-8px_rgba(15,23,42,0.16)] sm:rounded-[24px] ${
+            className={`group/card flex flex-col rounded-2xl border bg-white shadow-[0_4px_16px_-8px_rgba(15,23,42,0.10)] transition duration-300 ease-out-expo hover:-translate-y-0.5 hover:shadow-[0_18px_40px_-14px_rgba(15,23,42,0.22)] motion-reduce:hover:translate-y-0 sm:rounded-[24px] ${
                 selected ? "border-orange-300 ring-1 ring-orange-200" : "border-slate-200"
             } ${onView ? "cursor-pointer" : ""}`}
         >
@@ -57,14 +57,14 @@ const PersonCard = ({
                             alt={name}
                             loading="lazy"
                             decoding="async"
-                            className="h-11 w-11 rounded-2xl object-cover object-top"
+                            className="h-11 w-11 rounded-2xl object-cover object-top transition-transform duration-500 ease-out-expo group-hover/card:scale-105"
                             onError={(e) => {
                                 e.target.onerror = null;
                                 e.target.src = avatarFallback;
                             }}
                         />
                     ) : (
-                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-sm font-bold text-[#FF6B35]">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#FFD9C7] to-[#FFF1EB] text-sm font-bold text-[#FF6B35] transition-transform duration-500 ease-out-expo group-hover/card:scale-105">
                             {getInitials(name)}
                         </div>
                     )}
@@ -120,10 +120,10 @@ const PersonCard = ({
                         <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onView(); }}
-                            className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#fd5a1f]"
+                            className="group/btn inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-orange-500/20 transition duration-300 hover:bg-[#fd5a1f] hover:shadow-md hover:shadow-orange-500/30 active:scale-[0.97]"
                         >
                             {primaryLabel}
-                            <FaArrowRight className="text-[10px]" />
+                            <FaArrowRight className="text-[10px] transition-transform duration-300 ease-out-expo group-hover/btn:translate-x-1" />
                         </button>
                     )}
                     {menuItems.length > 0 && (
@@ -135,12 +135,12 @@ const PersonCard = ({
                                     setMenuOpen((o) => !o);
                                 }}
                                 aria-label="More actions"
-                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
+                                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 active:scale-95"
                             >
                                 <FiMoreVertical size={20} />
                             </button>
                             {menuOpen && (
-                                <div className="absolute bottom-full mb-1 right-0 z-40 w-52 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50">
+                                <div className="absolute bottom-full mb-1 right-0 z-40 w-52 max-w-[calc(100vw-2rem)] origin-bottom-right overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg shadow-slate-200/50 motion-safe:animate-pop-in">
                                     {menuItems.map((item, i) => (
                                         <button
                                             key={i}

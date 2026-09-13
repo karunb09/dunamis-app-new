@@ -27,6 +27,88 @@ const getInitials = (name = "", email = "") => {
   return String(email || "U").slice(0, 2).toUpperCase();
 };
 
+const LEVELS = [
+  ["beginner", "Beginner"],
+  ["intermediate", "Intermediate"],
+  ["advanced", "Advanced"],
+];
+
+// Level-wise, per the student dashboard sheet. The download goes through the
+// BFF, which injects the JWT from the httpOnly cookie, so a plain link works.
+function CertificatesPanel() {
+  const [certificates, setCertificates] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const token = getWebsiteToken();
+        const response = await fetch(`${BASE_URL}/v1/certificates`, {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const data = await response.json();
+        if (response.ok && data.success !== false) setCertificates(data.certificates || []);
+      } catch {
+        setCertificates([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  if (loading) {
+    return <div className="h-40 animate-pulse rounded-2xl bg-gray-100" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-gray-900">Levels &amp; Certificates</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Your instructor awards a certificate when you complete a level at your six-month assessment.
+        </p>
+      </div>
+
+      {LEVELS.map(([level, label]) => {
+        const earned = certificates.filter((c) => c.level === level);
+        return (
+          <div key={level} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">{label}</h3>
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${earned.length ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+                {earned.length ? `${earned.length} earned` : "Not yet"}
+              </span>
+            </div>
+            {earned.length ? (
+              <div className="mt-4 space-y-2">
+                {earned.map((c) => (
+                  <div key={c._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900">{c.courseName}</p>
+                      <p className="text-xs text-gray-600">
+                        {c.certificateNumber} · {new Date(c.issuedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        {c.instructorName ? ` · ${c.instructorName}` : ""}
+                      </p>
+                    </div>
+                    <a
+                      href={`${BASE_URL}/v1/certificates/${c._id}/certificate.pdf`}
+                      className="rounded-full bg-gray-900 px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-black"
+                    >
+                      Download PDF
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProfileField({ label, value, editing, onChange, type = "text", icon: Icon }) {
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-gray-50 p-4">
@@ -409,12 +491,7 @@ export default function StudentProfilePage() {
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900">Certificates</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-gray-500">
-              Certificates remain a dashboard-style placeholder until certificate generation APIs are available.
-            </p>
-          </div>
+          <CertificatesPanel />
         )}
       </main>
 

@@ -487,7 +487,7 @@ const Navigation = ({ onMenuClick }) => {
 
           {showBackButton && <BackButton />}
 
-          <div className="min-w-0">
+          <div key={location.pathname} className="min-w-0 motion-safe:animate-fade-in-up">
             <p className="truncate text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
               {[roleLabel, ...titleParents].join(" · ")}
             </p>
@@ -502,19 +502,22 @@ const Navigation = ({ onMenuClick }) => {
             <button
               type="button"
               onClick={handleNotificationsClick}
-              className="relative hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-orange-200 hover:text-orange-500 sm:inline-flex"
+              className="group relative hidden h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-orange-200 hover:text-orange-500 active:scale-95 sm:inline-flex"
               aria-label="Notifications"
             >
-              <FiBell className="text-lg" />
+              <FiBell className="origin-top text-lg motion-safe:group-hover:animate-wiggle" />
               {totalNotificationCount > 0 ? (
-                <span className="absolute right-2 top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white">
+                <span
+                  key={totalNotificationCount}
+                  className="absolute right-2 top-2 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold text-white motion-safe:animate-badge-pop"
+                >
                   {totalNotificationCount > 9 ? "9+" : totalNotificationCount}
                 </span>
               ) : null}
             </button>
 
             {isNotificationMenuOpen ? (
-              <div className="fixed inset-x-4 top-[76px] z-30 max-h-[calc(100vh-92px)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[340px]">
+              <div className="fixed inset-x-4 top-[76px] z-30 max-h-[calc(100vh-92px)] origin-top overflow-y-auto rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)] motion-safe:animate-pop-in sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[340px] sm:origin-top-right">
                 <div className="border-b border-slate-100 px-3 py-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-slate-900">
@@ -726,7 +729,7 @@ const Navigation = ({ onMenuClick }) => {
             </button>
 
             {isProfileMenuOpen && (
-              <div className="absolute right-0 top-full z-30 mt-3 w-60 overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)]">
+              <div className="absolute right-0 top-full z-30 mt-3 w-60 origin-top-right overflow-hidden rounded-3xl border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-36px_rgba(15,23,42,0.55)] motion-safe:animate-pop-in">
                 <div className="border-b border-slate-100 px-3 py-3">
                   <p className="truncate text-sm font-semibold text-slate-900">
                     {fullName}

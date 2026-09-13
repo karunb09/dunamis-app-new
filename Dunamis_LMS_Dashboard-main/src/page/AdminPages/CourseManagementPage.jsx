@@ -371,8 +371,8 @@ const CourseManagement = () => {
 
                     {/* Filter Modal */}
                     {filterOpen && (
-                        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4">
-                            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6">
+                        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-40 px-3 py-4 backdrop-blur-sm sm:items-center sm:px-4 motion-safe:animate-fade-in">
+                            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-lg bg-white p-4 sm:p-6 motion-safe:animate-modal-in">
                                 {/* Close button */}
                                 <button
                                     onClick={() => setFilterOpen(false)}

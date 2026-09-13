@@ -26,19 +26,24 @@ const SlideOver = ({ open, onClose, children, footer }) => {
         onClick={onClose}
       />
       <div
-        className={`relative flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`relative flex h-full w-full max-w-[480px] flex-col bg-white shadow-2xl transition-transform duration-500 ease-drawer ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          className="absolute right-4 top-4 z-10 rounded-full p-2 text-slate-400 transition duration-300 hover:rotate-90 hover:bg-slate-100 hover:text-slate-700"
           aria-label="Close"
         >
           <FiX size={18} />
         </button>
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div
+          className={`flex-1 overflow-y-auto ${open ? "motion-safe:animate-fade-in-up" : ""}`}
+          style={{ animationDelay: "120ms" }}
+        >
+          {children}
+        </div>
         {footer && (
           <div className="shrink-0 border-t border-slate-100 px-6 py-4">
             {footer}

@@ -38,11 +38,21 @@ export default function StudentBottomNav() {
               <Link
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition ${
+                className={`relative flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-medium transition ${
                   active ? "text-orange-600" : "text-gray-500 hover:text-gray-800"
                 }`}
               >
-                <Icon className="text-xl" />
+                <span
+                  aria-hidden="true"
+                  className={`absolute inset-x-5 top-0 h-0.5 rounded-full bg-orange-500 transition-all duration-300 ${
+                    active ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
+                  }`}
+                />
+                <Icon
+                  className={`text-xl transition-transform duration-300 ${
+                    active ? "-translate-y-0.5 scale-110" : ""
+                  }`}
+                />
                 <span>{label}</span>
               </Link>
             </li>

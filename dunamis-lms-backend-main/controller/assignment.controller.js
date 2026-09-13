@@ -1,68 +1,149 @@
 const Assignment = require("../model/assignment.model");
 const asyncHandler = require("../utils/asyncHandler");
+const ClassRoster = require("../model/classRoster.model");
+const Course = require("../model/course.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
+const { formatUserName } = require("../utils/formatName");
 const { createDashboardNotice } = require("../utils/notificationService");
 
+const toId = (value) => String(value?._id || value || "");
+
+// Everyone the instructor actually teaches, per course — the roster is the
+// durable membership, so a removed learner never appears.
+const teacherLearners = async (teacherId) => {
+  const rosters = await ClassRoster.find({ teacherId })
+    .select("courseId students")
+    .populate("courseId", "name")
+    .lean();
+
+  const pairs = new Map();
+  rosters.forEach((roster) =>
+    (roster.students || [])
+      .filter((member) => member.status !== "removed")
+      .forEach((member) => {
+        const key = `${toId(member.studentId)}|${toId(roster.courseId)}`;
+        if (!pairs.has(key)) {
+          pairs.set(key, {
+            studentId: toId(member.studentId),
+            courseId: toId(roster.courseId),
+            courseName: roster.courseId?.name || "Course",
+          });
+        }
+      })
+  );
+
+  const learners = [...pairs.values()];
+  const students = await Student.find({ _id: { $in: learners.map((l) => l.studentId) } })
+    .select("userId")
+    .populate("userId", "name")
+    .lean();
+  const nameById = new Map(
+    students.map((st) => [toId(st._id), formatUserName(st.userId?.name, "Learner")])
+  );
+
+  return learners.map((l) => ({ ...l, studentName: nameById.get(l.studentId) || "Learner" }));
+};
+
+exports.listTeacherLearners = asyncHandler(async (req, res) => {
+  const teacher = await Teacher.findOne({ userId: req.user.userId }).select("_id");
+  if (!teacher) {
+    return res.status(404).json({ success: false, message: "Teacher not found." });
+  }
+
+  const learners = await teacherLearners(teacher._id);
+  res.status(200).json({ success: true, count: learners.length, learners });
+});
+
+// Creates an assignment for each chosen learner. A learner whose monthly cycle
+// has already opened a placeholder gets that placeholder filled rather than a
+// second assignment, so the cycle does not then open another one on top.
 exports.createAssignment = asyncHandler(async (req, res) => {
-    const { assignmentId, title, description, dueDate } = req.body;
+  const { courseId, studentIds, title, description, dueDate } = req.body;
 
-    if (!assignmentId || !title || !dueDate || !description) {
-      return res.status(400).json({
-        success: false,
-        message: "title, dueDate, description, and assignmentId are required.",
-      });
+  const teacher = await Teacher.findOne({ userId: req.user.userId }).select("_id userId");
+  if (!teacher) {
+    return res.status(404).json({ success: false, message: "Teacher not found." });
+  }
+
+  const onRoster = new Set(
+    (await teacherLearners(teacher._id))
+      .filter((l) => l.courseId === String(courseId))
+      .map((l) => l.studentId)
+  );
+  const refused = studentIds.filter((id) => !onRoster.has(String(id)));
+  if (refused.length) {
+    return res.status(403).json({
+      success: false,
+      message: `${refused.length} of the selected learners are not in your ${
+        refused.length === 1 ? "class" : "classes"
+      } for this course.`,
+    });
+  }
+
+  const course = await Course.findById(courseId).select("name category").lean();
+  const created = [];
+  const filled = [];
+
+  for (const studentId of studentIds) {
+    const stub = await Assignment.findOne({
+      teacherId: teacher._id,
+      courseId,
+      students: { $size: 1 },
+      "students.0.studentId": studentId,
+      "students.0.status": "reminder",
+    });
+
+    if (stub) {
+      stub.title = title;
+      stub.description = description || "";
+      stub.dueDate = dueDate;
+      stub.students[0].status = "assigned";
+      await stub.save();
+      filled.push(stub);
+      continue;
     }
 
-    const teacher = await Teacher.findOne({ userId: req.user.userId });
-    if (!teacher) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Teacher not found." });
-    }
-
-    const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Assignment not found." });
-    }
-
-    if (assignment.teacherId.toString() !== teacher._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not authorized to update this assignment.",
-      });
-    }
-
-    assignment.title = title;
-    assignment.description = description;
-    assignment.dueDate = new Date(dueDate);
-
-    assignment.students = assignment.students.map((s) => ({
-      ...s.toObject(),
-      status: "assigned",
-    }));
-
-    await assignment.save();
-
-    Student.find({ _id: { $in: assignment.students.map((s) => s.studentId) } })
-      .select("userId")
-      .then((students) =>
-        createDashboardNotice({
-          title: "New assignment posted",
-          message: `You have a new assignment: "${title}", due ${new Date(dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
-          userIds: students.map((s) => s.userId),
-          creatorId: req.user.userId,
+    try {
+      created.push(
+        await Assignment.create({
+          courseId,
+          teacherId: teacher._id,
+          userId: teacher.userId,
+          category: course?.category || undefined,
+          title,
+          description: description || "",
+          dueDate,
+          students: [{ studentId, status: "assigned" }],
         })
-      )
-      .catch((err) => console.error("Assignment student notice failed:", err.message));
+      );
+    } catch (err) {
+      // The cycle index allows one assignment per learner per course per due date.
+      if (err?.code === 11000) {
+        return res.status(409).json({
+          success: false,
+          message:
+            "One of these learners already has an assignment for this course due at that exact time. Pick a different due date.",
+        });
+      }
+      throw err;
+    }
+  }
 
-    res.status(201).json({
-        success: true,
-        message: "Assignment assigned successfully.",
-        assignment,
-      });
+  const students = await Student.find({ _id: { $in: studentIds } }).select("userId").lean();
+  createDashboardNotice({
+    title: "New assignment posted",
+    message: `You have a new assignment: "${title}", due ${new Date(dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
+    userIds: students.map((st) => st.userId).filter(Boolean),
+    creatorId: req.user.userId,
+  }).catch((err) => console.error("Assignment student notice failed:", err.message));
+
+  res.status(201).json({
+    success: true,
+    message: `Assigned to ${studentIds.length} learner${studentIds.length === 1 ? "" : "s"}.`,
+    created: created.length,
+    filledMonthlySlot: filled.length,
+  });
 });
 
 exports.submitAssignment = asyncHandler(async (req, res) => {
@@ -112,7 +193,7 @@ exports.submitAssignment = asyncHandler(async (req, res) => {
 });
 
 exports.reviewSubmission = asyncHandler(async (req, res) => {
-    const { assignmentId, feedback, rating } = req.body;
+    const { assignmentId, studentId, feedback, rating } = req.body;
 
     const assignment = await Assignment.findById(assignmentId)
       .populate({
@@ -131,7 +212,19 @@ exports.reviewSubmission = asyncHandler(async (req, res) => {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    const studentSubmission = assignment.students[0];
+    const teacher = await Teacher.findOne({ userId: req.user.userId }).select("_id");
+    if (!teacher || toId(assignment.teacherId) !== toId(teacher._id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You can only review assignments you set.",
+      });
+    }
+
+    // Always the learner being reviewed — students[0] marked the wrong person
+    // reviewed on any assignment shared by more than one learner.
+    const studentSubmission = assignment.students.find(
+      (s) => toId(s.studentId) === String(studentId)
+    );
 
     if (!studentSubmission) {
       return res
@@ -203,7 +296,7 @@ exports.getAssignmentsByStatus = asyncHandler(async (req, res) => {
       title: a.title,
       description: a.description,
       dueDate: a.dueDate,
-      course: { _id: a.courseId._id, title: a.courseId.title },
+      course: { _id: a.courseId._id, name: a.courseId.name },
       teacher: {
         _id: a.teacherId._id,
         name: a.teacherId.userId?.name
