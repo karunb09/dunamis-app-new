@@ -128,7 +128,7 @@ jobs:
             "${{ secrets.NTFY_TOPIC_URL }}"
 
       - name: Notify failure (email)
-        uses: dawidd6/action-send-mail@v18
+        uses: dawidd6/action-send-mail@v21
         with:
           server_address: ${{ secrets.MAIL_HOST }}
           server_port: ${{ secrets.MAIL_PORT }}
