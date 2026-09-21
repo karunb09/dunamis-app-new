@@ -586,7 +586,7 @@ exports.getStudentsByType = asyncHandler(async (req, res) => {
         match: { accountType: "student" },
         // Allow-list, not "-password": list views render only these, and a
         // deny-list ships every field added to User later.
-        select: "name email mobileNo image accountStatus createdAt",
+        select: "name email mobileNo image accountStatus createdAt lastLoginAt",
       })
       .populate({
         path: "enrolledCourses.courseId",

@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { FiBook, FiCheckCircle, FiAward, FiGrid, FiClipboard, FiEdit3, FiCalendar, FiCreditCard, FiCheckSquare } from "react-icons/fi";
 import { useStudentById } from "../../../../hooks/useStudents";
 import IconTabBar from "../../../../components/IconTabBar";
+import { formatLastLogin, lastLoginTitle } from "../../../../utils/lastLogin";
 
 import OverviewTab from "./EnrolledStudentsDetailTabs/OverviewTab";
 import CoursesTab from "./EnrolledStudentsDetailTabs/CourseTab";
@@ -88,6 +89,15 @@ const StudentProfile = () => {
             </h1>
             <p className="truncate text-sm text-slate-600">{email}</p>
             <p className="text-sm text-slate-500">{phone}</p>
+            <p
+              className="mt-1 text-xs text-slate-500"
+              title={lastLoginTitle(student?.userId?.lastLoginAt)}
+            >
+              Last login:{" "}
+              <span className={student?.userId?.lastLoginAt ? "font-medium text-slate-700" : "font-medium text-slate-400"}>
+                {formatLastLogin(student?.userId?.lastLoginAt)}
+              </span>
+            </p>
           </div>
         </div>
         <span

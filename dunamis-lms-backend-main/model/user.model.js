@@ -43,6 +43,9 @@ const userSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    lastLoginAt: {
+      type: Date,
+    },
     image: {
       type: String,
     },

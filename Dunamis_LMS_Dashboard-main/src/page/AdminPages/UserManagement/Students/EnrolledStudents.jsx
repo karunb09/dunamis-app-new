@@ -14,6 +14,7 @@ import usePersistedState from "../../../../hooks/usePersistedState";
 import { exportToExcel } from "../../../../utils/exportToExcel";
 import { getFeeStatus, getJoinDate } from "../../../../utils/feeStatus";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
+import { formatLastLogin, lastLoginTitle } from "../../../../utils/lastLogin";
 
 const SORT_OPTIONS = [
     { value: "name", label: "Name" },
@@ -132,6 +133,7 @@ const EnrolledStudents = () => {
                 : null,
             feeStatus: getFeeStatus(s),
             joinedAt: getJoinDate(s),
+            lastLoginAt: s.userId?.lastLoginAt || null,
         };
     });
 
@@ -200,6 +202,7 @@ Mode: ${r.mode || "N/A"}
 Branch: ${r.branch || "N/A"}
 Fee Status: ${FEE_LABELS[r.feeStatus] || r.feeStatus}
 Joined: ${formatDate(r.joinedAt)}
+Last Login: ${formatLastLogin(r.lastLoginAt)}
 Courses:
 ${courses || "No courses enrolled"}`;
             })
@@ -220,6 +223,7 @@ ${courses || "No courses enrolled"}`;
         { header: "Branch", value: (r) => r.branch, width: 20 },
         { header: "Fee Status", value: (r) => FEE_LABELS[r.feeStatus] || r.feeStatus },
         { header: "Joined", value: (r) => formatDate(r.joinedAt), width: 14 },
+        { header: "Last Login", value: (r) => formatLastLogin(r.lastLoginAt), width: 18 },
     ];
 
     const runExport = async (list) => {
@@ -333,6 +337,20 @@ ${courses || "No courses enrolled"}`;
             minWidth: "120px",
             nowrap: true,
             render: (_, row) => formatDate(row.joinedAt),
+        },
+        {
+            key: "lastLoginAt",
+            header: "Last Login",
+            minWidth: "140px",
+            nowrap: true,
+            render: (_, row) => (
+                <span
+                    title={lastLoginTitle(row.lastLoginAt)}
+                    className={row.lastLoginAt ? "" : "text-slate-400"}
+                >
+                    {formatLastLogin(row.lastLoginAt)}
+                </span>
+            ),
         },
         {
             key: "actions",
@@ -594,7 +612,17 @@ ${courses || "No courses enrolled"}`;
                             menuItems={buildMenuItems(row)}
                             selected={selected}
                             onSelect={onSelect}
-                        />
+                        >
+                            <p
+                                className="border-t border-slate-100 pt-2.5 text-[11px] text-slate-500"
+                                title={lastLoginTitle(row.lastLoginAt)}
+                            >
+                                Last login:{" "}
+                                <span className={row.lastLoginAt ? "font-medium text-slate-700" : "font-medium text-slate-400"}>
+                                    {formatLastLogin(row.lastLoginAt)}
+                                </span>
+                            </p>
+                        </PersonCard>
                     )}
                 />
             ) : (

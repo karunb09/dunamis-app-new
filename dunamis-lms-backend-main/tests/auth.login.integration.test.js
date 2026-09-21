@@ -151,3 +151,30 @@ test("malformed payload is rejected by validation (400) before the controller", 
   assert.equal(res.status, 400);
   assert.ok(Array.isArray(res.body.errors));
 });
+
+test("successful login stamps lastLoginAt; a failed one does not", async () => {
+  const user = await seedUser();
+  assert.equal(user.lastLoginAt, undefined);
+
+  const before = Date.now();
+  await postJson(app, "/api/v1/user/login", {
+    email: "student@example.com",
+    password: "secret123",
+  });
+
+  const afterSuccess = await User.findById(user._id).lean();
+  assert.ok(afterSuccess.lastLoginAt, "lastLoginAt recorded");
+  assert.ok(afterSuccess.lastLoginAt.getTime() >= before);
+
+  await postJson(app, "/api/v1/user/login", {
+    email: "student@example.com",
+    password: "wrong-password",
+  });
+
+  const afterFailure = await User.findById(user._id).lean();
+  assert.equal(
+    afterFailure.lastLoginAt.getTime(),
+    afterSuccess.lastLoginAt.getTime(),
+    "a rejected login leaves the stamp alone"
+  );
+});

@@ -95,6 +95,10 @@ exports.login = asyncHandler(async (req, res) => {
         expiresIn: ACCESS_TOKEN_TTL_SECONDS,
       });
 
+      // updateOne, not save(): the doc is about to have `password` stripped for
+      // the response, and save() would fail its `required` check.
+      await User.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
+
       user.token = token;
       user.password = undefined;
 
