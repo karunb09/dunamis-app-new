@@ -18,6 +18,7 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import { getStoredToken } from "../../utils/authSession";
+import AnimatedNumber from "../../components/AnimatedNumber";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -163,7 +164,8 @@ export default function AdminHomePage() {
       },
       {
         label: "Revenue",
-        value: formatCurrency(summary?.revenue),
+        value: Number(summary?.revenue) || 0,
+        format: formatCurrency,
         icon: FiTrendingUp,
         chip: "from-emerald-500 to-lime-400",
       },
@@ -198,19 +200,31 @@ export default function AdminHomePage() {
   return (
     <main className="w-full flex-1 overflow-y-auto bg-gradient-to-b from-[#fff4ec] via-[#fffaf6] to-white">
       <div className="mx-auto max-w-7xl space-y-6 p-4 lg:space-y-8 lg:p-6">
-        <section className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#0f172a] via-[#1e1b3a] to-[#3b1d0f] px-6 py-8 text-white sm:px-8 sm:py-10">
-          <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-[#FF6B35]/30 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#47c9c4]/20 blur-3xl" />
-          <div className="pointer-events-none absolute left-6 top-4 h-24 w-24 rounded-full bg-[#a855f7]/25 blur-2xl" />
+        <section className="relative isolate overflow-hidden rounded-[30px] bg-gradient-to-br from-[#0f172a] via-[#1e1b3a] to-[#3b1d0f] px-6 py-8 text-white sm:px-8 sm:py-10">
+          <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-[#FF6B35]/30 blur-3xl motion-safe:animate-drift" />
+          <div
+            className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#47c9c4]/20 blur-3xl motion-safe:animate-drift"
+            style={{ animationDuration: "18s", animationDelay: "-6s" }}
+          />
+          <div
+            className="pointer-events-none absolute left-6 top-4 h-24 w-24 rounded-full bg-[#a855f7]/25 blur-2xl motion-safe:animate-drift"
+            style={{ animationDuration: "11s", animationDelay: "-3s" }}
+          />
           <div className="relative">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/15">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/15 motion-safe:animate-fade-in-up">
               <FiCalendar className="text-orange-300" />
               {today}
             </span>
-            <h2 className="mt-4 text-2xl font-bold sm:text-3xl">
+            <h2
+              className="mt-4 text-2xl font-bold motion-safe:animate-fade-in-up sm:text-3xl"
+              style={{ animationDelay: "80ms" }}
+            >
               Welcome back, {firstName}!
             </h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-white/60">
+            <p
+              className="mt-2 max-w-xl text-sm leading-6 text-white/60 motion-safe:animate-fade-in-up"
+              style={{ animationDelay: "160ms" }}
+            >
               Here's a live snapshot of students, courses, revenue, and activity
               across Dunamis.
             </p>
@@ -234,15 +248,16 @@ export default function AdminHomePage() {
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-              {quickLinks.map(({ icon: Icon, ...item }) => (
+              {quickLinks.map(({ icon: Icon, ...item }, index) => (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="group relative rounded-2xl border border-orange-100/70 bg-white/80 p-4 shadow-sm backdrop-blur transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg sm:rounded-3xl sm:p-5"
+                  className="group relative rounded-2xl border border-orange-100/70 bg-white/80 p-4 shadow-sm backdrop-blur transition duration-300 ease-out-expo hover:-translate-y-1 hover:border-orange-200 hover:shadow-lg motion-safe:animate-fade-in-up sm:rounded-3xl sm:p-5"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <FiArrowUpRight className="absolute right-4 top-4 text-slate-300 transition group-hover:text-[#FF6B35]" />
+                  <FiArrowUpRight className="absolute right-4 top-4 text-slate-300 transition duration-300 ease-out-expo group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#FF6B35]" />
                   <span
-                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl sm:h-10 sm:w-10 sm:rounded-2xl ${item.chip}`}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform duration-300 ease-out-expo group-hover:-rotate-6 group-hover:scale-110 sm:h-10 sm:w-10 sm:rounded-2xl ${item.chip}`}
                   >
                     <Icon size={18} />
                   </span>
@@ -267,15 +282,16 @@ export default function AdminHomePage() {
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              {metrics.map(({ icon: Icon, ...metric }) => (
+              {metrics.map(({ icon: Icon, format, ...metric }, index) => (
                 <div
                   key={metric.label}
-                  className="rounded-2xl border border-white bg-white/80 p-4 shadow-sm backdrop-blur transition hover:shadow-md sm:rounded-3xl sm:p-5"
+                  className="group rounded-2xl border border-white bg-white/80 p-4 shadow-sm backdrop-blur transition duration-300 ease-out-expo hover:shadow-md motion-safe:animate-fade-in-up sm:rounded-3xl sm:p-5"
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs text-gray-500 sm:text-sm">{metric.label}</p>
                     <span
-                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm ${metric.chip}`}
+                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm transition-transform duration-300 ease-out-expo group-hover:scale-110 ${metric.chip}`}
                     >
                       <Icon size={15} />
                     </span>
@@ -283,8 +299,8 @@ export default function AdminHomePage() {
                   {loading ? (
                     <div className="mt-3 h-7 w-20 animate-pulse rounded-lg bg-slate-100" />
                   ) : (
-                    <p className="mt-2 truncate text-xl font-bold text-gray-900 sm:text-2xl">
-                      {metric.value}
+                    <p className="mt-2 truncate text-xl font-bold tabular-nums text-gray-900 sm:text-2xl">
+                      <AnimatedNumber value={metric.value} format={format} />
                     </p>
                   )}
                 </div>

@@ -66,8 +66,8 @@ const StudentManagementPage = () => {
             {renderTabContent()}
 
             {enrollModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-8">
-                    <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl">
+                <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 px-4 py-8 motion-safe:animate-fade-in">
+                    <div className="relative w-full max-w-2xl rounded-2xl bg-white shadow-xl motion-safe:animate-modal-in">
                         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
                             <h2 className="text-lg font-bold text-slate-900">Manual Cash Enrollment</h2>
                             <button

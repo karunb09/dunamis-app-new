@@ -240,8 +240,8 @@ const AdminManageMentPage = () => {
 
             {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm motion-safe:animate-fade-in">
+                    <div className="relative w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl motion-safe:animate-modal-in">
                         <button
                             type="button"
                             onClick={() => setFilterOpen(false)}

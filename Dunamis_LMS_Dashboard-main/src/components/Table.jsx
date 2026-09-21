@@ -200,7 +200,8 @@ const DataTable = ({
                                     return (
                                         <tr
                                             key={rowId}
-                                            className={`transition duration-200 ${
+                                            style={{ animationDelay: `${Math.min(rowIndex, 12) * 25}ms` }}
+                                            className={`transition duration-200 motion-safe:animate-fade-in ${
                                                 onRowClick ? "cursor-pointer" : ""
                                             } ${
                                                 selectable && isRowSelected(rowId)
