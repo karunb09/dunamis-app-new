@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
+import ActionProgressBar from "../../components/ActionProgressBar";
+import SavingOverlay from "../../components/SavingOverlay";
 import {
   FiChevronDown,
   FiClock,
@@ -375,6 +377,34 @@ const Availability = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dayPairDropdownOpen, setDayPairDropdownOpen] = useState(false);
   const dayPairDropdownRef = useRef(null);
+  const [classGuards, setClassGuards] = useState({ pending: {}, enrolled: {} });
+
+  const loadClassGuards = useCallback(async () => {
+    const token = getStoredToken();
+    if (!token) return;
+    try {
+      const { data } = await axios.get("/schedule-change-requests/mine", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const pending = {};
+      for (const request of data?.requests || []) {
+        if (request.status === "pending") {
+          pending[String(request.parentAvailabilityId)] = request;
+        }
+      }
+      const enrolled = {};
+      for (const row of data?.enrolledCounts || []) {
+        enrolled[String(row.parentAvailabilityId)] = row.activeStudents;
+      }
+      setClassGuards({ pending, enrolled });
+    } catch {
+      // Badges are advisory — the server still gates the save.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadClassGuards();
+  }, [loadClassGuards, teacher, user]);
 
   useEffect(() => {
     const nextSlots = normalizeAvailabilitySlots(
@@ -700,6 +730,7 @@ const Availability = ({
         endTime: option.endTime,
         days: sortedDays,
         localId: createLocalId(),
+        _id: null,
         slotType: activeSectionId === "demo" ? "demo" : "enrolled",
         sessionType: activeSectionId === "individual" ? "premium" : "standard",
         maxStudents: maxStudentsFor(activeSectionId, draftSlot.branchId),
@@ -773,6 +804,7 @@ const Availability = ({
             : maxStudentsFor("group", slot.branchId),
       ...(slot.courseId ? { courseId: slot.courseId } : {}),
       ...(slot.branchId ? { branchId: slot.branchId } : {}),
+      ...(slot._id ? { _id: slot._id } : {}),
     }));
 
     setIsSaving(true);
@@ -795,7 +827,13 @@ const Availability = ({
       );
       setSlots(savedSlots);
       setHasUnsavedChanges(false);
-      toast.success("Availability saved successfully");
+      await loadClassGuards();
+      const queued = response.data?.pendingApprovals?.length || 0;
+      if (queued) {
+        toast.success(response.data?.message || "Availability saved", { duration: 6000 });
+      } else {
+        toast.success("Availability saved successfully");
+      }
     } catch (error) {
       toast.error(
         error.response?.data?.message ||
@@ -1073,9 +1111,20 @@ const Availability = ({
 
   return (
     <div className="space-y-8">
+      <SavingOverlay
+        show={isSaving}
+        label="Saving your schedule and rebuilding upcoming classes…"
+      />
       <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:p-8">
         <h2 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h2>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{description}</p>
+
+        <div className="mt-4">
+          <ActionProgressBar
+            active={isSaving}
+            label="Saving your schedule — upcoming classes are being regenerated. This can take a few seconds."
+          />
+        </div>
 
         {!courseOptions.length ? (
           <div className="mt-6 rounded-[28px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
@@ -1225,13 +1274,22 @@ const Availability = ({
 
                 {section.items.length ? (
                   <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {section.items.map((slot) => (
+                    {section.items.map((slot) => {
+                      const pendingChange = slot._id
+                        ? classGuards.pending[String(slot._id)]
+                        : null;
+                      const enrolledCount = slot._id
+                        ? classGuards.enrolled[String(slot._id)] || 0
+                        : 0;
+                      return (
                       <article
                         key={slot.localId}
                         className={`rounded-[24px] border p-4 transition ${
-                          slot.isActive === false
-                            ? "border-slate-200 bg-slate-50 opacity-70"
-                            : "border-slate-200 bg-white shadow-sm"
+                          pendingChange
+                            ? "border-amber-200 bg-amber-50/60"
+                            : slot.isActive === false
+                              ? "border-slate-200 bg-slate-50 opacity-70"
+                              : "border-slate-200 bg-white shadow-sm"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
@@ -1248,7 +1306,8 @@ const Availability = ({
                           <button
                             type="button"
                             onClick={() => deleteSlot(slot.localId)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                            disabled={Boolean(pendingChange)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-200 disabled:hover:bg-transparent disabled:hover:text-slate-500"
                             aria-label="Delete slot"
                           >
                             <FiX />
@@ -1280,13 +1339,33 @@ const Availability = ({
                           >
                             {slot.isActive === false ? "Inactive" : "Active"}
                           </span>
+                          {enrolledCount > 0 ? (
+                            <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+                              {enrolledCount} enrolled
+                            </span>
+                          ) : null}
+                          {pendingChange ? (
+                            <span className="rounded-full border border-amber-200 bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                              {pendingChange.changeType === "remove"
+                                ? "Removal awaiting approval"
+                                : "Change awaiting approval"}
+                            </span>
+                          ) : null}
                         </div>
+
+                        {pendingChange ? (
+                          <p className="mt-3 text-xs text-amber-800">
+                            This class keeps its current timing until an admin approves the
+                            change. Learners are not moved yet.
+                          </p>
+                        ) : null}
 
                         <div className="mt-4 flex flex-wrap gap-2">
                           <button
                             type="button"
                             onClick={() => openEditSlot(slot)}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                            disabled={Boolean(pendingChange)}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                           >
                             <FiEdit2 />
                             Edit
@@ -1294,14 +1373,16 @@ const Availability = ({
                           <button
                             type="button"
                             onClick={() => toggleSlotStatus(slot.localId)}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
+                            disabled={Boolean(pendingChange)}
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                           >
                             {slot.isActive === false ? <FiRotateCcw /> : <FiClock />}
                             {slot.isActive === false ? "Activate" : "Deactivate"}
                           </button>
                         </div>
                       </article>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="mt-5 rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
@@ -1343,8 +1424,12 @@ const Availability = ({
                 : "bg-slate-900 text-white hover:bg-slate-800"
             }`}
           >
-            <FiSave />
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+            ) : (
+              <FiSave />
+            )}
+            {isSaving ? "Saving…" : "Save"}
           </button>
         </div>
       </section>

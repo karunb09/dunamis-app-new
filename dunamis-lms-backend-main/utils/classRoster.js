@@ -156,16 +156,21 @@ const setRosterMemberStatus = async ({
 const applyRostersToSlots = async ({ teacherId, rangeStart, rangeEnd }) => {
   if (!teacherId) return { updated: 0 };
 
-  const rosters = await ClassRoster.find({ teacherId, status: "active" })
-    .select("parentAvailabilityId students")
+  const rosters = await ClassRoster.find({ teacherId })
+    .select("parentAvailabilityId students status")
     .lean();
   if (!rosters.length) return { updated: 0 };
 
+  // Archived rosters map to an empty set so archiving still clears future
+  // slots; a class with no roster row at all is left alone below.
   const byParent = new Map();
   for (const roster of rosters) {
-    const ids = (roster.students || [])
-      .filter((member) => member.status === "active")
-      .map((member) => String(member.studentId));
+    const ids =
+      roster.status === "active"
+        ? (roster.students || [])
+            .filter((member) => member.status === "active")
+            .map((member) => String(member.studentId))
+        : [];
     byParent.set(String(roster.parentAvailabilityId), ids);
   }
 
@@ -182,7 +187,11 @@ const applyRostersToSlots = async ({ teacherId, rangeStart, rangeEnd }) => {
     // Skip occurrences that already started today — their roster is frozen.
     if (hasSlotStarted(slot, now)) continue;
 
-    const desired = byParent.get(String(slot.parentAvailabilityId)) || [];
+    // No roster for this class — legacy slots, admin-enrolled seats and
+    // directly-added students would otherwise be silently wiped.
+    if (!byParent.has(String(slot.parentAvailabilityId))) continue;
+
+    const desired = byParent.get(String(slot.parentAvailabilityId));
     const current = (slot.students || []).map(String);
     const unchanged =
       desired.length === current.length &&

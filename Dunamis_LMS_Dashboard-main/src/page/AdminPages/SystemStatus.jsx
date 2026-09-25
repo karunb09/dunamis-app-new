@@ -130,7 +130,17 @@ const SystemStatus = () => {
     );
   }
 
-  const { process: proc, disk, db, pm2, frontends, crons, errorLog, deploy } =
+  const {
+    process: proc,
+    disk,
+    db,
+    pm2,
+    frontends,
+    crons,
+    errorLog,
+    deploy,
+    dataIntegrity,
+  } =
     data || {};
 
   const memPct = proc ? usedPct(proc.totalMemBytes, proc.freeMemBytes) : null;
@@ -345,6 +355,58 @@ const SystemStatus = () => {
           </div>
         ) : (
           <EmptyBox text="No cron heartbeats recorded yet" />
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Data Integrity"
+        subtitle="Recurring classes whose roster no longer matches the instructor's schedule"
+      >
+        {dataIntegrity ? (
+          <div>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              {dataIntegrity.orphanedRostersTotal || dataIntegrity.emptyEnrolledSlots ? (
+                <StatusPill tone="rose" label="Needs attention" />
+              ) : (
+                <StatusPill tone="emerald" label="Clean" />
+              )}
+              <span className="text-sm text-slate-600">
+                {dataIntegrity.orphanedRostersTotal} orphaned roster(s) ·{" "}
+                {dataIntegrity.emptyEnrolledSlots} upcoming class(es) with no learners
+              </span>
+            </div>
+
+            {dataIntegrity.orphanedRosters?.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-400">
+                      <th className="pb-2">Instructor</th>
+                      <th className="pb-2">Course</th>
+                      <th className="pb-2">Schedule</th>
+                      <th className="pb-2">Learners</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dataIntegrity.orphanedRosters.map((row) => (
+                      <tr key={row.rosterId} className="border-b border-slate-50 bg-amber-50/40">
+                        <td className="py-2.5">{row.instructor || "—"}</td>
+                        <td className="py-2.5">{row.course || "—"}</td>
+                        <td className="py-2.5">
+                          {(row.days || []).join(", ")} {row.startTime}-{row.endTime}
+                        </td>
+                        <td className="py-2.5">{row.activeMembers}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyBox text="Every roster points at a live class" />
+            )}
+          </div>
+        ) : (
+          <EmptyBox text="Data integrity check unavailable" />
         )}
       </SectionCard>
 

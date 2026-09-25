@@ -19,6 +19,7 @@ import assignmentReducer from "./Assignment/AssignmentSlice";
 import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSlice";
 import siteContentReducer from "./SiteContent/SiteContentSlice";
 import courseRequestReducer from "./courseRequests/courseRequestSlice";
+import scheduleChangeRequestReducer from "./scheduleChangeRequests/scheduleChangeRequestSlice";
 import referralReducer from "./Referral/ReferralSlice";
 
 const AUTH_ERROR_MESSAGES = new Set([
@@ -61,6 +62,7 @@ const appReducer = combineReducers({
   attendanceHomework: attendanceHomeworkReducer,
   siteContent: siteContentReducer,
   courseRequests: courseRequestReducer,
+  scheduleChangeRequests: scheduleChangeRequestReducer,
   referral: referralReducer,
 });
 
