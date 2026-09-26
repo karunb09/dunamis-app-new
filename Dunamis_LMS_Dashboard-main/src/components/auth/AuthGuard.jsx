@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getStoredToken, getStoredUser } from "../../utils/authSession";
+import { getDefaultRoute } from "../../utils/portalUrls";
 
 const CheckingSession = () => (
   <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
@@ -15,20 +16,6 @@ const CheckingSession = () => (
     </div>
   </div>
 );
-
-const getDefaultRoute = (accountType) => {
-  switch (accountType) {
-    case "admin":
-    case "superadmin":
-      return "/admin";
-    case "teacher":
-      return "/teacher";
-    case "student":
-      return "/home";
-    default:
-      return "/";
-  }
-};
 
 export const RequireAuth = ({ allowedRoles = [], requiredPermission, children }) => {
   const location = useLocation();
@@ -69,7 +56,7 @@ export const PublicOnlyRoute = ({ children }) => {
   const token = authState.token || getStoredToken();
   const user = authState.user || getStoredUser();
 
-  if (token && user) {
+  if (token && user && !authState.loginHold) {
     return <Navigate to={getDefaultRoute(user.accountType)} replace />;
   }
 

@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { FiAward, FiBookOpen, FiCalendar, FiLock, FiUsers } from "react-icons/fi";
 import { HiEye, HiEyeOff } from "react-icons/hi";
-import { login, forgotPassword, verifyOTP, resetPassword } from "../redux/authSlice";
+import { login, forgotPassword, verifyOTP, resetPassword, setLoginHold } from "../redux/authSlice";
 import { clearAuthSession } from "../utils/authSession";
-import { STUDENT_PORTAL_URL } from "../utils/portalUrls";
+import { STUDENT_PORTAL_URL, getDefaultRoute } from "../utils/portalUrls";
 import SuccessCheck from "./SuccessCheck";
 
 const getFirstName = (user) => {
@@ -52,6 +52,16 @@ const SignIn = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { loading } = useSelector((state) => state.auth);
+  const redirectTimer = useRef(null);
+
+  // Release the hold if we leave the page, including via our own navigate.
+  useEffect(
+    () => () => {
+      clearTimeout(redirectTimer.current);
+      dispatch(setLoginHold(false));
+    },
+    [dispatch]
+  );
 
   const validateEmail = (value) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
@@ -70,6 +80,10 @@ const SignIn = () => {
       return;
     }
 
+    // Raised before the token lands in the store, so PublicOnlyRoute never
+    // sees a signed-in user without it.
+    dispatch(setLoginHold(true));
+
     try {
       const result = await dispatch(login({ email, password })).unwrap();
 
@@ -81,23 +95,22 @@ const SignIn = () => {
       }
 
       const requestedPath = location.state?.from?.pathname;
+      const defaultRoute = getDefaultRoute(result.user.accountType);
 
-      const defaultRoute =
-        result.user.accountType === "admin"
-          ? "/admin"
-          : result.user.accountType === "teacher"
-            ? "/teacher"
-            : null;
-
-      if (!defaultRoute) {
+      if (defaultRoute === "/") {
+        dispatch(setLoginHold(false));
         toast.error("Invalid account type");
         return;
       }
 
       // Hold on the success check for a beat before the dashboard takes over.
       setSignedInAs(getFirstName(result.user));
-      setTimeout(() => navigate(requestedPath || defaultRoute, { replace: true }), 1100);
+      redirectTimer.current = setTimeout(
+        () => navigate(requestedPath || defaultRoute, { replace: true }),
+        1100
+      );
     } catch (err) {
+      dispatch(setLoginHold(false));
       if (err?.toLowerCase().includes("user is not registered")) {
         toast.error("User not found. Please sign up first.");
       } else if (err?.toLowerCase().includes("email or password is incorrect")) {
