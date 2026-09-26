@@ -229,7 +229,7 @@ const App = () => {
               <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="enquiries"><EnquiriesPage /></RequireAuth>} />
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
-              <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="contentManagement"><SiteContentPage /></RequireAuth>} />
+              <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="websiteContent"><SiteContentPage /></RequireAuth>} />
               <Route path="/admin/system-status" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><SystemStatus /></RequireAuth>} />
               <Route
                 path="/admin/updates/create-updates"

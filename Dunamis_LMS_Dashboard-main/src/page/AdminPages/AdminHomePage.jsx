@@ -59,7 +59,7 @@ const ALL_QUICK_LINKS = [
     title: "Website Content",
     description: "Edit FAQs, testimonials, and success stories.",
     to: "/admin/site-content",
-    permission: "contentManagement",
+    permission: "websiteContent",
     icon: FiEdit3,
     chip: "bg-amber-100 text-amber-600",
   },
