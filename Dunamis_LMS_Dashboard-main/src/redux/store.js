@@ -14,13 +14,12 @@ import demoBookingReducer from "./DemoBooking/DemoBookingSlice";
 import enquiryReducer from "./Enquiry/EnquirySlice";
 import callbackRequestReducer from "./CallbackRequest/CallbackRequestSlice";
 import noticeReducer from "./AdminNotice/AdminNoticeSlice";
-import remunerationReducer from "./Remuneration/RemunerationSlice";
 import feedbackReducer from "./Feedback/FeedbackSlice";
 import assignmentReducer from "./Assignment/AssignmentSlice";
 import attendanceHomeworkReducer from "./AttendanceHomework/AttendanceHomeworkSlice";
-import assessmentReducer from "./Assesment/AssesmentSlice";
 import siteContentReducer from "./SiteContent/SiteContentSlice";
 import courseRequestReducer from "./courseRequests/courseRequestSlice";
+import scheduleChangeRequestReducer from "./scheduleChangeRequests/scheduleChangeRequestSlice";
 import referralReducer from "./Referral/ReferralSlice";
 
 const AUTH_ERROR_MESSAGES = new Set([
@@ -58,13 +57,12 @@ const appReducer = combineReducers({
   enquiry: enquiryReducer,
   callbackRequest: callbackRequestReducer,
   notice: noticeReducer,
-  remuneration: remunerationReducer,
   feedback: feedbackReducer,
   assignment: assignmentReducer,
   attendanceHomework: attendanceHomeworkReducer,
-  assessment: assessmentReducer,
   siteContent: siteContentReducer,
   courseRequests: courseRequestReducer,
+  scheduleChangeRequests: scheduleChangeRequestReducer,
   referral: referralReducer,
 });
 

@@ -145,20 +145,24 @@ const DataCards = ({
 
             {currentData.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {currentData.map((row) => {
+                    {currentData.map((row, index) => {
                         const rowId = row._id ?? row.id;
                         return (
-                            <React.Fragment key={rowId}>
+                            <div
+                                key={rowId}
+                                className="grid motion-safe:animate-fade-in-up"
+                                style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+                            >
                                 {renderCard(row, {
                                     selected: selectable ? isRowSelected(rowId) : false,
                                     onSelect: selectable ? () => handleRowSelection(rowId) : undefined,
                                 })}
-                            </React.Fragment>
+                            </div>
                         );
                     })}
                 </div>
             ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)] sm:rounded-[30px] sm:py-16">
+                <div className="rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center shadow-[0_22px_50px_-36px_rgba(15,23,42,0.55)] motion-safe:animate-fade-in sm:rounded-[30px] sm:py-16">
                     <div className="mx-auto max-w-sm">
                         <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-100">
                             <svg className="h-6 w-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

@@ -92,13 +92,14 @@ export default function StudentGuard({ children }) {
   if (!checked) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-6 py-16">
-        <div className="rounded-3xl border border-orange-100 bg-white px-8 py-6 text-center shadow-sm">
+        <div className="pop-in rounded-3xl border border-orange-100 bg-white px-8 py-6 text-center shadow-sm">
           <p className="text-sm font-semibold uppercase tracking-[0.22em] text-orange-500">
             Student Area
           </p>
           <p className="mt-3 text-lg font-semibold text-slate-900">
             Checking your session...
           </p>
+          <div className="shimmer mx-auto mt-4 h-1.5 w-40 rounded-full" />
         </div>
       </div>
     );

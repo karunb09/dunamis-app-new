@@ -36,10 +36,10 @@ const IconTabBar = ({ tabs, activeTab, onChange, orientation = "horizontal" }) =
                         >
                             {Icon && (
                                 <span
-                                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-all duration-200 ${
+                                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-all duration-300 ease-out-expo ${
                                         isActive
                                             ? "bg-orange-100 text-orange-600"
-                                            : "text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600"
+                                            : "text-slate-400 group-hover:scale-110 group-hover:bg-slate-100 group-hover:text-slate-600"
                                     }`}
                                 >
                                     <Icon size={14} />
@@ -55,14 +55,14 @@ const IconTabBar = ({ tabs, activeTab, onChange, orientation = "horizontal" }) =
                                 {label}
                             </span>
                             <span
-                                className={`pointer-events-none absolute inset-x-2 -bottom-px h-[3px] rounded-full transition-all duration-200 ${
+                                className={`pointer-events-none absolute inset-x-2 -bottom-px h-[3px] rounded-full transition-all duration-500 ease-out-expo ${
                                     vertical
                                         ? "md:inset-x-auto md:left-0 md:bottom-2 md:top-2 md:h-auto md:w-[3px]"
                                         : ""
                                 } ${
                                     isActive
-                                        ? `bg-gradient-to-r from-[#FF6B35] to-[#ff8c5f] opacity-100 ${vertical ? "md:bg-gradient-to-b" : ""}`
-                                        : `bg-slate-300 opacity-0 group-hover:opacity-40 ${vertical ? "md:group-hover:opacity-0" : ""}`
+                                        ? `scale-100 bg-gradient-to-r from-[#FF6B35] to-[#ff8c5f] opacity-100 ${vertical ? "md:bg-gradient-to-b" : ""}`
+                                        : `scale-x-50 bg-slate-300 opacity-0 group-hover:opacity-40 ${vertical ? "md:scale-x-100 md:scale-y-50 md:group-hover:opacity-0" : ""}`
                                 }`}
                             />
                         </button>

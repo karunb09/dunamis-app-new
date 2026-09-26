@@ -113,6 +113,40 @@ jobs:
               echo "No app changes detected. PM2 not restarted."
             fi
 
+  notify-success:
+    name: Notify success
+    needs: deploy
+    if: success()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify success (ntfy)
+        continue-on-error: true
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          curl -sf -H "Title: Dunamis deploy succeeded" -H "Tags: white_check_mark" \
+            -d "${GITHUB_SHA::7} by ${{ github.actor }}: ${COMMIT_MESSAGE%%$'\n'*}. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            "${{ secrets.NTFY_TOPIC_URL }}"
+
+      - name: Notify success (email)
+        continue-on-error: true
+        uses: dawidd6/action-send-mail@v18
+        with:
+          server_address: ${{ secrets.MAIL_HOST }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USER }}
+          password: ${{ secrets.MAIL_PASS }}
+          subject: "Deploy succeeded: dunamis-app ${{ github.sha }}"
+          to: ${{ secrets.ALERT_EMAIL }}
+          from: Dunamis Deploy <${{ secrets.MAIL_USER }}>
+          body: |
+            Deployed ${{ github.sha }} to production (pushed by ${{ github.actor }}).
+
+            ${{ github.event.head_commit.message }}
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
   notify-failure:
     name: Notify failure
     needs: [test, deploy]

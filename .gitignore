@@ -48,6 +48,7 @@ coverage/
 # Specific folders
 original-docs/
 dunamis-lms-backend-main/uploads/
+dunamis-lms-backend-main/storage/
 nginx-conf
 
 # md files

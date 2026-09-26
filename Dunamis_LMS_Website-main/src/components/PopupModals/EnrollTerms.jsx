@@ -720,7 +720,19 @@ export default function EnrollTerm({
             discount: Number(activePriceObj?.discount) || 0,
           },
         ]
-  ).filter((plan) => Number(plan?.fullPayment) > 0);
+  )
+    .filter((plan) => Number(plan?.fullPayment) > 0)
+    // An undiscounted 1-month tenure is the monthly card restated — showing both
+    // put the same ₹ figure on screen twice.
+    .filter(
+      (plan) =>
+        !(
+          showMonthlyCard &&
+          Number(plan.months) === 1 &&
+          !Number(plan.discount) &&
+          Number(plan.fullPayment) === Number(monthlyCardFee)
+        )
+    );
 
   const canContinue =
     currentStepId === 'delivery'

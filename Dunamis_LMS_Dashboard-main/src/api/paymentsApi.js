@@ -58,14 +58,14 @@ export async function fetchDues(params = {}) {
   }
 }
 
-export async function fetchNeedsAttentionCount() {
-  try {
-    const { data } = await axios.get("/payments/needs-attention/count");
-    return data;
-  } catch (err) {
-    throw toError(err, "Failed to load the payments alert count");
-  }
-}
+// export async function fetchNeedsAttentionCount() {
+//   try {
+//     const { data } = await axios.get("/payments/needs-attention/count");
+//     return data;
+//   } catch (err) {
+//     throw toError(err, "Failed to load the payments alert count");
+//   }
+// }
 
 export async function reverifyPayment(id) {
   try {

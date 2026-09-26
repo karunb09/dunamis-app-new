@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { HiArrowLeft, HiCheckCircle, HiEye, HiEyeOff, HiLockClosed, HiMail } from "react-icons/hi";
+import { HiArrowLeft, HiEye, HiEyeOff, HiLockClosed, HiMail } from "react-icons/hi";
 import { forgotPassword, verifyOtp, resetPassword, clearAuthFlags } from "@/store/authSlice";
+import SuccessSplash from "@/components/auth/SuccessSplash";
 
 const STEPS = { EMAIL: "email", OTP: "otp", RESET: "reset", DONE: "done" };
 
@@ -77,19 +78,18 @@ export default function ForgotPasswordClient() {
 
         <div className="rounded-[2.25rem] border border-orange-100 bg-white p-8 shadow-[0_30px_100px_-60px_rgba(15,23,42,0.75)] sm:p-10">
           {step === STEPS.DONE ? (
-            <div className="flex flex-col items-center py-4 text-center">
-              <HiCheckCircle className="h-14 w-14 text-emerald-500" />
-              <h2 className="mt-4 text-2xl font-bold text-slate-950">Password reset!</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-600">
-                Your password has been updated. You can now sign in with your new password.
-              </p>
+            <SuccessSplash
+              className="py-4"
+              title="Password reset!"
+              message="Your password has been updated. You can now sign in with your new password."
+            >
               <button
                 onClick={() => router.replace("/login")}
-                className="mt-8 w-full rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-lg shadow-orange-600/20 transition hover:bg-orange-700"
+                className="w-full rounded-full bg-orange-600 px-6 py-3 font-semibold text-white shadow-lg shadow-orange-600/20 transition hover:bg-orange-700 active:scale-[0.98]"
               >
                 Go to sign in
               </button>
-            </div>
+            </SuccessSplash>
           ) : (
             <>
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-orange-500">
@@ -172,7 +172,7 @@ export default function ForgotPasswordClient() {
               )}
 
               {step === STEPS.RESET && (
-                <form onSubmit={handleResetPassword} className="mt-8 space-y-6">
+                <form onSubmit={handleResetPassword} className="enter-up mt-8 space-y-6">
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-slate-700">New password</label>
                     <div className="relative">

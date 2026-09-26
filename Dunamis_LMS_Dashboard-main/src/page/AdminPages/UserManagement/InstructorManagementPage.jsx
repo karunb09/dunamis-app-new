@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import Instructor from './Instructor/Instructor';
 import Applications from './Instructor/Applications';
+import ScheduleChangeRequests from './Instructor/ScheduleChangeRequests';
 import PageTabBar from '../../../components/PageTabBar';
 
-const TABS = ['Instructor', 'Applications'];
+const TABS = ['Instructor', 'Applications', 'Schedule Change Requests'];
 const LOCAL_STORAGE_KEY = 'instructorManagementActiveTab';
 
 const InstructorManagementPage = () => {
@@ -30,6 +31,8 @@ const InstructorManagementPage = () => {
                 return <Instructor  />;
             case 'Applications':
                 return <Applications  />;
+            case 'Schedule Change Requests':
+                return <ScheduleChangeRequests />;
             default:
                 return null;
         }

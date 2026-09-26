@@ -6,56 +6,27 @@ const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
 const ClassRoster = require("../model/classRoster.model");
 const DemoBooking = require("../model/demoBooking.model");
+const ScheduleChangeRequest = require("../model/scheduleChangeRequest.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
+const {
+  notifyScheduleChangeRequested,
+} = require("../services/scheduleChangeNotifications");
 const { getMaxStudents, isUnlimited } = require("../utils/slotCapacity");
 const { hasSlotStarted } = require("../utils/classRoster");
-
-const SLOT_DURATION_RULES = {
-  enrolled: {
-    standard: 60,
-    premium: 40,
-  },
-  demo: {
-    standard: 20,
-    premium: 20,
-  },
-};
-
-const DAY_PAIR_OPTIONS = [
-  { label: "Mon - Thu", days: ["monday", "thursday"] },
-  { label: "Tue - Fri", days: ["tuesday", "friday"] },
-  { label: "Wed - Sat", days: ["wednesday", "saturday"] },
-  { label: "Sat - Sun", days: ["saturday", "sunday"] },
-];
-
-const ALLOWED_DAY_PAIRS = DAY_PAIR_OPTIONS.map((option) => option.days);
-
-const getExpectedDurationMinutes = (slot = {}) =>
-  SLOT_DURATION_RULES[slot.slotType]?.[slot.sessionType] || null;
-
-const isAllowedDayPair = (days = []) => {
-  const normalizedDays = days.map((day) => String(day).toLowerCase()).sort();
-  return ALLOWED_DAY_PAIRS.some((pair) => {
-    const normalizedPair = pair.slice().sort();
-    return (
-      normalizedPair.length === normalizedDays.length &&
-      normalizedPair.every((day, index) => day === normalizedDays[index])
-    );
-  });
-};
-
-const getDayPairLabel = (days = []) => {
-  const normalizedDays = days.map((day) => String(day).toLowerCase()).sort();
-  const match = DAY_PAIR_OPTIONS.find((option) => {
-    const normalizedPair = option.days.slice().sort();
-    return (
-      normalizedPair.length === normalizedDays.length &&
-      normalizedPair.every((day, index) => day === normalizedDays[index])
-    );
-  });
-
-  return match?.label || "";
-};
+const {
+  IT_SUPPORT_HINT,
+  getExpectedDurationMinutes,
+  isAllowedDayPair,
+  getDayPairLabel,
+  timeToMinutes,
+  parseTimeToMinutes,
+  availabilitySignature,
+  scheduleSnapshot,
+  sameSchedule,
+  resolveAvailabilityEntries,
+  validateAvailabilityEntries,
+  findAvailabilityOverlap,
+} = require("../utils/availabilityRules");
 
 const getGroupSlotTag = (slot = {}) => {
   if (slot.slotType !== "enrolled" || slot.sessionType !== "standard") {
@@ -69,32 +40,6 @@ const getGroupSlotTag = (slot = {}) => {
   if (studentCount >= 1 && studentCount <= 2) return "Learner's choice";
   if (studentCount >= 3) return "Filling fast";
   return null;
-};
-
-const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
-  ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
-  : "Contact IT support if this issue persists.";
-
-// Parse "HH:MM" or "H:MM AM/PM" time strings to minutes since midnight.
-const parseTimeToMinutes = (timeStr) => {
-  const raw = String(timeStr || "").trim();
-
-  // HH:MM (24-hour)
-  const hhmm = raw.match(/^(\d{1,2}):(\d{2})$/);
-  if (hhmm) return Number(hhmm[1]) * 60 + Number(hhmm[2]);
-
-  // H:MM AM/PM (12-hour)
-  const ampm = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (ampm) {
-    let h = Number(ampm[1]);
-    const m = Number(ampm[2]);
-    const period = ampm[3].toUpperCase();
-    if (period === "AM" && h === 12) h = 0;
-    if (period === "PM" && h !== 12) h += 12;
-    return h * 60 + m;
-  }
-
-  return NaN;
 };
 
 exports.createSlot = asyncHandler(async (req, res) => {
@@ -739,27 +684,6 @@ exports.deleteSlot = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Slot deleted" });
 });
 
-const timeToMinutes = (timeStr) => {
-  const match = String(timeStr || "").match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return NaN;
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    minutes < 0 ||
-    minutes > 59 ||
-    hours < 0 ||
-    hours > 24 ||
-    (hours === 24 && minutes !== 0)
-  ) {
-    return NaN;
-  }
-
-  return hours * 60 + minutes;
-};
-
 const isReplaceAvailabilityRequest = (body = {}) => {
   const rawFlag =
     body.replaceWeeklyAvailability ??
@@ -782,215 +706,184 @@ const isReplaceAvailabilityRequest = (body = {}) => {
   return false;
 };
 
-exports.setWeeklyAvailability = asyncHandler(async (req, res) => {
-    const teacher = await Teacher.findOne({ userId: req.user.userId });
-    if (!teacher)
-      return res
-        .status(403)
-        .json({ message: "Only teachers can update availability" });
+// Active-membership counts for a teacher's recurring classes, keyed by the
+// weeklyAvailability subdocument id.
+const loadRosterGuards = async (teacherId) => {
+  const rosters = await ClassRoster.find({ teacherId, status: "active" })
+    .select("parentAvailabilityId courseId students")
+    .lean();
 
-    const shouldReplaceAvailability = isReplaceAvailabilityRequest(req.body);
-    const { availability } = req.body;
-    if (!Array.isArray(availability)) {
-      return res.status(400).json({ message: "Availability is required" });
-    }
-
-    if (!shouldReplaceAvailability && availability.length === 0) {
-      return res.status(400).json({ message: "Availability is required" });
-    }
-
-    const existingAvailability = Array.isArray(teacher.weeklyAvailability)
-      ? teacher.weeklyAvailability.slice()
-      : [];
-
-    const validDays = [
-      "monday",
-      "tuesday",
-      "wednesday",
-      "thursday",
-      "friday",
-      "saturday",
-      "sunday",
-    ];
-
-    for (const slot of availability) {
-      if (
-        !Array.isArray(slot.days) ||
-        slot.days.length === 0 ||
-        !slot.startTime ||
-        !slot.endTime
-      ) {
-        return res.status(400).json({
-          message:
-            "Each slot must include at least one valid day, startTime and endTime",
-        });
-      }
-
-      for (const d of slot.days) {
-        if (!validDays.includes(d.toLowerCase())) {
-          return res.status(400).json({ message: `Invalid day: ${d}` });
-        }
-      }
-
-      if (!isAllowedDayPair(slot.days)) {
-        return res.status(400).json({
-          message:
-            "Slots must use one allowed day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun",
-        });
-      }
-
-      if (!["demo", "enrolled"].includes(slot.slotType)) {
-        return res
-          .status(400)
-          .json({ message: "Invalid slotType; must be 'demo' or 'enrolled'" });
-      }
-
-      if (!["standard", "premium"].includes(slot.sessionType)) {
-        return res.status(400).json({
-          message: "Invalid sessionType; must be 'standard' or 'premium'",
-        });
-      }
-
-      const expectedDuration = getExpectedDurationMinutes(slot);
-      const start = timeToMinutes(slot.startTime);
-      const end = timeToMinutes(slot.endTime);
-
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-        return res.status(400).json({
-          message: `Invalid time range for ${slot.startTime}-${slot.endTime}`,
-        });
-      }
-
-      if (!expectedDuration || end - start !== expectedDuration) {
-        return res.status(400).json({
-          message:
-            slot.slotType === "demo"
-              ? "Demo slots must be exactly 20 minutes"
-              : slot.sessionType === "premium"
-                ? "Individual class slots must be exactly 40 minutes"
-                : "Group class slots must be exactly 60 minutes",
-        });
-      }
-
-      if (slot.branchId) {
-        const branch = await Branch.findById(slot.branchId).select(
-          "branchName branchTimings branchOpenDays"
-        );
-
-        if (!branch) {
-          return res.status(400).json({
-            message: `Branch not found. ${IT_SUPPORT_HINT}`,
-          });
-        }
-
-        if (
-          Array.isArray(branch.branchOpenDays) &&
-          branch.branchOpenDays.length > 0
-        ) {
-          const openDays = branch.branchOpenDays.map((d) => d.toLowerCase());
-          for (const day of slot.days) {
-            if (!openDays.includes(day.toLowerCase())) {
-              return res.status(400).json({
-                message: `${branch.branchName} is not open on ${day}. Open days: ${branch.branchOpenDays.join(", ")}. ${IT_SUPPORT_HINT}`,
-              });
-            }
-          }
-        }
-
-        if (
-          Array.isArray(branch.branchTimings) &&
-          branch.branchTimings.length === 2
-        ) {
-          const branchOpen = parseTimeToMinutes(branch.branchTimings[0]);
-          const branchClose = parseTimeToMinutes(branch.branchTimings[1]);
-          if (Number.isFinite(branchOpen) && Number.isFinite(branchClose)) {
-            if (start < branchOpen || end > branchClose) {
-              return res.status(400).json({
-                message: `Slot ${slot.startTime}–${slot.endTime} is outside ${branch.branchName} open hours (${branch.branchTimings[0]}–${branch.branchTimings[1]}). ${IT_SUPPORT_HINT}`,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    const allSlotsByDay = {};
-
-    const baseSlots = shouldReplaceAvailability ? [] : existingAvailability;
-
-    for (const slot of baseSlots) {
-      for (const d of slot.days) {
-        const day = d.toLowerCase();
-        if (!allSlotsByDay[day]) allSlotsByDay[day] = [];
-        allSlotsByDay[day].push({
-          start: timeToMinutes(slot.startTime),
-          end: timeToMinutes(slot.endTime),
-          slotType: slot.slotType,
-        });
-      }
-    }
-
-    for (const slot of availability) {
-      const start = timeToMinutes(slot.startTime);
-      const end = timeToMinutes(slot.endTime);
-
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) {
-        return res.status(400).json({
-          message: `Invalid time range for ${slot.startTime}-${slot.endTime}`,
-        });
-      }
-
-      for (const d of slot.days) {
-        const day = d.toLowerCase();
-        if (!allSlotsByDay[day]) allSlotsByDay[day] = [];
-
-        for (const existing of allSlotsByDay[day]) {
-          // Demo and enrolled slots may overlap — teacher is at the branch for class,
-          // demo is a short adjoining session. Only block same-type overlaps.
-          if (existing.slotType && existing.slotType !== slot.slotType) continue;
-          // For offline courses at the same branch, different courses may share the same
-          // time window (different instruments / rooms in the same centre).
-          const bothOffline = !!slot.branchId && !!existing.branchId;
-          if (bothOffline && slot.courseId && existing.courseId && String(slot.courseId) !== String(existing.courseId)) continue;
-          if (start < existing.end && end > existing.start) {
-            return res.status(400).json({
-              message: `Overlap detected on ${day} between ${slot.startTime}-${slot.endTime}`,
-            });
-          }
-        }
-
-        allSlotsByDay[day].push({ start, end, slotType: slot.slotType, courseId: slot.courseId, branchId: slot.branchId });
-      }
-    }
-
-    if (shouldReplaceAvailability) {
-      teacher.weeklyAvailability = availability.map((slot) => ({
-        ...slot,
-        days: slot.days.map((day) => day.toLowerCase()),
-        maxStudents: getMaxStudents(slot),
-      }));
-    } else {
-      teacher.weeklyAvailability.push(
-        ...availability.map((slot) => ({
-          ...slot,
-          days: slot.days.map((day) => day.toLowerCase()),
-          maxStudents: getMaxStudents(slot),
-        }))
-      );
-    }
-    await teacher.save();
-    const syncResult = await syncTeacherAvailabilitySlots({
-      teacher,
-      replaceExisting: shouldReplaceAvailability,
+  const guards = new Map();
+  for (const roster of rosters) {
+    const activeIds = (roster.students || [])
+      .filter((member) => member.status === "active")
+      .map((member) => member.studentId);
+    guards.set(String(roster.parentAvailabilityId), {
+      rosterId: roster._id,
+      courseId: roster.courseId,
+      activeIds,
     });
+  }
+  return guards;
+};
 
-    res
-      .status(200)
-      .json({
-        message: "Weekly Availability saved",
-        replaced: shouldReplaceAvailability,
-        generatedSlots: syncResult.created,
-        removedSlots: syncResult.deleted,
-        availability: teacher.weeklyAvailability,
+exports.setWeeklyAvailability = asyncHandler(async (req, res) => {
+  const teacher = await Teacher.findOne({ userId: req.user.userId });
+  if (!teacher)
+    return res
+      .status(403)
+      .json({ message: "Only teachers can update availability" });
+
+  const shouldReplaceAvailability = isReplaceAvailabilityRequest(req.body);
+  const { availability, teacherNote } = req.body;
+  if (!Array.isArray(availability)) {
+    return res.status(400).json({ message: "Availability is required" });
+  }
+
+  if (!shouldReplaceAvailability && availability.length === 0) {
+    return res.status(400).json({ message: "Availability is required" });
+  }
+
+  const existingAvailability = Array.isArray(teacher.weeklyAvailability)
+    ? teacher.weeklyAvailability.map((entry) => entry.toObject())
+    : [];
+
+  const validationError = await validateAvailabilityEntries(availability);
+  if (validationError) {
+    return res.status(400).json({ message: validationError });
+  }
+
+  const overlapError = findAvailabilityOverlap({
+    entries: availability,
+    baseEntries: shouldReplaceAvailability ? [] : existingAvailability,
+  });
+  if (overlapError) {
+    return res.status(400).json({ message: overlapError });
+  }
+
+  const normalize = (slot) => ({
+    ...slot,
+    days: slot.days.map((day) => day.toLowerCase()),
+    maxStudents: getMaxStudents(slot),
+  });
+
+  if (!shouldReplaceAvailability) {
+    teacher.weeklyAvailability.push(...availability.map(normalize));
+    await teacher.save();
+    const appendSync = await syncTeacherAvailabilitySlots({ teacher });
+    return res.status(200).json({
+      message: "Weekly Availability saved",
+      replaced: false,
+      generatedSlots: appendSync.created,
+      removedSlots: appendSync.deleted,
+      availability: teacher.weeklyAvailability,
+      pendingApprovals: [],
+    });
+  }
+
+  const resolved = resolveAvailabilityEntries(availability, existingAvailability);
+  const guards = await loadRosterGuards(teacher._id);
+
+  const keptIds = new Set(
+    resolved.filter((pair) => pair.previous).map((pair) => String(pair.previous._id))
+  );
+
+  // A guarded class keeps its current schedule until an admin decides; only the
+  // request is recorded. Everything else applies immediately.
+  const queued = [];
+  const nextAvailability = [];
+
+  for (const { slot, previous } of resolved) {
+    if (!previous) {
+      nextAvailability.push(normalize(slot));
+      continue;
+    }
+
+    const guard = guards.get(String(previous._id));
+    const guarded = guard && guard.activeIds.length > 0;
+
+    if (guarded && !sameSchedule(previous, slot)) {
+      nextAvailability.push({ ...previous, _id: previous._id });
+      queued.push({
+        parentAvailabilityId: previous._id,
+        changeType: "reschedule",
+        current: scheduleSnapshot(previous),
+        requested: scheduleSnapshot(normalize(slot)),
+        guard,
       });
+      continue;
+    }
+
+    nextAvailability.push({ ...normalize(slot), _id: previous._id });
+  }
+
+  for (const entry of existingAvailability) {
+    if (keptIds.has(String(entry._id))) continue;
+    const guard = guards.get(String(entry._id));
+    if (!guard || guard.activeIds.length === 0) continue;
+
+    nextAvailability.push({ ...entry, _id: entry._id });
+    queued.push({
+      parentAvailabilityId: entry._id,
+      changeType: "remove",
+      current: scheduleSnapshot(entry),
+      requested: null,
+      guard,
+    });
+  }
+
+  teacher.weeklyAvailability = nextAvailability;
+  await teacher.save();
+
+  const syncResult = await syncTeacherAvailabilitySlots({
+    teacher,
+    replaceExisting: true,
+  });
+
+  const pendingApprovals = [];
+  for (const item of queued) {
+    const request = await ScheduleChangeRequest.findOneAndUpdate(
+      { parentAvailabilityId: item.parentAvailabilityId, status: "pending" },
+      {
+        $set: {
+          teacherId: teacher._id,
+          courseId: item.guard.courseId,
+          rosterId: item.guard.rosterId,
+          changeType: item.changeType,
+          current: item.current,
+          requested: item.requested,
+          affectedStudentIds: item.guard.activeIds,
+          teacherNote: teacherNote || "",
+        },
+      },
+      { returnDocument: "after", upsert: true, setDefaultsOnInsert: true }
+    );
+    pendingApprovals.push(request);
+  }
+
+  // Not awaited — SMTP round-trips would hold the instructor on a spinner for
+  // seconds after the save itself is done. Failures are logged inside.
+  if (pendingApprovals.length) {
+    notifyScheduleChangeRequested({ teacher, requests: pendingApprovals });
+  }
+
+  const message = pendingApprovals.length
+    ? `Weekly Availability saved. ${pendingApprovals.length} change(s) to classes with enrolled learners need admin approval.`
+    : "Weekly Availability saved";
+
+  res.status(200).json({
+    message,
+    replaced: true,
+    generatedSlots: syncResult.created,
+    removedSlots: syncResult.deleted,
+    availability: teacher.weeklyAvailability,
+    pendingApprovals: pendingApprovals.map((request) => ({
+      _id: request._id,
+      parentAvailabilityId: request.parentAvailabilityId,
+      changeType: request.changeType,
+      current: request.current,
+      requested: request.requested,
+      affectedStudents: request.affectedStudentIds.length,
+    })),
+  });
 });

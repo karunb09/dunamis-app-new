@@ -86,6 +86,7 @@ const duesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).nullish(),
   bucket: z.enum(["0-7", "8-30", "30+"]).nullish(),
   branchId: objectId("branchId").nullish(),
+  deliveryMode: z.enum(["online", "offline"]).nullish(),
   courseId: objectId("courseId").nullish(),
   studentId: objectId("studentId").nullish(),
   minDaysLate: z.coerce.number().int().min(0).nullish(),

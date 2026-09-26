@@ -18,11 +18,11 @@ const CredentialModal = ({ instructor, password, employeeId, onClose }) => {
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 px-3 py-4 sm:items-center sm:px-4"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 px-3 py-4 sm:items-center sm:px-4 motion-safe:animate-fade-in"
             onClick={onClose}
         >
             <div
-                className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-[400px] overflow-y-auto rounded-lg bg-white p-4 shadow-lg sm:p-6"
+                className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-[400px] overflow-y-auto rounded-lg bg-white p-4 shadow-lg sm:p-6 motion-safe:animate-modal-in"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* X Icon */}

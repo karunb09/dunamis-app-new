@@ -31,6 +31,12 @@ export const BUCKET_META = {
   "30+": { label: "30+ days", tone: "rose" },
 };
 
+// Every finance endpoint projects the student's name already joined into a
+// string (see studentProjection in payments.controller.js). Reading it as a
+// { firstName, lastName } object — which is the shape everywhere else in the
+// app — silently yields a blank cell, which is how the exports lost the name.
+export const studentName = (student) => (student?.name || "").trim();
+
 export const formatInr = (value) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",

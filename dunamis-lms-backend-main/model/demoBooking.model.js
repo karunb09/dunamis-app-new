@@ -142,6 +142,16 @@ const demoBookingSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    // Written by the instructor after the demo; the admin team works off it for
+    // conversion calls. Distinct from `response`, which is the admin's own note.
+    teacherFeedback: {
+      type: String,
+      default: "",
+    },
+    teacherFeedbackAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

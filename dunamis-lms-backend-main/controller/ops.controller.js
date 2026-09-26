@@ -5,6 +5,10 @@ const { execFile } = require("child_process");
 const mongoose = require("mongoose");
 const axios = require("axios");
 const CronRun = require("../model/cronRun.model");
+const Slot = require("../model/slot.model");
+const Teacher = require("../model/teacher.model");
+const ClassRoster = require("../model/classRoster.model");
+const { rollingRange, startOfDay } = require("../utils/classRoster");
 const asyncHandler = require("../utils/asyncHandler");
 
 const execFileAsync = promisify(execFile);
@@ -130,12 +134,84 @@ const getDeploy = async () => {
   return { commit, date, subject: subject.join("|") };
 };
 
+// An orphaned roster means a class the instructor can no longer see and whose
+// learners drop off future slots — both are zero in a healthy system.
+const getDataIntegrity = async () => {
+  const teachers = await Teacher.find({}).select("weeklyAvailability._id").lean();
+  const live = new Set();
+  for (const teacher of teachers) {
+    for (const entry of teacher.weeklyAvailability || []) live.add(String(entry._id));
+  }
+
+  const rosters = await ClassRoster.find({ status: "active" })
+    .select("parentAvailabilityId teacherId courseId recurringDays startTime endTime students")
+    .populate({ path: "teacherId", select: "userId", populate: { path: "userId", select: "name" } })
+    .populate("courseId", "name")
+    .lean();
+
+  const orphaned = [];
+  for (const roster of rosters) {
+    if (live.has(String(roster.parentAvailabilityId))) continue;
+    const activeMembers = (roster.students || []).filter((m) => m.status === "active").length;
+    if (!activeMembers) continue;
+    const name = roster.teacherId?.userId?.name;
+    orphaned.push({
+      rosterId: roster._id,
+      instructor: name ? [name.firstName, name.lastName].filter(Boolean).join(" ") : null,
+      course: roster.courseId?.name || null,
+      days: roster.recurringDays || [],
+      startTime: roster.startTime,
+      endTime: roster.endTime,
+      activeMembers,
+    });
+  }
+
+  const { rangeEnd } = rollingRange();
+  const emptyRows = await Slot.aggregate([
+    {
+      $match: {
+        slotType: "enrolled",
+        date: { $gte: startOfDay(new Date()), $lte: rangeEnd },
+        students: { $size: 0 },
+      },
+    },
+    {
+      $lookup: {
+        from: "classrosters",
+        localField: "parentAvailabilityId",
+        foreignField: "parentAvailabilityId",
+        as: "roster",
+      },
+    },
+    { $unwind: "$roster" },
+    { $match: { "roster.status": "active", "roster.students.status": "active" } },
+    { $count: "n" },
+  ]);
+
+  return {
+    orphanedRosters: orphaned.slice(0, 20),
+    orphanedRostersTotal: orphaned.length,
+    emptyEnrolledSlots: emptyRows[0]?.n || 0,
+  };
+};
+
 exports.getOpsStatus = asyncHandler(async (req, res) => {
   const websiteUrl = process.env.OPS_WEBSITE_URL || "https://dunamisindia.co.in";
   const dashboardUrl =
     process.env.OPS_DASHBOARD_URL || "https://dashboard.dunamisindia.co.in";
 
-  const [processInfo, disk, db, pm2, website, dashboard, crons, errorLog, deploy] =
+  const [
+    processInfo,
+    disk,
+    db,
+    pm2,
+    website,
+    dashboard,
+    crons,
+    errorLog,
+    deploy,
+    dataIntegrity,
+  ] =
     await Promise.all([
       section(getProcessInfo),
       section(getDisk),
@@ -146,6 +222,7 @@ exports.getOpsStatus = asyncHandler(async (req, res) => {
       section(getCrons, []),
       section(getErrorLog),
       section(getDeploy),
+      section(getDataIntegrity),
     ]);
 
   res.json({
@@ -159,5 +236,6 @@ exports.getOpsStatus = asyncHandler(async (req, res) => {
     crons,
     errorLog,
     deploy,
+    dataIntegrity,
   });
 });

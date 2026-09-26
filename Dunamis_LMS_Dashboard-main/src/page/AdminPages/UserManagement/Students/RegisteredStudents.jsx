@@ -19,6 +19,7 @@ import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
 import { useStudentsByType, useUpdateStudent, studentKeys } from "../../../../hooks/useStudents";
 import usePersistedState from "../../../../hooks/usePersistedState";
 import { exportToExcel } from "../../../../utils/exportToExcel";
+import { formatLastLogin, lastLoginTitle } from "../../../../utils/lastLogin";
 
 const SORT_OPTIONS = [
     { value: "name-asc", label: "Name A-Z" },
@@ -125,6 +126,7 @@ const RegisteredStudents = () => {
         phone: s.userId?.mobileNo != null ? String(s.userId.mobileNo) : "",
         avatar: resolveImageUrl(s.userId?.image, "/profile-photo.png"),
         registeredAt: s.userId?.createdAt ? new Date(s.userId.createdAt) : null,
+        lastLoginAt: s.userId?.lastLoginAt || null,
         accountStatus: (s.userId?.accountStatus || "active").toLowerCase(),
         followUps: {
             followUp1: normFollowUp(s.followUps?.followUp1),
@@ -190,6 +192,7 @@ const RegisteredStudents = () => {
 Email: ${s.email}
 Mobile: ${s.phone || "N/A"}
 Registered: ${formatDate(s.registeredAt)}
+Last Login: ${formatLastLogin(s.lastLoginAt)}
 Follow-up 1: ${FOLLOW_UP_LABELS[s.followUps.followUp1]}
 Follow-up 2: ${FOLLOW_UP_LABELS[s.followUps.followUp2]}
 Follow-up 3: ${FOLLOW_UP_LABELS[s.followUps.followUp3]}
@@ -205,6 +208,7 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
         { header: "Email", value: (r) => r.email, width: 30 },
         { header: "Phone", value: (r) => r.phone, width: 16 },
         { header: "Registered", value: (r) => formatDate(r.registeredAt), width: 14 },
+        { header: "Last Login", value: (r) => formatLastLogin(r.lastLoginAt), width: 18 },
         { header: "Follow-up 1", value: (r) => FOLLOW_UP_LABELS[r.followUps.followUp1] },
         { header: "Follow-up 2", value: (r) => FOLLOW_UP_LABELS[r.followUps.followUp2] },
         { header: "Follow-up 3", value: (r) => FOLLOW_UP_LABELS[r.followUps.followUp3] },
@@ -387,6 +391,20 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
             nowrap: true,
             render: (_, row) => formatDate(row.registeredAt),
         },
+        {
+            key: "lastLoginAt",
+            header: "Last Login",
+            minWidth: "140px",
+            nowrap: true,
+            render: (_, row) => (
+                <span
+                    title={lastLoginTitle(row.lastLoginAt)}
+                    className={row.lastLoginAt ? "" : "text-slate-400"}
+                >
+                    {formatLastLogin(row.lastLoginAt)}
+                </span>
+            ),
+        },
         ...FOLLOW_UP_KEYS.map((key, i) => ({
             key,
             header: `Follow-up ${i + 1}`,
@@ -547,8 +565,8 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
 
             {/* Filter modal */}
             {filterOpen && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4">
-                    <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-3xl">
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm sm:items-center sm:p-4 motion-safe:animate-fade-in">
+                    <div className="relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-3xl motion-safe:animate-modal-in">
                         <button
                             type="button"
                             onClick={() => setFilterOpen(false)}
@@ -638,6 +656,7 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
                                 { label: "Student ID", value: row.studentId },
                                 { label: "Mobile", value: row.phone || "N/A" },
                                 { label: "Registered", value: formatDate(row.registeredAt) },
+                                { label: "Last Login", value: formatLastLogin(row.lastLoginAt) },
                             ]}
                             onView={() => handleCopyDetails([row])}
                             primaryLabel="Copy Details"

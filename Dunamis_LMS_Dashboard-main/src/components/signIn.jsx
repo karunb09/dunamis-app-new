@@ -2,11 +2,18 @@ import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import { FiAward, FiBookOpen, FiCalendar, FiCheckCircle, FiLock, FiUsers } from "react-icons/fi";
+import { FiAward, FiBookOpen, FiCalendar, FiLock, FiUsers } from "react-icons/fi";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { login, forgotPassword, verifyOTP, resetPassword } from "../redux/authSlice";
 import { clearAuthSession } from "../utils/authSession";
 import { STUDENT_PORTAL_URL } from "../utils/portalUrls";
+import SuccessCheck from "./SuccessCheck";
+
+const getFirstName = (user) => {
+  const name = user?.name;
+  if (typeof name === "string") return name.trim().split(/\s+/)[0];
+  return name?.firstName || user?.firstName || "";
+};
 
 // Mirrors the post-login dashboard's input/button/link conventions.
 const inputClass =
@@ -27,6 +34,7 @@ const workspaceTiles = [
 
 const SignIn = () => {
   const [step, setStep] = useState(1);
+  const [signedInAs, setSignedInAs] = useState(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -72,8 +80,6 @@ const SignIn = () => {
         return;
       }
 
-      toast.success("Login successful!");
-
       const requestedPath = location.state?.from?.pathname;
 
       const defaultRoute =
@@ -88,7 +94,9 @@ const SignIn = () => {
         return;
       }
 
-      navigate(requestedPath || defaultRoute, { replace: true });
+      // Hold on the success check for a beat before the dashboard takes over.
+      setSignedInAs(getFirstName(result.user));
+      setTimeout(() => navigate(requestedPath || defaultRoute, { replace: true }), 1100);
     } catch (err) {
       if (err?.toLowerCase().includes("user is not registered")) {
         toast.error("User not found. Please sign up first.");
@@ -168,20 +176,45 @@ const SignIn = () => {
 
   return (
     <div className="flex min-h-[calc(100vh-72px)] items-center bg-gradient-to-b from-[#fff4ec] via-[#fffaf6] to-white px-4 py-6 sm:px-6 sm:py-10">
+      {signedInAs !== null ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/85 px-6 backdrop-blur-sm motion-safe:animate-fade-in">
+          <SuccessCheck
+            title="Signed in"
+            message={
+              signedInAs
+                ? `Welcome back, ${signedInAs}! Loading your dashboard…`
+                : "Loading your dashboard…"
+            }
+          />
+        </div>
+      ) : null}
+
       <div className="mx-auto grid w-full max-w-6xl gap-6 lg:min-h-[560px] lg:grid-cols-[1.1fr_1fr] lg:gap-8">
-        <section className="relative overflow-hidden rounded-[30px] bg-gradient-to-br from-[#0f172a] via-[#1e1b3a] to-[#3b1d0f] px-6 py-8 text-white sm:px-8 sm:py-10 lg:flex lg:flex-col lg:justify-between lg:p-12">
-          <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-[#FF6B35]/30 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#47c9c4]/20 blur-3xl" />
-          <div className="pointer-events-none absolute left-6 top-4 h-24 w-24 rounded-full bg-[#a855f7]/25 blur-2xl" />
+        <section className="relative isolate overflow-hidden rounded-[30px] bg-gradient-to-br from-[#0f172a] via-[#1e1b3a] to-[#3b1d0f] px-6 py-8 text-white sm:px-8 sm:py-10 lg:flex lg:flex-col lg:justify-between lg:p-12">
+          <div className="pointer-events-none absolute -right-12 -top-16 h-64 w-64 rounded-full bg-[#FF6B35]/30 blur-3xl motion-safe:animate-drift" />
+          <div
+            className="pointer-events-none absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#47c9c4]/20 blur-3xl motion-safe:animate-drift"
+            style={{ animationDuration: "18s", animationDelay: "-6s" }}
+          />
+          <div
+            className="pointer-events-none absolute left-6 top-4 h-24 w-24 rounded-full bg-[#a855f7]/25 blur-2xl motion-safe:animate-drift"
+            style={{ animationDuration: "11s", animationDelay: "-3s" }}
+          />
           <div className="relative">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/15">
+            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 ring-1 ring-white/15 motion-safe:animate-fade-in-up">
               <FiLock className="text-orange-300" />
               Admin &amp; Instructor Workspace
             </span>
-            <h1 className="mt-4 text-2xl font-bold sm:text-3xl lg:text-4xl">
+            <h1
+              className="mt-4 text-2xl font-bold motion-safe:animate-fade-in-up sm:text-3xl lg:text-4xl"
+              style={{ animationDelay: "80ms" }}
+            >
               Welcome back to Dunamis
             </h1>
-            <p className="mt-2 hidden max-w-md text-sm leading-6 text-white/60 sm:block">
+            <p
+              className="mt-2 hidden max-w-md text-sm leading-6 text-white/60 motion-safe:animate-fade-in-up sm:block"
+              style={{ animationDelay: "160ms" }}
+            >
               Sign in to pick up where you left off with your courses, students, and schedules.
             </p>
           </div>
@@ -211,7 +244,7 @@ const SignIn = () => {
         </section>
 
         <div className="flex items-center justify-center">
-          <div className="w-full max-w-md rounded-3xl border border-orange-100/70 bg-white/80 p-6 shadow-sm backdrop-blur sm:p-8">
+          <div className="w-full max-w-md rounded-3xl border border-orange-100/70 bg-white/80 p-6 shadow-sm backdrop-blur motion-safe:animate-fade-in-up sm:p-8">
             <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
               Dunamis Dashboard
             </p>
@@ -423,13 +456,13 @@ const SignIn = () => {
             )}
 
             {step === 6 && (
-              <div className="flex flex-col items-center text-center">
-                <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-500">
-                  <FiCheckCircle className="h-8 w-8" />
-                </span>
-                <p className="mb-6 mt-4 text-sm text-slate-600">Your password has been reset successfully!</p>
+              <SuccessCheck
+                className="mx-auto max-w-md p-2"
+                title="Password updated"
+                message="Your password has been reset successfully."
+              >
                 <button
-                  className={primaryButtonClass}
+                  className={`${primaryButtonClass} px-6 active:scale-[0.98]`}
                   onClick={() => {
                     setStep(1);
                     setEmail("");
@@ -442,7 +475,7 @@ const SignIn = () => {
                 >
                   Back to Sign In
                 </button>
-              </div>
+              </SuccessCheck>
             )}
           </div>
         </div>

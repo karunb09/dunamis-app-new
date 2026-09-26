@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   FiCalendar,
   FiClock,
@@ -91,6 +91,33 @@ const isNewBooking = (booking) => {
 
 const DEMO_STATUS_OPTIONS = ["Booked", "Attended", "Missed", "Rescheduled"];
 
+// Commits on blur, not per keystroke — the same pattern the admin demo list uses.
+const FeedbackInput = ({ value = "", saving = false, onCommit }) => {
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value || "");
+  }, [value]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next === (value || "").trim()) return;
+    onCommit(next);
+  };
+
+  return (
+    <textarea
+      rows={3}
+      value={draft}
+      disabled={saving}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      placeholder="How did the demo go? What should the team know before calling?"
+      className="w-full resize-y rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none transition-colors focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:opacity-50"
+    />
+  );
+};
+
 
 const DemoBookingsPanel = ({
   bookings = [],
@@ -100,6 +127,7 @@ const DemoBookingsPanel = ({
   onRefresh,
   onUpdateStatus,
   onSaveMeetingLink,
+  onSaveFeedback,
   onReschedule,
   onCancel,
   updatingId = null,
@@ -343,6 +371,22 @@ const DemoBookingsPanel = ({
                         </option>
                       ))}
                     </select>
+                  </div>
+                ) : null}
+
+                {onSaveFeedback ? (
+                  <div className="mt-4 border-t border-slate-100 pt-3">
+                    <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Your Feedback
+                    </p>
+                    <FeedbackInput
+                      value={booking?.teacherFeedback || ""}
+                      saving={updatingId === bookingId}
+                      onCommit={(next) => onSaveFeedback(bookingId, next)}
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      Shared with the admin team for follow-up calls.
+                    </p>
                   </div>
                 ) : null}
 

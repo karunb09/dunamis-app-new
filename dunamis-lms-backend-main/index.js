@@ -96,12 +96,17 @@ const callbackRequestRoutes = require("./routes/callbackRequest.routes")
 const adminNoticeRoutes = require("./routes/adminNotice.routes");
 const feedbackRoutes = require("./routes/feedback.routes");
 const remunerationRoutes = require("./routes/remuneration.routes");
+const instructorRateRoutes = require("./routes/instructorRate.routes");
+const messageRoutes = require("./routes/message.routes");
 const assignmentRoutes = require("./routes/assignment.routes");
 const attendanceHomeworkRoutes = require("./routes/attendanceHomework.routes");
 const assessmentRoutes = require("./routes/assessment.route")
+const questionnaireRoutes = require("./routes/questionnaire.routes");
+const certificateRoutes = require("./routes/certificate.routes");
 const siteContentRoutes = require("./routes/siteContent.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const courseRequestRoutes = require("./routes/courseRequest.routes");
+const scheduleChangeRequestRoutes = require("./routes/scheduleChangeRequest.routes");
 const referralRoutes = require("./routes/referral.routes");
 const opsRoutes = require("./routes/ops.routes");
 const insightsRoutes = require("./routes/insights.routes");
@@ -158,6 +163,7 @@ require("./cronJobs/classReminder.cron");
 require("./cronJobs/classJoinLinkReminder.cron");
 require("./cronJobs/monthlyInsights.cron");
 require("./cronJobs/paymentReconciler.cron");
+require("./cronJobs/instructorPayout.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -238,12 +244,17 @@ app.use("/api/v1/callback-request", callbackRequestRoutes);
 app.use("/api/v1/adminNotice", adminNoticeRoutes);
 app.use("/api/v1/feedback", feedbackRoutes);
 app.use("/api/v1/remuneration", remunerationRoutes);
+app.use("/api/v1/instructor-rates", instructorRateRoutes);
+app.use("/api/v1/messages", messageRoutes);
 app.use("/api/v1/assignment", assignmentRoutes);
 app.use("/api/v1/attendance-homework", attendanceHomeworkRoutes);
 app.use("/api/v1/assessment", assessmentRoutes);
+app.use("/api/v1/questionnaires", questionnaireRoutes);
+app.use("/api/v1/certificates", certificateRoutes);
 app.use("/api/v1/siteContent", siteContentRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
 app.use("/api/v1/course-requests", courseRequestRoutes);
+app.use("/api/v1/schedule-change-requests", scheduleChangeRequestRoutes);
 app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/ops", opsRoutes);
 app.use("/api/v1/insights", insightsRoutes);
