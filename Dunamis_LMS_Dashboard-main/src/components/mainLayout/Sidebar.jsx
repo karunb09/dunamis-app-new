@@ -18,6 +18,7 @@ import {
   FiGift,
   FiBell,
   FiChevronLeft,
+  FiMapPin,
   FiX,
 } from "react-icons/fi";
 import { PiStudentBold } from "react-icons/pi";
@@ -73,6 +74,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
+    { to: "/teacher/check-in", icon: <FiMapPin />, text: "Branch Check-in" },
     { to: "/teacher/messages", icon: <FiMessageSquare />, text: "Messages" },
   ];
 
@@ -158,6 +160,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           to: "/admin/reports/attendance",
           icon: <FiCheckSquare />,
           text: "Attendance Report",
+          permission: "reports",
+        },
+        {
+          to: "/admin/reports/check-ins",
+          icon: <FiMapPin />,
+          text: "Instructor Check-ins",
           permission: "reports",
         },
         {

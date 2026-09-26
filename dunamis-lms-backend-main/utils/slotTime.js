@@ -12,13 +12,17 @@ const { parseTimeMinutes } = require("./classRoster");
 // classRoster.js's slotStartAt combines the two in local time instead. That is
 // harmless for its ordering guards, but a reminder that has to fire fifteen
 // minutes before a class cannot absorb a 5h30m error.
-const slotStartInstant = (slot) => {
+const slotInstant = (slot, timeString) => {
   const date = slot?.date instanceof Date ? slot.date : new Date(slot?.date);
   const dayStartUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
-  return new Date(dayStartUtc - IST_OFFSET_MS + parseTimeMinutes(slot?.startTime) * 60000);
+  return new Date(dayStartUtc - IST_OFFSET_MS + parseTimeMinutes(timeString) * 60000);
 };
+
+const slotStartInstant = (slot) => slotInstant(slot, slot?.startTime);
+
+const slotEndInstant = (slot) => slotInstant(slot, slot?.endTime);
 
 const minutesUntilSlot = (slot, now = new Date()) =>
   (slotStartInstant(slot) - now) / 60000;
 
-module.exports = { slotStartInstant, minutesUntilSlot };
+module.exports = { slotStartInstant, slotEndInstant, minutesUntilSlot };

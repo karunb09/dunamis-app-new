@@ -43,6 +43,9 @@ const COMMUNICATION_MATRIX = {
   // AA/BDE excluded on purpose — the outgoing instructor may have resigned,
   // there's nothing for sales/coordination staff to act on here.
   enrollmentReassigned: { instructor: true, aa: false, bde: false, channel: "email" },
+  // Missing branch check-in / check-out nudges. Admins read the same gaps off the
+  // Instructor Check-ins page, so AA/BDE copies would only be noise.
+  instructorCheckIn: { instructor: true, aa: false, bde: false, channel: "email" },
 };
 
 const AA_ID_PREFIX = /^(DSM|DSD|DCC)A/;

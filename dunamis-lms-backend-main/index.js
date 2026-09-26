@@ -111,6 +111,7 @@ const referralRoutes = require("./routes/referral.routes");
 const opsRoutes = require("./routes/ops.routes");
 const insightsRoutes = require("./routes/insights.routes");
 const reportsRoutes = require("./routes/reports.routes");
+const instructorCheckInRoutes = require("./routes/instructorCheckIn.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const studentPaymentsRoutes = require("./routes/studentPayments.routes");
 
@@ -164,6 +165,7 @@ require("./cronJobs/classJoinLinkReminder.cron");
 require("./cronJobs/monthlyInsights.cron");
 require("./cronJobs/paymentReconciler.cron");
 require("./cronJobs/instructorPayout.cron");
+require("./cronJobs/checkInReminder.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -259,6 +261,7 @@ app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/ops", opsRoutes);
 app.use("/api/v1/insights", insightsRoutes);
 app.use("/api/v1/reports", reportsRoutes);
+app.use("/api/v1/check-ins", instructorCheckInRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 // Only order creation is throttled. The fees page polls /summary and posts
 // checkout lifecycle pings, which would otherwise burn the 20-request budget

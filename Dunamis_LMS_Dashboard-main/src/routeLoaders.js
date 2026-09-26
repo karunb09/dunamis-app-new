@@ -13,6 +13,7 @@ export const routeLoaders = {
   "/admin/financials": () => import("./page/AdminPages/FinancialPage"),
   "/admin/reports": () => import("./page/AdminPages/MonthlyReportPage"),
   "/admin/reports/attendance": () => import("./page/AdminPages/DailyAttendanceReportPage"),
+  "/admin/reports/check-ins": () => import("./page/AdminPages/InstructorCheckInsPage"),
   "/admin/enquiries": () => import("./page/AdminPages/EnquiriesPage"),
   "/admin/referral-management": () => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"),
   "/admin/updates": () => import("./page/AdminPages/UpdatesPage"),
@@ -26,6 +27,7 @@ export const routeLoaders = {
   "/teacher/assignments": () => import("./page/TeacherPages/Assignment"),
   "/teacher/assessments": () => import("./page/TeacherPages/Assessment"),
   "/teacher/attendance": () => import("./page/TeacherPages/TeacherCourses/Attendance"),
+  "/teacher/check-in": () => import("./page/TeacherPages/CheckIn/CheckInPage"),
   "/teacher/messages": () => import("./page/TeacherPages/Messages"),
   "/teacher/questionnaires": () => import("./page/TeacherPages/Questionnaires"),
 };

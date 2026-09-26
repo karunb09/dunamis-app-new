@@ -15,6 +15,11 @@ import { PiUpload } from "react-icons/pi";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import { getCurrentFix } from "../../../utils/geolocation";
+import { mapsUrl } from "../../../utils/checkInFormat";
+
+// "17.4156, 78.4347", as Google Maps copies a dropped pin.
+const COORDINATE_PAIR = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 const AddBranch = () => {
     const { id } = useParams();
@@ -37,9 +42,14 @@ const AddBranch = () => {
         centreFacilities: "",
         branchImage: null,
         teachers: [],
+        geoLat: "",
+        geoLng: "",
+        geofenceRadiusM: "200",
     });
 
     const [showDaysDropdown, setShowDaysDropdown] = useState(false);
+    const [pinning, setPinning] = useState(false);
+    const [pinAccuracy, setPinAccuracy] = useState(null);
 
     const { loading, error, selectedBranch } = useSelector(
         (state) => state.branch
@@ -111,6 +121,9 @@ const AddBranch = () => {
                     value: teacher._id || teacher.id,
                     label: getInstructorLabel(teacher),
                 })).filter((teacher) => teacher.value),
+                geoLat: selectedBranch.geo?.lat != null ? String(selectedBranch.geo.lat) : "",
+                geoLng: selectedBranch.geo?.lng != null ? String(selectedBranch.geo.lng) : "",
+                geofenceRadiusM: String(selectedBranch.geofenceRadiusM || 200),
             });
         }
     }, [id, selectedBranch]);
@@ -154,6 +167,9 @@ const AddBranch = () => {
             }
         } else if (name === "zone") {
             setFormData({ ...formData, zone: value.replace(/\D/g, "") });
+        } else if ((name === "geoLat" || name === "geoLng") && COORDINATE_PAIR.test(value)) {
+            const [, lat, lng] = value.match(COORDINATE_PAIR);
+            setFormData({ ...formData, geoLat: lat, geoLng: lng });
         } else {
             setFormData({ ...formData, [name]: value });
         }
@@ -184,8 +200,28 @@ const AddBranch = () => {
             centreFacilities: "",
             branchImage: null,
             teachers: [],
+            geoLat: "",
+            geoLng: "",
+            geofenceRadiusM: "200",
         });
         navigate("/admin/centers");
+    };
+
+    const pinFromDevice = async () => {
+        setPinning(true);
+        try {
+            const fix = await getCurrentFix();
+            setFormData((prev) => ({
+                ...prev,
+                geoLat: fix.lat.toFixed(6),
+                geoLng: fix.lng.toFixed(6),
+            }));
+            setPinAccuracy(fix.accuracyM);
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setPinning(false);
+        }
     };
 
     const buildPayload = (status) => {
@@ -225,6 +261,19 @@ const AddBranch = () => {
             throw new Error("Start time and end time must be different.");
         }
 
+        const lat = String(formData.geoLat).trim();
+        const lng = String(formData.geoLng).trim();
+        if (Boolean(lat) !== Boolean(lng)) {
+            throw new Error("Enter both latitude and longitude for the check-in location, or leave both blank.");
+        }
+        if (lat && (Math.abs(Number(lat)) > 90 || Math.abs(Number(lng)) > 180 || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)))) {
+            throw new Error("The check-in location's latitude or longitude is out of range.");
+        }
+        const radius = Number(formData.geofenceRadiusM);
+        if (!Number.isFinite(radius) || radius < 50 || radius > 2000) {
+            throw new Error("Check-in radius must be between 50 and 2000 metres.");
+        }
+
         const img = formData.branchImage;
         if (img) {
             if (!(img instanceof File) || !img.type.startsWith("image/")) {
@@ -254,6 +303,9 @@ const AddBranch = () => {
             "teachers",
             JSON.stringify((formData.teachers || []).map((teacher) => teacher.value || teacher))
         );
+        payload.append("geoLat", lat);
+        payload.append("geoLng", lng);
+        payload.append("geofenceRadiusM", String(radius));
         payload.append("status", status);
         if (formData.branchImage) {
             payload.append("branchImage", formData.branchImage);
@@ -403,6 +455,98 @@ const AddBranch = () => {
                         className="p-3 border rounded-2xl w-full"
                     />
                 </label>
+
+                {/* Instructor check-in pin */}
+                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-slate-800">Check-in location</p>
+                            <p className="text-xs text-slate-500">
+                                Instructors can only check in within the radius of this pin. Without a pin, their
+                                check-ins are accepted but marked unverified.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={pinFromDevice}
+                            disabled={pinning}
+                            className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-orange-300 hover:text-orange-600 disabled:opacity-60"
+                        >
+                            {pinning ? "Reading location…" : "Use my current location"}
+                        </button>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <label className="text-sm">
+                            Latitude
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                name="geoLat"
+                                value={formData.geoLat}
+                                onChange={handleChange}
+                                placeholder="17.415600"
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                        <label className="text-sm">
+                            Longitude
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                name="geoLng"
+                                value={formData.geoLng}
+                                onChange={handleChange}
+                                placeholder="78.434700"
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                        <label className="text-sm">
+                            Radius (metres)
+                            <input
+                                type="number"
+                                min="50"
+                                max="2000"
+                                step="10"
+                                name="geofenceRadiusM"
+                                value={formData.geofenceRadiusM}
+                                onChange={handleChange}
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span>Paste "lat, lng" from Google Maps into either box to fill both.</span>
+                        {formData.geoLat && formData.geoLng && (
+                            <>
+                                <a
+                                    href={mapsUrl(formData.geoLat, formData.geoLng)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-medium text-orange-600 underline underline-offset-2"
+                                >
+                                    Check on Google Maps
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData((prev) => ({ ...prev, geoLat: "", geoLng: "" }));
+                                        setPinAccuracy(null);
+                                    }}
+                                    className="font-medium text-rose-600 underline underline-offset-2"
+                                >
+                                    Remove pin
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {pinAccuracy != null && (
+                        <p className={`mt-2 text-xs ${pinAccuracy > 50 ? "text-amber-700" : "text-emerald-700"}`}>
+                            {pinAccuracy > 50
+                                ? `This reading is only accurate to ±${pinAccuracy} m. Step outside or near the entrance and try again for a tighter pin.`
+                                : `Pinned from this device, accurate to ±${pinAccuracy} m.`}
+                        </p>
+                    )}
+                </div>
 
                 {/* Zone */}
                 <label>

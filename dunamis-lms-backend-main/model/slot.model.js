@@ -95,6 +95,11 @@ const slotSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Dedup guard for the offline "you haven't checked in" reminder.
+    checkInReminderSentAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

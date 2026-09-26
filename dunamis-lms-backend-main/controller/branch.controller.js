@@ -25,6 +25,37 @@ const parseOptionalArray = (value) => {
   }
 };
 
+const isBlank = (value) =>
+  value === undefined || value === null || String(value).trim() === "";
+
+// The instructor check-in pin arrives as FormData strings. Fields absent from
+// the request leave the pin as it is; both coordinates sent blank clear it.
+const parseCheckInPin = ({ geoLat, geoLng, geofenceRadiusM }) => {
+  const radius = isBlank(geofenceRadiusM) ? undefined : Number(geofenceRadiusM);
+  if (radius !== undefined && (!Number.isFinite(radius) || radius < 50 || radius > 2000)) {
+    return { error: "Check-in radius must be between 50 and 2000 metres." };
+  }
+
+  if (geoLat === undefined && geoLng === undefined) return { geo: undefined, radius };
+  if (isBlank(geoLat) && isBlank(geoLng)) return { geo: null, radius };
+
+  const lat = Number(geoLat);
+  const lng = Number(geoLng);
+  if (
+    isBlank(geoLat) ||
+    isBlank(geoLng) ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lng) > 180
+  ) {
+    return {
+      error: "Enter both latitude and longitude for the check-in location, or leave both blank.",
+    };
+  }
+  return { geo: { lat, lng }, radius };
+};
+
 // Create Branch
 exports.createBranch = asyncHandler(async (req, res) => {
     let {
@@ -82,6 +113,11 @@ exports.createBranch = asyncHandler(async (req, res) => {
         success: false,
         message: "Zone must contain numbers only.",
       });
+    }
+
+    const pin = parseCheckInPin(req.body);
+    if (pin.error) {
+      return res.status(400).json({ success: false, message: pin.error });
     }
 
     // Validate if status is valid
@@ -148,6 +184,8 @@ exports.createBranch = asyncHandler(async (req, res) => {
       centreFacilities,
       teachers: teacherIds,
       branchImage: branchImagePath, // Save image path if uploaded
+      ...(pin.geo ? { geo: pin.geo } : {}),
+      ...(pin.radius !== undefined ? { geofenceRadiusM: pin.radius } : {}),
     });
 
     res.status(201).json({
@@ -325,6 +363,11 @@ exports.updateBranch = asyncHandler(async (req, res) => {
       });
     }
 
+    const pin = parseCheckInPin(req.body);
+    if (pin.error) {
+      return res.status(400).json({ success: false, message: pin.error });
+    }
+
     // Validate if branchManager exists
     const managerExists = await User.findById(branchManager);
     if (!managerExists) {
@@ -383,6 +426,9 @@ exports.updateBranch = asyncHandler(async (req, res) => {
     };
 
     updates.branchImage = branchImagePath;
+    if (pin.geo) updates.geo = pin.geo;
+    if (pin.geo === null) updates.$unset = { geo: 1 };
+    if (pin.radius !== undefined) updates.geofenceRadiusM = pin.radius;
 
     const updatedBranch = await Branch.findByIdAndUpdate(id, updates, {
       returnDocument: "after",
