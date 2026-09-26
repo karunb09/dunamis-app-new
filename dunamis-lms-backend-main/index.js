@@ -113,6 +113,7 @@ const insightsRoutes = require("./routes/insights.routes");
 const reportsRoutes = require("./routes/reports.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const studentPaymentsRoutes = require("./routes/studentPayments.routes");
+const chatbotRoutes = require("./routes/chatbot.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -140,6 +141,16 @@ const paymentLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Too many requests, please try again later." },
+});
+
+// Public, unauthenticated chat widget: generous enough for a real conversation,
+// tight enough that nobody scripts the endpoint.
+const chatbotLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: isProd ? 40 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "You're sending messages too quickly. Please wait a minute." },
 });
 
 const webhookLimiter = rateLimit({
@@ -265,6 +276,9 @@ app.use("/api/v1/payments", paymentsRoutes);
 // and leave the student unable to start the payment itself.
 app.use("/api/v1/student-payments/order", paymentLimiter);
 app.use("/api/v1/student-payments", studentPaymentsRoutes);
+app.use("/api/v1/chatbot/message", chatbotLimiter);
+app.use("/api/v1/chatbot/feedback", chatbotLimiter);
+app.use("/api/v1/chatbot", chatbotRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

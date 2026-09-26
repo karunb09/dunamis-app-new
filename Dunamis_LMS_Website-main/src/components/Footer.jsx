@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LuBookOpen, LuShoppingCart, LuPhoneCall, LuBriefcaseBusiness, LuSchool, LuUsers, LuInfo, LuStar, LuCircleHelp, LuHeadphones, LuFileText, LuRotateCcw, LuShieldCheck, LuHeart } from "react-icons/lu";
 import { FaFacebookF, FaInstagram, FaPhoneAlt, FaUnderline, FaWhatsapp, FaYoutube } from "react-icons/fa";
-import { DASHBOARD_URL } from "@/lib/siteConfig";
+import { DASHBOARD_URL, WHATSAPP_URL } from "@/lib/siteConfig";
 
 const featuredLinks = [
   { icon: LuBookOpen, label: "Courses", href: "/courses" },
@@ -36,7 +36,7 @@ const socials = [
   { href: "https://www.youtube.com/@dunamisschoolofmusic4481", icon: FaYoutube, label: "YouTube", hover: "hover:text-red-500" },
   { href: "https://www.instagram.com/dunamis_schoolofmusic/", icon: FaInstagram, label: "Instagram", hover: "hover:text-pink-500" },
   { href: "https://www.facebook.com/dunamismusic2021/", icon: FaFacebookF, label: "Facebook", hover: "hover:text-blue-600" },
-  { href: "https://wa.me/+919398246083", icon: FaWhatsapp, label: "WhatsApp", hover: "hover:text-green-500" },
+  { href: WHATSAPP_URL, icon: FaWhatsapp, label: "WhatsApp", hover: "hover:text-green-500" },
   { href: "tel:+919398246083", icon: FaPhoneAlt, label: "Call", hover: "hover:text-blue-500", tel: true },
 ];
 

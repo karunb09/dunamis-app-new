@@ -17,6 +17,7 @@ export const routeLoaders = {
   "/admin/referral-management": () => import("./page/AdminPages/ReferralManagement/ReferralManagementPage"),
   "/admin/updates": () => import("./page/AdminPages/UpdatesPage"),
   "/admin/site-content": () => import("./page/AdminPages/SiteContentPage"),
+  "/admin/chatbot-insights": () => import("./page/AdminPages/ChatbotInsightsPage"),
   "/admin/system-status": () => import("./page/AdminPages/SystemStatus"),
 
   "/teacher": () => import("./page/TeacherPages/TeacherCourses/Home"),

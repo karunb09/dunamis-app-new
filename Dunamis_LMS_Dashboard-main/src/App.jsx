@@ -32,6 +32,7 @@ const UpdatesPage = lazy(routeLoaders["/admin/updates"]);
 const FinancialPage = lazy(routeLoaders["/admin/financials"]);
 const EnquiriesPage = lazy(routeLoaders["/admin/enquiries"]);
 const SiteContentPage = lazy(routeLoaders["/admin/site-content"]);
+const ChatbotInsightsPage = lazy(routeLoaders["/admin/chatbot-insights"]);
 const StudentProfile = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudentProfile"));
 const EnrolledStudents = lazy(() => import("./page/AdminPages/UserManagement/Students/EnrolledStudents"));
 const CourseRequestsPage = lazy(routeLoaders["/admin/course-requests"]);
@@ -230,6 +231,7 @@ const App = () => {
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
               <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="contentManagement"><SiteContentPage /></RequireAuth>} />
+              <Route path="/admin/chatbot-insights" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="contentManagement"><ChatbotInsightsPage /></RequireAuth>} />
               <Route path="/admin/system-status" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><SystemStatus /></RequireAuth>} />
               <Route
                 path="/admin/updates/create-updates"

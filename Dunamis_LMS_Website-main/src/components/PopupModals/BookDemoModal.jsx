@@ -98,6 +98,7 @@ export default function BookDemoModal({
   onClose,
   course,
   preferredInstructorId = '',
+  onSuccess,
 }) {
   const { user, token } = useSelector((s) => s.auth || {});
   const courseId = toId(course?._id || course?.id);
@@ -623,6 +624,7 @@ export default function BookDemoModal({
       setSubmitted(booking);
       setMessage(response.data?.message || 'Demo booking submitted successfully.');
       setPhase('confirmed');
+      onSuccess?.(booking);
       saveDraft(courseId, {
         step,
         phase: 'confirmed',

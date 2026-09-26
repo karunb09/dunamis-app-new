@@ -21,7 +21,7 @@ const toId = (value) => {
   return String(value);
 };
 
-export default function CallbackRequestModal({ isOpen, onClose, course }) {
+export default function CallbackRequestModal({ isOpen, onClose, course, onSuccess }) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [phase, setPhase] = useState('editing');
   const [error, setError] = useState('');
@@ -55,6 +55,7 @@ export default function CallbackRequestModal({ isOpen, onClose, course }) {
         preferredTime: form.preferredTime,
       });
       setPhase('confirmed');
+      onSuccess?.();
     } catch (remoteError) {
       setPhase('editing');
       setError(
