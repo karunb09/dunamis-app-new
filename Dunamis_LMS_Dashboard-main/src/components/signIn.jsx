@@ -275,9 +275,6 @@ const SignIn = () => {
 
             {step === 1 && (
               <>
-                <div className="mb-4 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-xs leading-5 text-orange-800">
-                  Students now sign in from the website student portal. This dashboard is for admins and instructors only.
-                </div>
                 <input
                   type="email"
                   placeholder="Email"
