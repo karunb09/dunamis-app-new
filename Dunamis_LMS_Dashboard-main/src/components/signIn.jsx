@@ -323,17 +323,6 @@ const SignIn = () => {
                 >
                   {loading ? "Signing In..." : "Sign In"}
                 </button>
-                <div className="mt-5 text-center text-sm text-slate-500">
-                  Student account? Continue on the website.{" "}
-                  <a
-                    href={STUDENT_PORTAL_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`${linkClass} whitespace-nowrap`}
-                  >
-                    Open Student Portal
-                  </a>
-                </div>
               </>
             )}
 

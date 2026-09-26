@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { Provider } from "react-redux";
 import { configureStore } from "@reduxjs/toolkit";
 import { MemoryRouter, Routes, Route, useLocation } from "react-router-dom";
@@ -102,9 +102,11 @@ describe("SignIn success hold", () => {
     fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: ADMIN.email } });
     fireEvent.change(screen.getByPlaceholderText("Password"), { target: { value: "wrong" } });
     fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
+    expect(store.getState().auth.loginHold).toBe(true);
 
-    await vi.waitFor(() => expect(store.getState().auth.loading).toBe(false));
-    expect(store.getState().auth.loginHold).toBe(false);
+    // The hold is released in SignIn's catch, a tick after login.rejected.
+    await waitFor(() => expect(store.getState().auth.loginHold).toBe(false));
+    expect(store.getState().auth.loading).toBe(false);
     expect(screen.getByRole("button", { name: "Sign In" })).toBeInTheDocument();
   });
 });
