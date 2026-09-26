@@ -53,6 +53,9 @@ const InstructorForm = ({ instructors: propInstructors, setInstructors, selected
                 options={formattedOptions}
                 value={selectedInstructors}
                 onChange={handleChange}
+                // Removal only via a chip's own ×: Backspace would drop the last (newest) instructor, clear-all drops everyone.
+                backspaceRemovesValue={false}
+                isClearable={false}
                 placeholder="Select instructors"
                 className="react-select-container"
                 classNamePrefix="react-select"

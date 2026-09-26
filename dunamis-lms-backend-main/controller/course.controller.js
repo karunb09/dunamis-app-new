@@ -5,6 +5,9 @@ const Teacher = require("../model/teacher.model");
 const updateTeacherStats = require("../utils/updateTeacherStats");
 const Student = require("../model/student.model");
 const Branch = require("../model/branch.model");
+const ClassRoster = require("../model/classRoster.model");
+const CourseAssignmentLog = require("../model/courseAssignmentLog.model");
+const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 const fs = require("fs/promises");
 const path = require("path");
 const {
@@ -398,6 +401,12 @@ exports.createCourse = asyncHandler(async (req, res) => {
       );
     }
 
+    await logCourseAssignments(req, {
+      action: "assigned",
+      source: "course_create",
+      pairs: teacherIds.map((teacherId) => ({ courseId: course._id, teacherId })),
+    });
+
     if (mode === "offline" && parsedBranches.length > 0) {
       for (const branchId of parsedBranches) {
         await Branch.findByIdAndUpdate(
@@ -655,15 +664,23 @@ exports.updateCourse = asyncHandler(async (req, res) => {
     };
     
     const parsedSubCategory = parseArrayField("subCategory");
-    const parsedTeachers = parseArrayField("teacher");
+    const teacherAdd = normalizeIdList(parseArrayField("teacherAdd") || []);
+    const teacherRemove = normalizeIdList(parseArrayField("teacherRemove") || []);
+    delete updateData.teacherAdd;
+    delete updateData.teacherRemove;
     const parsedContent = parseArrayField("content");
     const parsedObjectives = parseArrayField("objectives");
     const parsedPrice = parseArrayField("price");
 
     updateData.subCategory =
       parsedSubCategory !== null ? parsedSubCategory : existingCourse.subCategory;
-    updateData.teacher =
-      parsedTeachers !== null ? parsedTeachers : existingCourse.teacher;
+    // Edits send a diff, never the full list: a full list is a snapshot from when the
+    // form loaded, and saving it would drop anyone assigned since (e.g. a course
+    // request approved while the form was open).
+    updateData.teacher = [
+      ...normalizeIdList(existingCourse.teacher),
+      ...teacherAdd,
+    ].filter((teacherId) => !teacherRemove.includes(teacherId));
     updateData.content =
       parsedContent !== null ? parsedContent : existingCourse.content;
     updateData.objectives =
@@ -695,6 +712,26 @@ exports.updateCourse = asyncHandler(async (req, res) => {
 
     const previousTeacherIds = normalizeIdList(existingCourse.teacher);
     const nextTeacherIds = normalizeIdList(updateData.teacher);
+
+    const removedTeacherIds = previousTeacherIds.filter((teacherId) => !nextTeacherIds.includes(teacherId));
+    if (removedTeacherIds.length > 0) {
+      const teachingRosters = await ClassRoster.find({
+        courseId: existingCourse._id,
+        teacherId: { $in: removedTeacherIds },
+        status: "active",
+        "students.status": { $in: ["active", "paused"] },
+      })
+        .select("teacherId")
+        .lean();
+      const teachingCount = new Set(teachingRosters.map((r) => String(r.teacherId))).size;
+      if (teachingCount > 0) {
+        return res.status(409).json({
+          success: false,
+          message: `${teachingCount === 1 ? "An instructor you removed still teaches" : `${teachingCount} instructors you removed still teach`} students on this course.`,
+          hint: "Reassign their students to another instructor first, then remove them from the course.",
+        });
+      }
+    }
     const previousBranchIds = normalizeIdList(existingCourse.branches);
     const nextBranchIds = normalizeIdList(updateData.branches);
 
@@ -742,6 +779,21 @@ exports.updateCourse = asyncHandler(async (req, res) => {
       courseId: persistedCourse._id,
       previousTeacherIds,
       nextTeacherIds,
+    });
+
+    await logCourseAssignments(req, {
+      action: "assigned",
+      source: "course_edit",
+      pairs: nextTeacherIds
+        .filter((teacherId) => !previousTeacherIds.includes(teacherId))
+        .map((teacherId) => ({ courseId: persistedCourse._id, teacherId })),
+    });
+    await logCourseAssignments(req, {
+      action: "unassigned",
+      source: "course_edit",
+      pairs: previousTeacherIds
+        .filter((teacherId) => !nextTeacherIds.includes(teacherId))
+        .map((teacherId) => ({ courseId: persistedCourse._id, teacherId })),
     });
 
     await syncCourseBranches({
@@ -803,6 +855,12 @@ exports.deleteCourse = asyncHandler(async (req, res) => {
       for (const teacherId of course.teacher) {
         await updateTeacherStats(teacherId, true);
       }
+
+      await logCourseAssignments(req, {
+        action: "unassigned",
+        source: "course_delete",
+        pairs: course.teacher.map((teacherId) => ({ courseId: course._id, teacherId, courseName: course.name })),
+      });
     }
 
     res
@@ -864,4 +922,12 @@ exports.getInstructorCourseMedia = asyncHandler(async (req, res) => {
     });
   if (!course) return res.status(404).json({ success: false, message: "Course not found" });
   res.json({ success: true, data: course.teacherMedia });
+});
+
+exports.getCourseAssignmentHistory = asyncHandler(async (req, res) => {
+  const logs = await CourseAssignmentLog.find({ courseId: req.params.id })
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .lean();
+  res.status(200).json({ success: true, data: logs });
 });

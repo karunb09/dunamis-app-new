@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import CourseInfoForm from "./CourseForms/CourseInfoForm";
 import CourseInstructorsForm from "./CourseForms/CourseInstructorForm";
 import CoursePricingForm from "./CourseForms/CoursePricingForm";
@@ -20,6 +20,8 @@ const AddCoursePage = () => {
     const updateCourseMutation = useUpdateCourse();
     // Edit mode loads the course detail from the query cache (replaces the slice).
     const { data: passedCourseData = {} } = useCourseDetailsQuery(courseId);
+    // Instructor ids the form was loaded with; an edit sends only the changes against these.
+    const hydratedInstructorIds = useRef([]);
     const isSubmitting = createCourseMutation.isPending || updateCourseMutation.isPending;
 
     const formatDateForInput = (isoDate) => {
@@ -87,6 +89,7 @@ const AddCoursePage = () => {
                     ? passedCourseData.subCategory[0]._id
                     : (passedCourseData.subCategory?._id || "");
 
+            hydratedInstructorIds.current = (passedCourseData.teacher || []).map((t) => String(t?._id));
             setCourseData({
                 info: {
                     name: passedCourseData.name || "",
@@ -294,7 +297,6 @@ const AddCoursePage = () => {
             courseType: courseData.info.courseType,
             startDate: courseData.info.startDate || null,
             endDate: courseData.info.endDate || null,
-            teacher: selectedInstructors.map((instructor) => instructor.value),
             branches: Array.isArray(courseData.branches) && courseData.branches.length > 0
                 ? courseData.branches.map(b => b.value || b)
                 : [],
@@ -335,11 +337,19 @@ const AddCoursePage = () => {
             isPublished,
         };
 
+        const selectedIds = selectedInstructors.map((instructor) => String(instructor.value));
+        if (courseId) {
+            payload.teacherAdd = selectedIds.filter((id) => !hydratedInstructorIds.current.includes(id));
+            payload.teacherRemove = hydratedInstructorIds.current.filter((id) => !selectedIds.includes(id));
+        } else {
+            payload.teacher = selectedIds;
+        }
+
         const formData = new FormData();
 
         // Append regular fields
         Object.entries(payload).forEach(([key, value]) => {
-            if (["teacher", "price", "content", "objectives", "branches", "languages"].includes(key)) {
+            if (["teacher", "teacherAdd", "teacherRemove", "price", "content", "objectives", "branches", "languages"].includes(key)) {
                 formData.append(key, JSON.stringify(value ?? []));
             } else if (value === null) {
                 formData.append(key, "");
@@ -373,7 +383,8 @@ const AddCoursePage = () => {
             toast.success(isPublished ? "Course saved successfully" : "Course draft saved successfully");
             navigate("/admin/course-management");
         } catch (err) {
-            toast.error(err?.message || "Course save failed.");
+            const hint = err?.response?.data?.hint;
+            toast.error([err?.message || "Course save failed.", hint].filter(Boolean).join(" "));
         }
     };
 

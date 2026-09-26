@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { FaBookOpen, FaClock, FaEdit, FaMapMarkerAlt, FaRupeeSign, FaUsers } from "react-icons/fa";
-import { FiCheckCircle } from "react-icons/fi";
-import { useCourseDetailsQuery } from "../../hooks/useCourses";
+import { FiCheckCircle, FiInbox } from "react-icons/fi";
+import { useCourseAssignmentHistoryQuery, useCourseDetailsQuery } from "../../hooks/useCourses";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const DEFAULT_COURSE_IMAGE = "https://placehold.co/960x540?text=Course";
@@ -33,6 +33,49 @@ const getBranchCityName = (branch) => {
         toDisplayText(branch.cityName) ||
         toDisplayText(branch.city) ||
         "City not assigned"
+    );
+};
+
+const ASSIGNMENT_SOURCE_LABEL = {
+    course_create: "Course created",
+    course_edit: "Course edited",
+    course_delete: "Course deleted",
+    course_request: "Course request approved",
+    teacher_delete: "Instructor deleted",
+};
+
+const InstructorHistory = ({ courseId }) => {
+    const { data: logs = [], isLoading, isError } = useCourseAssignmentHistoryQuery(courseId);
+
+    return (
+        <div className="mt-8">
+            <h3 className="mb-1 text-lg font-semibold text-gray-950">Instructor history</h3>
+            <p className="mb-3 text-sm text-gray-500">Who added or removed instructors on this course, and when.</p>
+            {isLoading ? (
+                <p className="text-sm text-gray-500">Loading history…</p>
+            ) : isError ? (
+                <p className="text-sm text-rose-600">Could not load instructor history.</p>
+            ) : logs.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-gray-200 py-8 text-sm text-gray-500">
+                    <FiInbox className="text-xl" />
+                    Nothing here yet
+                </div>
+            ) : (
+                <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
+                    {logs.map((log) => (
+                        <li key={log._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm">
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${log.action === "assigned" ? "bg-emerald-50 text-emerald-700 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"}`}>
+                                {log.action}
+                            </span>
+                            <span className="font-medium text-gray-950">{log.teacherName || "Unknown instructor"}</span>
+                            <span className="text-gray-500">{ASSIGNMENT_SOURCE_LABEL[log.source] || log.source}</span>
+                            <span className="text-gray-500">by {log.actorEmail || "unknown"}</span>
+                            <span className="ml-auto text-xs text-gray-400">{new Date(log.createdAt).toLocaleString()}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
     );
 };
 
@@ -307,6 +350,7 @@ const CourseDetailPage = () => {
                         ) : (
                             <p className="text-gray-600">No instructors listed.</p>
                         )}
+                        <InstructorHistory courseId={courseData._id} />
                     </div>
                 )}
 

@@ -5,7 +5,6 @@ import Swal from "sweetalert2";
 import {
   fetchAllRequests,
   invalidateAllRequests,
-  updateCourseRequestStatus,
   updateCourseItemStatus,
 } from "../../../redux/courseRequests/courseRequestSlice";
 import DataCards from "../../../components/DataCards";
@@ -148,31 +147,6 @@ const CourseRequestsPage = () => {
     dispatch(fetchAllRequests());
   };
 
-  const handleUpdateStatus = async (id, newStatus) => {
-    const result = await Swal.fire({
-      title: `${newStatus === "approved" ? "Approve" : "Reject"} this request?`,
-      width: "min(440px, 92vw)",
-      input: newStatus === "rejected" ? "textarea" : undefined,
-      inputPlaceholder: "Optional notes for the instructor…",
-      showCancelButton: true,
-      confirmButtonColor: newStatus === "approved" ? "#10b981" : "#f43f5e",
-      cancelButtonColor: "#94a3b8",
-      confirmButtonText: newStatus === "approved" ? "Yes, Approve" : "Yes, Reject",
-    });
-    if (!result.isConfirmed) return;
-    try {
-      await dispatch(
-        updateCourseRequestStatus({ id, status: newStatus, adminNotes: result.value || "" })
-      ).unwrap();
-      toast.success(`Request ${newStatus}`);
-      if (slideOver.request?._id === id) {
-        setSlideOver((prev) => ({ ...prev, request: { ...prev.request, status: newStatus, adminNotes: result.value || "" } }));
-      }
-    } catch (err) {
-      toast.error(err || "Failed to update status");
-    }
-  };
-
   const filtered = allRequests.filter((req) => {
     // Raw status, not getStatusLabel() — that returns a display string for "mixed".
     if (filterTab !== "all" && req.status !== filterTab) return false;
@@ -207,21 +181,6 @@ const CourseRequestsPage = () => {
         ]}
         onView={() => setSlideOver({ open: true, request: req })}
         primaryLabel="Review"
-        menuItems={[
-          {
-            label: "Approve",
-            icon: <FiCheck size={13} />,
-            disabled: req.status !== "pending",
-            onClick: () => handleUpdateStatus(req._id, "approved"),
-          },
-          {
-            label: "Reject",
-            icon: <FiX size={13} />,
-            danger: true,
-            disabled: req.status !== "pending",
-            onClick: () => handleUpdateStatus(req._id, "rejected"),
-          },
-        ]}
       />
     );
   };

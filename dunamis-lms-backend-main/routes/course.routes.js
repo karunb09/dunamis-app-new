@@ -6,6 +6,7 @@ const {
   getCourseById,
   getAllCoursesAdmin,
   getCourseByIdAdmin,
+  getCourseAssignmentHistory,
   updateCourse,
   deleteCourse,
   upsertInstructorCourseMedia,
@@ -31,6 +32,13 @@ router.get(
   isAuth,
   accessToRole(["admin", "superadmin"]),
   getCourseByIdAdmin
+);
+router.get(
+  "/manage/:id/assignment-history",
+  isAuth,
+  accessToRole(["admin", "superadmin"]),
+  validate(idParam, "params"),
+  getCourseAssignmentHistory
 );
 router.post(
   "/create",

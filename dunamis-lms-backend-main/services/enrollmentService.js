@@ -5,6 +5,7 @@ const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { syncTeacherAvailabilitySlots } = require("../utils/syncAvailabilitySlots");
+const { IST_OFFSET_MS } = require("../utils/istMonth");
 const {
   registerRosterMembership,
   removeRosterMembership,
@@ -303,6 +304,17 @@ const mapStudentPaymentMode = (paymentGroup) => {
 
 const isRunningCourse = (record) => record?.courseType === "running";
 
+// Same IST day next month, clamped to month end: setMonth(+1) on 31 Jan lands on
+// 3 Mar and skips February's due date entirely.
+const addOneIstMonth = (date) => {
+  const ist = new Date(new Date(date).getTime() + IST_OFFSET_MS);
+  const year = ist.getUTCFullYear();
+  const nextMonth = ist.getUTCMonth() + 1;
+  const lastDayOfNextMonth = new Date(Date.UTC(year, nextMonth + 1, 0)).getUTCDate();
+  ist.setUTCFullYear(year, nextMonth, Math.min(ist.getUTCDate(), lastDayOfNextMonth));
+  return new Date(ist.getTime() - IST_OFFSET_MS);
+};
+
 // A running course has no finish line: once a 3- or 6-month tenure is paid off
 // the learner rolls onto month-to-month. Capping at installmentTotal there ends
 // billing permanently and tells the student the course is over.
@@ -316,10 +328,11 @@ const getNextInstallmentDueDate = (transaction) => {
     return null;
   }
 
-  const baseDate = transaction.paidAt || new Date();
-  const nextDueDate = new Date(baseDate);
-  nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-  return nextDueDate;
+  // The schedule, not the payment date, sets the next due date: paying a week late
+  // (or early) must not move every later installment. Installment 1 anchors the
+  // schedule on its payment — its order's dueDate is just when checkout started.
+  const scheduledDueDate = transaction.installmentNo > 1 ? transaction.dueDate : null;
+  return addOneIstMonth(scheduledDueDate || transaction.paidAt || new Date());
 };
 
 // An enrollment only blocks re-enrolling while it is live. "completed" and

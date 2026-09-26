@@ -63,6 +63,16 @@ export async function fetchCourseDetails(courseId) {
   }
 }
 
+export async function fetchCourseAssignmentHistory(courseId) {
+  try {
+    requireToken();
+    const { data } = await axios.get(`/course/manage/${courseId}/assignment-history`);
+    return data.data || [];
+  } catch (err) {
+    throw toError(err, "Failed to load instructor history");
+  }
+}
+
 export async function createCourse(formData) {
   try {
     requireToken();

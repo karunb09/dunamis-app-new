@@ -15,6 +15,7 @@ const mailSender = require("../utils/mailSender");
 const { localFileUpload } = require("../utils/locallyUploader");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
+const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 const {
   DEFAULT_TEACHING_LANGUAGES,
   normalizeLanguages,
@@ -1004,7 +1005,6 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     const { salaryStatus } = req.body;
     const user = parseObjectField(req.body.user);
     const teacherDetails = parseObjectField(req.body.teacherDetails);
-    const courses = parseObjectField(req.body.courses) || req.body.courses;
 
     // 1 Find
     const teacher = await Teacher.findById(id);
@@ -1025,11 +1025,6 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     // 2. Salary status
     if (salaryStatus) {
       teacher.salaryStatus = salaryStatus;
-    }
-
-    // 3. Courses
-    if (courses && Array.isArray(courses)) {
-      teacher.course = courses;
     }
 
     // 4. user info — allowlist so a teacher can't escalate their own linked
@@ -1136,6 +1131,14 @@ exports.deleteTeacher = asyncHandler(async (req, res) => {
         },
       });
     }
+
+    // Logged before the instructor's records are deleted, while their name still resolves.
+    const assignedCourses = await Course.find({ teacher: teacher._id }).select("_id").lean();
+    await logCourseAssignments(req, {
+      action: "unassigned",
+      source: "teacher_delete",
+      pairs: assignedCourses.map((c) => ({ courseId: c._id, teacherId: teacher._id })),
+    });
 
     await Promise.all([
       Course.updateMany(

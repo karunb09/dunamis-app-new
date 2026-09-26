@@ -4,6 +4,7 @@ const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 const mailSender = require("../utils/mailSender");
+const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 
 const VIDEO_MIMES = ["video/mp4", "video/mpeg", "video/avi", "video/quicktime"];
 
@@ -86,50 +87,6 @@ exports.getAllRequests = asyncHandler(async (req, res) => {
   res.json({ success: true, data: requests });
 });
 
-exports.updateRequestStatus = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  const { status, adminNotes } = req.body;
-
-  if (!status || !["approved", "rejected"].includes(status)) {
-    return res.status(400).json({ success: false, message: "status must be 'approved' or 'rejected'" });
-  }
-
-  const request = await CourseRequest.findById(id).populate({
-    path: "instructor",
-    select: "userId teacherDetail",
-    populate: [
-      { path: "userId", select: "name email" },
-      { path: "teacherDetail", select: "name" },
-    ],
-  });
-
-  if (!request) return res.status(404).json({ success: false, message: "Course request not found" });
-
-  request.status = status;
-  request.reviewedAt = new Date();
-  if (adminNotes !== undefined) request.adminNotes = adminNotes;
-  await request.save();
-
-  const instructorEmail = request.instructor?.userId?.email;
-  const firstName = request.instructor?.teacherDetail?.name?.firstName || "Instructor";
-  if (instructorEmail) {
-    const statusLabel = status === "approved" ? "Approved" : "Rejected";
-    const noteSection = adminNotes ? `<p><strong>Admin Note:</strong> ${adminNotes}</p>` : "";
-    const body = `<p>Dear ${firstName},</p>
-<p>Your course request has been <strong>${statusLabel}</strong>.</p>
-${noteSection}
-<p>Log in to your dashboard to view details.</p>
-<p>— Dunamis Team</p>`;
-    try {
-      await mailSender(instructorEmail, `Course Request ${statusLabel}`, body);
-    } catch {
-      // non-fatal — status already saved
-    }
-  }
-
-  res.json({ success: true, data: request });
-});
-
 const ITEM_POPULATE = [
   {
     path: "instructor",
@@ -172,8 +129,16 @@ exports.updateCourseItemStatus = asyncHandler(async (req, res) => {
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ success: false, message: "Course not found" });
 
+    const alreadyAssigned = (course.teacher || []).some((t) => String(t) === String(request.instructor));
     await Course.findByIdAndUpdate(courseId, { $addToSet: { teacher: request.instructor } });
     await Teacher.findByIdAndUpdate(request.instructor, { $addToSet: { course: courseId } });
+    if (!alreadyAssigned) {
+      await logCourseAssignments(req, {
+        action: "assigned",
+        source: "course_request",
+        pairs: [{ courseId, teacherId: request.instructor }],
+      });
+    }
     request.courses[idx].approvedCourseId = courseId;
   }
 
@@ -190,5 +155,36 @@ exports.updateCourseItemStatus = asyncHandler(async (req, res) => {
   await request.save();
   await request.populate(ITEM_POPULATE);
 
+  if (allDecided) await notifyInstructorOfDecision(request);
+
   res.json({ success: true, data: request });
 });
+
+const DECISION_LABEL = { approved: "Approved", rejected: "Rejected", mixed: "Partially Approved" };
+
+const notifyInstructorOfDecision = async (request) => {
+  const instructorEmail = request.instructor?.userId?.email;
+  if (!instructorEmail) return;
+  const firstName = request.instructor?.teacherDetail?.name?.firstName || "Instructor";
+  const statusLabel = DECISION_LABEL[request.status];
+  const items = request.courses
+    .map((c) => {
+      const label = [c.category?.name, c.subCategory?.name].filter(Boolean).join(" — ") || "Course";
+      const detail =
+        c.status === "approved"
+          ? `approved — assigned to <strong>${c.approvedCourseId?.name || "a course"}</strong>`
+          : `rejected${c.adminNotes ? ` (${c.adminNotes})` : ""}`;
+      return `<li>${label}: ${detail}</li>`;
+    })
+    .join("");
+  const body = `<p>Dear ${firstName},</p>
+<p>Your course request has been <strong>${statusLabel}</strong>.</p>
+<ul>${items}</ul>
+<p>Approved courses now appear under My Courses in your dashboard.</p>
+<p>— Dunamis Team</p>`;
+  try {
+    await mailSender(instructorEmail, `Course Request ${statusLabel}`, body);
+  } catch {
+    // non-fatal — decision already saved
+  }
+};

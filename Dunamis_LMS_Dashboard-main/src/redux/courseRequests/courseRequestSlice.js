@@ -77,25 +77,6 @@ export const fetchAllRequests = createAsyncThunk(
   }
 );
 
-export const updateCourseRequestStatus = createAsyncThunk(
-  "courseRequests/updateStatus",
-  async ({ id, status, adminNotes = "" }, { rejectWithValue }) => {
-    try {
-      const res = await fetch(`${BASE_URL}/course-requests/${id}/status`, {
-        method: "PUT",
-        headers: jsonHeaders(),
-        credentials: "include",
-        body: JSON.stringify({ status, adminNotes }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || "Failed to update status");
-      return { id, status, adminNotes };
-    } catch (err) {
-      return rejectWithValue(err.message);
-    }
-  }
-);
-
 export const updateCourseItemStatus = createAsyncThunk(
   "courseRequests/updateItem",
   async ({ id, itemIndex, status, adminNotes = "", courseId }, { rejectWithValue }) => {
@@ -157,13 +138,6 @@ const courseRequestSlice = createSlice({
         state.allRequestsLoading = false;
         state.allRequestsStatus = "failed";
         state.error = action.payload;
-      })
-
-      .addCase(updateCourseRequestStatus.fulfilled, (state, action) => {
-        const { id, status, adminNotes } = action.payload;
-        state.allRequests = state.allRequests.map((r) =>
-          r._id === id ? { ...r, status, adminNotes } : r
-        );
       })
 
       .addCase(updateCourseItemStatus.fulfilled, (state, action) => {

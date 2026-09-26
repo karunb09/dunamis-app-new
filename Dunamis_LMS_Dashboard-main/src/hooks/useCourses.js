@@ -7,6 +7,8 @@ export const courseKeys = {
   all: ["courses"],
   lists: () => [...courseKeys.all, "list"],
   detail: (id) => [...courseKeys.all, "detail", id],
+  // Nested under detail so a course update invalidates it too.
+  assignmentHistory: (id) => [...courseKeys.detail(id), "assignment-history"],
 };
 
 // ----- Queries -----
@@ -23,6 +25,15 @@ export function useCourseDetailsQuery(courseId, options = {}) {
   return useQuery({
     queryKey: courseKeys.detail(courseId),
     queryFn: () => courseApi.fetchCourseDetails(courseId),
+    enabled: Boolean(courseId),
+    ...options,
+  });
+}
+
+export function useCourseAssignmentHistoryQuery(courseId, options = {}) {
+  return useQuery({
+    queryKey: courseKeys.assignmentHistory(courseId),
+    queryFn: () => courseApi.fetchCourseAssignmentHistory(courseId),
     enabled: Boolean(courseId),
     ...options,
   });
