@@ -469,9 +469,15 @@ const authSlice = createSlice({
     notices: [],
     loading: false,
     hydrating: true,
+    // While true, PublicOnlyRoute leaves a just-signed-in user on the sign-in
+    // page so it can show its success state and navigate on its own.
+    loginHold: false,
     error: null,
   },
   reducers: {
+    setLoginHold: (state, action) => {
+      state.loginHold = action.payload;
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -671,5 +677,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError } = authSlice.actions;
+export const { logout, clearError, setLoginHold } = authSlice.actions;
 export default authSlice.reducer;

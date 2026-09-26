@@ -308,11 +308,11 @@ const Sidebar = ({ isOpen, onClose }) => {
               )}
             >
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/10">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white ring-1 ring-white/10">
                   <img
                     src="/logo-square.png"
                     alt="DUNAMIS Logo"
-                    className="h-9 w-9 object-contain"
+                    className="h-11 w-11 object-contain"
                   />
                 </div>
                 {isExpanded && (
