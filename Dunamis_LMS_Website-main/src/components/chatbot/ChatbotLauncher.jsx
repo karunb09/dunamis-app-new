@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import api from "@/lib/axios";
 import { WHATSAPP_URL } from "@/lib/siteConfig";
 import { useChatbot } from "./useChatbot";
+import { useChatbotEnabled } from "./useChatbotEnabled";
 
 const ChatbotPanel = dynamic(() => import("./ChatbotPanel"), { ssr: false });
 const BookDemoModal = dynamic(() => import("@/components/PopupModals/BookDemoModal"), { ssr: false });
@@ -25,6 +26,10 @@ const ActiveDot = () => (
 );
 
 export default function ChatbotLauncher() {
+  return useChatbotEnabled() ? <Launcher /> : null;
+}
+
+function Launcher() {
   const pathname = usePathname() || "/";
   const chat = useChatbot(pathname);
   const [open, setOpen] = useState(false);

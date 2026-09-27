@@ -11,6 +11,7 @@ import AnimatedNumber from "../../components/AnimatedNumber";
 import {
   useChatbotConversation,
   useChatbotGroups,
+  useChatbotStatus,
   useChatbotSummary,
   useResolveChatbotGroup,
 } from "../../hooks/useChatbotInsights";
@@ -151,6 +152,7 @@ function Transcript({ conversationId, highlight }) {
 
 export default function ChatbotInsightsPage() {
   const dispatch = useDispatch();
+  const { data: status } = useChatbotStatus();
   const faqs = useSelector((state) => state.siteContent.items).filter((item) => item.type === "faq");
 
   const [days, setDays] = useState(30);
@@ -265,6 +267,12 @@ export default function ChatbotInsightsPage() {
           <p className="mt-1 text-sm text-slate-500">
             What visitors ask the assistant, where it falls short, and how to teach it better answers.
           </p>
+          {status?.enabled === false && (
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+              Switched off: the website isn't showing the assistant, so no new questions arrive.
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {RANGES.map((range) => (
