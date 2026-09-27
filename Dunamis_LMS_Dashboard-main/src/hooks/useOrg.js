@@ -6,10 +6,16 @@ export const orgKeys = {
   staff: ["org", "staff"],
   chart: ["org", "chart"],
   zones: ["org", "zones"],
+  myScope: ["org", "me", "scope"],
 };
 
 export function useStaffDirectory(options = {}) {
   return useQuery({ queryKey: orgKeys.staff, queryFn: api.fetchStaffDirectory, staleTime: 60_000, ...options });
+}
+
+// { scoped, branches, courses }: what this admin's lists are limited to.
+export function useMyScope() {
+  return useQuery({ queryKey: orgKeys.myScope, queryFn: api.fetchMyScope, staleTime: 5 * 60_000 });
 }
 
 export function useOrgChart() {

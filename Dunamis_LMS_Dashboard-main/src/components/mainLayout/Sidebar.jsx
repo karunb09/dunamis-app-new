@@ -32,6 +32,7 @@ import { logoutUser } from "../../redux/authSlice";
 import { prefetchRoute } from "../../routeLoaders";
 import clsx from "clsx";
 import { getStoredUser } from "../../utils/authSession";
+import { hasPermission } from "../../utils/permissions";
 
 const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
 
@@ -210,27 +211,14 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
   ];
 
-  const hasFullAccess = () => {
-    return permissions.length === 0 || permissions.includes("allAccess");
-  };
-
-  const hasPermission = (permission) => {
-    if (!permission) return true;
-    if (hasFullAccess()) return true;
-    return permissions.includes(permission);
-  };
-
+  // Admins see the items their permissions allow (utils/permissions.js);
+  // superadmins and All Access see everything.
   const filteredAdminMenu = useMemo(() => {
-    if (accountType !== "admin") return adminMenu;
-
-    if (hasFullAccess()) {
-      return adminMenu;
-    }
-
+    const viewer = { accountType, permissions };
     return adminMenu
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => hasPermission(item.permission)),
+        items: section.items.filter((item) => !item.permission || hasPermission(viewer, item.permission)),
       }))
       .filter((section) => section.items.length > 0);
   }, [accountType, permissions]);

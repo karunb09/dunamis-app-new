@@ -23,12 +23,14 @@ const {
   validateStaffPlacement,
 } = require("../services/orgPlacement");
 
+const { getScope } = require("../middleware/auth");
+
 const STAFF_TYPES = ["admin", "superadmin"];
 
 const idOf = (value) => String(value?._id || value || "");
 
 // One list of staff for every people picker (manager, centre contact, city
-// manager), instead of GET /user/get-all, which returns every student too.
+// manager). Staff only: no student ever appears here.
 exports.getStaffDirectory = asyncHandler(async (req, res) => {
   const designations = String(req.query.designations || "")
     .split(",")
@@ -210,4 +212,20 @@ exports.setOrgPlacement = asyncHandler(async (req, res) => {
   await user.save();
   const saved = await User.findById(user._id).select("org").populate(ORG_NAME_POPULATE).lean();
   res.status(200).json({ success: true, message: "Org placement saved", org: saved.org || null });
+});
+
+// The caller's own area, named: the dashboard's "you're seeing" banner and the
+// branch / course filter options. Courses include offline ones taught at the
+// caller's branches, since those learners are in their lists too.
+exports.getMyScope = asyncHandler(async (req, res) => {
+  const area = await getScope(req);
+  if (!area) return res.status(200).json({ success: true, scoped: false, branches: [], courses: [] });
+  const [branches, courses] = await Promise.all([
+    Branch.find({ _id: { $in: area.branchIds } }).select("branchName").sort({ branchName: 1 }).lean(),
+    Course.find({ $or: [{ _id: { $in: area.courseIds } }, { branches: { $in: area.branchIds } }] })
+      .select("name mode")
+      .sort({ name: 1 })
+      .lean(),
+  ]);
+  res.status(200).json({ success: true, scoped: true, branches, courses });
 });

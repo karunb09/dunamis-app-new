@@ -117,8 +117,9 @@ async function seedTeacher() {
   return { user, teacher };
 }
 
+// Server-side permission keys: this admin manages students.
 async function seedAdmin() {
-  return User.create({
+  const user = await User.create({
     name: { firstName: "Ad", lastName: "Min" },
     email: `admin-${Date.now()}@example.com`,
     mobileNo: 9999999993,
@@ -126,6 +127,11 @@ async function seedAdmin() {
     accountType: "admin",
     accountStatus: "active",
   });
+  const admin = await Admin.create({ userId: user._id, role: "Staff", permission: ["studentManagement"] });
+  user.roleId = admin._id;
+  user.roleModel = "admin";
+  await user.save();
+  return user;
 }
 
 let staffSeq = 0;
@@ -311,7 +317,7 @@ test("deleteFeedback: the feedback's own author can delete it", async () => {
 
 test("updateUser: accountType is ignored even from an admin", async () => {
   const { user: teacher } = await seedTeacher();
-  const { token } = await seedStaff();
+  const { token } = await seedStaff({ permission: ["instructorManagement"] });
 
   const res = await request(app, "PUT", `/api/v1/user/${teacher._id}`, {
     token,
@@ -393,11 +399,11 @@ test("updateAdmin: an admin cannot grant themselves All Access", async () => {
 });
 
 test("updateAdmin: a self-edit that resends unchanged permissions still saves", async () => {
-  const { user, admin, token } = await seedStaff({ permission: ["studentManagement"] });
+  const { user, admin, token } = await seedStaff({ permission: ["adminManagement"] });
 
   const res = await request(app, "PUT", `/api/v1/admin/${admin._id}`, {
     token,
-    body: { name: { firstName: "Renamed" }, permission: ["studentManagement"] },
+    body: { name: { firstName: "Renamed" }, permission: ["adminManagement"] },
   });
 
   assert.equal(res.status, 200);

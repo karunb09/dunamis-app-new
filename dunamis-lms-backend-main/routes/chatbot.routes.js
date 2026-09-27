@@ -10,7 +10,7 @@ const {
   getConversation,
   resolveGroup,
 } = require("../controller/chatbot.controller");
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -45,7 +45,7 @@ router.post(
   postStudentMessage
 );
 
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("contentManagement")];
 
 router.get("/admin/summary", ...adminOnly, validate(chatSummaryQuerySchema, "query"), getSummary);
 router.get("/admin/groups", ...adminOnly, validate(chatGroupsQuerySchema, "query"), listGroups);

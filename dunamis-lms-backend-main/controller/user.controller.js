@@ -456,28 +456,6 @@ exports.resetPassword = asyncHandler(async (req, res) => {
         });
 });
 
-// Get All Users
-exports.getAllUsers = asyncHandler(async (req, res) => {
-        const users = await User.find()
-            .select("-password -__v")
-            .populate("roleId")
-            // A list never carries personal HR details.
-            .populate({ path: "adminDetails", select: ADMIN_HR_FIELDS });
-
-        if (!users || users.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No users found",
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Users retrieved successfully",
-            users,
-        });
-});
-
 // Get by id
 exports.getUserById = asyncHandler(async (req, res) => {
         const { id } = req.params;

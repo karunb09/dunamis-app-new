@@ -10,11 +10,11 @@ const {
   getBranchById,
 } = require("../controller/branch.controller");
 const { publicCache } = require("../middleware/cacheControl");
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("offlineCenters")];
 
 // Create Branch (admin only)
 router.post("/create", ...adminOnly, createBranch);

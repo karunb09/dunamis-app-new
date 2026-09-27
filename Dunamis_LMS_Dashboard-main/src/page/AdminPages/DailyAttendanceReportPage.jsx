@@ -16,6 +16,7 @@ import StatTile from "../../components/insights/StatTile";
 import BarRow from "../../components/insights/BarRow";
 import ExportMenu from "../../components/ExportMenu";
 import SlideOver from "../../components/SlideOver";
+import ScopeBanner from "../../components/org/ScopeBanner";
 
 const COVERAGE = {
   Full: { label: "Marked", className: "bg-emerald-50 text-emerald-700 ring-emerald-200" },
@@ -331,6 +332,8 @@ const DailyAttendanceReportPage = () => {
           <ExportMenu onExportAll={handleExport} totalCount={1} selectedCount={0} exporting={exporting} />
         </div>
       </div>
+
+      <ScopeBanner />
 
       {data.partial && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">

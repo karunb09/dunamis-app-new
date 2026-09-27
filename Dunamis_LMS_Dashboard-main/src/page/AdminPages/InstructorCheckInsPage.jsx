@@ -29,6 +29,7 @@ import { visitFlags } from "../../components/checkIns/visitFlagList";
 import CountTile from "../../components/checkIns/CountTile";
 import ExportMenu from "../../components/ExportMenu";
 import SlideOver from "../../components/SlideOver";
+import ScopeBanner from "../../components/org/ScopeBanner";
 
 const FLAG_FILTERS = [
   { id: "all", label: "All" },
@@ -363,6 +364,8 @@ const InstructorCheckInsPage = () => {
           />
         </div>
       </div>
+
+      <ScopeBanner />
 
       <div className="flex flex-wrap items-center gap-2">
         {presets.map((preset) => (

@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { matrixRuleSchema } = require("../validators/communicationMatrix.validator");
 const {
@@ -10,7 +10,7 @@ const {
   updateMatrixRule,
 } = require("../controller/communicationMatrix.controller");
 
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("updates")];
 
 router.get("/", ...adminOnly, getMatrix);
 router.put("/:event", ...adminOnly, validate(matrixRuleSchema), updateMatrixRule);

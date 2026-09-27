@@ -105,8 +105,10 @@ beforeEach(async () => {
 });
 
 test("the matrix lists every row with its defaults and locked cells", async () => {
-  const { token } = await makeStaff({ permission: ["studentManagement"] });
+  const { token } = await makeStaff({ permission: ["updates"] });
+  const { token: outsider } = await makeStaff({ permission: ["studentManagement"] });
 
+  assert.equal((await request(app, "GET", "/api/v1/communication-matrix", { token: outsider })).status, 403);
   const res = await request(app, "GET", "/api/v1/communication-matrix", { token });
 
   assert.equal(res.status, 200);

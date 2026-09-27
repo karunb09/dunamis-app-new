@@ -29,8 +29,19 @@ const Student = require("../model/student.model");
 const Feedback = require("../model/feedback.model");
 const Assessment = require("../model/assessment.model");
 const Assignment = require("../model/assignment.model");
+const { getScope, loadStaff } = require("../middleware/auth");
+const { placeFilter } = require("../utils/scopeFilters");
 
 const PAID_STATUSES = ["paid", "paid_pending_fulfillment", "fulfilled"];
+
+// Sections that can be cut down to one admin's branches and courses. For a
+// scoped admin every other section describes the whole company, so it is
+// hidden rather than shown with numbers they shouldn't see.
+const AREA_SECTIONS = new Set(["revenue", "funnel", "enrollments", "sessions", "outstanding"]);
+// Money: only for Financials (and All Access).
+const MONEY_SECTIONS = ["revenue", "referrals", "outstanding"];
+
+const areaStage = (area, fields) => (area ? [{ $match: placeFilter(area, fields) }] : []);
 const DEFAULT_TRAILING = 12;
 const MIN_TRAILING = 3;
 const MAX_TRAILING = 24;
@@ -78,17 +89,24 @@ const groupCounts = (rows, keyFn = (r) => r._id) =>
  * Every section degrades to a safe fallback on failure rather than throwing,
  * so a bug in one collection never blanks the whole report.
  */
-async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = {}) {
+// area: the caller's scope (middleware/auth.js → getScope), null for the whole
+// company. hide: section names the caller may not see.
+async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING, area = null, hide = [] } = {}) {
   const key = isValidMonthKey(monthKey) ? monthKey : currentMonthKey();
   const clampedTrailing = Math.min(MAX_TRAILING, Math.max(MIN_TRAILING, Number(trailing) || DEFAULT_TRAILING));
 
   const { start: monthStart, end: monthEnd } = monthWindow(key);
   const monthKeys = monthKeysEndingAt(key, clampedTrailing);
   const trendStart = monthWindow(monthKeys[0]).start;
-  const ctx = { monthStart, monthEnd, trendStart, monthKeys };
+  const ctx = { monthStart, monthEnd, trendStart, monthKeys, area };
 
   const failed = [];
+  const hidden = [];
   const section = async (name, fn, fallback) => {
+    if (hide.includes(name) || (area && !AREA_SECTIONS.has(name))) {
+      hidden.push(name);
+      return fallback;
+    }
     try {
       return await fn();
     } catch (err) {
@@ -109,6 +127,7 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = 
       () =>
         Slot.aggregate([
           { $match: { date: { $gte: trendStart, $lt: monthEnd } } },
+          ...areaStage(area),
           { $group: { _id: { m: monthExpr("$date"), slotType: "$slotType" }, count: { $sum: 1 } } },
         ]),
       []
@@ -147,7 +166,7 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = 
       // rows against an unrelated date. Surfaced as `asOfNow` for the UI.
       section(
         "outstanding",
-        () => aggregateOutstandingInstallments({ asOf: new Date(), withRows: false }),
+        () => aggregateOutstandingInstallments({ asOf: new Date(), withRows: false, scope: area }),
         null
       ),
     ]);
@@ -300,6 +319,7 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = 
     generatedAt: new Date().toISOString(),
     partial: failed.length > 0,
     failedSections: failed,
+    hiddenSections: hidden,
     month: { key, label: monthLabel(key), start: monthStart, end: monthEnd, isCurrent: key === currentMonthKey() },
     trailingMonths: monthKeys,
     growth,
@@ -313,8 +333,9 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING } = 
 // Section builders
 // ---------------------------------------------------------------------------
 
-async function buildEnrollmentMap({ trendStart, monthEnd }) {
+async function buildEnrollmentMap({ trendStart, monthEnd, area }) {
   const rows = await ClassRoster.aggregate([
+    ...areaStage(area),
     { $unwind: "$students" },
     {
       $match: {
@@ -341,7 +362,7 @@ async function buildCompletionMap({ trendStart, monthEnd }) {
   return map;
 }
 
-async function buildRevenueFacet({ trendStart, monthStart, monthEnd }) {
+async function buildRevenueFacet({ trendStart, monthStart, monthEnd, area }) {
   const [result] = await PaymentTransaction.aggregate([
     // An order created 31-Jan can be paid 01-Feb; matching createdAt alone
     // would drop it from February's revenue, so widen the outer match. The
@@ -356,6 +377,7 @@ async function buildRevenueFacet({ trendStart, monthStart, monthEnd }) {
         ],
       },
     },
+    ...areaStage(area),
     { $addFields: { recognizedAt: { $ifNull: ["$paidAt", "$createdAt"] } } },
     {
       $facet: {
@@ -481,9 +503,10 @@ async function buildReferralFacet({ trendStart, monthStart, monthEnd }) {
   return result;
 }
 
-async function buildFunnelFacet({ trendStart, monthStart, monthEnd }) {
+async function buildFunnelFacet({ trendStart, monthStart, monthEnd, area }) {
   const [result] = await DemoBooking.aggregate([
     { $match: { createdAt: { $gte: trendStart, $lt: monthEnd } } },
+    ...areaStage(area),
     {
       $facet: {
         byMonth: [
@@ -860,9 +883,13 @@ exports.getMonthlyInsights = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: "Invalid month — expected format YYYY-MM." });
   }
 
+  const staff = await loadStaff(req);
+  const seesMoney = staff?.unrestricted || staff?.permissions?.includes("financials");
   const insights = await buildMonthlyInsights({
     monthKey: month || currentMonthKey(),
     trailing: trailing !== undefined ? Number(trailing) : DEFAULT_TRAILING,
+    area: await getScope(req),
+    hide: seesMoney ? [] : MONEY_SECTIONS,
   });
 
   res.status(200).json(insights);

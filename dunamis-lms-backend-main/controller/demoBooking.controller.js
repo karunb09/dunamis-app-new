@@ -24,6 +24,8 @@ const {
   notifyEvent,
 } = require("../utils/notificationService");
 const { formatUserName } = require("../utils/formatName");
+const { getScope } = require("../middleware/auth");
+const { isInScope, placeFilter } = require("../utils/scopeFilters");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -476,6 +478,9 @@ exports.getAllBookings = asyncHandler(async (req, res) => {
     if (enrollmentStatus) query.enrollmentStatus = enrollmentStatus;
     if (courseId) query.courseId = courseId;
 
+    const area = await getScope(req);
+    if (area) Object.assign(query, placeFilter(area));
+
     const bookings = await DemoBooking.find(query)
       .populate({
         path: "studentId",
@@ -680,9 +685,9 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         path: "slotId",
         select: "createdBy",
       })
-      .select("teacherId slotId demoStatus enrollmentStatus meetingLink");
+      .select("teacherId slotId demoStatus enrollmentStatus meetingLink branchId courseId");
 
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res
         .status(404)
         .json({ success: false, message: "Booking not found" });
@@ -1006,7 +1011,7 @@ exports.rescheduleDemoBooking = asyncHandler(async (req, res) => {
     const { slotId, teacherId, reason } = req.body;
 
     const booking = await loadBookingForChange(req.params.id);
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res.status(404).json({ success: false, message: "Demo booking not found" });
     }
 
@@ -1085,7 +1090,7 @@ exports.cancelDemoBooking = asyncHandler(async (req, res) => {
     const { reason } = req.body;
 
     const booking = await loadBookingForChange(req.params.id);
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res.status(404).json({ success: false, message: "Demo booking not found" });
     }
 

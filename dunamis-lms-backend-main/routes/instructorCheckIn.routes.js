@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -21,7 +21,7 @@ const {
 } = require("../controller/instructorCheckIn.controller");
 
 const teacherOnly = accessToRole(["teacher"]);
-const adminOnly = accessToRole(["admin", "superadmin"]);
+const adminOnly = [accessToRole(["admin", "superadmin"]), requirePermission("reports")];
 
 // No update or delete routes: a visit is written by its check-in and closed by
 // its check-out, and nothing else may change it. Admin corrections are notes.

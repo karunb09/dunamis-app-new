@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -19,7 +19,8 @@ const {
 } = require("../controller/questionnaire.controller");
 
 // Instructors own their library; admins get read access for support.
-const teacherOrAdmin = accessToRole(["teacher", "admin", "superadmin"]);
+// Admin read access has no screen yet, so it is All Access only.
+const teacherOrAdmin = [accessToRole(["teacher", "admin", "superadmin"]), requirePermission()];
 const teacherOnly = accessToRole(["teacher"]);
 
 router.get(

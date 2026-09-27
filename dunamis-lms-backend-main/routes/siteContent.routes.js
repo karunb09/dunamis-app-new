@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const {
   createContent,
   createStudentFeedbackReview,
@@ -19,9 +19,12 @@ router.post(
   createStudentFeedbackReview
 );
 
-router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllContent);
-router.post("/", isAuth, accessToRole(["admin", "superadmin"]), createContent);
-router.put("/:id", isAuth, accessToRole(["admin", "superadmin"]), updateContent);
-router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), deleteContent);
+// Website Content page; Chatbot Insights (contentManagement) writes FAQs here too.
+const editors = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("websiteContent", "contentManagement")];
+
+router.get("/", ...editors, getAllContent);
+router.post("/", ...editors, createContent);
+router.put("/:id", ...editors, updateContent);
+router.delete("/:id", ...editors, deleteContent);
 
 module.exports = router;

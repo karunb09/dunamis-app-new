@@ -1,10 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const { getAllNotices, getNoticeById, updateNotice, deleteNotice, sendNotice, createNotice } = require("../controller/adminNotice.controller");
 
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("updates")];
 
 router.post("/", ...adminOnly, createNotice);
 router.get("/", ...adminOnly, getAllNotices);

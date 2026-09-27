@@ -1,5 +1,8 @@
 const asyncHandler = require("../utils/asyncHandler");
 const checkIns = require("../services/instructorCheckIn");
+const InstructorCheckIn = require("../model/instructorCheckIn.model");
+const { getScope } = require("../middleware/auth");
+const { isInScope, notFound } = require("../utils/scopeFilters");
 
 const fixFrom = (req) => ({
   lat: req.body.lat,
@@ -42,10 +45,20 @@ exports.checkOut = asyncHandler(async (req, res) => {
 
 exports.getCheckInReport = asyncHandler(async (req, res) => {
   const { from, to, teacherId, branchId } = req.validated.query;
-  res.status(200).json(await checkIns.buildCheckInReport({ from, to, teacherId, branchId }));
+  // Branch visits are offline-only, so a scoped admin's area is its branches.
+  const area = await getScope(req);
+  if (area && branchId && !isInScope(area, { branchId })) return notFound(res, "Branch");
+  res.status(200).json(
+    await checkIns.buildCheckInReport({ from, to, teacherId, branchId, branchIds: area?.branchIds || null })
+  );
 });
 
 exports.addCheckInNote = asyncHandler(async (req, res) => {
+  const area = await getScope(req);
+  if (area) {
+    const visit = await InstructorCheckIn.findById(req.params.id).select("branchId").lean();
+    if (!visit || !isInScope(area, { branchId: visit.branchId })) return notFound(res, "Check-in");
+  }
   const visit = await checkIns.addAdminNote({
     visitId: req.params.id,
     userId: req.user.userId,

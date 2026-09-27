@@ -720,6 +720,8 @@ const aggregateOutstandingInstallments = async ({
   minDaysLate = null,
   bucket = null,
   withRows = true,
+  // The caller's area (middleware/auth.js → getScope), or null for everything.
+  scope = null,
 } = {}) => {
   const [result] = await Student.aggregate(
     [
@@ -821,6 +823,18 @@ const aggregateOutstandingInstallments = async ({
       },
       ...(deliveryMode ? [{ $match: { deliveryMode } }] : []),
       ...(branchId ? [{ $match: { branchRef: branchId } }] : []),
+      ...(scope
+        ? [
+            {
+              $match: {
+                $or: [
+                  { branchRef: { $in: scope.branchIds } },
+                  { branchRef: null, "_id.courseId": { $in: scope.courseIds } },
+                ],
+              },
+            },
+          ]
+        : []),
       {
         $addFields: {
           bucket: {

@@ -5,6 +5,8 @@ import RegisteredStudents from './Students/RegisteredStudents';
 import DemoStudents from './Students/DemoStudents';
 import ManualEnrollForm from './Students/ManualEnrollForm';
 import PageTabBar from '../../../components/PageTabBar';
+import { hasPermission } from '../../../utils/permissions';
+import ScopeBanner from '../../../components/org/ScopeBanner';
 
 const TABS = ['Enrolled Students', 'Registered Students', 'Demo Students'];
 
@@ -14,11 +16,7 @@ const StudentManagementPage = () => {
     const [enrollModalOpen, setEnrollModalOpen] = useState(false);
 
     const { user } = useSelector((state) => state.auth);
-    const permissions = user?.permissions || [];
-    const canManualEnroll =
-        permissions.includes('allAccess') ||
-        permissions.includes('studentManagement') ||
-        permissions.includes('financials');
+    const canManualEnroll = hasPermission(user, 'studentManagement', 'financials');
 
     useEffect(() => {
         localStorage.setItem('activeTab2', activeTab2);
@@ -60,6 +58,7 @@ const StudentManagementPage = () => {
                     </button>
                 )}
             </div>
+            <ScopeBanner className="mb-6" />
             <div className="mb-6">
                 <PageTabBar tabs={TABS} activeTab={activeTab2} onChange={handleTabChange} />
             </div>

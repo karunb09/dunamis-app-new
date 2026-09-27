@@ -2,6 +2,8 @@ const Certificate = require("../model/certificate.model");
 const Student = require("../model/student.model");
 const asyncHandler = require("../utils/asyncHandler");
 const { getCertificatePdf } = require("../services/certificatePdf");
+const { getScope } = require("../middleware/auth");
+const { studentFilter, studentInScope } = require("../utils/scopeFilters");
 
 const toId = (value) => String(value?._id || value || "");
 
@@ -9,8 +11,16 @@ const isAdmin = (req) => ["admin", "superadmin"].includes(req.user?.accountType)
 
 // A learner sees their own, an instructor the ones they awarded, an admin all.
 const scopeFor = async (req) => {
-  // Admins may narrow to one learner (the student profile page does).
-  if (isAdmin(req)) return req.query?.studentId ? { studentId: req.query.studentId } : {};
+  // Admins may narrow to one learner (the student profile page does); a scoped
+  // admin only ever sees learners in their area.
+  if (isAdmin(req)) {
+    const area = await getScope(req);
+    if (req.query?.studentId) {
+      return (await studentInScope(area, req.query.studentId)) ? { studentId: req.query.studentId } : { studentId: null };
+    }
+    if (!area) return {};
+    return { studentId: { $in: await Student.find(await studentFilter(area)).distinct("_id") } };
+  }
 
   if (req.user?.accountType === "teacher") {
     return { teacherId: req.user.roleId };
@@ -46,7 +56,13 @@ exports.downloadCertificate = asyncHandler(async (req, res) => {
       .json({ success: false, message: "Certificate not found." });
   }
 
-  if (!isAdmin(req)) {
+  if (isAdmin(req)) {
+    if (!(await studentInScope(await getScope(req), certificate.studentId))) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Certificate not found." });
+    }
+  } else {
     const scope = await scopeFor(req);
     const owns =
       (scope.studentId && toId(scope.studentId) === toId(certificate.studentId)) ||

@@ -568,7 +568,15 @@ const adminVisitQuery = (filter) =>
     .populate("branchId", "branchName")
     .populate("adminNotes.by", "name");
 
-const buildCheckInReport = async ({ from, to, teacherId = null, branchId = null, now = new Date() }) => {
+// branchIds: the caller's area (a scoped admin); null for every branch.
+const buildCheckInReport = async ({
+  from,
+  to,
+  teacherId = null,
+  branchId = null,
+  branchIds = null,
+  now = new Date(),
+}) => {
   const todayKey = dayKeyFromDate(now);
   const rangeFrom = from || todayKey;
   const rangeTo = to || rangeFrom;
@@ -580,18 +588,20 @@ const buildCheckInReport = async ({ from, to, teacherId = null, branchId = null,
   const filter = {
     dayKey: { $gte: rangeFrom, $lte: rangeTo },
     ...(teacherId ? { teacherId } : {}),
-    ...(branchId ? { branchId } : {}),
+    ...(branchId ? { branchId } : branchIds ? { branchId: { $in: branchIds } } : {}),
   };
-  const [visits, classes, unpinnedBranches, liveSince] = await Promise.all([
+  const inArea = (id) => !branchIds || branchIds.some((allowed) => toId(allowed) === toId(id));
+  const [visits, allClasses, unpinnedBranches, liveSince] = await Promise.all([
     adminVisitQuery(filter).sort({ "checkIn.at": -1 }).lean(),
     offlineClasses({ from: rangeFrom, to: rangeTo, teacherId, branchId }),
-    Branch.find({ status: "active", "geo.lat": null })
+    Branch.find({ status: "active", "geo.lat": null, ...(branchIds ? { _id: { $in: branchIds } } : {}) })
       .select("branchName")
       .sort({ branchName: 1 })
       .lean(),
     checkInLiveSince(),
   ]);
 
+  const classes = allClasses.filter((cls) => inArea(cls.branch._id));
   const described = visits.map((visit) => describeAdminVisit(visit, todayKey));
   const missed = missedClassesAmong(classes, visits, now, liveSince).map(describeMissedClass);
 

@@ -22,6 +22,15 @@ export async function fetchStaffDirectory() {
   }
 }
 
+export async function fetchMyScope() {
+  try {
+    const { data } = await axios.get("/org/me/scope");
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to load your area");
+  }
+}
+
 export async function fetchOrgChart() {
   try {
     const { data } = await axios.get("/org/chart");
