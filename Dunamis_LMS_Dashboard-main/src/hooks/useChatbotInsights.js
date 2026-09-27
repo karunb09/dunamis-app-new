@@ -10,8 +10,8 @@ export const chatbotKeys = {
 };
 
 // { enabled }: the backend's CHATBOT_ENABLED switch.
-export function useChatbotStatus() {
-  return useQuery({ queryKey: chatbotKeys.status, queryFn: api.fetchChatbotStatus, staleTime: 5 * 60_000 });
+export function useChatbotStatus({ enabled = true } = {}) {
+  return useQuery({ queryKey: chatbotKeys.status, queryFn: api.fetchChatbotStatus, staleTime: 5 * 60_000, enabled });
 }
 
 export function useChatbotSummary(days) {
