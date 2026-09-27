@@ -30,9 +30,12 @@ const authCookieOptions = {
   secure: process.env.NODE_ENV === "production",
 };
 
+// Personal HR fields on the Admin record never travel in the session.
+const ADMIN_HR_FIELDS = "-dateOfBirth -emergencyContact -address";
+
 const populateSessionUser = (query) =>
   query
-    .populate("adminDetails")
+    .populate({ path: "adminDetails", select: ADMIN_HR_FIELDS })
     .populate("teacherDetails")
     .populate("studentDetails");
 
@@ -458,7 +461,8 @@ exports.getAllUsers = asyncHandler(async (req, res) => {
         const users = await User.find()
             .select("-password -__v")
             .populate("roleId")
-            .populate("adminDetails"); // Add this line
+            // A list never carries personal HR details.
+            .populate({ path: "adminDetails", select: ADMIN_HR_FIELDS });
 
         if (!users || users.length === 0) {
             return res.status(404).json({
@@ -496,7 +500,12 @@ exports.getUserById = asyncHandler(async (req, res) => {
                     strictPopulate: false,
                 },
             })
-            .populate("adminDetails")
+            // HR details only on your own profile.
+            .populate(
+              String(req.user.userId) === String(id)
+                ? "adminDetails"
+                : { path: "adminDetails", select: ADMIN_HR_FIELDS }
+            )
             .populate(ORG_NAME_POPULATE);
 
         if (!user) {

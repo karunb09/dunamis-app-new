@@ -330,6 +330,7 @@ test("createAdmin: accepts array permission, rejects a missing designation", () 
     role: "Tele Caller",
     permission: ["x"],
     org: { designation: "aa", workMode: "offline", branches: ["b1"] },
+    dateOfJoining: "2026-09-01",
   });
   assert.equal(ok.nextCalled, true);
   assert.deepEqual(ok.req.body.org.branches, ["b1"], "scope passes through to the placement check");
@@ -341,9 +342,45 @@ test("createAdmin: accepts array permission, rejects a missing designation", () 
     role: "Tele Caller",
     permission: ["x"],
     org: {},
+    dateOfJoining: "2026-09-01",
   });
   assert.equal(bad.res.statusCode, 400);
   assert.match(bad.res.body.message, /designation/i);
+});
+
+test("createAdmin: HR fields — joining date required, DOB in the past, 10-digit emergency phone", () => {
+  const base = {
+    name: { firstName: "A", lastName: "B" },
+    email: "a@b.com",
+    mobileNo: "9990001111",
+    role: "HR",
+    permission: ["x"],
+    org: { designation: "hrManager" },
+  };
+
+  const noJoining = runValidate(createAdminSchema, base);
+  assert.equal(noJoining.res.statusCode, 400);
+  assert.match(noJoining.res.body.message, /date of joining/i);
+
+  const futureBirth = runValidate(createAdminSchema, { ...base, dateOfJoining: "2026-09-01", dateOfBirth: "2999-01-01" });
+  assert.equal(futureBirth.res.statusCode, 400);
+  assert.match(futureBirth.res.body.message, /in the past/i);
+
+  const shortPhone = runValidate(createAdminSchema, {
+    ...base,
+    dateOfJoining: "2026-09-01",
+    emergencyContact: { name: "Ravi", relation: "Brother", phone: "12345" },
+  });
+  assert.equal(shortPhone.res.statusCode, 400);
+
+  const ok = runValidate(createAdminSchema, {
+    ...base,
+    dateOfJoining: "2026-09-01",
+    dateOfBirth: "1990-05-20",
+    emergencyContact: { name: "Ravi", relation: "Brother", phone: "9876543210" },
+    address: "Road 1, Hyderabad",
+  });
+  assert.equal(ok.nextCalled, true);
 });
 
 test("idParam: malformed id -> 400 (params source)", () => {

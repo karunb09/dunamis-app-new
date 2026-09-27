@@ -450,6 +450,7 @@ test("createAdmin: only an All Access admin can create another one", async () =>
     role: "Director",
     permission: ["allAccess"],
     org: { designation: "ceo" },
+    dateOfJoining: "2026-09-01",
   };
 
   const refused = await request(app, "POST", "/api/v1/admin/create", { token: regular, body });

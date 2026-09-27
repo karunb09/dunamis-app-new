@@ -23,6 +23,9 @@ const asPermissionList = (value) => [].concat(value ?? []).map(String);
 const forbidden = (res, message) =>
   res.status(403).json({ success: false, message, hint: PROTECTED_ACCOUNT_HINT });
 
+// Personal HR data stays out of lists (the Enquiries page loads every admin).
+const LIST_SAFE = "-dateOfBirth -emergencyContact -address";
+
 const lastTopAdmin = (res) =>
   res.status(409).json({
     success: false,
@@ -39,6 +42,10 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       permission,
       org,
       employeePrefix,
+      dateOfJoining,
+      dateOfBirth,
+      emergencyContact,
+      address,
     } = req.body;
 
     if (!firstName || !lastName || !email || !mobileNo || !permission || !role || !org) {
@@ -90,6 +97,10 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       userId: user._id,
       role: role,
       permission: permission,
+      dateOfJoining,
+      dateOfBirth: dateOfBirth || undefined,
+      emergencyContact,
+      address,
     });
 
     user.roleId = AdminDoc._id;
@@ -112,7 +123,7 @@ exports.createAdmin = asyncHandler(async (req, res) => {
     });
 });
 exports.getAllAdmins = asyncHandler(async (req, res) => {
-    const admins = await Admin.find().populate({
+    const admins = await Admin.find().select(LIST_SAFE).populate({
       path: "userId",
       select: "-password",
       populate: ORG_NAME_POPULATE,
@@ -141,7 +152,18 @@ exports.getAdminById = asyncHandler(async (req, res) => {
 });
 exports.updateAdmin = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, email, mobileNo, role, permission, org } = req.body;
+    const {
+      name,
+      email,
+      mobileNo,
+      role,
+      permission,
+      org,
+      dateOfJoining,
+      dateOfBirth,
+      emergencyContact,
+      address,
+    } = req.body;
 
     const admin = await Admin.findById(id);
     if (!admin) {
@@ -208,6 +230,10 @@ exports.updateAdmin = asyncHandler(async (req, res) => {
     // Update Admin fields
     if (role) admin.role = role;
     if (nextPermissions) admin.permission = nextPermissions;
+    if (dateOfJoining) admin.dateOfJoining = dateOfJoining;
+    if (dateOfBirth !== undefined) admin.dateOfBirth = dateOfBirth || undefined;
+    if (emergencyContact !== undefined) admin.emergencyContact = emergencyContact;
+    if (address !== undefined) admin.address = address;
 
     await user.save();
     await admin.save();

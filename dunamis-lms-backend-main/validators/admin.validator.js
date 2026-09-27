@@ -15,6 +15,34 @@ const present = (label) =>
       `${label} is required.`
     );
 
+// Dates arrive from <input type="date"> as YYYY-MM-DD.
+const isoDate = (label) =>
+  z
+    .string({ error: `${label} is required.` })
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, `${label} must be a date.`)
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), `${label} must be a date.`);
+
+const hrFields = {
+  dateOfBirth: isoDate("Date of birth")
+    .refine((value) => new Date(value) < new Date(), "Date of birth must be in the past.")
+    .or(z.literal(""))
+    .optional(),
+  emergencyContact: z
+    .object({
+      name: z.string().trim().optional(),
+      relation: z.string().trim().optional(),
+      phone: z
+        .string()
+        .trim()
+        .regex(/^\d{10}$/, "Emergency contact phone must be 10 digits.")
+        .or(z.literal(""))
+        .optional(),
+    })
+    .optional(),
+  address: z.string().trim().max(500, "Address must be 500 characters or fewer.").optional(),
+};
+
 const createAdminSchema = z.looseObject({
   name: z.object({
     firstName: nonEmpty("First name"),
@@ -26,6 +54,8 @@ const createAdminSchema = z.looseObject({
   permission: present("Permission"),
   // Shape only; services/orgPlacement.js checks the reporting line and scope.
   org: z.looseObject({ designation: nonEmpty("Designation") }),
+  dateOfJoining: isoDate("Date of joining"),
+  ...hrFields,
 });
 
 // Update is a partial patch — every field optional, validated only if sent.
@@ -41,6 +71,8 @@ const updateAdminSchema = z.looseObject({
   role: z.string().trim().optional(),
   permission: z.any().optional(),
   org: z.looseObject({ designation: nonEmpty("Designation") }).optional(),
+  dateOfJoining: isoDate("Date of joining").optional(),
+  ...hrFields,
 });
 
 module.exports = { createAdminSchema, updateAdminSchema };

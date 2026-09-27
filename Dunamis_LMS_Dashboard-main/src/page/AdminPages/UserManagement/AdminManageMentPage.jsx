@@ -389,7 +389,7 @@ const AdminManageMentPage = () => {
                                     label: "Reports to",
                                     value: org.designation === 'ceo' ? "—" : personName(org.reportsTo) || "Not set",
                                 },
-                                { label: "Created", value: new Date(row.createdAt).toLocaleDateString() },
+                                { label: "Joined", value: new Date(row.dateOfJoining || row.createdAt).toLocaleDateString() },
                             ]}
                             onView={() => navigate(`/admin/add-admin/${row._id}`)}
                             primaryLabel="Edit Admin"

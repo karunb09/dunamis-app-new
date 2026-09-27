@@ -10,6 +10,38 @@ import OrgPlacementSummary from "../../components/org/OrgPlacementSummary";
 
 const FIELD_INPUT = "w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
 
+const formatDay = (value) =>
+  value ? new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null;
+
+// Your own HR record, read-only (changes go through whoever manages admins).
+const HrDetails = ({ admin }) => {
+  const contact = admin?.emergencyContact;
+  const rows = [
+    ["Joined", formatDay(admin?.dateOfJoining)],
+    ["Date of birth", formatDay(admin?.dateOfBirth)],
+    [
+      "Emergency contact",
+      contact?.name ? [contact.name, contact.relation && `(${contact.relation})`, contact.phone].filter(Boolean).join(" ") : null,
+    ],
+    ["Address", admin?.address],
+  ].filter(([, value]) => value);
+  if (!rows.length) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Personal details</p>
+      <dl className="mt-3 space-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <dt className="text-xs text-slate-400">{label}</dt>
+            <dd className="font-medium text-slate-800">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+};
+
 const AdminProfile = () => {
   const dispatch = useDispatch();
   const { selectedUser, loading } = useSelector((state) => state.user);
@@ -201,8 +233,9 @@ const AdminProfile = () => {
         )}
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2">
         <OrgPlacementSummary org={selectedUser?.org} />
+        <HrDetails admin={selectedUser?.adminDetails} />
       </div>
 
       {/* Fields */}

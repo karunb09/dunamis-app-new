@@ -172,6 +172,7 @@ const aaBody = (overrides = {}) => ({
   role: "Tele Caller",
   permission: ["studentManagement"],
   org: { designation: "aa", workMode: "offline", reportsTo: world.bde.user._id, branches: [world.banjara._id] },
+  dateOfJoining: "2026-09-01",
   ...overrides,
 });
 
@@ -500,4 +501,43 @@ test("a city with zones or branches can't be deleted", async () => {
 
   assert.equal(res.status, 409);
   assert.ok(await City.exists({ _id: world.pune._id }));
+});
+
+// --- HR details -----------------------------------------------------------
+
+test("HR details come back only from GET /admin/:id and the admin's own profile", async () => {
+  const created = await request(app, "POST", "/api/v1/admin/create", {
+    token: world.ceo.token,
+    body: aaBody({
+      dateOfBirth: "1990-05-20",
+      emergencyContact: { name: "Ravi", relation: "Brother", phone: "9876543210" },
+      address: "Road 1, Hyderabad",
+    }),
+  });
+  assert.equal(created.status, 200);
+  const adminId = created.body.admin._id;
+  const user = await User.findById(created.body.user._id).lean();
+  const ownToken = tokenFor(user, adminId);
+
+  const detail = await request(app, "GET", `/api/v1/admin/${adminId}`, { token: world.ceo.token });
+  assert.equal(detail.body.admin.address, "Road 1, Hyderabad");
+  assert.equal(detail.body.admin.emergencyContact.phone, "9876543210");
+
+  const list = await request(app, "GET", "/api/v1/admin/get-all-admin", { token: world.ceo.token });
+  const listed = list.body.admins.find((admin) => admin._id === adminId);
+  assert.ok(listed.dateOfJoining, "cards show the joining date");
+  assert.equal(listed.dateOfBirth, undefined);
+  assert.equal(listed.emergencyContact, undefined);
+  assert.equal(listed.address, undefined);
+
+  const byColleague = await request(app, "GET", `/api/v1/user/${user._id}`, { token: world.ceo.token });
+  assert.equal(byColleague.body.user.adminDetails.address, undefined);
+
+  const own = await request(app, "GET", `/api/v1/user/${user._id}`, { token: ownToken });
+  assert.equal(own.body.user.adminDetails.address, "Road 1, Hyderabad");
+
+  const session = await request(app, "GET", "/api/v1/user/me", { token: ownToken });
+  assert.equal(session.status, 200);
+  assert.equal(session.body.user.adminDetails.address, undefined, "never in the session");
+  assert.equal(session.body.user.designation, "aa");
 });
