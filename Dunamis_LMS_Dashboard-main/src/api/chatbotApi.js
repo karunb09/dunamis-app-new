@@ -10,6 +10,15 @@ const toError = (err, fallback) => {
   return e;
 };
 
+export async function fetchChatbotStatus() {
+  try {
+    const { data } = await axios.get("/chatbot/status");
+    return data;
+  } catch (err) {
+    throw toError(err, "Failed to load chatbot status");
+  }
+}
+
 export async function fetchChatbotSummary(days) {
   try {
     const { data } = await axios.get("/chatbot/admin/summary", { params: { days } });

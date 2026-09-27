@@ -33,6 +33,7 @@ import { prefetchRoute } from "../../routeLoaders";
 import clsx from "clsx";
 import { getStoredUser } from "../../utils/authSession";
 import { hasPermission } from "../../utils/permissions";
+import { useChatbotStatus } from "../../hooks/useChatbotInsights";
 
 const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
 
@@ -50,6 +51,8 @@ const Sidebar = ({ isOpen, onClose }) => {
   const permissions = user?.permissions || [];
   const isExpanded = isOpen || isDesktopOpen;
   const isAdminLike = !["student", "teacher", "guest"].includes(accountType);
+  // Hidden until the API says the assistant is on (CHATBOT_ENABLED).
+  const chatbotOn = useChatbotStatus({ enabled: isAdminLike }).data?.enabled === true;
 
   const studentMenu = [
     { to: "/home", icon: <FiHome />, text: "Home" },
@@ -201,12 +204,16 @@ const Sidebar = ({ isOpen, onClose }) => {
           text: "Website Content",
           permission: "websiteContent",
         },
-        {
-          to: "/admin/chatbot-insights",
-          icon: <FiCpu />,
-          text: "Chatbot Insights",
-          permission: "contentManagement",
-        },
+        ...(chatbotOn
+          ? [
+              {
+                to: "/admin/chatbot-insights",
+                icon: <FiCpu />,
+                text: "Chatbot Insights",
+                permission: "contentManagement",
+              },
+            ]
+          : []),
       ],
     },
   ];
@@ -221,7 +228,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         items: section.items.filter((item) => !item.permission || hasPermission(viewer, item.permission)),
       }))
       .filter((section) => section.items.length > 0);
-  }, [accountType, permissions]);
+  }, [accountType, permissions, chatbotOn]);
 
   const getMenuToRender = () => {
     if (accountType === "student") return studentMenu;
