@@ -182,8 +182,11 @@ exports.createStudent = asyncHandler(async (req, res) => {
       event: "signUp",
       title: "New student registration",
       message: `${firstName} ${lastName} (${normalizedEmail}) signed up.`,
+      learners: [{ _id: user._id, email: normalizedEmail }],
+      learnerTitle: "Welcome to Dunamis India",
+      learnerMessage: "Your account is ready. Book a free demo or explore courses whenever you like.",
       creatorId: user._id,
-    }).catch((err) => console.error("Signup staff notice failed:", err.message));
+    }).catch((err) => console.error("Signup notices failed:", err.message));
 
      // TODO: Enable this later
     await mailSender(

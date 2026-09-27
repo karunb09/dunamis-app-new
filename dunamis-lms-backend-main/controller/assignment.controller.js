@@ -5,7 +5,7 @@ const Course = require("../model/course.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const { formatUserName } = require("../utils/formatName");
-const { createDashboardNotice } = require("../utils/notificationService");
+const { notifyEvent } = require("../utils/notificationService");
 
 const toId = (value) => String(value?._id || value || "");
 
@@ -130,11 +130,16 @@ exports.createAssignment = asyncHandler(async (req, res) => {
     }
   }
 
-  const students = await Student.find({ _id: { $in: studentIds } }).select("userId").lean();
-  createDashboardNotice({
-    title: "New assignment posted",
-    message: `You have a new assignment: "${title}", due ${new Date(dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
-    userIds: students.map((st) => st.userId).filter(Boolean),
+  // The learner part of the monthly assignment row; staff already heard at the cycle.
+  const students = await Student.find({ _id: { $in: studentIds } })
+    .select("userId")
+    .populate("userId", "email")
+    .lean();
+  notifyEvent({
+    event: "assignmentCycle",
+    learners: students.map((st) => st.userId),
+    learnerTitle: "New assignment posted",
+    learnerMessage: `You have a new assignment: "${title}", due ${new Date(dueDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
     creatorId: req.user.userId,
   }).catch((err) => console.error("Assignment student notice failed:", err.message));
 

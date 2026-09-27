@@ -2,10 +2,8 @@ const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Slot = require("../model/slot.model");
 const Teacher = require("../model/teacher.model");
 const Student = require("../model/student.model");
-const {
-  notifyEvent,
-  createDashboardNotice,
-} = require("../utils/notificationService");
+const { notifyEvent } = require("../utils/notificationService");
+const { loadRoutingDirectory } = require("../services/staffRouting");
 
 const formatSlotDate = (date) =>
   date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
@@ -31,6 +29,8 @@ async function sendClassReminders() {
       return;
     }
 
+    const directory = await loadRoutingDirectory();
+
     await Promise.allSettled(
       slots.map(async (slot) => {
         try {
@@ -40,6 +40,7 @@ async function sendClassReminders() {
               .lean(),
             Student.find({ _id: { $in: slot.students } })
               .select("userId")
+              .populate("userId", "email")
               .lean(),
           ]);
 
@@ -51,20 +52,15 @@ async function sendClassReminders() {
 
           await notifyEvent({
             event: "classReminder",
+            context: slot.branchId ? { branchId: slot.branchId } : { courseId: slot.courseId?._id },
+            directory,
             instructorUser: teacher?.userId,
             title: "Class reminder",
             message: `${teacherName} has a ${courseName} class today (${formatSlotDate(slot.date)}) at ${timeText} with ${slot.students.length} student(s).`,
+            learners: students.map((s) => s.userId),
+            learnerTitle: "Class reminder",
+            learnerMessage: `Your ${courseName} class is today at ${timeText}.`,
           });
-
-          const studentUserIds = students.map((s) => s.userId).filter(Boolean);
-          if (studentUserIds.length) {
-            await createDashboardNotice({
-              title: "Class reminder",
-              message: `Your ${courseName} class is today at ${timeText}.`,
-              userIds: studentUserIds,
-              contentType: "Reminder",
-            });
-          }
 
           await Slot.findByIdAndUpdate(slot._id, {
             classReminderSentAt: new Date(),

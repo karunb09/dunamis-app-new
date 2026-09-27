@@ -552,6 +552,10 @@ const sendEnrollmentSideEffects = async (transaction) => {
     const isFirstPayment =
       transaction.paymentType !== "Installment" ||
       Number(transaction.installmentNo || 1) <= 1;
+    // Offline payments name their branch; online ones only their course.
+    const context = transaction.branchId
+      ? { branchId: transaction.branchId }
+      : { courseId: transaction.courseId };
 
     await Promise.allSettled([
       notifyUsers({
@@ -569,7 +573,10 @@ const sendEnrollmentSideEffects = async (transaction) => {
       isFirstPayment
         ? notifyEvent({
             event: "courseEnrolled",
+            context,
             instructorUser: teacher?.userId,
+            title: "New paid enrollment",
+            message: `${studentName} paid ${formatMoney(transaction.amount)} for ${course.name}.`,
             subject: `Payment received: ${course.name}`,
             html: paymentReceiptEmailTemplate({
               ...commonContext,
@@ -589,6 +596,7 @@ const sendEnrollmentSideEffects = async (transaction) => {
           })
         : notifyEvent({
             event: "feeReceived",
+            context,
             title:
               transaction.status === "paid_pending_fulfillment"
                 ? "Payment needs fulfillment review"

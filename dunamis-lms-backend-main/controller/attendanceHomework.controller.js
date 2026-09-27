@@ -6,7 +6,9 @@ const Student = require("../model/student.model");
 const Slot = require("../model/slot.model");
 const ClassRoster = require("../model/classRoster.model");
 const mongoose = require("mongoose");
-const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
+const User = require("../model/user.model");
+const { notifyEvent } = require("../utils/notificationService");
+const { loadRoutingDirectory } = require("../services/staffRouting");
 const { buildContentTitleMaps } = require("../utils/contentTitles");
 const { formatUserName: formatName } = require("../utils/formatName");
 
@@ -106,7 +108,7 @@ exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
 
     const userId = req.user.userId;
 
-    const teacher = await Teacher.findOne({ userId }).select("_id name");
+    const teacher = await Teacher.findOne({ userId }).select("_id");
     if (!teacher)
       return res
         .status(404)
@@ -156,30 +158,53 @@ exports.submitAttendanceHomework = asyncHandler(async (req, res) => {
     // Fire-and-forget: staff/student notices (does not affect HTTP response)
     setImmediate(async () => {
       try {
+        const [teacherUser, learnerUsers, place] = await Promise.all([
+          User.findById(userId).select("name email").lean(),
+          User.find({ _id: { $in: attendanceEntries.map((entry) => entry.userId) } }).select("email").lean(),
+          Slot.findById(slotId).select("branchId").lean(),
+        ]);
+        const learnerById = new Map(learnerUsers.map((user) => [String(user._id), user]));
+        const learnersWhere = (keep) =>
+          attendanceEntries.filter(keep).map((entry) => learnerById.get(String(entry.userId))).filter(Boolean);
+        const instructorUser = { _id: userId, email: teacherUser?.email };
+        const teacherName = formatName(teacherUser?.name, "An instructor");
+        const context = place?.branchId ? { branchId: place.branchId } : { courseId: course._id };
+        const day = formatClassDate(classDate);
+        const hasHomework = (entry) => Boolean(entry.homework && entry.homework.trim());
+        const directory = await loadRoutingDirectory();
+
         await notifyEvent({
           event: "classAttendance",
-          instructorUser: { _id: userId },
-          title: "Attendance Submitted",
-          message: `${teacher.name || "An instructor"} recorded attendance for ${course.name} — ${attendanceEntries.length} student(s).`,
+          context,
+          directory,
+          instructorUser,
+          title: "Attendance submitted",
+          message: `${teacherName} recorded attendance for ${course.name} on ${day} — ${attendanceEntries.length} student(s).`,
+          learners: learnersWhere((entry) => entry.attendanceStatus === "Present"),
+          learnerTitle: "Attendance marked",
+          learnerMessage: `You were marked present for ${course.name} on ${day}.`,
+          creatorId: userId,
+        });
+        await notifyEvent({
+          event: "classAttendance",
+          learners: learnersWhere((entry) => entry.attendanceStatus === "Absent"),
+          learnerTitle: "Attendance marked",
+          learnerMessage: `You were marked absent for ${course.name} on ${day}. Tell your instructor if that's wrong.`,
           creatorId: userId,
         });
 
-        const homeworkEntries = attendanceEntries.filter(
-          (entry) => entry.homework && entry.homework.trim()
-        );
-        if (homeworkEntries.length) {
+        const homeworkLearners = learnersWhere(hasHomework);
+        if (homeworkLearners.length) {
           await notifyEvent({
             event: "homework",
-            instructorUser: { _id: userId },
+            context,
+            directory,
+            instructorUser,
             title: "Homework posted",
-            message: `${teacher.name || "An instructor"} posted homework for ${course.name} — ${homeworkEntries.length} student(s).`,
-            creatorId: userId,
-          });
-
-          await createDashboardNotice({
-            title: "New homework posted",
-            message: `You have new homework for ${course.name}. Check your dashboard.`,
-            userIds: homeworkEntries.map((entry) => entry.userId),
+            message: `${teacherName} posted homework for ${course.name} — ${homeworkLearners.length} student(s).`,
+            learners: homeworkLearners,
+            learnerTitle: "New homework posted",
+            learnerMessage: `You have new homework for ${course.name}. Check your dashboard.`,
             creatorId: userId,
           });
         }

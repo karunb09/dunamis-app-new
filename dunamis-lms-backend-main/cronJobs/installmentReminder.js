@@ -4,11 +4,10 @@ const {
   getLatestInstallmentPerEnrollment,
   ACCESS_GRACE_DAYS,
 } = require("../services/enrollmentService");
-const {
-  createDashboardNotice,
-  notifyEvent,
-  sendEmails,
-} = require("../utils/notificationService");
+const { createDashboardNotice, notifyEvent } = require("../utils/notificationService");
+const { loadRoutingDirectory } = require("../services/staffRouting");
+const { brandCard, brandAttachments } = require("../mail/emailLayout");
+const { formatUserName } = require("../utils/formatName");
 
 const formatDate = (value) => {
   const date = value ? new Date(value) : null;
@@ -21,6 +20,8 @@ const formatDate = (value) => {
     timeZone: "Asia/Kolkata",
   });
 };
+
+const DASHBOARD_URL = process.env.OPS_DASHBOARD_URL || "https://dashboard.dunamisindia.co.in";
 
 // Students pay on the website portal, never the admin dashboard.
 const STUDENT_FEES_URL =
@@ -61,14 +62,14 @@ const escapeHtml = (value) =>
 
 const getCourseName = (payment) => payment.courseId?.name || "your course";
 
-const sendInstallmentReminder = async ({ student, payment, type }) => {
+const sendInstallmentReminder = async ({ student, payment, type, directory }) => {
   const studentUser = student.userId;
   if (!studentUser?._id) return;
 
   const isOverdue = type === "overdue";
   const courseName = getCourseName(payment);
   const amount = payment.installmentAmount || payment.amount;
-  const studentFirstName = studentUser.name?.firstName || "A student";
+  const studentName = formatUserName(studentUser.name, "A student");
   const title = isOverdue ? "Installment overdue" : "Installment reminder";
   // Access is only paused once the grace window in enrollmentService runs out,
   // so a day-one reminder must not claim classes are already blocked.
@@ -78,37 +79,50 @@ const sendInstallmentReminder = async ({ student, payment, type }) => {
       )}. Please pay within ${ACCESS_GRACE_DAYS} days of the due date to keep your classes running.`
     : `Your next installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
 
-  // Notify student (dashboard notice + email)
-  await Promise.allSettled([
-    createDashboardNotice({
-      title,
-      message,
-      userIds: [studentUser._id],
-      creatorId: studentUser._id,
-      contentType: "Reminder",
-    }),
-    sendEmails({
-      recipients: [studentUser.email],
-      subject: `${title}: ${courseName}`,
-      html: buildInstallmentEmail({
-        title,
-        intro: message,
-        courseName,
-        amount,
-        dueDate: payment.dueDate,
-      }),
-    }),
-  ]);
+  // The learner's portal copy is kept alongside the sheet's email.
+  await createDashboardNotice({
+    title,
+    message,
+    userIds: [studentUser._id],
+    creatorId: studentUser._id,
+    contentType: "Reminder",
+  });
 
   const staffTitle = isOverdue ? "Student installment overdue" : "Student fee due soon";
   const staffMessage = isOverdue
-    ? `${studentFirstName} has an overdue installment for ${courseName}.`
-    : `${studentFirstName}'s installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
+    ? `${studentName} has an overdue installment for ${courseName} (due ${formatDate(payment.dueDate)}).`
+    : `${studentName}'s installment for ${courseName} is due on ${formatDate(payment.dueDate)}.`;
 
   await notifyEvent({
     event: "feeReminder",
+    context: payment.branchId
+      ? { branchId: payment.branchId }
+      : { courseId: payment.courseId?._id || payment.courseId },
+    directory,
     title: staffTitle,
     message: staffMessage,
+    subject: `${staffTitle}: ${studentName} — ${courseName}`,
+    html: brandCard({
+      title: staffTitle,
+      intro: staffMessage,
+      details: `<p style="margin:0;"><strong>Amount:</strong> Rs. ${escapeHtml(amount)}</p>`,
+      ctaText: "Open dues",
+      ctaHref: `${DASHBOARD_URL}/admin/financials`,
+      footnote: "You're receiving this because you're responsible for this learner's branch or course.",
+    }),
+    attachments: brandAttachments(),
+    learners: [studentUser],
+    learnerTitle: title,
+    learnerMessage: message,
+    learnerSubject: `${title}: ${courseName}`,
+    learnerHtml: buildInstallmentEmail({
+      title,
+      intro: message,
+      courseName,
+      amount,
+      dueDate: payment.dueDate,
+    }),
+    learnerAttachments: [],
     creatorId: studentUser._id,
   });
 };
@@ -119,6 +133,7 @@ const checkInstallmentReminders = async () => {
   reminderWindow.setDate(reminderWindow.getDate() + 7);
 
   try {
+    const directory = await loadRoutingDirectory();
     const students = await Student.find({
       payments: {
         $elemMatch: {
@@ -140,13 +155,13 @@ const checkInstallmentReminders = async () => {
         if (Number.isNaN(dueDate.getTime()) || dueDate > reminderWindow) continue;
 
         if (dueDate < now && !payment.overdueNoticeSentAt) {
-          await sendInstallmentReminder({ student, payment, type: "overdue" });
+          await sendInstallmentReminder({ student, payment, type: "overdue", directory });
           await Student.updateOne(
             { _id: student._id, "payments._id": payment._id },
             { $set: { "payments.$.overdueNoticeSentAt": new Date() } }
           );
         } else if (dueDate >= now && !payment.reminderSentAt) {
-          await sendInstallmentReminder({ student, payment, type: "reminder" });
+          await sendInstallmentReminder({ student, payment, type: "reminder", directory });
           await Student.updateOne(
             { _id: student._id, "payments._id": payment._id },
             { $set: { "payments.$.reminderSentAt": new Date() } }

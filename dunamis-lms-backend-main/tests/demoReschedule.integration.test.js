@@ -17,6 +17,28 @@ process.env.MAIL_HOST = "";
 
 const { startMemoryMongo, stopMemoryMongo, clearCollections } = require("./helpers/db");
 
+// Capture mail before the controller requires the real sender.
+let mails = [];
+const mailSenderPath = require.resolve("../utils/mailSender");
+require.cache[mailSenderPath] = {
+  id: mailSenderPath,
+  filename: mailSenderPath,
+  loaded: true,
+  exports: async (to, subject, html) => {
+    mails.push({ to, subject, html });
+    return { accepted: [to] };
+  },
+};
+
+// Change notifications are fire-and-forget after the response.
+const waitFor = async (check, timeoutMs = 3000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!check()) {
+    if (Date.now() > deadline) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+};
+
 const mongoose = require("mongoose");
 const Course = require("../model/course.model");
 const DemoBooking = require("../model/demoBooking.model");
@@ -128,6 +150,7 @@ after(async () => {
 });
 beforeEach(async () => {
   await clearCollections();
+  mails = [];
 });
 
 async function scenario({ hoursFromNow = 72 } = {}) {
@@ -360,4 +383,46 @@ test("a cancelled demo cannot be rescheduled", async () => {
 
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /cancelled/);
+});
+
+const instructorEmail = async (teacher) => (await User.findById(teacher.userId).lean()).email;
+
+test("a reschedule within one instructor's slots emails that instructor once", async () => {
+  const { teacher, student, user, toSlot, booking } = await scenario();
+
+  const res = mockRes();
+  await rescheduleDemoBooking(
+    studentReq(student, user, { slotId: String(toSlot._id) }, { id: String(booking._id) }),
+    res
+  );
+  assert.equal(res.statusCode, 200);
+
+  const meera = await instructorEmail(teacher);
+  await waitFor(() => mails.some((mail) => mail.to === meera) && mails.some((mail) => mail.to === user.email));
+  const toMeera = mails.filter((mail) => mail.to === meera);
+  assert.equal(toMeera.length, 1);
+  assert.match(toMeera[0].subject, /Demo moved into your schedule/);
+  assert.equal(mails.filter((mail) => mail.to === user.email).length, 1, "the learner gets the reschedule email");
+});
+
+test("moving to another instructor tells each instructor their own side", async () => {
+  const { teacher, other, student, user, otherTeacherSlot, booking } = await scenario();
+
+  const res = mockRes();
+  await rescheduleDemoBooking(
+    studentReq(student, user, { slotId: String(otherTeacherSlot._id) }, { id: String(booking._id) }),
+    res
+  );
+  assert.equal(res.statusCode, 200);
+
+  const meera = await instructorEmail(teacher);
+  const ravi = await instructorEmail(other);
+  await waitFor(() => [meera, ravi].every((to) => mails.some((mail) => mail.to === to)));
+  assert.match(mails.find((mail) => mail.to === ravi).subject, /Demo moved into your schedule/);
+  assert.match(mails.find((mail) => mail.to === meera).subject, /Demo moved off your schedule/);
+  assert.doesNotMatch(
+    mails.find((mail) => mail.to === meera).html,
+    /Your .* demo has moved/,
+    "the outgoing instructor no longer gets the learner's email"
+  );
 });

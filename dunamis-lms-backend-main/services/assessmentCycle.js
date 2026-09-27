@@ -7,7 +7,8 @@ const {
   notifyEvent,
   createDashboardNotice,
 } = require("../utils/notificationService");
-const { buildAssessmentDueEmail } = require("../mail/assessmentEmail");
+const { buildAssessmentDueEmail, buildLearnerAssessmentDueEmail } = require("../mail/assessmentEmail");
+const { enrollmentContext, loadRoutingDirectory } = require("../services/staffRouting");
 
 const normalizeDate = (date) => {
   const d = new Date(date);
@@ -37,13 +38,14 @@ async function runAssessmentCycle() {
   const students = await Student.find({
     "enrolledCourses.status": "in-progress",
   }).populate("userId", "name email");
+  const directory = await loadRoutingDirectory();
 
   for (const student of students) {
     for (const enrollment of student.enrolledCourses) {
       const { courseId, status } = enrollment;
       if (!courseId || status !== "in-progress") continue;
 
-      const course = await Course.findById(courseId).select("teacher name");
+      const course = await Course.findById(courseId).select("teacher name mode");
       if (!course) continue;
 
       let teacherId = null;
@@ -124,14 +126,29 @@ async function runAssessmentCycle() {
           courseName: course.name,
           dueDate: normalizedNextDue,
         });
+        const learnerEmail = buildLearnerAssessmentDueEmail({
+          courseName: course.name,
+          dueDate: normalizedNextDue,
+        });
+        const dueText = normalizedNextDue.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
 
         await Promise.allSettled([
           notifyEvent({
             event: "assessmentCycle",
+            context: enrollmentContext({ student, course }),
+            directory,
             instructorUser: teacher?.userId,
+            title: "6-month assessment due",
+            message: `${studentName}'s ${course.name} assessment is due on ${dueText}.`,
             subject,
             html,
             attachments,
+            learners: [student.userId],
+            learnerTitle: "Assessment scheduled",
+            learnerMessage: `Your ${course.name} assessment is due on ${dueText}.`,
+            learnerSubject: learnerEmail.subject,
+            learnerHtml: learnerEmail.html,
+            learnerAttachments: learnerEmail.attachments,
           }),
           student.userId?._id
             ? createDashboardNotice({
