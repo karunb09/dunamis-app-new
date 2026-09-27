@@ -1,5 +1,4 @@
 const City = require("../model/city.model");
-const User = require("../model/user.model");
 const asyncHandler = require("../utils/asyncHandler");
 
 // Handlers throw on failure; the central errorHandler (middleware/errorHandler.js)
@@ -73,18 +72,6 @@ exports.getCityById = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     city,
-  });
-});
-
-// Get City Managers
-exports.getCityManagers = asyncHandler(async (req, res) => {
-  const managers = await User.find({ accountType: "admin" }).select(
-    "_id name email"
-  );
-
-  res.status(200).json({
-    success: true,
-    managers,
   });
 });
 

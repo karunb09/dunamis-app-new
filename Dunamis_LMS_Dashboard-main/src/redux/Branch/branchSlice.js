@@ -64,23 +64,6 @@ export const fetchBranchById = createAsyncThunk(
   }
 );
 
-// Get branch managers
-export const fetchBranchManagers = createAsyncThunk(
-  "branch/fetchManagers",
-  async (_, thunkAPI) => {
-    try {
-      const res = await fetch(`${BASE_URL}/branch/managers`);
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || "Failed to fetch branch managers");
-      }
-      return data.managers; // Assuming the response contains managers data
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.message);
-    }
-  }
-);
-
 // Update a branch
 export const updateBranch = createAsyncThunk(
   "branch/update",
@@ -129,7 +112,6 @@ const branchSlice = createSlice({
     error: null,
     listStatus: "idle",
     branches: [],
-    managers: [],
     branch: null,
     selectedBranch: null,
   },
@@ -165,19 +147,6 @@ const branchSlice = createSlice({
       .addCase(createBranch.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to create branch";
-      })
-      // Fetch Branch Managers
-      .addCase(fetchBranchManagers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchBranchManagers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.managers = action.payload;
-      })
-      .addCase(fetchBranchManagers.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload || "Failed to fetch branch managers";
       })
       // Update Branch
       .addCase(updateBranch.pending, (state) => {

@@ -16,6 +16,27 @@ const {
 const asyncHandler = require("../utils/asyncHandler");
 const { EMPLOYEE_ID_REGEX, bumpCounterFloor } = require("../utils/employeeId");
 const { isReferralCodeTaken } = require("../utils/referral");
+const {
+  LAST_ALL_ACCESS_HINT,
+  PROTECTED_ACCOUNT_HINT,
+  countActiveTopAdmins,
+  isTopAccount,
+  isUnrestrictedCaller,
+} = require("../utils/staffAccess");
+
+// Anyone who can edit an All Access account's email can take it over through
+// forgot-password, so every change to one is reserved for its peers.
+const guardTopAccount = async (req, res, target) => {
+  const isSelf = String(req.user?.userId) === String(target._id);
+  if (isSelf || !(await isTopAccount(target))) return false;
+  if (await isUnrestrictedCaller(req.user)) return false;
+  res.status(403).json({
+    success: false,
+    message: "This account has All Access and can't be changed from your account.",
+    hint: PROTECTED_ACCOUNT_HINT,
+  });
+  return true;
+};
 
 const authCookieOptions = {
   httpOnly: true,
@@ -527,6 +548,24 @@ exports.updateUser = asyncHandler(async (req, res) => {
             });
         }
 
+        if (await guardTopAccount(req, res, user)) return;
+
+        const isStaffCaller = ["admin", "superadmin"].includes(req.user?.accountType);
+        const { accountStatus } = req.body;
+        if (
+            isStaffCaller &&
+            accountStatus === "inactive" &&
+            user.accountStatus === "active" &&
+            (await isTopAccount(user)) &&
+            (await countActiveTopAdmins({ excludeUserId: user._id })) === 0
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: "This is the last active admin with All Access.",
+                hint: LAST_ALL_ACCESS_HINT,
+            });
+        }
+
         // Handle file upload if present
         let imagePath = user.image; // Keep existing image by default
         let didUploadProfileImage = false;
@@ -567,9 +606,6 @@ exports.updateUser = asyncHandler(async (req, res) => {
             name, 
             mobileNo, 
             email, 
-            accountType, 
-            accountStatus, 
-            roleModel,
             location,
             bio 
         } = req.body;
@@ -587,14 +623,10 @@ exports.updateUser = asyncHandler(async (req, res) => {
         if (location !== undefined) user.location = location;
         if (bio !== undefined) user.bio = bio;
 
-        // accountType/accountStatus/roleModel change privilege — only staff
-        // may grant them, never the account being updated itself.
-        const isStaffCaller = ["admin", "superadmin"].includes(req.user?.accountType);
-        if (isStaffCaller) {
-          if (accountType !== undefined) user.accountType = accountType;
-          if (accountStatus !== undefined) user.accountStatus = accountStatus;
-          if (roleModel !== undefined) user.roleModel = roleModel;
-        }
+        // Only staff may enable/disable an account, never the account itself.
+        // accountType and roleModel are never writable here: they are set when
+        // the account is created, and accepting them let any admin mint a superadmin.
+        if (isStaffCaller && accountStatus !== undefined) user.accountStatus = accountStatus;
         
         // Update image
         user.image = imagePath;
@@ -675,6 +707,8 @@ exports.setEmployeeId = asyncHandler(async (req, res) => {
       message: "User not found",
     });
   }
+
+  if (await guardTopAccount(req, res, user)) return;
 
   if (user.employeeId !== employeeId && (await isReferralCodeTaken(employeeId, { excludeUserId: user._id }))) {
     return res.status(409).json({

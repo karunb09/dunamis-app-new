@@ -273,18 +273,6 @@ exports.getBranchById = asyncHandler(async (req, res) => {
     });
 });
 
-// Get Branch Managers
-exports.getBranchManagers = asyncHandler(async (req, res) => {
-    const managers = await User.find({ accountType: "admin" }).select(
-      "_id name email"
-    );
-
-    res.status(200).json({
-      success: true,
-      managers,
-    });
-});
-
 // Update Branch
 exports.updateBranch = asyncHandler(async (req, res) => {
     const { id } = req.params;

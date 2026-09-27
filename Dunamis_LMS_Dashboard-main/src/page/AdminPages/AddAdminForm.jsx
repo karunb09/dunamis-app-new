@@ -215,8 +215,11 @@ const AddAdminForm = () => {
                                 employeeId: newEmployeeId,
                             });
                         } catch (patchError) {
+                            const data = patchError.response?.data;
                             toast.error(
-                                patchError.response?.data?.message || "Failed to update employee ID."
+                                [data?.message || "Failed to update employee ID.", data?.hint]
+                                    .filter(Boolean)
+                                    .join(" ")
                             );
                         }
                     }
@@ -226,7 +229,10 @@ const AddAdminForm = () => {
                 })
                 .catch((error) => {
                     console.error("Error updating admin:", error);
-                    toast.error(error.message || "Error updating admin. Please try again.");
+                    toast.error(
+                        (typeof error === "string" ? error : error?.message) ||
+                            "Error updating admin. Please try again."
+                    );
                 })
                 .finally(() => setLoading(false));
         } else {
@@ -243,7 +249,10 @@ const AddAdminForm = () => {
                 })
                 .catch((error) => {
                     console.error("Error creating admin:", error);
-                    toast.error(error.message || "Error creating admin. Please try again.");
+                    toast.error(
+                        (typeof error === "string" ? error : error?.message) ||
+                            "Error creating admin. Please try again."
+                    );
                 })
                 .finally(() => setLoading(false));
         }

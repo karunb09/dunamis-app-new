@@ -7,8 +7,8 @@ const { getAllNotices, getNoticeById, updateNotice, deleteNotice, sendNotice, cr
 const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
 
 router.post("/", ...adminOnly, createNotice);
-router.get("/", getAllNotices);
-router.get("/:id", getNoticeById);
+router.get("/", ...adminOnly, getAllNotices);
+router.get("/:id", ...adminOnly, getNoticeById);
 router.put("/:id", ...adminOnly, updateNotice);
 router.delete("/:id", ...adminOnly, deleteNotice);
 router.patch("/send/:id", ...adminOnly, sendNotice);

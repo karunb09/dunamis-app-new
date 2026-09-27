@@ -35,7 +35,8 @@ const AdminManageMentPage = () => {
 
     const getErrorMessage = (error, fallback) => {
         if (typeof error === 'string') return error;
-        return error?.message || error?.error || error?.data?.message || fallback;
+        const message = error?.message || error?.error || error?.data?.message;
+        return message ? [message, error?.hint].filter(Boolean).join(' ') : fallback;
     };
 
     useEffect(() => {
