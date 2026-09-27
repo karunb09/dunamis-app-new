@@ -15,6 +15,7 @@ import IconActionButton from '../../../../components/IconActionButton';
 import DataCards from '../../../../components/DataCards';
 import PersonCard from '../../../../components/cards/PersonCard';
 import EditInstructorModal from './EditInstructorModal';
+import { saveOrgPlacement } from '../../../../api/orgApi';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -40,8 +41,13 @@ const mapTeacherToInstructor = (teacher) => {
         teachLanguages: teacher.teacherApplication?.language?.teach || [],
         joiningDate: teacher.createdAt,
         salaryStatus: teacher.salaryStatus,
+        reportsTo: teacher.user?.org?.reportsTo || null,
+        branches: teacher.branches || [],
     };
 };
+
+const managerName = (manager) =>
+    manager ? `${manager.name?.firstName || ''} ${manager.name?.lastName || ''}`.trim() : '';
 
 const Instructor = () => {
     const dispatch = useDispatch();
@@ -149,8 +155,8 @@ const Instructor = () => {
         ? {
             mode: editModal.instructor.mode !== '—' ? editModal.instructor.mode : 'online',
             teachLanguages: editModal.instructor.teachLanguages || [],
-            branch: '',
-            courses: teachers.find((t) => t.id === editModal.instructor.id)?.courses?.map((c) => c.name) || [],
+            reportsTo: editModal.instructor.reportsTo?._id || '',
+            branchIds: editModal.instructor.branches.map((branch) => branch._id),
             profilePicture: editModal.instructor.avatar || editModal.instructor.userImage || '',
         }
         : null;
@@ -175,6 +181,14 @@ const Instructor = () => {
             loadingMessage: `Saving changes for ${row.name}`,
             action: async () => {
                 await dispatch(updateTeacher({ id: row.id, updatedData: payload })).unwrap();
+                // After the mode change above: branches are refused for online instructors.
+                await saveOrgPlacement({
+                    userId: row.userId,
+                    org: { reportsTo: updated.reportsTo || null },
+                    branchIds: updated.mode === 'online' ? [] : updated.branchIds || [],
+                });
+                dispatch(invalidateTeachers());
+                dispatch(fetchTeachers());
             },
             successTitle: 'Instructor updated',
             successText: `${row.name}'s details have been updated.`,
@@ -318,7 +332,12 @@ const Instructor = () => {
                     <PersonCard
                         avatarSrc={resolveImageUrl(row.avatar || row.userImage, DEFAULT_AVATAR) || undefined}
                         name={row.name}
-                        subtitle={row.courseCategory !== '—' ? row.courseCategory : undefined}
+                        subtitle={
+                            [
+                                row.courseCategory !== '—' ? row.courseCategory : null,
+                                row.reportsTo ? `Reports to ${managerName(row.reportsTo)}` : null,
+                            ].filter(Boolean).join(' • ') || undefined
+                        }
                         statusBadge={
                             row.accountStatus === 'active'
                                 ? { label: "Active", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: true, dotClass: "bg-emerald-500" }

@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import ReactSelect from "react-select";
 import { createTeacher } from "../../../../redux/Intructor/teacherSlice";
 import BackButton from "../../../../components/BackButton";
+import InstructorPlacementFields from "../../../../components/org/InstructorPlacementFields";
 import {
   DEFAULT_TEACHING_LANGUAGES,
   LANGUAGE_OPTIONS,
@@ -40,6 +41,8 @@ const INITIAL_FORM = {
   mode: "online",
   specialization: "",
   employeeUnit: "DSM",
+  reportsTo: "",
+  branchIds: [],
 };
 
 const AddInstructorForm = () => {
@@ -134,6 +137,8 @@ const AddInstructorForm = () => {
         expectedCTC: formData.expectedCTC.trim(),
         specialization: formData.specialization.trim(),
         employeePrefix: `${formData.employeeUnit}I`,
+        reportsTo: formData.reportsTo || undefined,
+        branchIds: formData.mode === "online" ? [] : formData.branchIds,
       })
     )
       .unwrap()
@@ -234,6 +239,21 @@ const AddInstructorForm = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl border">
+          <h3 className="font-semibold mb-1 text-lg">Reporting line</h3>
+          <p className="mb-4 text-sm text-gray-500">
+            Who this instructor reports to and, if they teach offline, where.
+          </p>
+          <InstructorPlacementFields
+            reportsTo={formData.reportsTo}
+            branchIds={formData.branchIds}
+            mode={formData.mode}
+            onChange={({ reportsTo, branchIds }) =>
+              setFormData((prev) => ({ ...prev, reportsTo, branchIds }))
+            }
+          />
         </div>
 
         <div className="bg-white p-6 rounded-xl border">

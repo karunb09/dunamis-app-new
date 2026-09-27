@@ -1,5 +1,26 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
+const { DEPARTMENTS, DESIGNATION_KEYS, WORK_MODES } = require("../utils/orgStructure");
+
+const ref = (model) => [{ type: mongoose.Schema.Types.ObjectId, ref: model }];
+
+// Where a staff member sits in the org chart and what they are responsible
+// for (utils/orgStructure.js). Written only through services/orgPlacement.js.
+const orgSchema = new mongoose.Schema(
+  {
+    department: { type: String, enum: DEPARTMENTS },
+    designation: { type: String, enum: DESIGNATION_KEYS },
+    reportsTo: { type: mongoose.Schema.Types.ObjectId, ref: "user" },
+    workMode: { type: String, enum: WORK_MODES },
+    branches: ref("Branch"),
+    zones: ref("Zone"),
+    cities: ref("City"),
+    courses: ref("course"),
+    subCategories: ref("SubCategory"),
+    categories: ref("Category"),
+  },
+  { _id: false }
+);
 
 const userSchema = new mongoose.Schema(
   {
@@ -71,6 +92,9 @@ const userSchema = new mongoose.Schema(
         ref: "adminNotice",
       },
     ],
+    // Absent for students; staff only. `default: undefined` stops Mongoose
+    // writing six empty scope arrays onto every student it saves.
+    org: { type: orgSchema, default: undefined },
   },
   {
     timestamps: true,
@@ -130,5 +154,7 @@ userSchema.pre("save", async function () {
 });
 
 userSchema.index({ accountType: 1, createdAt: -1 });
+userSchema.index({ "org.designation": 1 });
+userSchema.index({ "org.reportsTo": 1 });
 
 module.exports = mongoose.model("user", userSchema);

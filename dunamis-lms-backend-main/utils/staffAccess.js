@@ -53,6 +53,21 @@ const countActiveTopAdmins = async ({ excludeUserId } = {}) => {
   });
 };
 
+// Anyone who can edit an All Access account's email can take it over through
+// forgot-password, so every change to one is reserved for its peers. Sends the
+// 403 and returns true when the caller may not touch `target`.
+const guardTopAccount = async (req, res, target) => {
+  const isSelf = String(req.user?.userId) === String(target._id);
+  if (isSelf || !(await isTopAccount(target))) return false;
+  if (await isUnrestrictedCaller(req.user)) return false;
+  res.status(403).json({
+    success: false,
+    message: "This account has All Access and can't be changed from your account.",
+    hint: PROTECTED_ACCOUNT_HINT,
+  });
+  return true;
+};
+
 const touchesProtectedPermissions = (before = [], after = []) =>
   PROTECTED_PERMISSIONS.some(
     (key) => before.includes(key) !== after.includes(key)
@@ -64,6 +79,7 @@ module.exports = {
   PROTECTED_ACCOUNT_HINT,
   countActiveTopAdmins,
   getPermissions,
+  guardTopAccount,
   hasAllAccess,
   isTopAccount,
   isUnrestrictedCaller,

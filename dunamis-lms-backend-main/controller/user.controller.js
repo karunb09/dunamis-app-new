@@ -18,25 +18,11 @@ const { EMPLOYEE_ID_REGEX, bumpCounterFloor } = require("../utils/employeeId");
 const { isReferralCodeTaken } = require("../utils/referral");
 const {
   LAST_ALL_ACCESS_HINT,
-  PROTECTED_ACCOUNT_HINT,
   countActiveTopAdmins,
+  guardTopAccount,
   isTopAccount,
-  isUnrestrictedCaller,
 } = require("../utils/staffAccess");
-
-// Anyone who can edit an All Access account's email can take it over through
-// forgot-password, so every change to one is reserved for its peers.
-const guardTopAccount = async (req, res, target) => {
-  const isSelf = String(req.user?.userId) === String(target._id);
-  if (isSelf || !(await isTopAccount(target))) return false;
-  if (await isUnrestrictedCaller(req.user)) return false;
-  res.status(403).json({
-    success: false,
-    message: "This account has All Access and can't be changed from your account.",
-    hint: PROTECTED_ACCOUNT_HINT,
-  });
-  return true;
-};
+const { ORG_NAME_POPULATE } = require("../services/orgPlacement");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -62,6 +48,8 @@ const buildSessionUser = (user) => ({
   roleModel: user.roleModel,
   permissions: user.permissions,
   role: user.role,
+  designation: user.org?.designation || null,
+  department: user.org?.department || null,
   adminDetails: user.adminDetails,
   teacherDetails: user.teacherDetails,
   studentDetails: user.studentDetails,
@@ -508,7 +496,8 @@ exports.getUserById = asyncHandler(async (req, res) => {
                     strictPopulate: false,
                 },
             })
-            .populate("adminDetails"); // Add this line
+            .populate("adminDetails")
+            .populate(ORG_NAME_POPULATE);
 
         if (!user) {
             return res.status(404).json({

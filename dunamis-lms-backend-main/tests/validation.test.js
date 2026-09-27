@@ -322,27 +322,28 @@ test("bankDetails: bad IFSC -> 400; valid -> uppercases IFSC", () => {
   assert.equal(ok.req.body.ifscCode, "HDFC0001234");
 });
 
-test("createAdmin: accepts array permission, rejects missing department", () => {
+test("createAdmin: accepts array permission, rejects a missing designation", () => {
   const ok = runValidate(createAdminSchema, {
     name: { firstName: "A", lastName: "B" },
     email: "a@b.com",
     mobileNo: "9990001111",
-    role: "manager",
-    accessLevel: "full",
+    role: "Tele Caller",
     permission: ["x"],
-    department: "ops",
+    org: { designation: "aa", workMode: "offline", branches: ["b1"] },
   });
   assert.equal(ok.nextCalled, true);
+  assert.deepEqual(ok.req.body.org.branches, ["b1"], "scope passes through to the placement check");
 
   const bad = runValidate(createAdminSchema, {
     name: { firstName: "A", lastName: "B" },
     email: "a@b.com",
     mobileNo: "9990001111",
-    role: "manager",
-    accessLevel: "full",
+    role: "Tele Caller",
     permission: ["x"],
+    org: {},
   });
   assert.equal(bad.res.statusCode, 400);
+  assert.match(bad.res.body.message, /designation/i);
 });
 
 test("idParam: malformed id -> 400 (params source)", () => {

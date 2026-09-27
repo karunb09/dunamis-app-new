@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
-import Swal from "sweetalert2";
 import { useNavigate } from "react-router-dom";
 import {
     deleteApplication,
@@ -11,6 +10,7 @@ import {
 } from "../../../../redux/Intructor/teacherApplication";
 import RefreshButton from "../../../../components/RefreshButton";
 import CredentialModal from "./CredentialModal";
+import HireInstructorModal from "./HireInstructorModal";
 import { FaFilter, FaSearch, FaSortAmountDown, FaTrash } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
 import DataCards from "../../../../components/DataCards";
@@ -66,6 +66,7 @@ const Applications = () => {
     const [generatedPassword, setGeneratedPassword] = useState("");
     const [assignedEmployeeId, setAssignedEmployeeId] = useState("");
     const [deletingApplicationId, setDeletingApplicationId] = useState("");
+    const [hiring, setHiring] = useState({ application: null, submitting: false });
     const dropdownRef = useRef(null);
     const activeFilterCount = [filters.status, filters.mode].filter(Boolean).length;
 
@@ -129,24 +130,13 @@ const Applications = () => {
         }
     }
 
-    const handleStatusChange = async (id, newStatus) => {
+    const handleStatusChange = async (id, newStatus, hireDetails = {}) => {
         const selectedApp = allApplications.find((app) => app._id === id);
-        let employeePrefix;
-        if (newStatus === "selected") {
-            const { value: unit, isConfirmed } = await Swal.fire({
-                title: "Assign employee unit",
-                text: "The instructor's employee ID (e.g. DSMI001) is generated from this unit.",
-                input: "select",
-                inputOptions: { DSM: "DSM", DSD: "DSD", DCC: "DCC" },
-                inputValue: "DSM",
-                showCancelButton: true,
-                confirmButtonText: "Assign & Select",
-                confirmButtonColor: "#FF6B35",
-            });
-            if (!isConfirmed) return;
-            employeePrefix = `${unit}I`;
+        if (newStatus === "selected" && !hireDetails.employeePrefix) {
+            setHiring({ application: selectedApp, submitting: false });
+            return;
         }
-        const result = await dispatch(updateApplicationStatus({ id, status: newStatus, employeePrefix }));
+        const result = await dispatch(updateApplicationStatus({ id, status: newStatus, ...hireDetails }));
         if (result.meta.requestStatus === "rejected") {
             toast.error(result.payload || "Failed to update application status.");
             return;
@@ -415,6 +405,19 @@ const Applications = () => {
                         }}
                     />
                 </div>
+            )}
+
+            {hiring.application && (
+                <HireInstructorModal
+                    application={hiring.application}
+                    submitting={hiring.submitting}
+                    onCancel={() => setHiring({ application: null, submitting: false })}
+                    onConfirm={async (details) => {
+                        setHiring((prev) => ({ ...prev, submitting: true }));
+                        await handleStatusChange(hiring.application._id, "selected", details);
+                        setHiring({ application: null, submitting: false });
+                    }}
+                />
             )}
 
             {selectedInstructor && (

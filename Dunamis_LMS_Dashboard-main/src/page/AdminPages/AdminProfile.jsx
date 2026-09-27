@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import ChangePasswordModal from "../../components/ChangePasswordModal";
 import { resolveImageUrl } from "../../utils/resolveImageUrl";
 import ProfileImageCropper from "../../components/ProfileImageCropper";
+import OrgPlacementSummary from "../../components/org/OrgPlacementSummary";
 
 const FIELD_INPUT = "w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
 
@@ -198,6 +199,10 @@ const AdminProfile = () => {
             <p className="text-xs text-slate-400">JPG, PNG, GIF — max 5 MB</p>
           </div>
         )}
+      </div>
+
+      <div className="mb-6">
+        <OrgPlacementSummary org={selectedUser?.org} />
       </div>
 
       {/* Fields */}

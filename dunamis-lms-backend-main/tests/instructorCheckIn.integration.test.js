@@ -88,7 +88,7 @@ async function makeBranch({ pinned = true, teachers = [], radius } = {}) {
     branchManager: oid(),
     branchAdminEmail: "branch@test.com",
     branchAdminContact: "9999999999",
-    zone: "1",
+    zone: oid(),
     city: oid(),
     branchTimings: ["09:00", "20:00"],
     branchOpenDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],

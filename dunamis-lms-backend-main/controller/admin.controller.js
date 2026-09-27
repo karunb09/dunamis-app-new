@@ -1,6 +1,8 @@
 const Admin = require("../model/admin.model");
 const asyncHandler = require("../utils/asyncHandler");
 const User = require("../model/user.model");
+const Branch = require("../model/branch.model");
+const City = require("../model/city.model");
 const sendPasswordTemplate = require("../mail/sendPassword");
 const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
@@ -13,6 +15,7 @@ const {
   isUnrestrictedCaller,
   touchesProtectedPermissions,
 } = require("../utils/staffAccess");
+const { ORG_NAME_POPULATE, sameOrg, validateStaffPlacement } = require("../services/orgPlacement");
 
 // The validator accepts a single string or an array; the model stores an array.
 const asPermissionList = (value) => [].concat(value ?? []).map(String);
@@ -33,22 +36,12 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       mobileNo,
       email,
       role,
-      accessLevel,
       permission,
-      department,
+      org,
       employeePrefix,
     } = req.body;
 
-    if (
-      !firstName ||
-      !lastName ||
-      !email ||
-      !mobileNo ||
-      !accessLevel ||
-      !permission ||
-      !role ||
-      !department
-    ) {
+    if (!firstName || !lastName || !email || !mobileNo || !permission || !role || !org) {
       return res.status(403).json({
         success: false,
         message: "All fields are required",
@@ -61,6 +54,8 @@ exports.createAdmin = asyncHandler(async (req, res) => {
     ) {
       return forbidden(res, "You can't grant All Access or Admin Management.");
     }
+
+    const placement = await validateStaffPlacement({ targetUserId: null, org });
 
     //check user already exist or not
     const normalizedEmail = email.trim();
@@ -88,14 +83,13 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       accountType: "admin",
       employeeId,
       image: `https://api.dicebear.com/9.x/initials/svg?seed=${firstName}%20${lastName}`,
+      org: placement,
     });
 
     const AdminDoc = await Admin.create({
       userId: user._id,
       role: role,
-      accessLevel: accessLevel,
       permission: permission,
-      department: department,
     });
 
     user.roleId = AdminDoc._id;
@@ -118,7 +112,11 @@ exports.createAdmin = asyncHandler(async (req, res) => {
     });
 });
 exports.getAllAdmins = asyncHandler(async (req, res) => {
-    const admins = await Admin.find().populate("userId", "-password");
+    const admins = await Admin.find().populate({
+      path: "userId",
+      select: "-password",
+      populate: ORG_NAME_POPULATE,
+    });
 
     res.status(200).json({
       success: true,
@@ -143,8 +141,7 @@ exports.getAdminById = asyncHandler(async (req, res) => {
 });
 exports.updateAdmin = asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, email, mobileNo, role, accessLevel, permission, department } =
-      req.body;
+    const { name, email, mobileNo, role, permission, org } = req.body;
 
     const admin = await Admin.findById(id);
     if (!admin) {
@@ -169,9 +166,17 @@ exports.updateAdmin = asyncHandler(async (req, res) => {
       return forbidden(res, "This admin has All Access and can't be edited from your account.");
     }
 
+    const isSelf = String(req.user.userId) === String(admin.userId);
+
+    // Scope decides what someone is responsible for, so like permissions it
+    // is not something a person can widen for themselves.
+    const placement = org ? await validateStaffPlacement({ targetUserId: user._id, org }) : null;
+    if (placement && isSelf && !callerUnrestricted && !sameOrg(user.org, placement)) {
+      return forbidden(res, "You can't change your own designation, manager or responsibility.");
+    }
+
     const nextPermissions = permission ? asPermissionList(permission) : null;
     if (nextPermissions) {
-      const isSelf = String(req.user.userId) === String(admin.userId);
       // The edit form always resends the full list, so only a real change counts.
       const changed =
         nextPermissions.length !== admin.permission.length ||
@@ -198,16 +203,20 @@ exports.updateAdmin = asyncHandler(async (req, res) => {
     if (email) user.email = email;
     if (mobileNo) user.mobileNo = mobileNo;
 
+    if (placement) user.org = placement;
+
     // Update Admin fields
     if (role) admin.role = role;
-    if (accessLevel) admin.accessLevel = accessLevel;
     if (nextPermissions) admin.permission = nextPermissions;
-    if (department) admin.department = department;
 
     await user.save();
     await admin.save();
 
-    const populatedAdmin = await Admin.findById(admin._id).populate("userId", "-password");
+    const populatedAdmin = await Admin.findById(admin._id).populate({
+      path: "userId",
+      select: "-password",
+      populate: ORG_NAME_POPULATE,
+    });
     user.password = undefined;
 
     res.status(200).json({
@@ -237,6 +246,23 @@ exports.deleteAdmin = asyncHandler(async (req, res) => {
       if ((await countActiveTopAdmins({ excludeUserId: userId })) === 0) {
         return lastTopAdmin(res);
       }
+    }
+
+    const [hasReports, managesBranch, managesCity] = await Promise.all([
+      User.exists({ "org.reportsTo": userId }),
+      Branch.exists({ branchManager: userId }),
+      City.exists({ cityManager: userId }),
+    ]);
+    if (hasReports || managesBranch || managesCity) {
+      return res.status(409).json({
+        success: false,
+        message: hasReports
+          ? "People still report to this admin."
+          : "This admin is still the contact for a branch or city.",
+        hint: hasReports
+          ? "Move their team to another manager from the Reporting structure tab first."
+          : "Pick another centre contact or city manager first.",
+      });
     }
 
     await Admin.findByIdAndDelete(id);

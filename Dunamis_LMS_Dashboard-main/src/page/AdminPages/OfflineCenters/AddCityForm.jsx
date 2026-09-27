@@ -4,7 +4,8 @@ import { MdCancel } from "react-icons/md";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { createCity, getCityById, updateCity } from "../../../redux/City/CitySlice";
-import { getAllUsers } from "../../../redux/User/UserSlice";
+import { useStaffDirectory } from "../../../hooks/useOrg";
+import { designationLabel } from "../../../constants/orgStructure";
 import toast from "react-hot-toast";
 
 const AddCityForm = () => {
@@ -22,19 +23,8 @@ const AddCityForm = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
 
-    const {
-        users,
-        loading: usersLoading,
-        error: usersError,
-        listStatus: userListStatus,
-    } = useSelector((state) => state.user);
+    const { data: staff = [], isLoading: staffLoading, error: staffError } = useStaffDirectory();
     const { city } = useSelector((state) => state.city);
-
-    useEffect(() => {
-        if (userListStatus === "idle") {
-            dispatch(getAllUsers());
-        }
-    }, [dispatch, userListStatus]);
 
     useEffect(() => {
         if (id) {
@@ -57,7 +47,7 @@ const AddCityForm = () => {
         const { name, value } = e.target;
 
         if (name === "cityManager") {
-            const selectedUser = users.find(user => user._id === value);
+            const selectedUser = staff.find((person) => person._id === value);
 
             setFormData({
                 ...formData,
@@ -154,18 +144,17 @@ const AddCityForm = () => {
                         required
                     >
                         <option value="">Select City Manager</option>
-                        {usersLoading ? (
+                        {staffLoading ? (
                             <option>Loading...</option>
-                        ) : usersError ? (
-                            <option>{usersError}</option>
+                        ) : staffError ? (
+                            <option>{staffError.message}</option>
                         ) : (
-                            users
-                                .filter((user) => user.roleModel === "admin")
-                                .map((user) => (
-                                    <option key={user._id} value={user._id}>
-                                        {user.name.firstName} {user.name.lastName}
-                                    </option>
-                                ))
+                            staff.map((person) => (
+                                <option key={person._id} value={person._id}>
+                                    {person.name?.firstName} {person.name?.lastName}
+                                    {person.org?.designation ? ` · ${designationLabel(person.org.designation)}` : ""}
+                                </option>
+                            ))
                         )}
                     </select>
                 </label>

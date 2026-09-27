@@ -142,8 +142,6 @@ async function seedStaff({ permission = ["studentManagement"], accountStatus = "
   const admin = await Admin.create({
     userId: user._id,
     role: "Staff",
-    accessLevel: "level 1",
-    department: "Operations",
     permission,
   });
   user.roleId = admin._id;
@@ -450,9 +448,8 @@ test("createAdmin: only an All Access admin can create another one", async () =>
     email: "new.lead@example.com",
     mobileNo: "9876543210",
     role: "Director",
-    accessLevel: "level 1",
-    department: "Leadership",
     permission: ["allAccess"],
+    org: { designation: "ceo" },
   };
 
   const refused = await request(app, "POST", "/api/v1/admin/create", { token: regular, body });

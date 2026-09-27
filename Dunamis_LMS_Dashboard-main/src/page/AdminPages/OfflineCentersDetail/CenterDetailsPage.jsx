@@ -117,7 +117,7 @@ const CenterDetailsPage = () => {
               </span>
               {zone && (
                 <span className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-800">
-                  Zone {zone}
+                  {zone.name}
                 </span>
               )}
               {status && (

@@ -1,8 +1,8 @@
 const { z } = require("zod");
 const { email, nonEmpty, numericString } = require("./common");
 
-// accessLevel / permission may arrive as a string or an array depending on the
-// form, so only assert "present and non-empty" without forcing a type.
+// permission may arrive as a string or an array depending on the form, so
+// only assert "present and non-empty" without forcing a type.
 const present = (label) =>
   z
     .any()
@@ -22,10 +22,10 @@ const createAdminSchema = z.looseObject({
   }),
   email,
   mobileNo: numericString("Mobile number", 7),
-  role: nonEmpty("Role"),
-  accessLevel: present("Access level"),
+  role: nonEmpty("Job title"),
   permission: present("Permission"),
-  department: nonEmpty("Department"),
+  // Shape only; services/orgPlacement.js checks the reporting line and scope.
+  org: z.looseObject({ designation: nonEmpty("Designation") }),
 });
 
 // Update is a partial patch — every field optional, validated only if sent.
@@ -39,9 +39,8 @@ const updateAdminSchema = z.looseObject({
   email: email.optional(),
   mobileNo: z.union([z.string(), z.number()]).optional(),
   role: z.string().trim().optional(),
-  accessLevel: z.any().optional(),
   permission: z.any().optional(),
-  department: z.string().trim().optional(),
+  org: z.looseObject({ designation: nonEmpty("Designation") }).optional(),
 });
 
 module.exports = { createAdminSchema, updateAdminSchema };

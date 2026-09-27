@@ -9,6 +9,11 @@ const OtpGenerator = require("otp-generator");
 const mailSender = require("../utils/mailSender");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const {
+  normalizeInstructorBranches,
+  setInstructorBranches,
+  validateInstructorPlacement,
+} = require("../services/orgPlacement");
+const {
   DEFAULT_TEACHING_LANGUAGES,
   normalizeLanguages,
 } = require("../constants/languages");
@@ -322,7 +327,7 @@ exports.getTeacherApplicationById = asyncHandler(async (req, res) => {
 // Update application status
 exports.updateApplicationStatus = asyncHandler(async (req, res) => {
         const { id } = req.params;
-        const { status, employeePrefix } = req.body;
+        const { status, employeePrefix, reportsTo, branchIds } = req.body;
 
         const validStatuses = ["new", "shortlisted", "rejected", "interviewed", "selected"];
         
@@ -366,6 +371,12 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                 });
             }
 
+            // Before anything is created, so a bad pick never leaves a half-made account.
+            const branchList = await normalizeInstructorBranches({ branchIds, mode: application.mode });
+            const placement = reportsTo
+              ? await validateInstructorPlacement({ targetUserId: user?._id || null, org: { reportsTo } })
+              : undefined;
+
             if (!user) {
                 generatedPassword = OtpGenerator.generate(7, {
                   upperCaseAlphabets: true,
@@ -384,6 +395,7 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                   accountType: "teacher",
                   accountStatus: "active",
                   image: `https://api.dicebear.com/9.x/initials/svg?seed=${firstName}%20${lastName}`,
+                  org: placement,
                 });
             }
 
@@ -401,7 +413,14 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                 });
             }
 
+            await setInstructorBranches({ teacherId: teacherDoc._id, branchIds: branchList, mode: "add" });
+
             let shouldSaveUser = false;
+
+            if (placement && String(user.org?.reportsTo || "") !== String(placement.reportsTo)) {
+                user.org = placement;
+                shouldSaveUser = true;
+            }
 
             if (!user.employeeId) {
                 user.employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMI"));

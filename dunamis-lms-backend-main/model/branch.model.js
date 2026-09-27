@@ -25,10 +25,11 @@ const branchSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Must belong to the same city as the branch.
     zone: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Zone",
       required: true,
-      trim: true,
     },
     city: {
       type: mongoose.Schema.Types.ObjectId,

@@ -6,17 +6,10 @@ const adminSchema = new mongoose.Schema(
       ref: "user",
       required: true,
     },
+    // Free-text job title ("Tele Caller", "Branch Manager"). Where someone
+    // sits in the org chart lives on User.org.
     role: {
       type: String,
-      required: true,
-    },
-    accessLevel: {
-      type: String,
-      enum: ["level 1", "level 2"],
-      required: true,
-    },
-    department: {
-      type: "String",
       required: true,
     },
     permission: [

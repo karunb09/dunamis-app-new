@@ -4,6 +4,13 @@ import { createAdmin, fetchAdminById, fetchAdmins, updateAdmin } from "../../red
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import axiosAuth from "../../utils/axiosAuth";
+import OrgPlacementFields from "../../components/org/OrgPlacementFields";
+import { emptyPlacement, placementProblem, toPlacementPayload } from "../../utils/orgPlacement";
+import {
+    SCOPE_KEYS,
+    jobTitleOptions,
+    suggestedEmployeePrefix,
+} from "../../constants/orgStructure";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -28,8 +35,6 @@ const AddAdminForm = () => {
         mobileNo: "",
         email: "",
         role: "",
-        accessLevel: "",
-        department: "",
         employeePrefix: "DSMA",
         employeeId: "",
         permissions: {
@@ -51,6 +56,9 @@ const AddAdminForm = () => {
     });
     const [adminUserId, setAdminUserId] = useState("");
     const [initialEmployeeId, setInitialEmployeeId] = useState("");
+    const [placement, setPlacement] = useState(emptyPlacement);
+    // Once someone types their own job title, designation changes stop overwriting it.
+    const [titleTouched, setTitleTouched] = useState(false);
 
     const [loading, setLoading] = useState(false);
 
@@ -91,14 +99,21 @@ const AddAdminForm = () => {
                         mobileNo: user.mobileNo?.toString() || "",
                         email: user.email || "",
                         role: admin.role || "",
-                        accessLevel: admin.accessLevel || "",
-                        department: admin.department || "",
                         employeePrefix: "DSMA",
                         employeeId: user.employeeId || "",
                         permissions: loadedPermissions,
                     });
                     setAdminUserId(user._id || "");
                     setInitialEmployeeId(user.employeeId || "");
+                    const org = user.org || {};
+                    setPlacement({
+                        ...emptyPlacement(),
+                        designation: org.designation || "",
+                        workMode: org.workMode || "offline",
+                        reportsTo: org.reportsTo || "",
+                        ...Object.fromEntries(SCOPE_KEYS.map((key) => [key, org[key] || []])),
+                    });
+                    setTitleTouched(Boolean(admin.role));
                 })
                 .catch((error) => {
                     console.error("Error loading admin:", error);
@@ -122,6 +137,16 @@ const AddAdminForm = () => {
         } else {
             setFormData((prev) => ({ ...prev, [name]: value }));
         }
+    };
+
+    const handlePlacementChange = (next) => {
+        setPlacement(next);
+        const [suggestedTitle] = jobTitleOptions(next.designation, next.workMode);
+        setFormData((prev) => ({
+            ...prev,
+            role: titleTouched || !suggestedTitle ? prev.role : suggestedTitle,
+            employeePrefix: id ? prev.employeePrefix : suggestedEmployeePrefix(next.designation, prev.employeePrefix),
+        }));
     };
 
     const handleSelectAll = (selectAll) => {
@@ -160,16 +185,13 @@ const AddAdminForm = () => {
             toast.error("Mobile number must be 10 digits");
             return false;
         }
+        const problem = placementProblem(placement);
+        if (problem) {
+            toast.error(problem);
+            return false;
+        }
         if (!formData.role.trim()) {
-            toast.error("Role is required");
-            return false;
-        }
-        if (!formData.accessLevel) {
-            toast.error("Access level is required");
-            return false;
-        }
-        if (!formData.department.trim()) {
-            toast.error("Department is required");
+            toast.error("Job title is required");
             return false;
         }
 
@@ -195,11 +217,10 @@ const AddAdminForm = () => {
             mobileNo: formData.mobileNo.trim(),
             email: formData.email.trim().toLowerCase(),
             role: formData.role.trim(),
-            accessLevel: formData.accessLevel,
             permission: Object.keys(formData.permissions).filter(
                 (key) => formData.permissions[key]
             ),
-            department: formData.department.trim(),
+            org: toPlacementPayload(placement),
         };
 
         setLoading(true);
@@ -343,8 +364,36 @@ const AddAdminForm = () => {
                 </div>
 
                 <div className="bg-white p-6 rounded-xl border">
-                    <h3 className="font-semibold mb-4 text-lg">Role & Access</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <h3 className="font-semibold mb-1 text-lg">Organisation</h3>
+                    <p className="mb-4 text-sm text-slate-500">
+                        Where they sit in the org chart. Messages about a learner go to the AA and BDE responsible for that learner's branch or course.
+                    </p>
+                    <OrgPlacementFields value={placement} onChange={handlePlacementChange} targetUserId={adminUserId} />
+
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium mb-2">
+                                Job title <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                name="role"
+                                list="admin-job-titles"
+                                placeholder="e.g. Tele Caller, Branch Manager"
+                                value={formData.role}
+                                onChange={(e) => {
+                                    setTitleTouched(true);
+                                    handleChange(e);
+                                }}
+                                className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            <datalist id="admin-job-titles">
+                                {jobTitleOptions(placement.designation, placement.workMode).map((title) => (
+                                    <option key={title} value={title} />
+                                ))}
+                            </datalist>
+                        </div>
                         {id ? (
                             <div>
                                 <label className="block text-sm font-medium mb-2">Employee ID</label>
@@ -375,50 +424,6 @@ const AddAdminForm = () => {
                                 </p>
                             </div>
                         )}
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Role <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="role"
-                                placeholder="e.g., Manager, Supervisor"
-                                value={formData.role}
-                                onChange={handleChange}
-                                className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Access Level <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                                name="accessLevel"
-                                value={formData.accessLevel}
-                                onChange={handleChange}
-                                className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            >
-                                <option value="">Select Access Level</option>
-                                <option value="level 1">Level 1</option>
-                                <option value="level 2">Level 2</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-2">
-                                Department <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="text"
-                                name="department"
-                                placeholder="e.g., Operations, Academic"
-                                value={formData.department}
-                                onChange={handleChange}
-                                className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
-                            />
-                        </div>
                     </div>
                 </div>
 

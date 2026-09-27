@@ -8,7 +8,6 @@ import {
     fetchBranchById,
     updateBranch,
 } from "../../../redux/Branch/branchSlice";
-import { getAllUsers } from "../../../redux/User/UserSlice";
 import { fetchTeachers } from "../../../redux/Intructor/teacherSlice";
 import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
 import { PiUpload } from "react-icons/pi";
@@ -17,6 +16,8 @@ import Swal from "sweetalert2";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
 import { getCurrentFix } from "../../../utils/geolocation";
 import { mapsUrl } from "../../../utils/checkInFormat";
+import { useCreateZone, useDeleteZone, useRenameZone, useStaffDirectory, useZones } from "../../../hooks/useOrg";
+import { designationLabel } from "../../../constants/orgStructure";
 
 // "17.4156, 78.4347", as Google Maps copies a dropped pin.
 const COORDINATE_PAIR = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
@@ -55,9 +56,12 @@ const AddBranch = () => {
         (state) => state.branch
     );
 
-    const { users = [], loading: usersLoading, error: usersError, listStatus: userListStatus } = useSelector(
-        (state) => state.user
-    );
+    const { data: staff = [], isLoading: staffLoading } = useStaffDirectory();
+    const { data: zones = [] } = useZones();
+    const createZone = useCreateZone();
+    const renameZone = useRenameZone();
+    const removeZone = useDeleteZone();
+    const cityZones = zones.filter((zone) => (zone.city?._id || zone.city) === formData.city);
     const { cities = [], loading: citiesLoading, listStatus: cityListStatus } = useSelector(
         (state) => state.city
     );
@@ -70,13 +74,6 @@ const AddBranch = () => {
     const branchFallbackImage = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
         formData.branchName || selectedBranch?.branchName || "Branch"
     )}`;
-
-    // Fetch users and cities
-    useEffect(() => {
-        if (userListStatus === "idle") {
-            dispatch(getAllUsers());
-        }
-    }, [dispatch, userListStatus]);
 
     useEffect(() => {
         if (cityListStatus === "idle") {
@@ -105,7 +102,7 @@ const AddBranch = () => {
             setFormData({
                 branchName: selectedBranch.branchName || "",
                 location: selectedBranch.location || "",
-                zone: selectedBranch.zone || "",
+                zone: selectedBranch.zone?._id || selectedBranch.zone || "",
                 city: selectedBranch.city?._id || selectedBranch.city || "",
                 branchManager:
                     selectedBranch.branchManager?._id || selectedBranch.branchManager || "",
@@ -149,7 +146,7 @@ const AddBranch = () => {
         const { name, value } = e.target;
 
         if (name === "branchManager") {
-            const selected = users.find((u) => u._id === value);
+            const selected = staff.find((u) => u._id === value);
             if (selected && selected.email && selected.mobileNo != null) {
                 setFormData({
                     ...formData,
@@ -165,8 +162,9 @@ const AddBranch = () => {
                     branchAdminContact: "",
                 });
             }
-        } else if (name === "zone") {
-            setFormData({ ...formData, zone: value.replace(/\D/g, "") });
+        } else if (name === "city") {
+            // A zone belongs to one city, so a new city needs a new zone.
+            setFormData({ ...formData, city: value, zone: "" });
         } else if ((name === "geoLat" || name === "geoLng") && COORDINATE_PAIR.test(value)) {
             const [, lat, lng] = value.match(COORDINATE_PAIR);
             setFormData({ ...formData, geoLat: lat, geoLng: lng });
@@ -395,6 +393,74 @@ const AddBranch = () => {
         });
     };
 
+    const errorText = (err, fallback) => err?.message || fallback;
+
+    const handleAddZone = async () => {
+        if (!formData.city) {
+            toast.error("Select a city first");
+            return;
+        }
+        const { value: name, isConfirmed } = await Swal.fire({
+            title: "Add zone",
+            input: "text",
+            inputPlaceholder: "e.g. Hyderabad South",
+            showCancelButton: true,
+            confirmButtonText: "Add",
+            confirmButtonColor: "#FF6B35",
+            inputValidator: (value) => (!value?.trim() ? "Enter a zone name" : undefined),
+        });
+        if (!isConfirmed) return;
+        try {
+            const zone = await createZone.mutateAsync({ name: name.trim(), city: formData.city });
+            setFormData((prev) => ({ ...prev, zone: zone._id }));
+            toast.success("Zone added");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to add zone"));
+        }
+    };
+
+    const handleRenameZone = async () => {
+        const current = cityZones.find((zone) => zone._id === formData.zone);
+        if (!current) return;
+        const { value: name, isConfirmed } = await Swal.fire({
+            title: "Rename zone",
+            input: "text",
+            inputValue: current.name,
+            showCancelButton: true,
+            confirmButtonText: "Save",
+            confirmButtonColor: "#FF6B35",
+            inputValidator: (value) => (!value?.trim() ? "Enter a zone name" : undefined),
+        });
+        if (!isConfirmed) return;
+        try {
+            await renameZone.mutateAsync({ id: current._id, name: name.trim() });
+            toast.success("Zone renamed");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to rename zone"));
+        }
+    };
+
+    const handleDeleteZone = async () => {
+        const current = cityZones.find((zone) => zone._id === formData.zone);
+        if (!current) return;
+        const { isConfirmed } = await Swal.fire({
+            title: "Delete zone?",
+            text: `This will delete ${current.name}.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Delete",
+        });
+        if (!isConfirmed) return;
+        try {
+            await removeZone.mutateAsync(current._id);
+            setFormData((prev) => ({ ...prev, zone: "" }));
+            toast.success("Zone deleted");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to delete zone"));
+        }
+    };
+
     function getInstructorLabel(instructor) {
         const detailName = instructor?.teacherDetail?.name;
         const userName = instructor?.user?.name || instructor?.userId?.name;
@@ -548,20 +614,6 @@ const AddBranch = () => {
                     )}
                 </div>
 
-                {/* Zone */}
-                <label>
-                    Zone
-                    <input
-                        type="text"
-                        name="zone"
-                        value={formData.zone}
-                        onChange={handleChange}
-                        className="p-3 border rounded-2xl w-full"
-                        inputMode="numeric"
-                        placeholder="Enter zone number"
-                    />
-                </label>
-
                 {/* City */}
                 <label>
                     City
@@ -606,30 +658,69 @@ const AddBranch = () => {
                     </div>
                 </label>
 
-                {/* Branch Manager */}
+                {/* Zone — BDEs are responsible for zones, so every branch needs one */}
                 <label>
-                    Branch Manager
+                    Zone
+                    <select
+                        name="zone"
+                        value={formData.zone}
+                        onChange={handleChange}
+                        className="p-3 border rounded-2xl w-full"
+                        disabled={!formData.city}
+                    >
+                        <option value="">{formData.city ? "Select zone" : "Select a city first"}</option>
+                        {cityZones.map((zone) => (
+                            <option key={zone._id} value={zone._id}>
+                                {zone.name}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={handleAddZone}
+                            disabled={!formData.city}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Add Zone
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRenameZone}
+                            disabled={!formData.zone}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Rename Zone
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDeleteZone}
+                            disabled={!formData.zone}
+                            className="rounded-xl border border-red-500 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Delete Zone
+                        </button>
+                    </div>
+                </label>
+
+                {/* Centre contact — the person shown for this branch. Who is responsible
+                    for it in the org chart is set on staff (Admins → Reporting structure). */}
+                <label>
+                    Centre contact
                     <select
                         name="branchManager"
                         value={formData.branchManager}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
-                        disabled={usersLoading}
+                        disabled={staffLoading}
                     >
-                        <option value="">Select Branch Manager</option>
-                        {usersLoading ? (
-                            <option>Loading...</option>
-                        ) : usersError ? (
-                            <option>{usersError}</option>
-                        ) : (
-                            users
-                                .filter((u) => u.roleModel === "admin")
-                                .map((u) => (
-                                    <option key={u._id} value={u._id}>
-                                        {u.name.firstName} {u.name.lastName}
-                                    </option>
-                                ))
-                        )}
+                        <option value="">{staffLoading ? "Loading..." : "Select centre contact"}</option>
+                        {staff.map((person) => (
+                            <option key={person._id} value={person._id}>
+                                {person.name?.firstName} {person.name?.lastName}
+                                {person.org?.designation ? ` · ${designationLabel(person.org.designation)}` : ""}
+                            </option>
+                        ))}
                     </select>
                 </label>
 
@@ -681,7 +772,7 @@ const AddBranch = () => {
                 {/* Branch Admin Contact */}
                 {formData.branchAdminContact && (
                     <label>
-                        Branch Admin Contact
+                        Centre contact phone
                         <input
                             type="text"
                             name="branchAdminContact"
@@ -695,7 +786,7 @@ const AddBranch = () => {
                 {/* Branch Admin Email */}
                 {formData.branchAdminEmail && (
                     <label>
-                        Branch Admin Email
+                        Centre contact email
                         <input
                             type="email"
                             name="branchAdminEmail"

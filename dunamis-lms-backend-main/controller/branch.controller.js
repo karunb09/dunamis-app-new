@@ -3,7 +3,19 @@ const asyncHandler = require("../utils/asyncHandler");
 const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
 const Teacher = require("../model/teacher.model");
+const Zone = require("../model/zone.model");
+const mongoose = require("mongoose");
 const { localFileUpload } = require("../utils/locallyUploader");
+
+// A branch's zone must be one of its own city's zones: BDEs are responsible
+// for zones, so a mismatch would route the branch to another city's BDE.
+const zoneMismatch = async (zoneId, cityId) => {
+  if (!mongoose.isValidObjectId(zoneId)) return "Pick a zone for this branch.";
+  const zone = await Zone.findById(zoneId).select("city").lean();
+  if (!zone) return "That zone no longer exists.";
+  if (String(zone.city) !== String(cityId)) return "That zone belongs to a different city.";
+  return null;
+};
 
 const getBranchFallbackImage = (branchName = "Branch") =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
@@ -108,11 +120,9 @@ exports.createBranch = asyncHandler(async (req, res) => {
       });
     }
 
-    if (!/^\d+$/.test(String(zone).trim())) {
-      return res.status(400).json({
-        success: false,
-        message: "Zone must contain numbers only.",
-      });
+    const zoneProblem = await zoneMismatch(zone, city);
+    if (zoneProblem) {
+      return res.status(400).json({ success: false, message: zoneProblem });
     }
 
     const pin = parseCheckInPin(req.body);
@@ -200,6 +210,7 @@ exports.getAllBranches = asyncHandler(async (req, res) => {
     const branches = await Branch.find()
       .populate("branchManager", "name email")
       .populate("city", "cityName location")
+      .populate("zone", "name")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -236,6 +247,7 @@ exports.getBranchById = asyncHandler(async (req, res) => {
     const branch = await Branch.findById(id)
       .populate("branchManager", "name email phone")
       .populate("city", "cityName location")
+      .populate("zone", "name")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -344,11 +356,9 @@ exports.updateBranch = asyncHandler(async (req, res) => {
       });
     }
 
-    if (!/^\d+$/.test(String(zone).trim())) {
-      return res.status(400).json({
-        success: false,
-        message: "Zone must contain numbers only.",
-      });
+    const zoneProblem = await zoneMismatch(zone, city);
+    if (zoneProblem) {
+      return res.status(400).json({ success: false, message: zoneProblem });
     }
 
     const pin = parseCheckInPin(req.body);

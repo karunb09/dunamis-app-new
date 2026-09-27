@@ -58,7 +58,8 @@ export const createTeacher = createAsyncThunk(
       });
       return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      const data = error.response?.data;
+      return rejectWithValue([data?.message || error.message, data?.hint].filter(Boolean).join(" "));
     }
   }
 );

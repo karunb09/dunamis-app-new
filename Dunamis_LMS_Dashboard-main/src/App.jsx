@@ -60,7 +60,6 @@ const AddInstructorForm = lazy(() => import("./page/AdminPages/UserManagement/In
 const InstructorProfile = lazy(() => import("./page/AdminPages/UserManagement/Instructor/InstructorProfile"));
 const AddAdminForm = lazy(() => import("./page/AdminPages/AddAdminForm"));
 const AddBranch = lazy(() => import("./page/AdminPages/OfflineCenters/AddBranchForm"));
-const AddZone = lazy(() => import("./page/AdminPages/OfflineCenters/AddZoneForm"));
 const AddCityForm = lazy(() => import("./page/AdminPages/OfflineCenters/AddCityForm"));
 const CreateUpdateForm = lazy(() => import("./page/AdminPages/Updates/CreateUpdateForm"));
 const AdminProfile = lazy(() => import("./page/AdminPages/AdminProfile"));
@@ -218,7 +217,6 @@ const App = () => {
               <Route path="/admin/centers" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><OffilineCentersPage /></RequireAuth>} />
               <Route path="/admin/centers/add-branch" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><AddBranch /></RequireAuth>} />
               <Route path="/admin/centers/edit-branch/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><AddBranch /></RequireAuth>} />
-              <Route path="/admin/centers/add-zone" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><AddZone /></RequireAuth>} />
               <Route path="/admin/centers/add-city" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><AddCityForm /></RequireAuth>} />
               <Route path="/admin/centers/add-city/:id" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="offlineCenters"><AddCityForm /></RequireAuth>} />
               {/* Detail page of Offline center */}

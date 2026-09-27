@@ -12,6 +12,8 @@ import { PiFileDoc, PiFilePdf, PiFileVideo } from "react-icons/pi";
 import { FaTrash } from "react-icons/fa";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
 import BackButton from "../../../../components/BackButton";
+import HireInstructorModal from "./HireInstructorModal";
+import CredentialModal from "./CredentialModal";
 
 const resolveAssetUrl = (path) => resolveImageUrl(path, "");
 
@@ -42,6 +44,8 @@ const ApplicationDetails = () => {
 
     const [previewAsset, setPreviewAsset] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [hiring, setHiring] = useState({ open: false, submitting: false });
+    const [credentials, setCredentials] = useState(null);
 
     useEffect(() => {
         dispatch(fetchApplicationById(id));
@@ -54,14 +58,23 @@ const ApplicationDetails = () => {
         }
     }, [error, navigate]);
 
-    const handleStatusChange = async (newStatus) => {
+    const handleStatusChange = async (newStatus, hireDetails = {}) => {
+        if (newStatus === "selected" && !hireDetails.employeePrefix) {
+            setHiring({ open: true, submitting: false });
+            return;
+        }
         const result = await dispatch(
-            updateApplicationStatus({ id, status: newStatus })
+            updateApplicationStatus({ id, status: newStatus, ...hireDetails })
         );
-        if (result.meta.requestStatus === "fulfilled") {
-            toast.success("Status updated!");
-        } else {
+        if (result.meta.requestStatus !== "fulfilled") {
             toast.error(result.payload || "Error updating status");
+            return;
+        }
+        const { generatedPassword, employeeId } = result.payload || {};
+        if (newStatus === "selected" && generatedPassword) {
+            setCredentials({ password: generatedPassword, employeeId });
+        } else {
+            toast.success("Status updated!");
         }
     };
 
@@ -418,6 +431,26 @@ const ApplicationDetails = () => {
                     src={previewAsset.src}
                     onClose={() => setPreviewAsset(null)}
                     title={previewAsset.title}
+                />
+            )}
+            {hiring.open && application && (
+                <HireInstructorModal
+                    application={application}
+                    submitting={hiring.submitting}
+                    onCancel={() => setHiring({ open: false, submitting: false })}
+                    onConfirm={async (details) => {
+                        setHiring({ open: true, submitting: true });
+                        await handleStatusChange("selected", details);
+                        setHiring({ open: false, submitting: false });
+                    }}
+                />
+            )}
+            {credentials && application && (
+                <CredentialModal
+                    instructor={{ ...application, avatar: application.profilePicture }}
+                    password={credentials.password}
+                    employeeId={credentials.employeeId}
+                    onClose={() => setCredentials(null)}
                 />
             )}
         </div>

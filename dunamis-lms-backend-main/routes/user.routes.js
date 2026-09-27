@@ -19,8 +19,10 @@ const{
     setEmployeeId
 
 } = require("../controller/user.controller")
+const { setOrgPlacement } = require("../controller/org.controller");
 const { isAuth, accessToRole } = require("../middleware/auth");
 const validate = require("../middleware/validate");
+const { idParam } = require("../validators/common");
 const {
   loginSchema,
   forgotPasswordSchema,
@@ -43,6 +45,7 @@ router.patch("/notices/:noticeId/read", isAuth, markDashboardNoticeRead);
 router.delete("/notices", isAuth, clearDashboardNotices);
 router.delete("/notices/:noticeId", isAuth, deleteDashboardNotice);
 router.patch("/:id/employee-id", isAuth, accessToRole(["admin", "superadmin"]), setEmployeeId);
+router.patch("/:id/org", isAuth, accessToRole(["admin", "superadmin"]), validate(idParam, "params"), setOrgPlacement);
 router.get("/:id", isAuth, getUserById)
 router.put("/:id", isAuth, updateUser);
 
