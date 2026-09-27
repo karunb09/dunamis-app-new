@@ -29,6 +29,7 @@ const InstructorManagementPage = lazy(routeLoaders["/admin/instructor-management
 const AdminManageMentPage = lazy(routeLoaders["/admin/admin-management"]);
 const OffilineCentersPage = lazy(routeLoaders["/admin/centers"]);
 const UpdatesPage = lazy(routeLoaders["/admin/updates"]);
+const CommunicationMatrixPage = lazy(routeLoaders["/admin/communication-matrix"]);
 const FinancialPage = lazy(routeLoaders["/admin/financials"]);
 const EnquiriesPage = lazy(routeLoaders["/admin/enquiries"]);
 const SiteContentPage = lazy(routeLoaders["/admin/site-content"]);
@@ -231,6 +232,7 @@ const App = () => {
               <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="enquiries"><EnquiriesPage /></RequireAuth>} />
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
+              <Route path="/admin/communication-matrix" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><CommunicationMatrixPage /></RequireAuth>} />
               <Route path="/admin/site-content" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="websiteContent"><SiteContentPage /></RequireAuth>} />
               <Route path="/admin/chatbot-insights" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="contentManagement"><ChatbotInsightsPage /></RequireAuth>} />
               <Route path="/admin/system-status" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><SystemStatus /></RequireAuth>} />

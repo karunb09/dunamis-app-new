@@ -18,6 +18,7 @@ import {
   FiMessageSquare,
   FiGift,
   FiBell,
+  FiShare2,
   FiChevronLeft,
   FiMapPin,
   FiX,
@@ -185,6 +186,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           to: "/admin/updates",
           icon: <FaBullhorn/>,
           text: "Updates",
+          permission: "updates",
+        },
+        {
+          to: "/admin/communication-matrix",
+          icon: <FiShare2 />,
+          text: "Communication Matrix",
           permission: "updates",
         },
         {

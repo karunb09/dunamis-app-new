@@ -513,7 +513,8 @@ test("a class in progress with no check-in gets one reminder; a covered class ge
   await sendCheckInReminders(at("16:02"));
   assert.equal(sent.length, 1, "the demo and the group class go out as one email");
   assert.equal(sent[0].event, "instructorCheckIn");
-  assert.match(sent[0].subject, /haven't checked in/);
+  assert.match(sent[0].instructorSubject, /haven't checked in/);
+  assert.equal(String(sent[0].context.branchId), String(branch._id), "scoped to the branch if staff are ever ticked");
   assert.ok((await Slot.findById(uncovered._id)).checkInReminderSentAt);
 
   await sendCheckInReminders(at("16:07"));
@@ -530,7 +531,7 @@ test("an open visit gets one check-out reminder 30 minutes after its last class"
 
   await sendCheckInReminders(at("17:30"));
   assert.equal(sent.length, 1);
-  assert.match(sent[0].subject, /haven't checked out/);
+  assert.match(sent[0].instructorSubject, /haven't checked out/);
 
   await sendCheckInReminders(at("17:35"));
   assert.equal(sent.length, 1);

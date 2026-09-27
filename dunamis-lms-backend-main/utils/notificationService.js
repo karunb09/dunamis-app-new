@@ -3,6 +3,7 @@ const User = require("../model/user.model");
 const mailSender = require("./mailSender");
 const { brandCard, brandAttachments } = require("../mail/emailLayout");
 const { loadRoutingDirectory, resolveStaff } = require("../services/staffRouting");
+const { COMMUNICATION_MATRIX, getRule } = require("./communicationMatrix");
 
 const normalizeUserId = (value) => {
   if (!value) return null;
@@ -23,42 +24,6 @@ const getAdminUsers = async () =>
   User.find({ accountType: { $in: ["admin", "superadmin"] }, accountStatus: "active" }).select(
     "_id name email accountType employeeId"
   );
-
-// Who hears about what (CEO communication sheet, Sep 2026). One channel per
-// row: "email" rows send email only, "notification" rows a dashboard notice
-// only. AA / BDE are the people responsible for the learner's branch or course
-// (services/staffRouting.js). Receipts, the welcome email, OTPs, passwords and
-// join links are always sent and are not rows here.
-const COMMUNICATION_MATRIX = {
-  // Learners record
-  demoBooked: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
-  signUp: { learner: true, instructor: false, aa: true, bde: true, channel: "notification" },
-  courseEnrolled: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
-  classReminder: { learner: true, instructor: true, aa: true, bde: false, channel: "notification", contentType: "Reminder" },
-  classAttendance: { learner: true, instructor: true, aa: true, bde: true, channel: "notification" },
-  homework: { learner: true, instructor: true, aa: true, bde: false, channel: "notification" },
-  feeReminder: { learner: true, instructor: false, aa: true, bde: true, channel: "email", contentType: "Reminder" },
-  feeReceived: { learner: false, instructor: false, aa: true, bde: true, channel: "notification" },
-  assignmentCycle: { learner: true, instructor: true, aa: true, bde: true, channel: "notification" },
-  assessmentCycle: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
-  // Instructors record
-  demoRescheduled: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
-  classRescheduled: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
-  missedAttendance: { learner: false, instructor: true, aa: true, bde: true, channel: "notification" },
-  dailyAttendanceReport: { learner: false, instructor: false, aa: true, bde: true, channel: "email" },
-  // Not on the sheet.
-  // Fires 15 minutes before a class. AA/BDE excluded — nothing for them to act
-  // on, and one row per class per day would bury every other notice.
-  classJoinLink: { learner: false, instructor: true, aa: false, bde: false, channel: "notification", contentType: "Reminder" },
-  // AA/BDE excluded on purpose — the outgoing instructor may have resigned,
-  // there's nothing for sales/coordination staff to act on here.
-  enrollmentReassigned: { learner: false, instructor: true, aa: false, bde: false, channel: "email" },
-  // Missing branch check-in / check-out nudges. Admins read the same gaps off the
-  // Instructor Check-ins page, so AA/BDE copies would only be noise.
-  instructorCheckIn: { learner: false, instructor: true, aa: false, bde: false, channel: "email" },
-};
-
-const getRule = async (event) => COMMUNICATION_MATRIX[event] || null;
 
 // Email rows without their own html get the standard branded card, so any row
 // can switch channel without every call site owning two templates.

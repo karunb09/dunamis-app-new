@@ -946,7 +946,10 @@ const sendReassignmentNotification = async ({ student, newCourse, newTeacher, ne
   await Promise.allSettled([
     notifyEvent({
       event: "enrollmentReassigned",
+      context: newSlot.branchId ? { branchId: newSlot.branchId } : { courseId: newCourse._id },
       instructorUser: teacherWithUser?.userId,
+      title: "Student reassigned",
+      message: `${studentName} has been moved into ${newCourse.name} with a new instructor/schedule.`,
       subject: `Student added to ${newCourse.name}`,
       html: notificationHtml,
       instructorSubject: `A student has been added to your ${newCourse.name} class`,

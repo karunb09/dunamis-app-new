@@ -17,13 +17,18 @@ const { dayKeyFromDate } = require("../utils/istMonth");
 
 const toId = (value) => String(value?._id || value || "");
 
-const send = (instructor, { subject, html, attachments }) =>
+// The email is written to the instructor; staff (if the matrix ever ticks
+// them) get a short note about that instructor instead.
+const send = (instructor, { subject, html, attachments }, { branchId, staffMessage }) =>
   notifications.notifyEvent({
     event: "instructorCheckIn",
+    context: { branchId },
     instructorUser: instructor,
-    title: subject,
-    subject,
-    html,
+    title: "Branch check-in missing",
+    message: staffMessage,
+    instructorTitle: subject,
+    instructorSubject: subject,
+    instructorHtml: html,
     attachments,
   });
 
@@ -80,7 +85,11 @@ async function remindMissingCheckIns(now) {
           teacherName: teacher.name,
           branchName: branch.branchName,
           classes: group,
-        })
+        }),
+        {
+          branchId: branch._id,
+          staffMessage: `${teacher.name} has a class at ${branch.branchName} in progress without checking in.`,
+        }
       );
       return true;
     })
@@ -109,15 +118,20 @@ async function remindMissingCheckOuts(now) {
       if (!claimed.modifiedCount) return false;
 
       const user = visit.teacherId?.userId;
+      const branchName = visit.branchId?.branchName || "the branch";
       await send(
         { _id: user?._id, email: user?.email },
         buildMissingCheckOutEmail({
           teacherName: formatUserName(user?.name, "there"),
-          branchName: visit.branchId?.branchName || "the branch",
+          branchName,
           checkInAt: visit.checkIn.at,
           lastClassEndAt: visit.lastClassEndAt,
           expectedCheckOutAt: visit.expectedCheckOutAt,
-        })
+        }),
+        {
+          branchId: visit.branchId?._id,
+          staffMessage: `${formatUserName(user?.name, "An instructor")} hasn't checked out of ${branchName}.`,
+        }
       );
       return true;
     })

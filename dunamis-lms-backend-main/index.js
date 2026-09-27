@@ -88,6 +88,7 @@ const cityRoutes = require("./routes/city.routes");
 const contentRoutes = require("./routes/content.routes");
 const zoneRoutes = require("./routes/zone.routes");
 const orgRoutes = require("./routes/org.routes");
+const communicationMatrixRoutes = require("./routes/communicationMatrix.routes");
 const courseRoutes = require("./routes/course.routes");
 const teacherRoutes = require("./routes/teachers.routes");
 const demoBookingRoutes = require("./routes/demoBooking.route")
@@ -246,6 +247,7 @@ app.use("/api/v1/city", cityRoutes);
 app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/zone", zoneRoutes);
 app.use("/api/v1/org", orgRoutes);
+app.use("/api/v1/communication-matrix", communicationMatrixRoutes);
 app.use("/api/v1/course", courseRoutes);
 app.use("/api/v1/teachers", teacherRoutes);
 app.use("/api/v1/enrollment/create-order", paymentLimiter);
