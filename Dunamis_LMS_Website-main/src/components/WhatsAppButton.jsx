@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FaWhatsapp } from "react-icons/fa";
+import { WHATSAPP_URL } from "@/lib/siteConfig";
 
 export default function WhatsAppButton() {
   const pathname = usePathname() || "/";
@@ -43,6 +44,7 @@ export default function WhatsAppButton() {
   }, []);
 
   // Keep the floating bubble out of the authenticated student portal / auth screens.
+  // Below md it is hidden too: the chat launcher's menu offers WhatsApp there.
   if (
     pathname.startsWith("/student") ||
     pathname.startsWith("/login") ||
@@ -53,7 +55,7 @@ export default function WhatsAppButton() {
 
   return (
     <a
-      href="https://wa.me/+919398246083"
+      href={WHATSAPP_URL}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat with us on WhatsApp"
@@ -62,7 +64,7 @@ export default function WhatsAppButton() {
       onPointerUp={onPointerUp}
       onClick={onClick}
       style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-      className="fixed bottom-24 right-4 z-50 flex h-16 w-16 cursor-grab touch-none select-none items-center justify-center rounded-3xl bg-gradient-to-br from-green-400 to-green-600 text-white shadow-[0_18px_30px_-10px_rgba(22,163,74,0.85)] ring-4 ring-white/80 active:cursor-grabbing hover:shadow-[0_24px_38px_-12px_rgba(22,163,74,0.9)]"
+      className="fixed bottom-24 right-4 z-50 hidden h-16 w-16 md:flex cursor-grab touch-none select-none items-center justify-center rounded-3xl bg-gradient-to-br from-green-400 to-green-600 text-white shadow-[0_18px_30px_-10px_rgba(22,163,74,0.85)] ring-4 ring-white/80 active:cursor-grabbing hover:shadow-[0_24px_38px_-12px_rgba(22,163,74,0.9)]"
     >
       <FaWhatsapp className="h-8 w-8 drop-shadow" />
     </a>

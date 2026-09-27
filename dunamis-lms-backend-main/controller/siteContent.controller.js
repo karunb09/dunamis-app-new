@@ -5,6 +5,7 @@ const path = require("path");
 const AdminNotice = require("../model/adminNotice.model");
 const SiteContent = require("../model/siteContent.model");
 const User = require("../model/user.model");
+const { invalidateKnowledge } = require("../services/chatbot/knowledge");
 
 const allowedTypes = new Set(["faq", "testimonial", "successStory"]);
 const allowedStatuses = new Set(["draft", "published"]);
@@ -187,6 +188,7 @@ exports.createContent = asyncHandler(async (req, res) => {
       createdBy: req.user?.userId || null,
       updatedBy: req.user?.userId || null,
     });
+    if (item.type === "faq") invalidateKnowledge();
 
     res.status(201).json({ success: true, data: item });
 });
@@ -213,6 +215,7 @@ exports.updateContent = asyncHandler(async (req, res) => {
     if (!item) {
       return res.status(404).json({ success: false, message: "Content not found." });
     }
+    if (item.type === "faq") invalidateKnowledge();
 
     res.status(200).json({ success: true, data: item });
 });
@@ -279,6 +282,7 @@ exports.deleteContent = asyncHandler(async (req, res) => {
     if (!item) {
       return res.status(404).json({ success: false, message: "Content not found." });
     }
+    if (item.type === "faq") invalidateKnowledge();
 
     res.status(200).json({ success: true, data: item });
 });
