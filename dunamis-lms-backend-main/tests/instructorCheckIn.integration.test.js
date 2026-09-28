@@ -33,12 +33,15 @@ const {
   addAdminNote,
   buildCheckInReport,
   checkIn,
+  checkInAccess,
   checkOut,
   evaluateGeofence,
   getTeacherHistory,
   getTeacherToday,
 } = require("../services/instructorCheckIn");
 const { sendCheckInReminders } = require("../services/checkInReminder");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
+const { updateTeacher } = require("../controller/teacher.controller");
 const { haversineMeters } = require("../utils/geo");
 const { istDayStart } = require("../utils/istMonth");
 
@@ -69,7 +72,9 @@ let seq = 0;
 let sent = [];
 const realNotifyEvent = notificationService.notifyEvent;
 
-async function makeTeacher(firstName = "Meera") {
+// The application has many required fields; only its mode matters here, and it
+// decides who may check in at all.
+async function makeTeacher(firstName = "Meera", mode = "offline") {
   const user = await User.create({
     name: { firstName, lastName: "Rao" },
     password: "x",
@@ -77,7 +82,10 @@ async function makeTeacher(firstName = "Meera") {
     email: `t${seq}@test.com`,
     accountType: "teacher",
   });
-  return Teacher.create({ userId: user._id, teacherDetail: oid() });
+  const { insertedId } = await mongoose.connection
+    .collection("teacherapplications")
+    .insertOne({ mode, email: `app${seq++}@test.com` });
+  return Teacher.create({ userId: user._id, teacherDetail: insertedId });
 }
 
 async function makeBranch({ pinned = true, teachers = [], radius } = {}) {
@@ -624,6 +632,85 @@ test("the report tallies late logins and early logouts per instructor for the ra
   assert.equal(report.unpinnedBranches.length, 0);
 
   await rejectsWith(buildCheckInReport({ from: NEXT_DAY, to: DAY }), 400);
+});
+
+// ── Who sees branch check-in, and who may teach in person ────────────────
+
+test("branch check-in is for offline and hybrid instructors only", async () => {
+  const online = await makeTeacher("Anjali", "online");
+  assert.deepEqual(await checkInAccess(online._id), { eligible: false, mode: "online", linkedBranches: 0 });
+
+  const newHybrid = await makeTeacher("Sanjay", "hybrid");
+  const hybridAccess = await checkInAccess(newHybrid._id);
+  assert.equal(hybridAccess.eligible, true, "sees the page while the admin team links a branch");
+  assert.equal(hybridAccess.linkedBranches, 0);
+
+  const today = await getTeacherToday({ teacherId: newHybrid._id, now: at("10:00") });
+  assert.equal(today.mode, "hybrid");
+  assert.equal(today.branches.length, 0);
+
+  // Linked to a branch before the rule existed: still online, still refused.
+  const legacy = await makeTeacher("Rahul", "online");
+  const branch = await makeBranch({ teachers: [legacy] });
+  assert.equal((await checkInAccess(legacy._id)).eligible, false);
+  await rejectsWith(
+    checkIn({ teacherId: legacy._id, branchId: branch._id, fix: near, now: at("15:50") }),
+    403,
+    /online only/
+  );
+});
+
+test("an online instructor can't be put on a branch, an offline course or a branch schedule", async () => {
+  const online = await makeTeacher("Anjali", "online");
+  const hybrid = await makeTeacher("Sanjay", "hybrid");
+
+  await assert.doesNotReject(assertCanTeachInPerson([hybrid._id]));
+  await assert.rejects(assertCanTeachInPerson([hybrid._id, online._id]), (err) => {
+    assert.equal(err.statusCode, 400);
+    assert.match(err.message, /Anjali Rao is set up to teach online only/);
+    assert.match(err.hint, /offline or hybrid/);
+    return true;
+  });
+});
+
+test("switching an instructor to online is refused while they still teach in person", async () => {
+  const teacher = await makeTeacher("Priya", "offline");
+  const branch = await makeBranch({ teachers: [teacher] });
+  const adminReq = (mode) => ({
+    params: { id: String(teacher._id) },
+    body: { teacherDetails: JSON.stringify({ mode }) },
+    user: { accountType: "admin", userId: String(oid()) },
+    files: null,
+  });
+  const run = async (req) => {
+    const res = {
+      statusCode: 200,
+      body: null,
+      status(code) { this.statusCode = code; return this; },
+      json(payload) { this.body = payload; return this; },
+    };
+    let error = null;
+    await updateTeacher(req, res, (err) => { error = err; });
+    if (error) throw error;
+    return res;
+  };
+
+  const refused = await run(adminReq("online"));
+  assert.equal(refused.statusCode, 409);
+  assert.match(refused.body.message, new RegExp(`branches \\(${branch.branchName}\\)`));
+
+  await Branch.updateOne({ _id: branch._id }, { $pull: { teachers: teacher._id } });
+  const allowed = await run(adminReq("online"));
+  assert.equal(allowed.statusCode, 200);
+  assert.equal((await checkInAccess(teacher._id)).mode, "online");
+
+  // Instructors never set their own mode.
+  const self = await run({
+    ...adminReq("offline"),
+    user: { accountType: "teacher", userId: String(oid()), roleId: String(teacher._id) },
+  });
+  assert.equal(self.statusCode, 200);
+  assert.equal((await checkInAccess(teacher._id)).mode, "online");
 });
 
 test("the instructor's own views show today's classes by branch and the month's flags", async () => {

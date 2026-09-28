@@ -147,18 +147,23 @@ const InstructorProfile = () => {
 
     setIsSavingProfile(true);
     try {
-      await dispatch(
-        updateTeacher({
-          id: instructorId,
-          updatedData: payload,
-        })
-      ).unwrap();
-      // After the mode change above: branches are refused for online instructors.
-      await saveOrgPlacement({
-        userId: selectedTeacher.user?._id,
-        org: { reportsTo: updated.reportsTo || null },
-        branchIds: updated.mode === "online" ? [] : updated.branchIds || [],
-      });
+      const saveMode = () =>
+        dispatch(updateTeacher({ id: instructorId, updatedData: payload })).unwrap();
+      const savePlacement = () =>
+        saveOrgPlacement({
+          userId: selectedTeacher.user?._id,
+          org: { reportsTo: updated.reportsTo || null },
+          branchIds: updated.mode === "online" ? [] : updated.branchIds || [],
+        });
+      // Branches are refused for an online instructor, and the switch to online
+      // is refused while any branch remains — so the order flips.
+      if (updated.mode === "online") {
+        await savePlacement();
+        await saveMode();
+      } else {
+        await saveMode();
+        await savePlacement();
+      }
       await dispatch(fetchTeacherById(instructorId)).unwrap();
       toast.success("Instructor profile updated successfully.");
       setIsEditing(false);

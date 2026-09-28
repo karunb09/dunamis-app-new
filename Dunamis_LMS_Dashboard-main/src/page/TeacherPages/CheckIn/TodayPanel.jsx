@@ -55,10 +55,10 @@ const classLabel = (cls) =>
     cls.slotType === "demo" ? " (demo)" : ""
   }`;
 
-const EmptyBox = ({ text }) => (
+const EmptyBox = ({ title = "Nothing here yet", text }) => (
   <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-slate-400">
     <FiInbox className="text-2xl" />
-    <p className="text-sm font-medium text-slate-500">Nothing here yet</p>
+    <p className="text-sm font-medium text-slate-500">{title}</p>
     <p className="max-w-sm text-xs">{text}</p>
   </div>
 );
@@ -201,7 +201,7 @@ const TodayPanel = () => {
   const now = useNow();
   const [fix, setFix] = useState(null);
   const [fixError, setFixError] = useState("");
-  const [locating, setLocating] = useState(true);
+  const [locating, setLocating] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [refusal, setRefusal] = useState(null);
 
@@ -220,8 +220,14 @@ const TodayPanel = () => {
     }
   }, []);
 
-  // First reading on arrival, so the branch list can show distances straight away.
+  const branches = useMemo(() => data?.branches || [], [data]);
+  const hasBranches = branches.length > 0;
+
+  // First reading once there is a branch to measure against, so the list shows
+  // distances straight away. An instructor with no centre is never asked for
+  // their location at all.
   useEffect(() => {
+    if (!hasBranches) return undefined;
     let cancelled = false;
     getCurrentFix()
       .then((reading) => {
@@ -229,16 +235,12 @@ const TodayPanel = () => {
       })
       .catch((err) => {
         if (!cancelled) setFixError(err.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLocating(false);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const branches = useMemo(() => data?.branches || [], [data]);
+  }, [hasBranches]);
+  const firstReading = hasBranches && !fix && !fixError;
   const openVisit = data?.openVisit || null;
 
   // Where they physically are wins; otherwise the branch with a class still to
@@ -354,9 +356,17 @@ const TodayPanel = () => {
     );
   }
 
-  if (!branches.length) {
-    return (
-      <EmptyBox text="No branch is linked to you. Check-in is for instructors who teach at a centre — ask the admin team if you should be on a branch." />
+  if (!hasBranches) {
+    return data.mode === "offline" || data.mode === "hybrid" ? (
+      <EmptyBox
+        title="No centre linked to you yet"
+        text="You're set up to teach at a centre, but the admin team hasn't linked you to a branch yet. Once they do, your branch and today's classes appear here with a Check in button."
+      />
+    ) : (
+      <EmptyBox
+        title="Nothing to check in to"
+        text="Branch check-in is for instructors who teach at a centre. Your classes are online, so there's nothing to record here."
+      />
     );
   }
 
@@ -364,7 +374,7 @@ const TodayPanel = () => {
     <div className="space-y-5">
       <LocationStrip
         fix={fix}
-        locating={locating}
+        locating={locating || firstReading}
         error={fixError}
         onRefresh={() => locate().catch(() => {})}
       />
@@ -390,6 +400,10 @@ const TodayPanel = () => {
         <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Not checked in</p>
           <h2 className="mt-1 text-xl font-bold text-slate-900">Where are you checking in?</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Pick the centre you're at. Your classes there today are linked to this check-in
+            automatically — no need to choose a course.
+          </p>
           <div className="mt-4 space-y-3">
             {branches.map((option) => (
               <BranchOption

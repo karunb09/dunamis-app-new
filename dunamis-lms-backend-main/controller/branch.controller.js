@@ -6,6 +6,7 @@ const Teacher = require("../model/teacher.model");
 const Zone = require("../model/zone.model");
 const mongoose = require("mongoose");
 const { localFileUpload } = require("../utils/locallyUploader");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
 
 // A branch's zone must be one of its own city's zones: BDEs are responsible
 // for zones, so a mismatch would route the branch to another city's BDE.
@@ -166,6 +167,7 @@ exports.createBranch = asyncHandler(async (req, res) => {
         });
       }
     }
+    await assertCanTeachInPerson(teacherIds);
 
     // Handle image upload
     let branchImagePath = getBranchFallbackImage(branchName);
@@ -393,6 +395,10 @@ exports.updateBranch = asyncHandler(async (req, res) => {
         });
       }
     }
+    // Only instructors being added: one already on the branch from before the
+    // rule shouldn't block every edit of it.
+    const existingTeacherIds = new Set((existingBranch.teachers || []).map(String));
+    await assertCanTeachInPerson(teacherIds.filter((teacherId) => !existingTeacherIds.has(String(teacherId))));
 
     // Handle image upload for update
     let branchImagePath = existingBranch.branchImage || null;

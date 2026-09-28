@@ -17,6 +17,7 @@ const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 const {
+  inPersonTeaching,
   normalizeInstructorBranches,
   setInstructorBranches,
   validateInstructorPlacement,
@@ -1072,6 +1073,25 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     }
 
     const teacherDetailsUpdate = teacherDetails ? { ...teacherDetails } : {};
+
+    // Teaching mode decides branch access and check-in, so only admins set it,
+    // and never to online while the instructor still teaches in person.
+    if (teacherDetailsUpdate.mode !== undefined) {
+      const isStaff = ["admin", "superadmin"].includes(req.user.accountType);
+      if (!isStaff) {
+        delete teacherDetailsUpdate.mode;
+      } else if (teacherDetailsUpdate.mode === "online") {
+        const inPerson = await inPersonTeaching(teacher._id);
+        const current = await TeacherDetail.findById(teacher.teacherDetail).select("mode").lean();
+        if (inPerson.length && current?.mode !== "online") {
+          return res.status(409).json({
+            success: false,
+            message: `This instructor still teaches in person: ${inPerson.join("; ")}.`,
+            hint: "Remove them from those branches, offline courses and branch schedule first, then switch them to online.",
+          });
+        }
+      }
+    }
     const profilePictureFile = req.files?.profilePicture || req.files?.profileImage;
 
     if (profilePictureFile) {

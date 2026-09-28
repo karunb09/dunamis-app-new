@@ -7,6 +7,9 @@ const Course = require("../model/course.model");
 const SubCategory = require("../model/subCategory.model");
 const Category = require("../model/category.model");
 const ClassRoster = require("../model/classRoster.model");
+const Teacher = require("../model/teacher.model");
+require("../model/teacherApplication.model");
+const { formatUserName } = require("../utils/formatName");
 const {
   DESIGNATIONS,
   INSTRUCTOR_MANAGERS,
@@ -163,14 +166,58 @@ const validateStaffPlacement = async ({ targetUserId, org = {} }) => {
   return placement;
 };
 
+const SWITCH_MODE_HINT =
+  "Switch their teaching mode to offline or hybrid first (Instructor Management → edit instructor).";
+
 // Validates the branches picked for an instructor before any account is made.
 const normalizeInstructorBranches = async ({ branchIds, mode }) => {
   const ids = toIdList(branchIds, "branches");
   if (ids.length && mode === "online") {
-    throw orgError(400, "Online instructors don't teach at a branch.", "Switch their mode to offline or hybrid first.");
+    throw orgError(400, "Online instructors don't teach at a branch.", SWITCH_MODE_HINT);
   }
   await assertExists("branches", ids);
   return ids;
+};
+
+const IN_PERSON_MODES = new Set(["offline", "hybrid"]);
+
+// A branch, an offline course and a schedule slot at a branch are all in-person
+// teaching. An instructor set up as online may do none of them until an admin
+// switches their mode: the mode is what decides who gets branch check-in, so
+// it must never disagree with where they actually teach.
+const assertCanTeachInPerson = async (teacherIds) => {
+  const ids = [...new Set((teacherIds || []).map((id) => String(id?._id || id)))].filter(Boolean);
+  if (!ids.length) return;
+  const teachers = await Teacher.find({ _id: { $in: ids } })
+    .select("userId teacherDetail")
+    .populate("userId", "name")
+    .populate("teacherDetail", "mode")
+    .lean();
+  const onlineOnly = teachers.filter((teacher) => !IN_PERSON_MODES.has(teacher.teacherDetail?.mode));
+  if (!onlineOnly.length) return;
+  const names = onlineOnly.map((teacher) => formatUserName(teacher.userId?.name, "An instructor"));
+  throw orgError(
+    400,
+    `${names.join(", ")} ${onlineOnly.length === 1 ? "is" : "are"} set up to teach online only, so can't teach at a branch or on an offline course.`,
+    SWITCH_MODE_HINT
+  );
+};
+
+// Everything that ties an instructor to in-person teaching, so switching them
+// to online can be refused while any of it remains.
+const inPersonTeaching = async (teacherId) => {
+  const [branches, offlineCourses, teacher] = await Promise.all([
+    Branch.find({ teachers: teacherId }).select("branchName").lean(),
+    Course.find({ teacher: teacherId, mode: "offline" }).select("name").lean(),
+    Teacher.findById(teacherId).select("weeklyAvailability.branchId").lean(),
+  ]);
+  const scheduledAtBranch = (teacher?.weeklyAvailability || []).some((entry) => entry.branchId);
+  const parts = [
+    ...(branches.length ? [`branches (${branches.map((b) => b.branchName).join(", ")})`] : []),
+    ...(offlineCourses.length ? [`offline courses (${offlineCourses.map((c) => c.name).join(", ")})`] : []),
+    ...(scheduledAtBranch ? ["their schedule at a branch"] : []),
+  ];
+  return parts;
 };
 
 // Branch.teachers is the instructor's branch list. "add" (hiring) never
@@ -216,6 +263,8 @@ const sameOrg = (a = {}, b = {}) => {
 
 module.exports = {
   ORG_NAME_POPULATE,
+  assertCanTeachInPerson,
+  inPersonTeaching,
   normalizeInstructorBranches,
   orgError,
   sameOrg,

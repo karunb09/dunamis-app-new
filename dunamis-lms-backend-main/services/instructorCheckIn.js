@@ -8,6 +8,7 @@ const Teacher = require("../model/teacher.model");
 require("../model/course.model");
 require("../model/user.model");
 require("../model/city.model");
+require("../model/teacherApplication.model");
 const { IT_SUPPORT_HINT } = require("../utils/availabilityRules");
 const { parseTimeMinutes } = require("../utils/classRoster");
 const { formatUserName } = require("../utils/formatName");
@@ -189,6 +190,29 @@ const buildFix = (fix, now, fence) => ({
   userAgent: fix.userAgent || "",
 });
 
+const OFFLINE_MODES = new Set(["offline", "hybrid"]);
+
+// Branch check-in is for offline and hybrid instructors. An online instructor
+// can't be linked to a branch or an offline course (assertCanTeachInPerson), so
+// the mode always agrees with where they teach; linkedBranches only lets a new
+// offline instructor's page explain why it is still empty.
+const checkInAccess = async (teacherId) => {
+  const teacher = await Teacher.findById(teacherId)
+    .select("teacherDetail weeklyAvailability.branchId")
+    .populate("teacherDetail", "mode")
+    .lean();
+  if (!teacher) return { eligible: false, mode: null, linkedBranches: 0 };
+
+  const availabilityBranchIds = (teacher.weeklyAvailability || [])
+    .map((entry) => entry.branchId)
+    .filter(Boolean);
+  const linkedBranches = await Branch.countDocuments({
+    $or: [{ teachers: teacher._id }, { _id: { $in: availabilityBranchIds } }],
+  });
+  const mode = teacher.teacherDetail?.mode || null;
+  return { eligible: OFFLINE_MODES.has(mode), mode, linkedBranches };
+};
+
 const teacherIdForUser = async (userId) => {
   const teacher = await Teacher.findOne({ userId }).select("_id").lean();
   if (!teacher) throw fail(403, "Instructor profile not found.", { hint: IT_SUPPORT_HINT });
@@ -196,6 +220,14 @@ const teacherIdForUser = async (userId) => {
 };
 
 const checkIn = async ({ teacherId, branchId, fix, now = new Date() }) => {
+  const { eligible } = await checkInAccess(teacherId);
+  if (!eligible) {
+    throw fail(
+      403,
+      "You're set up to teach online only, so there's no branch to check in to.",
+      { hint: "If you teach at a centre, ask the admin team to switch you to offline or hybrid." }
+    );
+  }
   if (fix.accuracyM > MAX_ACCURACY_M) throw weakSignal(fix.accuracyM);
 
   const branch = await Branch.findById(branchId)
@@ -458,7 +490,10 @@ const describeMissedClass = ({ slotId, slotType, courseName, teacher, branch, st
 const getTeacherToday = async ({ teacherId, now = new Date() }) => {
   const dayKey = dayKeyFromDate(now);
   const [teacher, classes, visits] = await Promise.all([
-    Teacher.findById(teacherId).select("weeklyAvailability.branchId").lean(),
+    Teacher.findById(teacherId)
+      .select("teacherDetail weeklyAvailability.branchId")
+      .populate("teacherDetail", "mode")
+      .lean(),
     offlineClasses({ from: dayKey, to: dayKey, teacherId }),
     InstructorCheckIn.find({ teacherId, dayKey })
       .populate("branchId", "branchName")
@@ -518,6 +553,7 @@ const getTeacherToday = async ({ teacherId, now = new Date() }) => {
   return {
     dayKey,
     serverTime: now,
+    mode: teacher?.teacherDetail?.mode || null,
     branches: branchViews,
     openVisit: described.find((visit) => visit.isOpen) || null,
     visits: described,
@@ -693,6 +729,7 @@ module.exports = {
   addAdminNote,
   buildCheckInReport,
   checkIn,
+  checkInAccess,
   checkInLiveSince,
   checkOut,
   evaluateGeofence,

@@ -23,6 +23,7 @@ const {
   isTopAccount,
 } = require("../utils/staffAccess");
 const { ORG_NAME_POPULATE } = require("../services/orgPlacement");
+const { checkInAccess } = require("../services/instructorCheckIn");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -57,6 +58,14 @@ const buildSessionUser = (user) => ({
   teacherDetails: user.teacherDetails,
   studentDetails: user.studentDetails,
 });
+
+// Instructors also carry whether branch check-in applies to them, so the
+// dashboard shows that menu item only to those who teach at a centre.
+const sessionUserFor = async (user) => {
+  const session = buildSessionUser(user);
+  if (user.accountType !== "teacher" || !user.teacherDetails?._id) return session;
+  return { ...session, checkIn: await checkInAccess(user.teacherDetails._id) };
+};
 
 const canManageUser = (requestUser, targetUserId) => {
   if (!requestUser) return false;
@@ -125,7 +134,7 @@ exports.login = asyncHandler(async (req, res) => {
         .json({
           success: true,
           token,
-          user: buildSessionUser(user),
+          user: await sessionUserFor(user),
           message: "Logged in successfully",
         });
     } else {
@@ -158,7 +167,7 @@ exports.getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json({
       success: true,
       token: req.token,
-      user: buildSessionUser(user),
+      user: await sessionUserFor(user),
     });
 });
 

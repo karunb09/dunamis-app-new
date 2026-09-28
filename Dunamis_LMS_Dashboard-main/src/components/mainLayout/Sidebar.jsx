@@ -49,6 +49,9 @@ const Sidebar = ({ isOpen, onClose }) => {
     "guest";
 
   const permissions = user?.permissions || [];
+  // Set by the API for instructors who teach at a centre (or were hired as
+  // offline/hybrid); online-only instructors never see branch check-in.
+  const checkInEligible = (user || getStoredUser())?.checkIn?.eligible === true;
   const isExpanded = isOpen || isDesktopOpen;
   const isAdminLike = !["student", "teacher", "guest"].includes(accountType);
   // Hidden until the API says the assistant is on (CHATBOT_ENABLED).
@@ -80,7 +83,9 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
-    { to: "/teacher/check-in", icon: <FiMapPin />, text: "Branch Check-in" },
+    ...(checkInEligible
+      ? [{ to: "/teacher/check-in", icon: <FiMapPin />, text: "Branch Check-in" }]
+      : []),
     { to: "/teacher/messages", icon: <FiMessageSquare />, text: "Messages" },
   ];
 

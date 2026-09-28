@@ -180,13 +180,22 @@ const Instructor = () => {
             progressLabel: `Updating ${row.name}...`,
             loadingMessage: `Saving changes for ${row.name}`,
             action: async () => {
-                await dispatch(updateTeacher({ id: row.id, updatedData: payload })).unwrap();
-                // After the mode change above: branches are refused for online instructors.
-                await saveOrgPlacement({
-                    userId: row.userId,
-                    org: { reportsTo: updated.reportsTo || null },
-                    branchIds: updated.mode === 'online' ? [] : updated.branchIds || [],
-                });
+                const saveMode = () => dispatch(updateTeacher({ id: row.id, updatedData: payload })).unwrap();
+                const savePlacement = () =>
+                    saveOrgPlacement({
+                        userId: row.userId,
+                        org: { reportsTo: updated.reportsTo || null },
+                        branchIds: updated.mode === 'online' ? [] : updated.branchIds || [],
+                    });
+                // Branches are refused for an online instructor, and the switch to
+                // online is refused while any branch remains — so the order flips.
+                if (updated.mode === 'online') {
+                    await savePlacement();
+                    await saveMode();
+                } else {
+                    await saveMode();
+                    await savePlacement();
+                }
                 dispatch(invalidateTeachers());
                 dispatch(fetchTeachers());
             },

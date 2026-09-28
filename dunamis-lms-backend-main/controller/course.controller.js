@@ -8,6 +8,7 @@ const Branch = require("../model/branch.model");
 const ClassRoster = require("../model/classRoster.model");
 const CourseAssignmentLog = require("../model/courseAssignmentLog.model");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
 const fs = require("fs/promises");
 const path = require("path");
 const {
@@ -356,6 +357,8 @@ exports.createCourse = asyncHandler(async (req, res) => {
 
     const publishFlag =
       typeof isPublished === "string" ? isPublished === "true" : Boolean(isPublished);
+
+    if (mode === "offline") await assertCanTeachInPerson(teacherIds);
 
     // Create the course
     const course = await Course.create({
@@ -712,6 +715,17 @@ exports.updateCourse = asyncHandler(async (req, res) => {
 
     const previousTeacherIds = normalizeIdList(existingCourse.teacher);
     const nextTeacherIds = normalizeIdList(updateData.teacher);
+
+    // Turning a course offline checks everyone on it; otherwise only those
+    // being added, so an instructor there from before the rule can't block
+    // unrelated edits.
+    if (nextMode === "offline") {
+      await assertCanTeachInPerson(
+        existingCourse.mode === "offline"
+          ? nextTeacherIds.filter((teacherId) => !previousTeacherIds.includes(teacherId))
+          : nextTeacherIds
+      );
+    }
 
     const removedTeacherIds = previousTeacherIds.filter((teacherId) => !nextTeacherIds.includes(teacherId));
     if (removedTeacherIds.length > 0) {
