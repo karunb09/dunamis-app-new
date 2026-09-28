@@ -97,7 +97,7 @@ const Questionnaires = () => {
           <p className="text-sm">Nothing here yet — build your first questionnaire.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-cards gap-4">
           {questionnaires.map((q) => (
             <div key={q._id} className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5">
               <div className="flex items-start justify-between gap-2">

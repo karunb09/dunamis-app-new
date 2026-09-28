@@ -182,7 +182,7 @@ const MyStudent = () => {
               <p className="mt-1 text-sm text-slate-400">Try adjusting your search or filters.</p>
             </div>
           ) : view === "grid" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-cards gap-4">
               {filteredStudents.map((s) => (
                 <button
                   key={s.id}

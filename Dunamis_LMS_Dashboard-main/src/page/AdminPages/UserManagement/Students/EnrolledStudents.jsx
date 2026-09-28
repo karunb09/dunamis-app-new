@@ -379,8 +379,8 @@ ${courses || "No courses enrolled"}`;
             {error && <p className="mb-4 text-sm text-rose-500">Error: {error.message}</p>}
 
             {/* Toolbar */}
-            <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div className="relative w-full lg:w-72">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="relative w-full sm:w-auto sm:max-w-xs sm:grow sm:basis-56">
                     <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"

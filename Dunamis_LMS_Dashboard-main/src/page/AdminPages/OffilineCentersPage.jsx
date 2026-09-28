@@ -269,8 +269,8 @@ const OfflineCentersPage = () => {
             </div>
 
             {/* Toolbar */}
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="relative w-full sm:w-72">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                <div className="relative w-full sm:w-auto sm:max-w-xs sm:grow sm:basis-56">
                     <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
                     <input
                         type="text"
@@ -280,7 +280,7 @@ const OfflineCentersPage = () => {
                         className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                     />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         onClick={() => navigate("/admin/centers/add-branch")}

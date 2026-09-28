@@ -8,6 +8,13 @@ module.exports = {
       fontFamily: {
         poppins: ["Poppins", "sans-serif"],
       },
+      // `grid-cols-cards`: columns follow the grid's own width, not the viewport.
+      // Viewport breakpoints ignore the 288px sidebar, so lg:grid-cols-3 put three
+      // ~210px cards side by side on an iPad in landscape. Cards stay ≥18rem and
+      // top out at three per row (the 3rem assumes a gap no wider than gap-6).
+      gridTemplateColumns: {
+        cards: "repeat(auto-fill, minmax(min(100%, max(18rem, calc((100% - 3rem) / 3))), 1fr))",
+      },
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
         drawer: "cubic-bezier(0.32, 0.72, 0, 1)",

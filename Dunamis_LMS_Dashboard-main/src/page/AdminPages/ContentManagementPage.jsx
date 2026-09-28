@@ -330,7 +330,7 @@ const ContentManagementPage = () => {
       ) : sortedContents.length === 0 ? (
         <div className="text-center text-gray-500 text-lg mt-10">No Available Content</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-cards gap-6">
           {sortedContents.map((course) => {
             const categoryObj = course.category || { name: "Uncategorized", icon: "✦" };
             const style = getCategoryStyle(categoryObj);

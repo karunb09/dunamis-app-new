@@ -35,8 +35,6 @@ import { getStoredUser } from "../../utils/authSession";
 import { hasPermission } from "../../utils/permissions";
 import { useChatbotStatus } from "../../hooks/useChatbotInsights";
 
-const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
-
 const Sidebar = ({ isOpen, onClose }) => {
   const [isDesktopOpen, setIsDesktopOpen] = useState(true);
   const dispatch = useDispatch();
@@ -375,23 +373,6 @@ const Sidebar = ({ isOpen, onClose }) => {
                 {renderMenu()}
               </nav>
             </div>
-          </div>
-
-          <div className="shrink-0 border-t border-slate-800 px-4 py-5">
-            <a
-              href={WEBSITE_URL}
-              onClick={onClose}
-              className={clsx(
-                "group/back flex w-full items-center rounded-2xl px-4 py-3 text-left text-sm font-medium text-slate-300 transition duration-300 ease-out-expo hover:bg-white/10 hover:text-white active:scale-[0.98]",
-                isExpanded ? "justify-start gap-3" : "justify-center"
-              )}
-              title={!isExpanded ? "Back to Website" : ""}
-            >
-              <span className="text-xl transition-transform duration-300 ease-out-expo group-hover/back:-translate-x-1">
-                <FiChevronLeft />
-              </span>
-              {isExpanded && <span className="motion-safe:animate-fade-in">Back to Website</span>}
-            </a>
           </div>
         </div>
       </div>

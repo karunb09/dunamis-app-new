@@ -77,7 +77,7 @@ const RouteFallback = () => (
   <div className="space-y-4 motion-safe:animate-fade-in" style={{ animationDelay: "150ms" }}>
     <div className={`h-3 w-24 rounded-full ${SHIMMER}`} />
     <div className={`h-8 w-64 rounded-2xl ${SHIMMER}`} />
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-cards gap-4">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className={`h-40 rounded-[30px] ${SHIMMER}`} />
       ))}

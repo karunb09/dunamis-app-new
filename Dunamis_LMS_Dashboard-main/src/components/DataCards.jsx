@@ -144,13 +144,16 @@ const DataCards = ({
             </div>
 
             {currentData.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-cards gap-4">
                     {currentData.map((row, index) => {
                         const rowId = row._id ?? row.id;
+                        // grid-cols-1 (minmax(0,1fr)), not a bare `grid`: an implicit auto
+                        // column can't shrink below the card's min-content, and a truncated
+                        // long name counts at full width — the card spilled over its neighbour.
                         return (
                             <div
                                 key={rowId}
-                                className="grid motion-safe:animate-fade-in-up"
+                                className="grid min-w-0 grid-cols-1 motion-safe:animate-fade-in-up"
                                 style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
                             >
                                 {renderCard(row, {
