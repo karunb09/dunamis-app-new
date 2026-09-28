@@ -221,35 +221,6 @@ export const changePassword = createAsyncThunk(
   }
 );
 
-export const getAllUsers = createAsyncThunk(
-  "auth/getAllUsers",
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/user/get-all`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getToken()}`,
-          },
-          credentials: "include",
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return rejectWithValue(data.message || "Failed to fetch users");
-      }
-
-      return data;
-    } catch (error) {
-      return rejectWithValue(error.message || "An error occurred");
-    }
-  }
-);
-
 export const getUserDashboardNotices = createAsyncThunk(
   "auth/getUserDashboardNotices",
   async (_, { rejectWithValue }) => {
@@ -464,7 +435,6 @@ const authSlice = createSlice({
   initialState: {
     user: getStoredUser(),
     token: getStoredToken(),
-    users: [],
     currentUserProfile: null,
     notices: [],
     loading: false,
@@ -481,7 +451,6 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
-      state.users = [];
       state.currentUserProfile = null;
       state.notices = [];
       state.hydrating = false;
@@ -532,7 +501,6 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.user = null;
         state.token = null;
-        state.users = [];
         state.currentUserProfile = null;
         state.notices = [];
         state.hydrating = false;
@@ -541,7 +509,6 @@ const authSlice = createSlice({
       .addCase(logoutUser.rejected, (state) => {
         state.user = null;
         state.token = null;
-        state.users = [];
         state.currentUserProfile = null;
         state.notices = [];
         state.hydrating = false;
@@ -592,19 +559,6 @@ const authSlice = createSlice({
         state.loading = false;
       })
       .addCase(changePassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      })
-
-      .addCase(getAllUsers.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(getAllUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.users = action.payload.users || action.payload;
-      })
-      .addCase(getAllUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -662,12 +616,6 @@ const authSlice = createSlice({
         state.loading = false;
         if (state.user && state.user._id === action.payload.user._id) {
           state.user = action.payload.user;
-        }
-        const index = state.users.findIndex(
-          (u) => u._id === action.payload.user._id
-        );
-        if (index !== -1) {
-          state.users[index] = action.payload.user;
         }
       })
       .addCase(updateUser.rejected, (state, action) => {

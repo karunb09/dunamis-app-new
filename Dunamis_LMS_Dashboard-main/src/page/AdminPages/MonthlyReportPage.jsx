@@ -1,17 +1,16 @@
 import React, { useMemo, useState } from "react";
 import dayjs from "dayjs";
-import { useSelector } from "react-redux";
 import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import { FiRefreshCw, FiChevronLeft, FiChevronRight, FiInbox } from "react-icons/fi";
 import { useMonthlyInsights, useInsightMonths } from "../../hooks/useMonthlyInsights";
-import { getStoredUser } from "../../utils/authSession";
 import { exportToExcel } from "../../utils/exportToExcel";
 import StatTile from "../../components/insights/StatTile";
 import BarRow from "../../components/insights/BarRow";
 import MiniBars from "../../components/insights/MiniBars";
 import FunnelBar from "../../components/insights/FunnelBar";
 import ExportMenu from "../../components/ExportMenu";
+import ScopeBanner from "../../components/org/ScopeBanner";
 
 const formatInr = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -81,7 +80,19 @@ const SimpleTable = ({ headers, rows, emptyText = "No data for this month." }) =
     <p className="py-4 text-center text-xs text-slate-400">{emptyText}</p>
   );
 
+// Sections the server left out for this admin: company-wide figures for someone
+// with an area, money for someone without Financials. Hidden, never shown as 0.
+const visibleSections = (data) => {
+  const hidden = new Set(data.hiddenSections || []);
+  return (name) => !hidden.has(name);
+};
+
+// Leads are company-wide enquiries: without them the funnel starts at demos.
+const funnelStages = (data) =>
+  visibleSections(data)("enquiries") ? data.funnel.stages : data.funnel.stages.filter((s) => s.key !== "leads");
+
 const buildInsightSheets = (data) => {
+  const has = visibleSections(data);
   const metricRow = (label, metric) => [
     label,
     metric?.current ?? 0,
@@ -98,11 +109,11 @@ const buildInsightSheets = (data) => {
   ];
 
   const summaryRows = [
-    metricRow("Students registered", data.growth.studentsRegistered),
+    has("users") && metricRow("Students registered", data.growth.studentsRegistered),
     metricRow("Students enrolled", data.growth.studentsEnrolled),
-    metricRow("Revenue (gross)", data.revenue.gross),
+    has("revenue") && metricRow("Revenue (gross)", data.revenue.gross),
     metricRow("Demos booked", data.funnel.demos.booked),
-  ];
+  ].filter(Boolean);
 
   const growthRows = [
     metricRow("Students registered", data.growth.studentsRegistered),
@@ -132,7 +143,7 @@ const buildInsightSheets = (data) => {
     { header: "Students", value: (r) => r[4] },
   ];
 
-  const funnelRows = data.funnel.stages.map((s) => [s.label, s.value, s.rateFromPrev == null ? "" : `${s.rateFromPrev}%`]);
+  const funnelRows = funnelStages(data).map((s) => [s.label, s.value, s.rateFromPrev == null ? "" : `${s.rateFromPrev}%`]);
   const funnelCols = [
     { header: "Stage", value: (r) => r[0], width: 28 },
     { header: "Count", value: (r) => r[1] },
@@ -141,19 +152,19 @@ const buildInsightSheets = (data) => {
 
   const deliveryRows = [
     metricRow("Sessions held", data.delivery.sessions.total),
-    metricRow("Attendance records", data.delivery.attendance.records),
-    metricRow("Completions", data.delivery.completions),
-    metricRow("Assignments", data.delivery.assignments),
-  ];
+    has("attendance") && metricRow("Attendance records", data.delivery.attendance.records),
+    has("completions") && metricRow("Completions", data.delivery.completions),
+    has("assignments") && metricRow("Assignments", data.delivery.assignments),
+  ].filter(Boolean);
 
   const trendCols = [
     { header: "Month", value: (r) => r.month, width: 12 },
-    { header: "Students registered", value: (r) => r.students },
+    has("users") && { header: "Students registered", value: (r) => r.students },
     { header: "Enrollments", value: (r) => r.enrollments },
-    { header: "Revenue", value: (r) => r.revenue },
+    has("revenue") && { header: "Revenue", value: (r) => r.revenue },
     { header: "Demos booked", value: (r) => r.demosBooked },
     { header: "Demos converted", value: (r) => r.demosConverted },
-  ];
+  ].filter(Boolean);
   const trendRows = data.trailingMonths.map((month, i) => ({
     month,
     students: data.growth.studentsRegistered.series[i]?.value ?? 0,
@@ -165,13 +176,13 @@ const buildInsightSheets = (data) => {
 
   return [
     { name: "Summary", columns: metricCols, rows: summaryRows },
-    { name: "Growth", columns: metricCols, rows: growthRows },
-    { name: "Revenue", columns: metricCols, rows: revenueRows },
-    { name: "Revenue by Course", columns: revenueByCourseCols, rows: revenueByCourseRows },
+    has("users") && { name: "Growth", columns: metricCols, rows: growthRows },
+    has("revenue") && { name: "Revenue", columns: metricCols, rows: revenueRows },
+    has("revenue") && { name: "Revenue by Course", columns: revenueByCourseCols, rows: revenueByCourseRows },
     { name: "Funnel", columns: funnelCols, rows: funnelRows },
     { name: "Delivery", columns: metricCols, rows: deliveryRows },
     { name: "Monthly Trend", columns: trendCols, rows: trendRows },
-  ];
+  ].filter(Boolean);
 };
 
 const MonthlyReportPage = () => {
@@ -182,12 +193,6 @@ const MonthlyReportPage = () => {
 
   const { data, isLoading, isError, error, refetch, isFetching } = useMonthlyInsights(month);
   const { data: monthsData } = useInsightMonths();
-
-  const authUser = useSelector((state) => state.auth?.user) || getStoredUser();
-  const accountType = authUser?.accountType;
-  const permissions = authUser?.permissions || [];
-  const canSeeRevenue =
-    accountType === "superadmin" || permissions.length === 0 || permissions.includes("allAccess") || permissions.includes("financials");
 
   const availableMonths = useMemo(
     () => monthsBetween(monthsData?.earliest, monthsData?.latest || dayjs().format("YYYY-MM")),
@@ -258,6 +263,7 @@ const MonthlyReportPage = () => {
   const revenue = data.revenue;
   const funnel = data.funnel;
   const delivery = data.delivery;
+  const has = visibleSections(data);
 
   const isEmptyMonth =
     growth.studentsRegistered.current === 0 &&
@@ -319,6 +325,8 @@ const MonthlyReportPage = () => {
         </div>
       </div>
 
+      <ScopeBanner />
+
       {data.partial && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
           ⚠️ Some sections could not be computed this run: {data.failedSections.join(", ")}. Those figures may read as
@@ -331,42 +339,44 @@ const MonthlyReportPage = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile label="Students registered" {...growth.studentsRegistered} />
+            {has("users") && <StatTile label="Students registered" {...growth.studentsRegistered} />}
             <StatTile label="New enrollments" {...growth.studentsEnrolled} />
-            <StatTile label="Revenue" {...revenue.gross} format={formatInr} />
+            {has("revenue") && <StatTile label="Revenue" {...revenue.gross} format={formatInr} />}
             <StatTile label="Demo → enroll rate" current={funnel.demos.conversionRate ?? 0} format={(v) => `${v}%`} />
           </div>
 
-          <SectionCard title="Growth" subtitle="New courses, students, and instructors this month">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StatTile label="Instructors added" {...growth.instructorsAdded} />
-              <StatTile label="Courses created" {...growth.coursesCreated} />
-              <StatTile label="Courses published" {...growth.coursesPublished} />
-              <StatTile label="Branches added" {...growth.branchesAdded} />
-              <StatTile label="Categories added" {...growth.categoriesAdded} />
-              <StatTile label="Admins added" {...growth.adminsAdded} />
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
-              <div>
-                <p className="text-slate-500">Total students</p>
-                <p className="text-lg font-semibold text-slate-900">{growth.cumulative.students.toLocaleString("en-IN")}</p>
+          {has("users") && (
+            <SectionCard title="Growth" subtitle="New courses, students, and instructors this month">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <StatTile label="Instructors added" {...growth.instructorsAdded} />
+                <StatTile label="Courses created" {...growth.coursesCreated} />
+                <StatTile label="Courses published" {...growth.coursesPublished} />
+                <StatTile label="Branches added" {...growth.branchesAdded} />
+                <StatTile label="Categories added" {...growth.categoriesAdded} />
+                <StatTile label="Admins added" {...growth.adminsAdded} />
               </div>
-              <div>
-                <p className="text-slate-500">Total courses</p>
-                <p className="text-lg font-semibold text-slate-900">{growth.cumulative.courses.toLocaleString("en-IN")}</p>
+              <div className="mt-4 grid grid-cols-2 gap-4 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-4">
+                <div>
+                  <p className="text-slate-500">Total students</p>
+                  <p className="text-lg font-semibold text-slate-900">{growth.cumulative.students.toLocaleString("en-IN")}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Total courses</p>
+                  <p className="text-lg font-semibold text-slate-900">{growth.cumulative.courses.toLocaleString("en-IN")}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Total instructors</p>
+                  <p className="text-lg font-semibold text-slate-900">{growth.cumulative.instructors.toLocaleString("en-IN")}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Active branches</p>
+                  <p className="text-lg font-semibold text-slate-900">{growth.cumulative.activeBranches.toLocaleString("en-IN")}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-slate-500">Total instructors</p>
-                <p className="text-lg font-semibold text-slate-900">{growth.cumulative.instructors.toLocaleString("en-IN")}</p>
-              </div>
-              <div>
-                <p className="text-slate-500">Active branches</p>
-                <p className="text-lg font-semibold text-slate-900">{growth.cumulative.activeBranches.toLocaleString("en-IN")}</p>
-              </div>
-            </div>
-          </SectionCard>
+            </SectionCard>
+          )}
 
-          {canSeeRevenue ? (
+          {has("revenue") ? (
             <SectionCard title="Revenue" subtitle="Recognized revenue from PaymentTransaction (paidAt-based)">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile label="Gross revenue" {...revenue.gross} format={formatInr} />
@@ -407,20 +417,22 @@ const MonthlyReportPage = () => {
               />
 
               <div className="mt-6 grid grid-cols-1 gap-4 rounded-2xl bg-slate-50 p-4 text-sm sm:grid-cols-3">
-                <div>
-                  <p className="text-slate-500">Outstanding dues</p>
-                  <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.outstanding.amount)}</p>
-                  <p className="text-xs text-slate-400">
-                    {revenue.outstanding.count} installment(s)
-                    {revenue.outstanding.asOfNow ? " · as of today" : ""}
-                  </p>
-                  <Link
-                    to="/admin/financials?tab=dues"
-                    className="mt-1 inline-block text-xs font-medium text-orange-600 hover:underline"
-                  >
-                    View who owes →
-                  </Link>
-                </div>
+                {has("outstanding") && (
+                  <div>
+                    <p className="text-slate-500">Outstanding dues</p>
+                    <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.outstanding.amount)}</p>
+                    <p className="text-xs text-slate-400">
+                      {revenue.outstanding.count} installment(s)
+                      {revenue.outstanding.asOfNow ? " · as of today" : ""}
+                    </p>
+                    <Link
+                      to="/admin/financials?tab=dues"
+                      className="mt-1 inline-block text-xs font-medium text-orange-600 hover:underline"
+                    >
+                      View who owes →
+                    </Link>
+                  </div>
+                )}
                 <div>
                   <p className="text-slate-500">Refunded</p>
                   <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.refunded.amount)}</p>
@@ -432,11 +444,13 @@ const MonthlyReportPage = () => {
                     View refunds →
                   </Link>
                 </div>
-                <div>
-                  <p className="text-slate-500">Referral discount given</p>
-                  <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.referrals.discountGiven)}</p>
-                  <p className="text-xs text-slate-400">{revenue.referrals.pendingRewards} reward(s) pending</p>
-                </div>
+                {has("referrals") && (
+                  <div>
+                    <p className="text-slate-500">Referral discount given</p>
+                    <p className="text-lg font-semibold text-slate-900">{formatInr(revenue.referrals.discountGiven)}</p>
+                    <p className="text-xs text-slate-400">{revenue.referrals.pendingRewards} reward(s) pending</p>
+                  </div>
+                )}
               </div>
             </SectionCard>
           ) : (
@@ -446,7 +460,7 @@ const MonthlyReportPage = () => {
           )}
 
           <SectionCard title="Funnel" subtitle="Leads → demos → enrollments">
-            <FunnelBar stages={funnel.stages} />
+            <FunnelBar stages={funnelStages(data)} />
 
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div>
@@ -455,19 +469,21 @@ const MonthlyReportPage = () => {
                 <BarRow label="Missed" value={funnel.demos.missed.current} max={funnel.demos.booked.current || 1} tone="rose" />
                 <BarRow label="Cancelled" value={funnel.demos.cancelled.current} max={funnel.demos.booked.current || 1} tone="slate" />
               </div>
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Applications & requests</p>
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-500">Teacher applications</p>
-                    <p className="text-lg font-semibold text-slate-900">{funnel.teacherApplications.total.current}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500">Course requests</p>
-                    <p className="text-lg font-semibold text-slate-900">{funnel.courseRequests.total.current}</p>
+              {has("teacherApplications") && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Applications & requests</p>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p className="text-slate-500">Teacher applications</p>
+                      <p className="text-lg font-semibold text-slate-900">{funnel.teacherApplications.total.current}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Course requests</p>
+                      <p className="text-lg font-semibold text-slate-900">{funnel.courseRequests.total.current}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <p className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-slate-400">Top courses by demo bookings</p>
@@ -480,27 +496,29 @@ const MonthlyReportPage = () => {
           <SectionCard title="Delivery" subtitle="Classes held, attendance, and academic activity">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <StatTile label="Sessions held" {...delivery.sessions.total} />
-              <StatTile label="Attendance records" {...delivery.attendance.records} />
-              <StatTile label="Completions" {...delivery.completions} />
-              <StatTile label="Assignments" {...delivery.assignments} />
+              {has("attendance") && <StatTile label="Attendance records" {...delivery.attendance.records} />}
+              {has("completions") && <StatTile label="Completions" {...delivery.completions} />}
+              {has("assignments") && <StatTile label="Assignments" {...delivery.assignments} />}
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Attendance</p>
-                <BarRow label="Present" value={delivery.attendance.present} displayValue={`${formatPct(delivery.attendance.rate)}`} max={delivery.attendance.present + delivery.attendance.absent || 1} tone="emerald" />
-                <p className="mt-2 text-xs text-slate-400">
-                  {delivery.attendance.activeStudents} active student(s) · {delivery.attendance.activeInstructors} active instructor(s)
-                </p>
+            {has("attendance") && (
+              <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Attendance</p>
+                  <BarRow label="Present" value={delivery.attendance.present} displayValue={`${formatPct(delivery.attendance.rate)}`} max={delivery.attendance.present + delivery.attendance.absent || 1} tone="emerald" />
+                  <p className="mt-2 text-xs text-slate-400">
+                    {delivery.attendance.activeStudents} active student(s) · {delivery.attendance.activeInstructors} active instructor(s)
+                  </p>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Feedback</p>
+                  <p className="text-sm text-slate-600">
+                    {delivery.feedback.count} response(s) · avg course rating {delivery.feedback.avgCourseRating ?? "—"} · avg
+                    instructor rating {delivery.feedback.avgInstructorRating ?? "—"}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Feedback</p>
-                <p className="text-sm text-slate-600">
-                  {delivery.feedback.count} response(s) · avg course rating {delivery.feedback.avgCourseRating ?? "—"} · avg
-                  instructor rating {delivery.feedback.avgInstructorRating ?? "—"}
-                </p>
-              </div>
-            </div>
+            )}
           </SectionCard>
         </>
       )}

@@ -19,6 +19,7 @@ import {
 } from "react-icons/fi";
 import { getStoredToken } from "../../utils/authSession";
 import AnimatedNumber from "../../components/AnimatedNumber";
+import { hasPermission } from "../../utils/permissions";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -90,8 +91,6 @@ const formatCurrency = (value) =>
 
 export default function AdminHomePage() {
   const { user } = useSelector((state) => state.auth);
-  const permissions = user?.permissions || [];
-  const hasFullAccess = permissions.length === 0 || permissions.includes("allAccess");
   const firstName = user?.name?.firstName || "Admin";
   const today = new Date().toLocaleDateString("en-IN", {
     weekday: "long",
@@ -99,10 +98,10 @@ export default function AdminHomePage() {
     month: "long",
   });
 
-  const quickLinks = useMemo(() => {
-    if (hasFullAccess) return ALL_QUICK_LINKS;
-    return ALL_QUICK_LINKS.filter((link) => permissions.includes(link.permission));
-  }, [hasFullAccess, permissions]);
+  const quickLinks = useMemo(
+    () => ALL_QUICK_LINKS.filter((link) => hasPermission(user, link.permission)),
+    [user]
+  );
 
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -145,55 +144,63 @@ export default function AdminHomePage() {
   const metrics = useMemo(
     () => [
       {
+        key: "totalStudents",
         label: "Total Students",
         value: summary?.totalStudents ?? 0,
         icon: FiUsers,
         chip: "from-[#FF6B35] to-amber-400",
       },
       {
+        key: "activeCourses",
         label: "Active Courses",
         value: summary?.activeCourses ?? 0,
         icon: FiBookOpen,
         chip: "from-teal-500 to-emerald-400",
       },
       {
+        key: "totalInstructors",
         label: "Instructors",
         value: summary?.totalInstructors ?? 0,
         icon: FiAward,
         chip: "from-purple-500 to-fuchsia-400",
       },
       {
+        key: "revenue",
         label: "Revenue",
-        value: Number(summary?.revenue) || 0,
+        value: summary?.revenue ?? 0,
         format: formatCurrency,
         icon: FiTrendingUp,
         chip: "from-emerald-500 to-lime-400",
       },
       {
+        key: "newEnquiries",
         label: "New Enquiries",
         value: summary?.newEnquiries ?? 0,
         icon: FiMail,
         chip: "from-sky-500 to-cyan-400",
       },
       {
+        key: "pendingApplications",
         label: "Pending Applications",
         value: summary?.pendingApplications ?? 0,
         icon: FiFileText,
         chip: "from-amber-500 to-yellow-400",
       },
       {
+        key: "bookedDemos",
         label: "Booked Demos",
         value: summary?.bookedDemos ?? 0,
         icon: FiCalendar,
         chip: "from-rose-500 to-pink-400",
       },
       {
+        key: "activeBranches",
         label: "Active Branches",
         value: summary?.activeBranches ?? 0,
         icon: FiMapPin,
         chip: "from-indigo-500 to-violet-400",
       },
-    ],
+    ].filter((metric) => summary?.[metric.key] !== null),
     [summary]
   );
 
@@ -282,9 +289,9 @@ export default function AdminHomePage() {
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-              {metrics.map(({ icon: Icon, format, ...metric }, index) => (
+              {metrics.map(({ icon: Icon, format, key, ...metric }, index) => (
                 <div
-                  key={metric.label}
+                  key={key}
                   className="group rounded-2xl border border-white bg-white/80 p-4 shadow-sm backdrop-blur transition duration-300 ease-out-expo hover:shadow-md motion-safe:animate-fade-in-up sm:rounded-3xl sm:p-5"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >

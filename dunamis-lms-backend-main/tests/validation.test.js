@@ -17,6 +17,10 @@ const { bankDetailsSchema } = require("../validators/teacher.validator");
 const { createAdminSchema } = require("../validators/admin.validator");
 const { idParam } = require("../validators/common");
 const { dailyAttendanceQuerySchema } = require("../validators/attendanceReport.validator");
+const {
+  checkInSchema,
+  checkInNoteSchema,
+} = require("../validators/instructorCheckIn.validator");
 const { isValidDayKey } = require("../utils/istMonth");
 
 const OID = "a".repeat(24);
@@ -218,6 +222,19 @@ test("errorHandler: honours err.statusCode and hides stack in production", () =>
   process.env.NODE_ENV = prev;
 });
 
+test("errorHandler: passes a service error's hint and details through", () => {
+  const res = mockRes();
+  const err = Object.assign(new Error("You are 640 m from the branch."), {
+    statusCode: 422,
+    hint: "Contact IT support if this issue persists.",
+    details: { distanceM: 640, radiusM: 200 },
+  });
+  errorHandler(err, {}, res, () => {});
+  assert.equal(res.statusCode, 422);
+  assert.equal(res.body.hint, "Contact IT support if this issue persists.");
+  assert.deepEqual(res.body.details, { distanceM: 640, radiusM: 200 });
+});
+
 test("notFound: returns a 404", () => {
   const res = mockRes();
   notFound({ method: "GET", originalUrl: "/nope" }, res, () => {});
@@ -305,27 +322,65 @@ test("bankDetails: bad IFSC -> 400; valid -> uppercases IFSC", () => {
   assert.equal(ok.req.body.ifscCode, "HDFC0001234");
 });
 
-test("createAdmin: accepts array permission, rejects missing department", () => {
+test("createAdmin: accepts array permission, rejects a missing designation", () => {
   const ok = runValidate(createAdminSchema, {
     name: { firstName: "A", lastName: "B" },
     email: "a@b.com",
     mobileNo: "9990001111",
-    role: "manager",
-    accessLevel: "full",
+    role: "Tele Caller",
     permission: ["x"],
-    department: "ops",
+    org: { designation: "aa", workMode: "offline", branches: ["b1"] },
+    dateOfJoining: "2026-09-01",
   });
   assert.equal(ok.nextCalled, true);
+  assert.deepEqual(ok.req.body.org.branches, ["b1"], "scope passes through to the placement check");
 
   const bad = runValidate(createAdminSchema, {
     name: { firstName: "A", lastName: "B" },
     email: "a@b.com",
     mobileNo: "9990001111",
-    role: "manager",
-    accessLevel: "full",
+    role: "Tele Caller",
     permission: ["x"],
+    org: {},
+    dateOfJoining: "2026-09-01",
   });
   assert.equal(bad.res.statusCode, 400);
+  assert.match(bad.res.body.message, /designation/i);
+});
+
+test("createAdmin: HR fields — joining date required, DOB in the past, 10-digit emergency phone", () => {
+  const base = {
+    name: { firstName: "A", lastName: "B" },
+    email: "a@b.com",
+    mobileNo: "9990001111",
+    role: "HR",
+    permission: ["x"],
+    org: { designation: "hrManager" },
+  };
+
+  const noJoining = runValidate(createAdminSchema, base);
+  assert.equal(noJoining.res.statusCode, 400);
+  assert.match(noJoining.res.body.message, /date of joining/i);
+
+  const futureBirth = runValidate(createAdminSchema, { ...base, dateOfJoining: "2026-09-01", dateOfBirth: "2999-01-01" });
+  assert.equal(futureBirth.res.statusCode, 400);
+  assert.match(futureBirth.res.body.message, /in the past/i);
+
+  const shortPhone = runValidate(createAdminSchema, {
+    ...base,
+    dateOfJoining: "2026-09-01",
+    emergencyContact: { name: "Ravi", relation: "Brother", phone: "12345" },
+  });
+  assert.equal(shortPhone.res.statusCode, 400);
+
+  const ok = runValidate(createAdminSchema, {
+    ...base,
+    dateOfJoining: "2026-09-01",
+    dateOfBirth: "1990-05-20",
+    emergencyContact: { name: "Ravi", relation: "Brother", phone: "9876543210" },
+    address: "Road 1, Hyderabad",
+  });
+  assert.equal(ok.nextCalled, true);
 });
 
 test("idParam: malformed id -> 400 (params source)", () => {
@@ -365,4 +420,48 @@ test("dailyAttendance: date stays a string so the IST window is built correctly"
   // Omitting everything is valid — the service falls back to today.
   const empty = runValidate(dailyAttendanceQuerySchema, {}, "query");
   assert.equal(empty.nextCalled, true);
+});
+
+test("checkIn: needs a branch and a numeric location; device time is coerced", () => {
+  const ok = runValidate(checkInSchema, {
+    branchId: OID,
+    lat: 17.4,
+    lng: 78.4,
+    accuracyM: 12.5,
+    deviceTime: 1789000000000,
+  });
+  assert.equal(ok.nextCalled, true);
+  assert.ok(ok.req.body.deviceTime instanceof Date);
+
+  const noLocation = runValidate(checkInSchema, { branchId: OID });
+  assert.equal(noLocation.res.statusCode, 400);
+  assert.match(noLocation.res.body.message, /Location is required/);
+
+  const stringy = runValidate(checkInSchema, { branchId: OID, lat: "17.4", lng: 78.4, accuracyM: 5 });
+  assert.equal(stringy.res.statusCode, 400, "coordinates come from the browser as numbers");
+
+  const nullTime = runValidate(checkInSchema, {
+    branchId: OID,
+    lat: 17.4,
+    lng: 78.4,
+    accuracyM: 5,
+    deviceTime: null,
+  });
+  assert.equal(nullTime.nextCalled, true, "explicit null must pass — .nullish(), not .optional()");
+  assert.equal(nullTime.req.body.deviceTime, null);
+});
+
+test("checkInNote: a note is required; the corrected time is optional", () => {
+  const ok = runValidate(checkInNoteSchema, { note: "  Left at 5  ", correctedCheckOutAt: null });
+  assert.equal(ok.nextCalled, true);
+  assert.equal(ok.req.body.note, "Left at 5");
+
+  const blank = runValidate(checkInNoteSchema, { note: "   " });
+  assert.equal(blank.res.statusCode, 400);
+
+  const withTime = runValidate(checkInNoteSchema, {
+    note: "Called",
+    correctedCheckOutAt: "2026-09-15T11:35:00.000Z",
+  });
+  assert.ok(withTime.req.body.correctedCheckOutAt instanceof Date);
 });

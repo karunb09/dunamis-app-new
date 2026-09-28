@@ -153,7 +153,7 @@ const OfflineCentersPage = () => {
     const [filterOpen, setFilterOpen] = useState(false);
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState("");
-    const [filters, setFilters] = useState({ city: "", zone: "" });
+    const [filters, setFilters] = useState({ city: "" });
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -230,7 +230,6 @@ const OfflineCentersPage = () => {
         )
         .filter((branch) => {
             if (filters.city && branch.city?.cityName !== filters.city) return false;
-            if (filters.zone && branch.zone !== filters.zone) return false;
             return true;
         });
 
@@ -363,7 +362,7 @@ const OfflineCentersPage = () => {
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => setFilters({ city: "", zone: "" })}
+                                onClick={() => setFilters({ city: "" })}
                                 className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear

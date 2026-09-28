@@ -4,6 +4,7 @@ import { FaCamera } from 'react-icons/fa';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
 import ReactSelect from 'react-select';
 import ProfileImageCropper from '../../../../components/ProfileImageCropper';
+import InstructorPlacementFields from '../../../../components/org/InstructorPlacementFields';
 import {
     LANGUAGE_OPTIONS,
     LANGUAGE_SELECT_STYLES,
@@ -74,11 +75,10 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
     if (!open) return null;
 
     const currentPicture = profilePicturePreview || resolveImageUrl(form.profilePicture, DEFAULT_AVATAR);
-    const coursesText = Array.isArray(form.courses) ? form.courses.join(', ') : '';
 
     return (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-30 px-3 py-4 sm:items-center sm:px-4 motion-safe:animate-fade-in">
-            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6 motion-safe:animate-modal-in">
+            <div className="relative my-auto max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6 motion-safe:animate-modal-in">
                 <h2 className="text-xl font-semibold mb-4">Edit Instructor Details</h2>
 
                 <div className="mb-5 flex flex-col items-start gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex-row sm:items-center">
@@ -138,29 +138,15 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                     />
                 </div>
 
-                {/* Branch - only if Offline or Hybrid */}
-                {(form.mode === 'offline' || form.mode === 'hybrid') && (
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium mb-1">Branch</label>
-                        <input
-                            type="text"
-                            value={form.branch}
-                            onChange={(e) => handleChange('branch', e.target.value)}
-                            className="rounded-2xl w-full border border-gray-300 rounded px-3 py-2"
-                        />
-                    </div>
-                )}
-
-                {/* Courses Input */}
+                {/* Reporting line + branches (offline/hybrid only) */}
                 <div className="mb-4">
-                    <label className="block text-sm font-medium mb-1">Courses (comma-separated)</label>
-                    <input
-                        type="text"
-                        value={coursesText}
-                        onChange={(e) =>
-                            handleChange('courses', e.target.value.split(',').map(c => c.trim()))
+                    <InstructorPlacementFields
+                        reportsTo={form.reportsTo}
+                        branchIds={form.branchIds}
+                        mode={form.mode}
+                        onChange={({ reportsTo, branchIds }) =>
+                            setForm((prev) => ({ ...prev, reportsTo, branchIds }))
                         }
-                        className="rounded-2xl w-full border border-gray-300 rounded px-3 py-2"
                     />
                 </div>
 

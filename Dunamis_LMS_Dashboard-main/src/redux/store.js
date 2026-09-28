@@ -4,7 +4,6 @@ import applicationReducer from "./Intructor/teacherApplication";
 import teacherReducer from "./Intructor/teacherSlice";
 import branchReducer from "./Branch/branchSlice";
 import cityReducer from "./City/CitySlice";
-import zoneReducer from "./Zone/ZoneSlice";
 import subCategoryReducer from "./SubCategory/SubCategorySlice";
 import contentReducer from "./Content/ContentSlice";
 import adminReducer from "./Admin/AdminSlice";
@@ -47,7 +46,6 @@ const appReducer = combineReducers({
   application: applicationReducer,
   branch: branchReducer,
   city: cityReducer,
-  zone: zoneReducer,
   subCategory: subCategoryReducer,
   teachers: teacherReducer,
   content: contentReducer,

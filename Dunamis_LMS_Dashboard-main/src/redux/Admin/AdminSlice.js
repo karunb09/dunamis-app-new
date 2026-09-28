@@ -3,6 +3,12 @@ import axiosAuth from "../../utils/axiosAuth";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+// Refusals carry a `hint` saying who can make the change; show it with the message.
+const apiErrorMessage = (error) => {
+  const data = error.response?.data;
+  return [data?.message || error.message, data?.hint].filter(Boolean).join(" ");
+};
+
 // Fetch all admins
 export const fetchAdmins = createAsyncThunk(
   "admin/fetchAdmins",
@@ -12,7 +18,7 @@ export const fetchAdmins = createAsyncThunk(
       if (!data.success) return rejectWithValue(data.message);
       return data.admins;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(apiErrorMessage(error));
     }
   }
 );
@@ -26,7 +32,7 @@ export const fetchAdminById = createAsyncThunk(
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(apiErrorMessage(error));
     }
   }
 );
@@ -40,7 +46,7 @@ export const createAdmin = createAsyncThunk(
       if (!data.success) return rejectWithValue(data.message);
       return { ...data.admin, userId: data.user };
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(apiErrorMessage(error));
     }
   }
 );
@@ -54,7 +60,7 @@ export const updateAdmin = createAsyncThunk(
       if (!data.success) return rejectWithValue(data.message);
       return data.admin;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(apiErrorMessage(error));
     }
   }
 );
@@ -68,7 +74,7 @@ export const deleteAdmin = createAsyncThunk(
       if (!data.success) return rejectWithValue(data.message);
       return id;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(apiErrorMessage(error));
     }
   }
 );

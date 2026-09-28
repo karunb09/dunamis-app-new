@@ -7,7 +7,7 @@ const {
   assignEnquiry,
   respondEnquiry,
 } = require("../controller/enquiry.controller");
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { createEnquirySchema } = require("../validators/enquiry.validator");
 
@@ -15,14 +15,15 @@ const { createEnquirySchema } = require("../validators/enquiry.validator");
 router.post("/create", validate(createEnquirySchema), createEnquiry);
 
 // Admin/Super Admin
-router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllEnquiries);
-router.get("/:id", isAuth, accessToRole(["admin", "superadmin"]), getEnquiryById);
+router.get("/", isAuth, accessToRole(["admin", "superadmin"]), requirePermission("enquiries"), getAllEnquiries);
+router.get("/:id", isAuth, accessToRole(["admin", "superadmin"]), requirePermission("enquiries"), getEnquiryById);
 
 // Assign
 router.put(
   "/assign/:id",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("enquiries"),
   assignEnquiry
 );
 
@@ -31,6 +32,7 @@ router.put(
   "/respond/:id",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("enquiries"),
   respondEnquiry
 );
 

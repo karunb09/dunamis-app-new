@@ -8,13 +8,19 @@ import {
     fetchBranchById,
     updateBranch,
 } from "../../../redux/Branch/branchSlice";
-import { getAllUsers } from "../../../redux/User/UserSlice";
 import { fetchTeachers } from "../../../redux/Intructor/teacherSlice";
 import { deleteCity, getAllCities } from "../../../redux/City/CitySlice";
 import { PiUpload } from "react-icons/pi";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { resolveImageUrl } from "../../../utils/resolveImageUrl";
+import { getCurrentFix } from "../../../utils/geolocation";
+import { mapsUrl } from "../../../utils/checkInFormat";
+import { useCreateZone, useDeleteZone, useRenameZone, useStaffDirectory, useZones } from "../../../hooks/useOrg";
+import { designationLabel } from "../../../constants/orgStructure";
+
+// "17.4156, 78.4347", as Google Maps copies a dropped pin.
+const COORDINATE_PAIR = /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/;
 
 const AddBranch = () => {
     const { id } = useParams();
@@ -37,17 +43,25 @@ const AddBranch = () => {
         centreFacilities: "",
         branchImage: null,
         teachers: [],
+        geoLat: "",
+        geoLng: "",
+        geofenceRadiusM: "200",
     });
 
     const [showDaysDropdown, setShowDaysDropdown] = useState(false);
+    const [pinning, setPinning] = useState(false);
+    const [pinAccuracy, setPinAccuracy] = useState(null);
 
     const { loading, error, selectedBranch } = useSelector(
         (state) => state.branch
     );
 
-    const { users = [], loading: usersLoading, error: usersError, listStatus: userListStatus } = useSelector(
-        (state) => state.user
-    );
+    const { data: staff = [], isLoading: staffLoading } = useStaffDirectory();
+    const { data: zones = [] } = useZones();
+    const createZone = useCreateZone();
+    const renameZone = useRenameZone();
+    const removeZone = useDeleteZone();
+    const cityZones = zones.filter((zone) => (zone.city?._id || zone.city) === formData.city);
     const { cities = [], loading: citiesLoading, listStatus: cityListStatus } = useSelector(
         (state) => state.city
     );
@@ -60,13 +74,6 @@ const AddBranch = () => {
     const branchFallbackImage = `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
         formData.branchName || selectedBranch?.branchName || "Branch"
     )}`;
-
-    // Fetch users and cities
-    useEffect(() => {
-        if (userListStatus === "idle") {
-            dispatch(getAllUsers());
-        }
-    }, [dispatch, userListStatus]);
 
     useEffect(() => {
         if (cityListStatus === "idle") {
@@ -95,7 +102,7 @@ const AddBranch = () => {
             setFormData({
                 branchName: selectedBranch.branchName || "",
                 location: selectedBranch.location || "",
-                zone: selectedBranch.zone || "",
+                zone: selectedBranch.zone?._id || selectedBranch.zone || "",
                 city: selectedBranch.city?._id || selectedBranch.city || "",
                 branchManager:
                     selectedBranch.branchManager?._id || selectedBranch.branchManager || "",
@@ -111,6 +118,9 @@ const AddBranch = () => {
                     value: teacher._id || teacher.id,
                     label: getInstructorLabel(teacher),
                 })).filter((teacher) => teacher.value),
+                geoLat: selectedBranch.geo?.lat != null ? String(selectedBranch.geo.lat) : "",
+                geoLng: selectedBranch.geo?.lng != null ? String(selectedBranch.geo.lng) : "",
+                geofenceRadiusM: String(selectedBranch.geofenceRadiusM || 200),
             });
         }
     }, [id, selectedBranch]);
@@ -136,7 +146,7 @@ const AddBranch = () => {
         const { name, value } = e.target;
 
         if (name === "branchManager") {
-            const selected = users.find((u) => u._id === value);
+            const selected = staff.find((u) => u._id === value);
             if (selected && selected.email && selected.mobileNo != null) {
                 setFormData({
                     ...formData,
@@ -152,8 +162,12 @@ const AddBranch = () => {
                     branchAdminContact: "",
                 });
             }
-        } else if (name === "zone") {
-            setFormData({ ...formData, zone: value.replace(/\D/g, "") });
+        } else if (name === "city") {
+            // A zone belongs to one city, so a new city needs a new zone.
+            setFormData({ ...formData, city: value, zone: "" });
+        } else if ((name === "geoLat" || name === "geoLng") && COORDINATE_PAIR.test(value)) {
+            const [, lat, lng] = value.match(COORDINATE_PAIR);
+            setFormData({ ...formData, geoLat: lat, geoLng: lng });
         } else {
             setFormData({ ...formData, [name]: value });
         }
@@ -184,8 +198,28 @@ const AddBranch = () => {
             centreFacilities: "",
             branchImage: null,
             teachers: [],
+            geoLat: "",
+            geoLng: "",
+            geofenceRadiusM: "200",
         });
         navigate("/admin/centers");
+    };
+
+    const pinFromDevice = async () => {
+        setPinning(true);
+        try {
+            const fix = await getCurrentFix();
+            setFormData((prev) => ({
+                ...prev,
+                geoLat: fix.lat.toFixed(6),
+                geoLng: fix.lng.toFixed(6),
+            }));
+            setPinAccuracy(fix.accuracyM);
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setPinning(false);
+        }
     };
 
     const buildPayload = (status) => {
@@ -225,6 +259,19 @@ const AddBranch = () => {
             throw new Error("Start time and end time must be different.");
         }
 
+        const lat = String(formData.geoLat).trim();
+        const lng = String(formData.geoLng).trim();
+        if (Boolean(lat) !== Boolean(lng)) {
+            throw new Error("Enter both latitude and longitude for the check-in location, or leave both blank.");
+        }
+        if (lat && (Math.abs(Number(lat)) > 90 || Math.abs(Number(lng)) > 180 || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng)))) {
+            throw new Error("The check-in location's latitude or longitude is out of range.");
+        }
+        const radius = Number(formData.geofenceRadiusM);
+        if (!Number.isFinite(radius) || radius < 50 || radius > 2000) {
+            throw new Error("Check-in radius must be between 50 and 2000 metres.");
+        }
+
         const img = formData.branchImage;
         if (img) {
             if (!(img instanceof File) || !img.type.startsWith("image/")) {
@@ -254,6 +301,9 @@ const AddBranch = () => {
             "teachers",
             JSON.stringify((formData.teachers || []).map((teacher) => teacher.value || teacher))
         );
+        payload.append("geoLat", lat);
+        payload.append("geoLng", lng);
+        payload.append("geofenceRadiusM", String(radius));
         payload.append("status", status);
         if (formData.branchImage) {
             payload.append("branchImage", formData.branchImage);
@@ -343,6 +393,74 @@ const AddBranch = () => {
         });
     };
 
+    const errorText = (err, fallback) => err?.message || fallback;
+
+    const handleAddZone = async () => {
+        if (!formData.city) {
+            toast.error("Select a city first");
+            return;
+        }
+        const { value: name, isConfirmed } = await Swal.fire({
+            title: "Add zone",
+            input: "text",
+            inputPlaceholder: "e.g. Hyderabad South",
+            showCancelButton: true,
+            confirmButtonText: "Add",
+            confirmButtonColor: "#FF6B35",
+            inputValidator: (value) => (!value?.trim() ? "Enter a zone name" : undefined),
+        });
+        if (!isConfirmed) return;
+        try {
+            const zone = await createZone.mutateAsync({ name: name.trim(), city: formData.city });
+            setFormData((prev) => ({ ...prev, zone: zone._id }));
+            toast.success("Zone added");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to add zone"));
+        }
+    };
+
+    const handleRenameZone = async () => {
+        const current = cityZones.find((zone) => zone._id === formData.zone);
+        if (!current) return;
+        const { value: name, isConfirmed } = await Swal.fire({
+            title: "Rename zone",
+            input: "text",
+            inputValue: current.name,
+            showCancelButton: true,
+            confirmButtonText: "Save",
+            confirmButtonColor: "#FF6B35",
+            inputValidator: (value) => (!value?.trim() ? "Enter a zone name" : undefined),
+        });
+        if (!isConfirmed) return;
+        try {
+            await renameZone.mutateAsync({ id: current._id, name: name.trim() });
+            toast.success("Zone renamed");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to rename zone"));
+        }
+    };
+
+    const handleDeleteZone = async () => {
+        const current = cityZones.find((zone) => zone._id === formData.zone);
+        if (!current) return;
+        const { isConfirmed } = await Swal.fire({
+            title: "Delete zone?",
+            text: `This will delete ${current.name}.`,
+            icon: "warning",
+            showCancelButton: true,
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Delete",
+        });
+        if (!isConfirmed) return;
+        try {
+            await removeZone.mutateAsync(current._id);
+            setFormData((prev) => ({ ...prev, zone: "" }));
+            toast.success("Zone deleted");
+        } catch (zoneError) {
+            toast.error(errorText(zoneError, "Failed to delete zone"));
+        }
+    };
+
     function getInstructorLabel(instructor) {
         const detailName = instructor?.teacherDetail?.name;
         const userName = instructor?.user?.name || instructor?.userId?.name;
@@ -404,19 +522,97 @@ const AddBranch = () => {
                     />
                 </label>
 
-                {/* Zone */}
-                <label>
-                    Zone
-                    <input
-                        type="text"
-                        name="zone"
-                        value={formData.zone}
-                        onChange={handleChange}
-                        className="p-3 border rounded-2xl w-full"
-                        inputMode="numeric"
-                        placeholder="Enter zone number"
-                    />
-                </label>
+                {/* Instructor check-in pin */}
+                <div className="md:col-span-2 rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p className="text-sm font-semibold text-slate-800">Check-in location</p>
+                            <p className="text-xs text-slate-500">
+                                Instructors can only check in within the radius of this pin. Without a pin, their
+                                check-ins are accepted but marked unverified.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={pinFromDevice}
+                            disabled={pinning}
+                            className="rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 hover:border-orange-300 hover:text-orange-600 disabled:opacity-60"
+                        >
+                            {pinning ? "Reading location…" : "Use my current location"}
+                        </button>
+                    </div>
+                    <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <label className="text-sm">
+                            Latitude
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                name="geoLat"
+                                value={formData.geoLat}
+                                onChange={handleChange}
+                                placeholder="17.415600"
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                        <label className="text-sm">
+                            Longitude
+                            <input
+                                type="text"
+                                inputMode="decimal"
+                                name="geoLng"
+                                value={formData.geoLng}
+                                onChange={handleChange}
+                                placeholder="78.434700"
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                        <label className="text-sm">
+                            Radius (metres)
+                            <input
+                                type="number"
+                                min="50"
+                                max="2000"
+                                step="10"
+                                name="geofenceRadiusM"
+                                value={formData.geofenceRadiusM}
+                                onChange={handleChange}
+                                className="p-3 border rounded-2xl w-full"
+                            />
+                        </label>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <span>Paste "lat, lng" from Google Maps into either box to fill both.</span>
+                        {formData.geoLat && formData.geoLng && (
+                            <>
+                                <a
+                                    href={mapsUrl(formData.geoLat, formData.geoLng)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="font-medium text-orange-600 underline underline-offset-2"
+                                >
+                                    Check on Google Maps
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setFormData((prev) => ({ ...prev, geoLat: "", geoLng: "" }));
+                                        setPinAccuracy(null);
+                                    }}
+                                    className="font-medium text-rose-600 underline underline-offset-2"
+                                >
+                                    Remove pin
+                                </button>
+                            </>
+                        )}
+                    </div>
+                    {pinAccuracy != null && (
+                        <p className={`mt-2 text-xs ${pinAccuracy > 50 ? "text-amber-700" : "text-emerald-700"}`}>
+                            {pinAccuracy > 50
+                                ? `This reading is only accurate to ±${pinAccuracy} m. Step outside or near the entrance and try again for a tighter pin.`
+                                : `Pinned from this device, accurate to ±${pinAccuracy} m.`}
+                        </p>
+                    )}
+                </div>
 
                 {/* City */}
                 <label>
@@ -462,30 +658,69 @@ const AddBranch = () => {
                     </div>
                 </label>
 
-                {/* Branch Manager */}
+                {/* Zone — BDEs are responsible for zones, so every branch needs one */}
                 <label>
-                    Branch Manager
+                    Zone
+                    <select
+                        name="zone"
+                        value={formData.zone}
+                        onChange={handleChange}
+                        className="p-3 border rounded-2xl w-full"
+                        disabled={!formData.city}
+                    >
+                        <option value="">{formData.city ? "Select zone" : "Select a city first"}</option>
+                        {cityZones.map((zone) => (
+                            <option key={zone._id} value={zone._id}>
+                                {zone.name}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        <button
+                            type="button"
+                            onClick={handleAddZone}
+                            disabled={!formData.city}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Add Zone
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleRenameZone}
+                            disabled={!formData.zone}
+                            className="rounded-xl border px-3 py-1 text-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Rename Zone
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDeleteZone}
+                            disabled={!formData.zone}
+                            className="rounded-xl border border-red-500 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Delete Zone
+                        </button>
+                    </div>
+                </label>
+
+                {/* Centre contact — the person shown for this branch. Who is responsible
+                    for it in the org chart is set on staff (Admins → Reporting structure). */}
+                <label>
+                    Centre contact
                     <select
                         name="branchManager"
                         value={formData.branchManager}
                         onChange={handleChange}
                         className="p-3 border rounded-2xl w-full"
-                        disabled={usersLoading}
+                        disabled={staffLoading}
                     >
-                        <option value="">Select Branch Manager</option>
-                        {usersLoading ? (
-                            <option>Loading...</option>
-                        ) : usersError ? (
-                            <option>{usersError}</option>
-                        ) : (
-                            users
-                                .filter((u) => u.roleModel === "admin")
-                                .map((u) => (
-                                    <option key={u._id} value={u._id}>
-                                        {u.name.firstName} {u.name.lastName}
-                                    </option>
-                                ))
-                        )}
+                        <option value="">{staffLoading ? "Loading..." : "Select centre contact"}</option>
+                        {staff.map((person) => (
+                            <option key={person._id} value={person._id}>
+                                {person.name?.firstName} {person.name?.lastName}
+                                {person.org?.designation ? ` · ${designationLabel(person.org.designation)}` : ""}
+                            </option>
+                        ))}
                     </select>
                 </label>
 
@@ -537,7 +772,7 @@ const AddBranch = () => {
                 {/* Branch Admin Contact */}
                 {formData.branchAdminContact && (
                     <label>
-                        Branch Admin Contact
+                        Centre contact phone
                         <input
                             type="text"
                             name="branchAdminContact"
@@ -551,7 +786,7 @@ const AddBranch = () => {
                 {/* Branch Admin Email */}
                 {formData.branchAdminEmail && (
                     <label>
-                        Branch Admin Email
+                        Centre contact email
                         <input
                             type="email"
                             name="branchAdminEmail"

@@ -83,36 +83,12 @@ export const changePassword = createAsyncThunk(
   }
 );
 
-// Get all users
-export const getAllUsers = createAsyncThunk(
-  "user/getAllUsers",
-  async (token, { rejectWithValue }) => {
-    try {
-      const authToken = resolveToken(token);
-      if (!authToken) {
-        return rejectWithValue({ message: "Authentication required" });
-      }
-
-      const response = await axios.get(`${BASE_URL}/user/get-all`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      return response.data.users;
-    } catch (error) {
-      return rejectWithValue(error.response?.data || error.message);
-    }
-  }
-);
-
 const userSlice = createSlice({
   name: "user",
   initialState: {
     user: null,
-    users: [],
     selectedUser: null,
     loading: false,
-    listStatus: "idle",
     error: null,
     success: false,
     message: "",
@@ -197,28 +173,6 @@ const userSlice = createSlice({
       .addCase(changePassword.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload?.message || "Failed to change password";
-        state.success = false;
-      })
-
-      // Get all users
-      .addCase(getAllUsers.pending, (state) => {
-        state.loading = true;
-        state.listStatus = "loading";
-        state.error = null;
-        state.success = false;
-        state.message = "";
-      })
-      .addCase(getAllUsers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.listStatus = "succeeded";
-        state.users = action.payload;
-        state.success = true;
-        state.message = action.payload.message || "Users fetched successfully";
-      })
-      .addCase(getAllUsers.rejected, (state, action) => {
-        state.loading = false;
-        state.listStatus = "failed";
-        state.error = action.payload?.message || "Failed to fetch users";
         state.success = false;
       });
   },

@@ -15,6 +15,7 @@ import useFinanceExport from "./useFinanceExport";
 import { installmentSummary } from "../../../utils/installmentLabel";
 import { BUCKET_META, formatInr, studentName } from "./financeFormat";
 import { Pill, EmptyBox, ErrorBox, TableSkeleton, StudentCell, CourseCell } from "./financeUi";
+import { useMyScope } from "../../../hooks/useOrg";
 
 const LIMIT = 50;
 const BUCKET_ORDER = ["0-7", "8-30", "30+"];
@@ -50,11 +51,13 @@ const DuesTab = () => {
   const [cashRow, setCashRow] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
 
-  const branches = useSelector((state) => state.branch?.branches) || [];
+  const allBranches = useSelector((state) => state.branch?.branches) || [];
+  const { data: myScope } = useMyScope();
+  const branches = myScope?.scoped ? myScope.branches : allBranches;
 
   useEffect(() => {
-    if (!branches.length) dispatch(fetchAllBranches());
-  }, [dispatch, branches.length]);
+    if (!allBranches.length) dispatch(fetchAllBranches());
+  }, [dispatch, allBranches.length]);
 
   const params = {
     page,

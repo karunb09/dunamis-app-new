@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -18,11 +18,13 @@ const {
   updateTopic,
 } = require("../controller/content.controller");
 
-const adminOnly = [isAuth, accessToRole(["admin", "superadmin"])];
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("contentManagement")];
+// Course forms read curriculum too.
+const readers = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("contentManagement", "courseManagement")];
 
 router.post("/create", ...adminOnly, createContent);
-router.get("/get-all-content", ...adminOnly, getAllContent);
-router.get("/:id", ...adminOnly, validate(idParam, "params"), getContentById);
+router.get("/get-all-content", ...readers, getAllContent);
+router.get("/:id", ...readers, validate(idParam, "params"), getContentById);
 router.put("/:id", ...adminOnly, validate(idParam, "params"), updateContent);
 router.put("/:id/modules/:moduleId", ...adminOnly, updateModule);
 router.put("/:id/modules/:moduleId/lessons/:lessonId", ...adminOnly, updateLesson);

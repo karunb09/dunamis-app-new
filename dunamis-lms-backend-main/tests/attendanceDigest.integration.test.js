@@ -66,23 +66,25 @@ async function makeStudent(firstName = "Asha") {
   return Student.create({ userId: user._id });
 }
 
-async function makeAdmin() {
+async function makeAdmin({ org } = {}) {
   return User.create({
     name: { firstName: "Admin", lastName: "One" },
     password: "x",
     mobileNo: 9200000000 + seq++,
     email: `admin${seq}@test.com`,
     accountType: "admin",
+    org,
   });
 }
 
-async function makeCourse() {
+async function makeCourse({ name, mode } = {}) {
   return Course.create({
-    name: `Course ${seq++}`,
-    code: `C${seq}`,
+    name: name || `Course ${seq++}`,
+    code: `C${seq++}`,
     description: "d",
     category: oid(),
     subCategory: [oid()],
+    mode,
   });
 }
 
@@ -177,8 +179,8 @@ test("the email deep-links to the same day on the report page", async () => {
   assert.match(html, new RegExp(`/admin/reports/attendance\\?date=${report.day.key}`));
 });
 
-test("the dashboard notice can express absence, not just record counts", async () => {
-  const admin = await makeAdmin();
+test("the report is an email row only — no dashboard notice", async () => {
+  await makeAdmin();
   const teacher = await makeTeacher();
   const course = await makeCourse();
   const student = await makeStudent();
@@ -186,10 +188,34 @@ test("the dashboard notice can express absence, not just record counts", async (
 
   await sendAttendanceDigest();
 
-  const notice = await AdminNotice.findOne({ title: "Daily Attendance Report" }).lean();
-  assert.ok(notice, "admins get a dashboard notice too");
-  assert.match(notice.message, /0 of 1 classes marked\. 1 unmarked/);
-  assert.equal(String(notice.specificUsers[0]), String(admin._id));
+  assert.equal(sent.length, 1);
+  assert.equal(await AdminNotice.countDocuments({ title: "Daily Attendance Report" }), 0);
+});
+
+test("each AA receives only the classes they are responsible for", async () => {
+  const teacher = await makeTeacher();
+  const student = await makeStudent();
+  const guitar = await makeCourse({ name: "Online Guitar", mode: "online" });
+  const piano = await makeCourse({ name: "Online Piano", mode: "online" });
+  await makeSlot({ teacher, course: guitar, students: [student] });
+  await makeSlot({ teacher, course: piano, students: [student] });
+  const guitarAa = await makeAdmin({ org: { designation: "aa", workMode: "online", courses: [guitar._id] } });
+  const pianoAa = await makeAdmin({ org: { designation: "aa", workMode: "online", courses: [piano._id] } });
+  // No BDE is placed, so the BDE copy climbs to the Marketing Head (no scope = everything).
+  const head = await makeAdmin({ org: { designation: "marketingHead" } });
+  // An unplaced admin is nobody's AA or BDE, so gets nothing while someone covers every class.
+  const unplaced = await makeAdmin();
+
+  await sendAttendanceDigest();
+
+  const to = (user) => sent.find((email) => email.recipients[0] === user.email);
+  assert.equal(sent.length, 3);
+  assert.match(to(guitarAa).html, /Online Guitar/);
+  assert.doesNotMatch(to(guitarAa).html, /Online Piano/);
+  assert.match(to(pianoAa).html, /Online Piano/);
+  assert.match(to(pianoAa).subject, /1 class/);
+  assert.match(to(head).subject, /2 classes/);
+  assert.equal(to(unplaced), undefined);
 });
 
 test("no admins means no email rather than a crash", async () => {

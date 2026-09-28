@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { getStoredToken, getStoredUser } from "../../utils/authSession";
 import { getDefaultRoute } from "../../utils/portalUrls";
+import { hasPermission } from "../../utils/permissions";
 
 const CheckingSession = () => (
   <div className="flex min-h-[60vh] items-center justify-center px-6 text-center">
@@ -36,12 +37,8 @@ export const RequireAuth = ({ allowedRoles = [], requiredPermission, children })
     return <Navigate to={getDefaultRoute(accountType)} replace />;
   }
 
-  if (requiredPermission && accountType !== "superadmin") {
-    const permissions = user?.permissions || [];
-    const hasFullAccess = permissions.length === 0 || permissions.includes("allAccess");
-    if (!hasFullAccess && !permissions.includes(requiredPermission)) {
-      return <Navigate to="/admin" replace />;
-    }
+  if (requiredPermission && !hasPermission(user, requiredPermission)) {
+    return <Navigate to="/admin" replace />;
   }
 
   return children;

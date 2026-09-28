@@ -52,6 +52,73 @@ const coverageOf = (marked, expected) => {
   return marked === 0 ? "Missing" : "Partial";
 };
 
+// Totals and per-instructor / per-course rollups for any set of classes: the
+// whole day for the report page, or just one recipient's share for the digest.
+function summarizeClasses(classes) {
+  const totals = classes.reduce((acc, item) => {
+    acc.classesScheduled += 1;
+    if (item.coverageStatus === "Full") acc.fullyMarked += 1;
+    if (item.coverageStatus === "Partial") acc.partiallyMarked += 1;
+    if (item.coverageStatus === "Missing") acc.unmarked += 1;
+    acc.studentsExpected += item.expectedStudents;
+    acc.studentsMarked += item.markedStudents;
+    acc.present += item.present;
+    acc.absent += item.absent;
+    acc.homeworkAssigned += item.homeworkCount;
+    if (item.markedLate) acc.classesMarkedLate += 1;
+    return acc;
+  }, emptyTotals());
+  totals.markingRate = rateFrom(totals.studentsMarked, totals.studentsExpected);
+  totals.attendanceRate = rateFrom(totals.present, totals.studentsMarked);
+
+  const groupBy = (keyFn, seed) => {
+    const map = new Map();
+    for (const item of classes) {
+      const id = keyFn(item);
+      if (!map.has(id)) map.set(id, seed(item));
+      const bucket = map.get(id);
+      bucket.scheduled += 1;
+      if (item.coverageStatus === "Full") bucket.fullyMarked += 1;
+      if (item.coverageStatus === "Partial") bucket.partiallyMarked += 1;
+      if (item.coverageStatus === "Missing") bucket.unmarked += 1;
+      bucket.expected += item.expectedStudents;
+      bucket.marked += item.markedStudents;
+      bucket.present += item.present;
+      bucket.absent += item.absent;
+    }
+    return [...map.values()].sort((a, b) => b.unmarked - a.unmarked || b.scheduled - a.scheduled);
+  };
+
+  const counters = {
+    scheduled: 0,
+    fullyMarked: 0,
+    partiallyMarked: 0,
+    unmarked: 0,
+    expected: 0,
+    marked: 0,
+    present: 0,
+    absent: 0,
+  };
+
+  const byInstructor = groupBy(
+    (item) => String(item.teacherId),
+    (item) => ({
+      teacherId: item.teacherId,
+      teacherName: item.teacherName,
+      teacherEmail: item.teacherEmail,
+      employeeId: item.employeeId,
+      ...counters,
+    })
+  );
+
+  const byCourse = groupBy(
+    (item) => String(item.courseId),
+    (item) => ({ courseId: item.courseId, courseName: item.courseName, ...counters })
+  );
+
+  return { totals, byInstructor, byCourse };
+}
+
 async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) {
   const key = isValidDayKey(dayKey) ? dayKey : currentDayKey();
   const { start, end } = dayWindow(key);
@@ -273,66 +340,7 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
     };
   });
 
-  const totals = classes.reduce((acc, item) => {
-    acc.classesScheduled += 1;
-    if (item.coverageStatus === "Full") acc.fullyMarked += 1;
-    if (item.coverageStatus === "Partial") acc.partiallyMarked += 1;
-    if (item.coverageStatus === "Missing") acc.unmarked += 1;
-    acc.studentsExpected += item.expectedStudents;
-    acc.studentsMarked += item.markedStudents;
-    acc.present += item.present;
-    acc.absent += item.absent;
-    acc.homeworkAssigned += item.homeworkCount;
-    if (item.markedLate) acc.classesMarkedLate += 1;
-    return acc;
-  }, emptyTotals());
-  totals.markingRate = rateFrom(totals.studentsMarked, totals.studentsExpected);
-  totals.attendanceRate = rateFrom(totals.present, totals.studentsMarked);
-
-  const groupBy = (keyFn, seed) => {
-    const map = new Map();
-    for (const item of classes) {
-      const id = keyFn(item);
-      if (!map.has(id)) map.set(id, seed(item));
-      const bucket = map.get(id);
-      bucket.scheduled += 1;
-      if (item.coverageStatus === "Full") bucket.fullyMarked += 1;
-      if (item.coverageStatus === "Partial") bucket.partiallyMarked += 1;
-      if (item.coverageStatus === "Missing") bucket.unmarked += 1;
-      bucket.expected += item.expectedStudents;
-      bucket.marked += item.markedStudents;
-      bucket.present += item.present;
-      bucket.absent += item.absent;
-    }
-    return [...map.values()].sort((a, b) => b.unmarked - a.unmarked || b.scheduled - a.scheduled);
-  };
-
-  const counters = {
-    scheduled: 0,
-    fullyMarked: 0,
-    partiallyMarked: 0,
-    unmarked: 0,
-    expected: 0,
-    marked: 0,
-    present: 0,
-    absent: 0,
-  };
-
-  const byInstructor = groupBy(
-    (item) => String(item.teacherId),
-    (item) => ({
-      teacherId: item.teacherId,
-      teacherName: item.teacherName,
-      teacherEmail: item.teacherEmail,
-      employeeId: item.employeeId,
-      ...counters,
-    })
-  );
-
-  const byCourse = groupBy(
-    (item) => String(item.courseId),
-    (item) => ({ courseId: item.courseId, courseName: item.courseName, ...counters })
-  );
+  const { totals, byInstructor, byCourse } = summarizeClasses(classes);
 
   return {
     success: true,
@@ -351,4 +359,4 @@ async function buildDailyAttendanceReport({ dayKey, teacherId, courseId } = {}) 
   };
 }
 
-module.exports = { buildDailyAttendanceReport };
+module.exports = { buildDailyAttendanceReport, summarizeClasses };

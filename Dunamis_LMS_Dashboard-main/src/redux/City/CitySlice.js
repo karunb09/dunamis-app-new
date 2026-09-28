@@ -31,19 +31,6 @@ export const getAllCities = createAsyncThunk(
   }
 );
 
-// Get City Managers
-export const getCityManagers = createAsyncThunk(
-  "city/getCityManagers",
-  async (_, thunkAPI) => {
-    try {
-      const response = await axiosAuth.get(`${BASE_URL}/city/managers`);
-      return response.data;
-    } catch (error) {
-      return thunkAPI.rejectWithValue(error.response.data);
-    }
-  }
-);
-
 // Get City by ID
 export const getCityById = createAsyncThunk(
   "city/getCityById",
@@ -89,7 +76,6 @@ const citySlice = createSlice({
   initialState: {
     cities: [],
     city: null,
-    managers: [],
     loading: false,
     listStatus: "idle",
     error: null,
@@ -125,19 +111,6 @@ const citySlice = createSlice({
       .addCase(getAllCities.rejected, (state, action) => {
         state.loading = false;
         state.listStatus = "failed";
-        state.error = action.payload;
-      })
-
-      // Get City Managers
-      .addCase(getCityManagers.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(getCityManagers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.managers = action.payload;
-      })
-      .addCase(getCityManagers.rejected, (state, action) => {
-        state.loading = false;
         state.error = action.payload;
       })
 

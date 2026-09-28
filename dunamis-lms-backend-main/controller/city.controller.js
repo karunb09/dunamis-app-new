@@ -1,5 +1,6 @@
 const City = require("../model/city.model");
-const User = require("../model/user.model");
+const Branch = require("../model/branch.model");
+const Zone = require("../model/zone.model");
 const asyncHandler = require("../utils/asyncHandler");
 
 // Handlers throw on failure; the central errorHandler (middleware/errorHandler.js)
@@ -76,18 +77,6 @@ exports.getCityById = asyncHandler(async (req, res) => {
   });
 });
 
-// Get City Managers
-exports.getCityManagers = asyncHandler(async (req, res) => {
-  const managers = await User.find({ accountType: "admin" }).select(
-    "_id name email"
-  );
-
-  res.status(200).json({
-    success: true,
-    managers,
-  });
-});
-
 // Update City
 exports.updateCity = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -115,6 +104,18 @@ exports.updateCity = asyncHandler(async (req, res) => {
 // Delete City
 exports.deleteCity = asyncHandler(async (req, res) => {
   const { id } = req.params;
+
+  const [branchCount, zoneCount] = await Promise.all([
+    Branch.countDocuments({ city: id }),
+    Zone.countDocuments({ city: id }),
+  ]);
+  if (branchCount || zoneCount) {
+    return res.status(409).json({
+      success: false,
+      message: `This city still has ${branchCount} branch(es) and ${zoneCount} zone(s).`,
+      hint: "Move or delete them first.",
+    });
+  }
 
   const deletedCity = await City.findByIdAndDelete(id);
 

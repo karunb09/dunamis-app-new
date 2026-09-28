@@ -27,6 +27,7 @@ const {
   validateAvailabilityEntries,
   findAvailabilityOverlap,
 } = require("../utils/availabilityRules");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
 
 const getGroupSlotTag = (slot = {}) => {
   if (slot.slotType !== "enrolled" || slot.sessionType !== "standard") {
@@ -138,6 +139,7 @@ exports.createSlot = asyncHandler(async (req, res) => {
         message: "branchId is required for offline courses.",
       });
     }
+    if (branch) await assertCanTeachInPerson([teacher._id]);
 
     // Time validation
     const startMin = timeToMinutes(startTime);
@@ -751,6 +753,15 @@ exports.setWeeklyAvailability = asyncHandler(async (req, res) => {
   const validationError = await validateAvailabilityEntries(availability);
   if (validationError) {
     return res.status(400).json({ message: validationError });
+  }
+
+  // A new branch in the schedule is in-person teaching; branches already there
+  // from before the rule don't block re-saving the rest of the week.
+  const scheduledBranches = new Set(
+    existingAvailability.map((entry) => entry.branchId && String(entry.branchId)).filter(Boolean)
+  );
+  if (availability.some((entry) => entry.branchId && !scheduledBranches.has(String(entry.branchId)))) {
+    await assertCanTeachInPerson([teacher._id]);
   }
 
   const overlapError = findAvailabilityOverlap({

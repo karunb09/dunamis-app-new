@@ -16,6 +16,14 @@ const {
 const asyncHandler = require("../utils/asyncHandler");
 const { EMPLOYEE_ID_REGEX, bumpCounterFloor } = require("../utils/employeeId");
 const { isReferralCodeTaken } = require("../utils/referral");
+const {
+  LAST_ALL_ACCESS_HINT,
+  countActiveTopAdmins,
+  guardTopAccount,
+  isTopAccount,
+} = require("../utils/staffAccess");
+const { ORG_NAME_POPULATE } = require("../services/orgPlacement");
+const { checkInAccess } = require("../services/instructorCheckIn");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -23,9 +31,12 @@ const authCookieOptions = {
   secure: process.env.NODE_ENV === "production",
 };
 
+// Personal HR fields on the Admin record never travel in the session.
+const ADMIN_HR_FIELDS = "-dateOfBirth -emergencyContact -address";
+
 const populateSessionUser = (query) =>
   query
-    .populate("adminDetails")
+    .populate({ path: "adminDetails", select: ADMIN_HR_FIELDS })
     .populate("teacherDetails")
     .populate("studentDetails");
 
@@ -41,10 +52,20 @@ const buildSessionUser = (user) => ({
   roleModel: user.roleModel,
   permissions: user.permissions,
   role: user.role,
+  designation: user.org?.designation || null,
+  department: user.org?.department || null,
   adminDetails: user.adminDetails,
   teacherDetails: user.teacherDetails,
   studentDetails: user.studentDetails,
 });
+
+// Instructors also carry whether branch check-in applies to them, so the
+// dashboard shows that menu item only to those who teach at a centre.
+const sessionUserFor = async (user) => {
+  const session = buildSessionUser(user);
+  if (user.accountType !== "teacher" || !user.teacherDetails?._id) return session;
+  return { ...session, checkIn: await checkInAccess(user.teacherDetails._id) };
+};
 
 const canManageUser = (requestUser, targetUserId) => {
   if (!requestUser) return false;
@@ -113,7 +134,7 @@ exports.login = asyncHandler(async (req, res) => {
         .json({
           success: true,
           token,
-          user: buildSessionUser(user),
+          user: await sessionUserFor(user),
           message: "Logged in successfully",
         });
     } else {
@@ -146,7 +167,7 @@ exports.getCurrentUser = asyncHandler(async (req, res) => {
     return res.status(200).json({
       success: true,
       token: req.token,
-      user: buildSessionUser(user),
+      user: await sessionUserFor(user),
     });
 });
 
@@ -444,27 +465,6 @@ exports.resetPassword = asyncHandler(async (req, res) => {
         });
 });
 
-// Get All Users
-exports.getAllUsers = asyncHandler(async (req, res) => {
-        const users = await User.find()
-            .select("-password -__v")
-            .populate("roleId")
-            .populate("adminDetails"); // Add this line
-
-        if (!users || users.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No users found",
-            });
-        }
-
-        res.status(200).json({
-            success: true,
-            message: "Users retrieved successfully",
-            users,
-        });
-});
-
 // Get by id
 exports.getUserById = asyncHandler(async (req, res) => {
         const { id } = req.params;
@@ -487,7 +487,13 @@ exports.getUserById = asyncHandler(async (req, res) => {
                     strictPopulate: false,
                 },
             })
-            .populate("adminDetails"); // Add this line
+            // HR details only on your own profile.
+            .populate(
+              String(req.user.userId) === String(id)
+                ? "adminDetails"
+                : { path: "adminDetails", select: ADMIN_HR_FIELDS }
+            )
+            .populate(ORG_NAME_POPULATE);
 
         if (!user) {
             return res.status(404).json({
@@ -524,6 +530,24 @@ exports.updateUser = asyncHandler(async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: "User not found",
+            });
+        }
+
+        if (await guardTopAccount(req, res, user)) return;
+
+        const isStaffCaller = ["admin", "superadmin"].includes(req.user?.accountType);
+        const { accountStatus } = req.body;
+        if (
+            isStaffCaller &&
+            accountStatus === "inactive" &&
+            user.accountStatus === "active" &&
+            (await isTopAccount(user)) &&
+            (await countActiveTopAdmins({ excludeUserId: user._id })) === 0
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: "This is the last active admin with All Access.",
+                hint: LAST_ALL_ACCESS_HINT,
             });
         }
 
@@ -567,9 +591,6 @@ exports.updateUser = asyncHandler(async (req, res) => {
             name, 
             mobileNo, 
             email, 
-            accountType, 
-            accountStatus, 
-            roleModel,
             location,
             bio 
         } = req.body;
@@ -587,14 +608,10 @@ exports.updateUser = asyncHandler(async (req, res) => {
         if (location !== undefined) user.location = location;
         if (bio !== undefined) user.bio = bio;
 
-        // accountType/accountStatus/roleModel change privilege — only staff
-        // may grant them, never the account being updated itself.
-        const isStaffCaller = ["admin", "superadmin"].includes(req.user?.accountType);
-        if (isStaffCaller) {
-          if (accountType !== undefined) user.accountType = accountType;
-          if (accountStatus !== undefined) user.accountStatus = accountStatus;
-          if (roleModel !== undefined) user.roleModel = roleModel;
-        }
+        // Only staff may enable/disable an account, never the account itself.
+        // accountType and roleModel are never writable here: they are set when
+        // the account is created, and accepting them let any admin mint a superadmin.
+        if (isStaffCaller && accountStatus !== undefined) user.accountStatus = accountStatus;
         
         // Update image
         user.image = imagePath;
@@ -675,6 +692,8 @@ exports.setEmployeeId = asyncHandler(async (req, res) => {
       message: "User not found",
     });
   }
+
+  if (await guardTopAccount(req, res, user)) return;
 
   if (user.employeeId !== employeeId && (await isReferralCodeTaken(employeeId, { excludeUserId: user._id }))) {
     return res.status(409).json({

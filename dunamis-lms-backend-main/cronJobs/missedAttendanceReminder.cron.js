@@ -2,11 +2,8 @@ const { scheduleWithHeartbeat } = require("../utils/cronHeartbeat");
 const Slot = require("../model/slot.model");
 const AttendanceHomework = require("../model/attendanceHomework.model");
 const Teacher = require("../model/teacher.model");
-const {
-  notifyUsers,
-  getAdminUsers,
-} = require("../utils/notificationService");
-const { buildMissedAttendanceEmail } = require("../mail/attendanceReportEmail");
+const { notifyEvent } = require("../utils/notificationService");
+const { loadRoutingDirectory } = require("../services/staffRouting");
 
 async function checkMissedAttendance() {
   try {
@@ -31,7 +28,7 @@ async function checkMissedAttendance() {
       return;
     }
 
-    const adminUsers = await getAdminUsers();
+    const directory = await loadRoutingDirectory();
 
     await Promise.allSettled(
       slots.map(async (slot) => {
@@ -62,54 +59,19 @@ async function checkMissedAttendance() {
             : null;
 
           const courseName = slot.courseId?.name || "a course";
-          const studentCount = slot.students?.length || 0;
+          const classDay = slot.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" });
+          const title = "Attendance & homework not marked";
 
-          // Build email payloads
-          const teacherEmail = buildMissedAttendanceEmail({
-            teacherName,
-            courseName,
-            slotDate: slot.date,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            studentCount,
-            isAdminCopy: false,
+          await notifyEvent({
+            event: "missedAttendance",
+            context: slot.branchId ? { branchId: slot.branchId } : { courseId: slot.courseId?._id },
+            directory,
+            instructorUser: teacherUser,
+            title,
+            message: `${teacherName} hasn't marked attendance or homework for ${courseName} on ${classDay} (${slot.startTime}–${slot.endTime}).`,
+            instructorTitle: title,
+            instructorMessage: `You haven't marked attendance and homework for ${courseName} on ${classDay}. Please update it on the dashboard.`,
           });
-
-          const adminEmail = buildMissedAttendanceEmail({
-            teacherName,
-            courseName,
-            slotDate: slot.date,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            studentCount,
-            isAdminCopy: true,
-          });
-
-          const notifyTitle = "Attendance Not Submitted";
-
-          // Notify the instructor
-          if (teacherUser?._id) {
-            await notifyUsers({
-              title: notifyTitle,
-              message: `You haven't submitted attendance for ${courseName} on ${slot.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}. Please update it on the dashboard.`,
-              users: teacherUser.email ? [teacherUser] : [],
-              subject: teacherEmail.subject,
-              html: teacherEmail.html,
-              attachments: teacherEmail.attachments,
-            });
-          }
-
-          // Notify admins
-          if (adminUsers.length) {
-            await notifyUsers({
-              title: notifyTitle,
-              message: `${teacherName} has not submitted attendance for ${courseName} on ${slot.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}.`,
-              users: adminUsers,
-              subject: adminEmail.subject,
-              html: adminEmail.html,
-              attachments: adminEmail.attachments,
-            });
-          }
 
           // Mark slot as notified to prevent duplicate reminders
           await Slot.findByIdAndUpdate(slot._id, {

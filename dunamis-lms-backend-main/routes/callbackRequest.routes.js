@@ -5,7 +5,7 @@ const {
   getAllCallbackRequests,
   updateCallbackRequest,
 } = require("../controller/callbackRequest.controller");
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -17,12 +17,13 @@ const {
 router.post("/create", validate(createCallbackRequestSchema), createCallbackRequest);
 
 // Admin/Super Admin
-router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllCallbackRequests);
+router.get("/", isAuth, accessToRole(["admin", "superadmin"]), requirePermission("enquiries"), getAllCallbackRequests);
 
 router.put(
   "/:id",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("enquiries"),
   validate(idParam, "params"),
   validate(updateCallbackRequestSchema),
   updateCallbackRequest

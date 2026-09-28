@@ -12,6 +12,8 @@ const Teacher = require("../model/teacher.model");
 const Slot = require("../model/slot.model");
 const AttendanceHomework = require("../model/attendanceHomework.model");
 const { notifyEvent } = require("../utils/notificationService");
+const { getScope } = require("../middleware/auth");
+const { studentFilter } = require("../utils/scopeFilters");
 const { getStudentSchedules } = require("../utils/classRoster");
 const { buildContentTitleMaps } = require("../utils/contentTitles");
 
@@ -182,8 +184,11 @@ exports.createStudent = asyncHandler(async (req, res) => {
       event: "signUp",
       title: "New student registration",
       message: `${firstName} ${lastName} (${normalizedEmail}) signed up.`,
+      learners: [{ _id: user._id, email: normalizedEmail }],
+      learnerTitle: "Welcome to Dunamis India",
+      learnerMessage: "Your account is ready. Book a free demo or explore courses whenever you like.",
       creatorId: user._id,
-    }).catch((err) => console.error("Signup staff notice failed:", err.message));
+    }).catch((err) => console.error("Signup notices failed:", err.message));
 
      // TODO: Enable this later
     await mailSender(
@@ -580,7 +585,8 @@ exports.deleteStudent = asyncHandler(async (req, res) => {
 });
 // Get by type
 exports.getStudentsByType = asyncHandler(async (req, res) => {
-    const allStudents = await Student.find()
+    const area = await getScope(req);
+    const allStudents = await Student.find(area ? await studentFilter(area) : {})
       .populate({
         path: "userId",
         match: { accountType: "student" },
@@ -674,13 +680,22 @@ exports.searchStudents = asyncHandler(async (req, res) => {
     }
 
     const userIds = matchingUsers.map((u) => u._id);
-    const students = await Student.find({ userId: { $in: userIds } })
+    const area = await getScope(req);
+    const students = await Student.find({
+      userId: { $in: userIds },
+      ...(area ? await studentFilter(area) : {}),
+    })
       .select("_id userId")
       .lean();
 
     const studentByUserId = new Map(students.map((s) => [s.userId.toString(), s._id]));
 
-    const results = matchingUsers.map((u) => ({
+    // A scoped admin only finds learners in their area (sign-ups included).
+    const visibleUsers = area
+      ? matchingUsers.filter((u) => studentByUserId.has(u._id.toString()))
+      : matchingUsers;
+
+    const results = visibleUsers.map((u) => ({
       _id: studentByUserId.get(u._id.toString()) || null,
       userId: u._id,
       name: `${u.name?.firstName || ""} ${u.name?.lastName || ""}`.trim(),

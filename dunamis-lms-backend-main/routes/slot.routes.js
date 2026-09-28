@@ -11,7 +11,7 @@ const {
   setSlotMeetingLink,
   getMyClasses,
 } = require("../controller/slot.controller");
-const { accessToRole, isAuth } = require("../middleware/auth");
+const { accessToRole, isAuth, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -20,10 +20,10 @@ const {
   parentAvailabilityParam,
 } = require("../validators/slot.validator");
 
-const staffOrTeacher = accessToRole(["admin", "superadmin", "teacher"]);
+const staffOrTeacher = [accessToRole(["admin", "superadmin", "teacher"]), requirePermission("instructorManagement")];
 
-router.post("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), validate(createSlotSchema), createSlot);
-router.get("/", isAuth, accessToRole(["admin", "superadmin", "teacher"]), getAllSlots);
+router.post("/", isAuth, staffOrTeacher, validate(createSlotSchema), createSlot);
+router.get("/", isAuth, staffOrTeacher, getAllSlots);
 router.get("/available", getAvailableSlots);
 // Before "/:id" so "my-classes" and "class" are never swallowed as slot ids.
 router.get("/my-classes", isAuth, staffOrTeacher, getMyClasses);
@@ -43,8 +43,8 @@ router.patch(
   validate(meetingLinkSchema),
   setSlotMeetingLink
 );
-router.put("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), updateSlot);
-router.delete("/:id", isAuth, accessToRole(["admin", "superadmin", "teacher"]), deleteSlot);
+router.put("/:id", isAuth, staffOrTeacher, updateSlot);
+router.delete("/:id", isAuth, staffOrTeacher, deleteSlot);
 router.post("/weekly-availability", isAuth, accessToRole(["teacher"]), setWeeklyAvailability);
 
 module.exports = router;

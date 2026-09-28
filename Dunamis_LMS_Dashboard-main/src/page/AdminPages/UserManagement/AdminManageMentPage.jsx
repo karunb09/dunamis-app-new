@@ -12,6 +12,32 @@ import ActionProgressBar from '../../../components/ActionProgressBar';
 import { resolveImageUrl } from '../../../utils/resolveImageUrl';
 import DataCards from '../../../components/DataCards';
 import PersonCard from '../../../components/cards/PersonCard';
+import PageTabBar from '../../../components/PageTabBar';
+import OrgChart from '../../../components/org/OrgChart';
+import { DEPARTMENT_LABELS, DESIGNATIONS, designationLabel } from '../../../constants/orgStructure';
+
+const TABS = [
+    { id: 'admins', label: 'Admins' },
+    { id: 'structure', label: 'Reporting structure' },
+];
+
+const SCOPE_NAME = {
+    branches: (item) => item.branchName,
+    zones: (item) => item.name,
+    cities: (item) => item.cityName,
+    courses: (item) => item.name,
+    subCategories: (item) => item.name,
+    categories: (item) => item.name,
+};
+
+// Populated by get-all-admin, so every entry is a { _id, name } object.
+const scopeNames = (org) =>
+    Object.entries(SCOPE_NAME).flatMap(([key, nameOf]) =>
+        (org?.[key] || []).map((item) => nameOf(item)).filter(Boolean)
+    );
+
+const personName = (user) =>
+    user ? `${user.name?.firstName || ''} ${user.name?.lastName || ''}`.trim() : '';
 
 const SORT_OPTIONS = [
     { value: 'name-asc', label: 'Name A-Z' },
@@ -29,13 +55,15 @@ const AdminManageMentPage = () => {
     const [sortOpen, setSortOpen] = useState(false);
     const [sortOption, setSortOption] = useState('');
     const [filterOpen, setFilterOpen] = useState(false);
-    const [filters, setFilters] = useState({ status: '', department: '' });
+    const [tab, setTab] = useState('admins');
+    const [filters, setFilters] = useState({ status: '', department: '', designation: '' });
     const [processingAction, setProcessingAction] = useState(null);
     const dropdownRef = useRef(null);
 
     const getErrorMessage = (error, fallback) => {
         if (typeof error === 'string') return error;
-        return error?.message || error?.error || error?.data?.message || fallback;
+        const message = error?.message || error?.error || error?.data?.message;
+        return message ? [message, error?.hint].filter(Boolean).join(' ') : fallback;
     };
 
     useEffect(() => {
@@ -50,7 +78,6 @@ const AdminManageMentPage = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const uniqueDepartments = [...new Set(admins.map(admin => admin.department).filter(Boolean))];
     const getImageUrl = (imagePath) => resolveImageUrl(imagePath, "/profile-photo.png");
 
     const runAdminAction = async ({ actionKey, progressLabel, loadingMessage, action, successTitle, successText, errorFallback }) => {
@@ -131,15 +158,21 @@ const AdminManageMentPage = () => {
 
     const filteredAdmins = admins
         .filter(admin => {
-            const adminName = `${admin.userId.name.firstName} ${admin.userId.name.lastName}`.toLowerCase();
-            const email = (admin.userId.email || '').toLowerCase();
-            const role = (admin.role || '').toLowerCase();
-            const department = (admin.department || '').toLowerCase();
-            return `${adminName} ${email} ${role} ${department}`.includes(searchTerm.toLowerCase());
+            const org = admin.userId.org;
+            const haystack = [
+                personName(admin.userId),
+                admin.userId.email,
+                admin.role,
+                DEPARTMENT_LABELS[org?.department],
+                designationLabel(org?.designation),
+            ].join(' ').toLowerCase();
+            return haystack.includes(searchTerm.toLowerCase());
         })
         .filter(admin => {
+            const org = admin.userId.org;
             if (filters.status && admin.userId.accountStatus !== filters.status) return false;
-            if (filters.department && admin.department !== filters.department) return false;
+            if (filters.department && org?.department !== filters.department) return false;
+            if (filters.designation && org?.designation !== filters.designation) return false;
             return true;
         })
         .map((admin) => ({ ...admin, employeeId: admin.userId?.employeeId || "—" }));
@@ -163,8 +196,15 @@ const AdminManageMentPage = () => {
             <div className="mb-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">User Management</p>
                 <h1 className="mt-1 text-2xl font-bold text-slate-900">Admins</h1>
-                <p className="mt-0.5 text-sm text-slate-500">Manage admin accounts and their permissions.</p>
+                <p className="mt-0.5 text-sm text-slate-500">Manage admin accounts, their permissions and who they report to.</p>
             </div>
+
+            <div className="mb-5">
+                <PageTabBar tabs={TABS} activeTab={tab} onChange={setTab} />
+            </div>
+
+            {tab === 'structure' ? <OrgChart /> : (
+            <>
 
             {/* Toolbar */}
             <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -273,8 +313,21 @@ const AdminManageMentPage = () => {
                                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
                                 >
                                     <option value="">All</option>
-                                    {uniqueDepartments.map(dep => (
-                                        <option key={dep} value={dep}>{dep}</option>
+                                    {Object.entries(DEPARTMENT_LABELS).map(([key, label]) => (
+                                        <option key={key} value={key}>{label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="mb-1.5 block text-sm font-medium text-slate-700">Designation</label>
+                                <select
+                                    value={filters.designation}
+                                    onChange={(e) => setFilters({ ...filters, designation: e.target.value })}
+                                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
+                                >
+                                    <option value="">All</option>
+                                    {Object.entries(DESIGNATIONS).map(([key, designation]) => (
+                                        <option key={key} value={key}>{designation.label}</option>
                                     ))}
                                 </select>
                             </div>
@@ -283,7 +336,7 @@ const AdminManageMentPage = () => {
                         <div className="mt-6 flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => setFilters({ status: '', department: '' })}
+                                onClick={() => setFilters({ status: '', department: '', designation: '' })}
                                 className="flex-1 rounded-2xl border border-slate-200 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
                             >
                                 Clear
@@ -311,12 +364,19 @@ const AdminManageMentPage = () => {
                     const lastName = row.userId.name.lastName;
                     const fullName = `${firstName} ${lastName}`;
                     const isActive = row.userId.accountStatus === 'active';
+                    const org = row.userId.org || {};
+                    const designation = designationLabel(org.designation);
+                    const responsibleFor = scopeNames(org);
 
                     return (
                         <PersonCard
                             avatarSrc={getImageUrl(row.userId.image) || undefined}
                             name={fullName}
-                            subtitle={[row.role, row.department].filter(Boolean).join(' • ') || undefined}
+                            subtitle={
+                                [row.role, designation && designation !== row.role ? designation : null]
+                                    .filter(Boolean)
+                                    .join(' • ') || undefined
+                            }
                             statusBadge={
                                 isActive
                                     ? { label: "Active", className: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200", dot: true, dotClass: "bg-emerald-500" }
@@ -324,9 +384,12 @@ const AdminManageMentPage = () => {
                             }
                             meta={[
                                 { label: "Employee ID", value: row.employeeId },
-                                { label: "Department", value: row.department || "N/A" },
-                                { label: "Role", value: row.role || "N/A" },
-                                { label: "Created", value: new Date(row.createdAt).toLocaleDateString() },
+                                { label: "Department", value: DEPARTMENT_LABELS[org.department] || "Not placed" },
+                                {
+                                    label: "Reports to",
+                                    value: org.designation === 'ceo' ? "—" : personName(org.reportsTo) || "Not set",
+                                },
+                                { label: "Joined", value: new Date(row.dateOfJoining || row.createdAt).toLocaleDateString() },
                             ]}
                             onView={() => navigate(`/admin/add-admin/${row._id}`)}
                             primaryLabel="Edit Admin"
@@ -366,6 +429,23 @@ const AdminManageMentPage = () => {
                             selected={selected}
                             onSelect={onSelect}
                         >
+                            {responsibleFor.length > 0 && (
+                                <div className="pb-2">
+                                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Responsible for</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {responsibleFor.slice(0, 4).map((name) => (
+                                            <span key={name} className="rounded-lg bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-700">
+                                                {name}
+                                            </span>
+                                        ))}
+                                        {responsibleFor.length > 4 && (
+                                            <span className="rounded-lg bg-orange-50 px-2 py-0.5 text-[10px] font-medium text-orange-600">
+                                                +{responsibleFor.length - 4} more
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             {/* Permissions pills */}
                             {row.permission?.length > 0 && (
                                 <div className="pb-1">
@@ -388,6 +468,8 @@ const AdminManageMentPage = () => {
                     );
                 }}
             />
+            </>
+            )}
         </div>
     );
 };

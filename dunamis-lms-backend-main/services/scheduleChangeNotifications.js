@@ -4,6 +4,7 @@ const Teacher = require("../model/teacher.model");
 const {
   getAdminUsers,
   createDashboardNotice,
+  notifyEvent,
   sendEmails,
 } = require("../utils/notificationService");
 const { brandCard, brandAttachments } = require("../mail/emailLayout");
@@ -114,69 +115,93 @@ const notifyScheduleChangeReviewed = async ({ teacher, request, status, adminNot
     );
   }
 
-  if (populated?.userId?.email) {
-    tasks.push(
-      sendEmails({
-        recipients: [populated.userId.email],
-        subject: `Dunamis India — ${instructorTitle.toLowerCase()}`,
-        html: brandCard({
-          title: instructorTitle,
-          intro: instructorMessage,
-          details: adminNote
-            ? `<p style="margin:0;"><strong>Admin note:</strong> ${adminNote}</p>`
-            : "",
-          ctaText: "Open my schedule",
-          ctaHref: `${DASHBOARD_URL}/teacher/my-schedule`,
-          footnote: "Dunamis India instructor schedule update.",
-        }),
-        attachments: brandAttachments(),
-      })
-    );
-  }
+  const instructorEmail = {
+    subject: `Dunamis India — ${instructorTitle.toLowerCase()}`,
+    html: brandCard({
+      title: instructorTitle,
+      intro: instructorMessage,
+      details: adminNote
+        ? `<p style="margin:0;"><strong>Admin note:</strong> ${adminNote}</p>`
+        : "",
+      ctaText: "Open my schedule",
+      ctaHref: `${DASHBOARD_URL}/teacher/my-schedule`,
+      footnote: "Dunamis India instructor schedule update.",
+    }),
+  };
 
-  if (approved && request.affectedStudentIds.length) {
-    const students = await Student.find({ _id: { $in: request.affectedStudentIds } })
-      .populate("userId", "name email")
-      .lean();
-    const learnerEmails = students.map((s) => s.userId?.email).filter(Boolean);
-    const learnerUserIds = students.map((s) => s.userId?._id).filter(Boolean);
-
-    const learnerTitle =
-      request.changeType === "remove" ? "Your class has changed" : "Your class timing has changed";
-    const learnerMessage =
-      request.changeType === "remove"
-        ? `${courseName} at ${oldSchedule} has been discontinued. Our team will contact you about the next step.`
-        : `${courseName} now runs ${newSchedule} (was ${oldSchedule}).`;
-
-    if (learnerUserIds.length) {
-      tasks.push(
-        createDashboardNotice({
-          title: learnerTitle,
-          message: learnerMessage,
-          userIds: learnerUserIds,
-          contentType: "Transactional",
-        })
-      );
-    }
-
-    if (learnerEmails.length) {
+  // A rejection changes nothing for learners, so it stays between the
+  // instructor and the reviewer.
+  if (!approved) {
+    if (populated?.userId?.email) {
       tasks.push(
         sendEmails({
-          recipients: learnerEmails,
-          subject: `Dunamis India — ${learnerTitle.toLowerCase()}`,
-          html: brandCard({
-            title: learnerTitle,
-            intro: learnerMessage,
-            details: `<p style="margin:0;">Instructor: ${teacherName(populated)}</p>`,
-            ctaText: "View my schedule",
-            ctaHref: "https://dunamisindia.co.in/student/schedule",
-            footnote: "Please reach out if this timing does not work for you.",
-          }),
+          recipients: [populated.userId.email],
+          ...instructorEmail,
           attachments: brandAttachments(),
         })
       );
     }
+    await settle(tasks);
+    return;
   }
+
+  // Approved: the sheet's "class reschedule" row.
+  const students = request.affectedStudentIds.length
+    ? await Student.find({ _id: { $in: request.affectedStudentIds } })
+        .populate("userId", "name email")
+        .lean()
+    : [];
+  const learnerUsers = students.map((s) => s.userId).filter(Boolean);
+
+  const learnerTitle =
+    request.changeType === "remove" ? "Your class has changed" : "Your class timing has changed";
+  const learnerMessage =
+    request.changeType === "remove"
+      ? `${courseName} at ${oldSchedule} has been discontinued. Our team will contact you about the next step.`
+      : `${courseName} now runs ${newSchedule} (was ${oldSchedule}).`;
+
+  // The learners' portal copy is kept alongside the email.
+  if (learnerUsers.length) {
+    tasks.push(
+      createDashboardNotice({
+        title: learnerTitle,
+        message: learnerMessage,
+        userIds: learnerUsers.map((user) => user._id),
+        contentType: "Transactional",
+      })
+    );
+  }
+
+  const branchId = request.requested?.branchId || request.current?.branchId;
+  tasks.push(
+    notifyEvent({
+      event: "classRescheduled",
+      context: branchId ? { branchId } : { courseId: request.courseId },
+      instructorUser: populated?.userId,
+      title: request.changeType === "remove" ? "Class discontinued" : "Class timing changed",
+      message:
+        request.changeType === "remove"
+          ? `${courseName} with ${teacherName(populated)} at ${oldSchedule} has been discontinued (${learnerUsers.length} learner(s)).`
+          : `${courseName} with ${teacherName(populated)} moves from ${oldSchedule} to ${newSchedule} (${learnerUsers.length} learner(s)).`,
+      instructorTitle,
+      instructorMessage,
+      instructorSubject: instructorEmail.subject,
+      instructorHtml: instructorEmail.html,
+      attachments: brandAttachments(),
+      learners: learnerUsers,
+      learnerTitle,
+      learnerMessage,
+      learnerSubject: `Dunamis India — ${learnerTitle.toLowerCase()}`,
+      learnerHtml: brandCard({
+        title: learnerTitle,
+        intro: learnerMessage,
+        details: `<p style="margin:0;">Instructor: ${teacherName(populated)}</p>`,
+        ctaText: "Open my dashboard",
+        ctaHref: "https://dunamisindia.co.in/student",
+        footnote: "Please reach out if this timing does not work for you.",
+      }),
+    })
+  );
 
   await settle(tasks);
 };

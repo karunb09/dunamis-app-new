@@ -7,6 +7,19 @@ const {
   createDashboardNotice,
 } = require("../utils/notificationService");
 const { currentMonthKey, shiftMonth } = require("../utils/istMonth");
+const Admin = require("../model/admin.model");
+
+// The digest is company-wide and leads with revenue, so it goes to superadmins
+// and admins holding All Access or Financials, not every admin.
+const digestRecipients = async () => {
+  const admins = await getAdminUsers();
+  const allowed = new Set(
+    (await Admin.find({ permission: { $in: ["allAccess", "financials"] } }).select("userId").lean()).map(
+      (admin) => String(admin.userId)
+    )
+  );
+  return admins.filter((user) => user.accountType === "superadmin" || allowed.has(String(user._id)));
+};
 
 async function sendMonthlyInsightsDigest() {
   try {
@@ -15,9 +28,9 @@ async function sendMonthlyInsightsDigest() {
 
     const { subject, html, attachments } = buildMonthlyInsightsEmail({ insights });
 
-    const adminUsers = await getAdminUsers();
+    const adminUsers = await digestRecipients();
     if (!adminUsers.length) {
-      console.log("[MonthlyInsights] No admin users found. Skipping email.");
+      console.log("[MonthlyInsights] Nobody with All Access or Financials. Skipping email.");
       return;
     }
 

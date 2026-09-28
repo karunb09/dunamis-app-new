@@ -2,7 +2,7 @@ const express = require("express");
 const { z } = require("zod");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam, objectId } = require("../validators/common");
 const {
@@ -24,8 +24,13 @@ const {
   getRemunerationById,
 } = require("../controller/remuneration.controller");
 
-const adminOnly = accessToRole(["admin", "superadmin"]);
-const anyStaff = accessToRole(["admin", "superadmin", "teacher"]);
+const adminOnly = [accessToRole(["admin", "superadmin"]), requirePermission("financials")];
+// Instructors read their own payslips; admins read them from Financials or
+// from the instructor's profile.
+const anyStaff = [
+  accessToRole(["admin", "superadmin", "teacher"]),
+  requirePermission("financials", "instructorManagement"),
+];
 
 router.post(
   "/generate",

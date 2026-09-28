@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -19,13 +19,12 @@ const {
   markRead,
 } = require("../controller/message.controller");
 
-// Admins get read access for moderation; only the two participants can post.
-const participantsAndAdmins = accessToRole([
-  "student",
-  "teacher",
-  "admin",
-  "superadmin",
-]);
+// Admins get read access for moderation (All Access only — there is no
+// moderation screen yet); only the two participants can post.
+const participantsAndAdmins = [
+  accessToRole(["student", "teacher", "admin", "superadmin"]),
+  requirePermission(),
+];
 
 router.get("/conversations", isAuth, participantsAndAdmins, listConversations);
 router.get("/unread-count", isAuth, participantsAndAdmins, getUnreadCount);

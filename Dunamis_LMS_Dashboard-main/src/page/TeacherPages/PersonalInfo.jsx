@@ -12,6 +12,7 @@ import {
 import toast from "react-hot-toast";
 import { DEFAULT_AVATAR, resolveImageUrl } from "../../utils/resolveImageUrl";
 import ProfileImageCropper from "../../components/ProfileImageCropper";
+import OrgPlacementSummary from "../../components/org/OrgPlacementSummary";
 const FIELD_INPUT = "w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500";
 
 const PersonalInfo = ({ user, loading }) => {
@@ -200,6 +201,12 @@ const PersonalInfo = ({ user, loading }) => {
           </div>
         )}
       </div>
+
+      {user?.org?.reportsTo && (
+        <div className="mb-6">
+          <OrgPlacementSummary org={user.org} />
+        </div>
+      )}
 
       {/* Fields */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

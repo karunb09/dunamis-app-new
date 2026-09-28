@@ -8,6 +8,7 @@ import ScrollProgressBar from "@/components/ScrollProgressBar";
 import Footer from "@/components/Footer";
 import CustomCursor from "@/components/CustomCursor";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import ChatbotLauncher from "@/components/chatbot/ChatbotLauncher";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "./providers";
 import { readServerAuth } from "@/lib/serverAuth";
@@ -123,6 +124,8 @@ export default async function RootLayout({ children }) {
           {/* pb-16 on mobile keeps content clear of the bottom nav bar */}
           <main className="flex-grow pb-16 md:pb-0">{children}</main>
           <MobileBottomNav />
+          {/* Inside Providers: the demo modal it opens reads auth from Redux. */}
+          <ChatbotLauncher />
         </Providers>
 
         <Footer />

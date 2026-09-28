@@ -1,22 +1,22 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const { publicCache } = require("../middleware/cacheControl");
 const {
   createCity,
   getAllCities,
-  getCityManagers,
   updateCity,
   deleteCity,
   getCityById,
 } = require("../controller/city.controller");
 
 router.get("/get-all-cities", publicCache(), getAllCities);
-router.get("/managers", getCityManagers);
 router.get("/:id", getCityById);
-router.post("/create", isAuth, accessToRole(["admin", "superadmin"]), createCity);
-router.put("/:id", isAuth, accessToRole(["admin", "superadmin"]), updateCity);
-router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), deleteCity);
+const adminOnly = [isAuth, accessToRole(["admin", "superadmin"]), requirePermission("offlineCenters")];
+
+router.post("/create", ...adminOnly, createCity);
+router.put("/:id", ...adminOnly, updateCity);
+router.delete("/:id", ...adminOnly, deleteCity);
 
 module.exports = router;

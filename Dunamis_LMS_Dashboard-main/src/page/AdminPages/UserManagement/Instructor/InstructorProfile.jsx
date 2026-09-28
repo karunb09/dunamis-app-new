@@ -26,6 +26,7 @@ import Swal from "sweetalert2";
 import IconTabBar from "../../../../components/IconTabBar";
 import PageTabBar from "../../../../components/PageTabBar";
 import EditInstructorModal from "./EditInstructorModal";
+import { saveOrgPlacement } from "../../../../api/orgApi";
 import CoursesTab from "./TabContent/CoursesTab";
 import ScheduleTab from "./TabContent/ScheduleTab";
 import StudentsTab from "./TabContent/StudentsTab";
@@ -45,12 +46,7 @@ const InstructorProfile = () => {
   const { selectedTeacher, loading, error } = useSelector((state) => state.teachers);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    mode: selectedTeacher?.teacherDetails?.mode,
-    branch: selectedTeacher?.teacherDetails?.branch,
-    courses: selectedTeacher?.courses?.map((c) => c.name) || [],
-    profilePicture: selectedTeacher?.teacherDetails?.profilePicture,
-  });
+  const [editData, setEditData] = useState(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
 
   const [activeTab, setActiveTab] = useState("Courses");
@@ -71,8 +67,8 @@ const InstructorProfile = () => {
     setEditData({
       mode: selectedTeacher.teacherDetails?.mode || "online",
       teachLanguages: selectedTeacher.teacherDetails?.language?.teach || [],
-      branch: selectedTeacher.teacherDetails?.branch || "",
-      courses: selectedTeacher.courses?.map((c) => c.name) || [],
+      reportsTo: selectedTeacher.user?.org?.reportsTo?._id || "",
+      branchIds: (selectedTeacher.branches || []).map((branch) => branch._id),
       profilePicture:
         selectedTeacher.teacherDetails?.profilePicture ||
         selectedTeacher.user?.image ||
@@ -151,17 +147,28 @@ const InstructorProfile = () => {
 
     setIsSavingProfile(true);
     try {
-      await dispatch(
-        updateTeacher({
-          id: instructorId,
-          updatedData: payload,
-        })
-      ).unwrap();
+      const saveMode = () =>
+        dispatch(updateTeacher({ id: instructorId, updatedData: payload })).unwrap();
+      const savePlacement = () =>
+        saveOrgPlacement({
+          userId: selectedTeacher.user?._id,
+          org: { reportsTo: updated.reportsTo || null },
+          branchIds: updated.mode === "online" ? [] : updated.branchIds || [],
+        });
+      // Branches are refused for an online instructor, and the switch to online
+      // is refused while any branch remains — so the order flips.
+      if (updated.mode === "online") {
+        await savePlacement();
+        await saveMode();
+      } else {
+        await saveMode();
+        await savePlacement();
+      }
       await dispatch(fetchTeacherById(instructorId)).unwrap();
       toast.success("Instructor profile updated successfully.");
       setIsEditing(false);
     } catch (saveError) {
-      toast.error(saveError || "Failed to update instructor profile.");
+      toast.error(saveError?.message || saveError || "Failed to update instructor profile.");
     } finally {
       setIsSavingProfile(false);
     }
@@ -249,6 +256,16 @@ const InstructorProfile = () => {
                   {instructor?.language?.teach?.length > 0 && (
                     <span className="px-2 py-0.5 sm:py-1 bg-purple-100 text-purple-700 text-xs sm:text-sm rounded-full flex items-center gap-1">
                       <FaLanguage className="text-sm sm:text-lg" /> Teaches in {instructor.language.teach.join(", ")}
+                    </span>
+                  )}
+                  {selectedTeacher.user?.org?.reportsTo && (
+                    <span className="px-2 py-0.5 sm:py-1 bg-slate-100 text-slate-700 text-xs sm:text-sm rounded-full">
+                      Reports to {selectedTeacher.user.org.reportsTo.name?.firstName} {selectedTeacher.user.org.reportsTo.name?.lastName}
+                    </span>
+                  )}
+                  {selectedTeacher.branches?.length > 0 && (
+                    <span className="px-2 py-0.5 sm:py-1 bg-slate-100 text-slate-700 text-xs sm:text-sm rounded-full">
+                      {selectedTeacher.branches.map((branch) => branch.branchName).join(", ")}
                     </span>
                   )}
                 </div>

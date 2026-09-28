@@ -1,103 +1,79 @@
-const zone = require("../model/zone.model");
-const { sendValidationError } = require("../utils/validationErrorResponse");
+const Zone = require("../model/zone.model");
+const City = require("../model/city.model");
+const Branch = require("../model/branch.model");
+const User = require("../model/user.model");
+const asyncHandler = require("../utils/asyncHandler");
 
-//get zone
-const getZone = async(req,res) => {
-    try{
-        const zones = await zone.find();
+// Handlers throw on failure; the central errorHandler formats Mongoose
+// validation/cast/duplicate errors (a duplicate name in one city is a 409).
 
-        if(!zone || zone.length === 0){
-            res.json({
-                messege: "There is no zone"
-            })
-        }
-        // if we have zone >=1
-        res.status(200).json({
-           success: true,
-           zone: zones
-        })
-    }
-    catch(error){
-        res.status(500).json({
-            success:false,
-            message:"error"
-        })
-    }
-}
-// Create Zone
-const CreateZone = async (req,res) => {
-    try{
-        const{name, location, manager, adminContact, adminEmail, city} = req.body;
-        if (!name || !location || !manager || !adminContact || !adminEmail || !city) {
-            return res.status(400).json({
-                success: false,
-                message: "All required fields must be filled.",
-            });
-        }
+// GET /zone?city=<id> — every zone, or one city's.
+exports.getZones = asyncHandler(async (req, res) => {
+  const filter = req.query.city ? { city: req.query.city } : {};
+  const zones = await Zone.find(filter).populate("city", "cityName").sort({ name: 1 });
 
-        const newZone = new zone ({name, location, manager, adminContact, adminEmail, city});
-        await newZone.save();
-        res.status(200).json({
-            success: true,
-            Zone: newZone
-        })
-    }
-    catch(error){
-        sendValidationError(res, error, "Failed to create zone");
+  res.status(200).json({ success: true, zones });
+});
 
-    }
-}
-// Update zone 
-const updateZone = async (req,res) => {
-    try{
-        console.log("put req")
-        const {id} = req.params;
-        const{name, location, manager, adminContact, adminEmail, city} = req.body;
+exports.createZone = asyncHandler(async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const { city } = req.body;
 
-        const updatedZone = await zone.findByIdAndUpdate(
-            id,
-            {name, location, manager, adminContact, adminEmail, city},
-            {returnDocument: "after", runValidators: true}
-        );
+  if (!name || !city) {
+    return res.status(400).json({ success: false, message: "Zone name and city are required." });
+  }
+  if (!(await City.exists({ _id: city }))) {
+    return res.status(400).json({ success: false, message: "City not found." });
+  }
 
-        if(!updatedZone) {
-            return res.status(404).json({
-                success: false,
-                message:"Zone not found"
-            })
-        }
-        res.status(200).json({
-            success: true,
-            zone: updatedZone
-        })
-    }
-    catch(error){
-        sendValidationError(res, error, "Failed to update zone");
-    } 
-}
-// Delete Zone
-const deleteZone = async (req,res) =>{
-    try{
-        const{id} = req.params;
-        const Deletedzone = await zone.findByIdAndDelete(id);
+  const zone = await Zone.create({ name, city });
 
-        if(!Deletedzone){
-            res.json({
-                message: "zone not found"
-            })
-        }
+  res.status(201).json({ success: true, message: "Zone created successfully", zone });
+});
 
-        res.status(200).json({
-            messege: "zone Deleted Successfully",
-            zone: Deletedzone
-        })
+// Renames only. Moving a zone to another city would strand its branches in
+// the wrong city, so a zone stays in the city it was created for.
+exports.updateZone = asyncHandler(async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  if (!name) {
+    return res.status(400).json({ success: false, message: "Zone name is required." });
+  }
 
-    }
-    catch(error){
-        res.status(500).json({
-            success: false,
-            message: "error"
-        })
-    } 
-}
-module.exports = {getZone, CreateZone, updateZone, deleteZone}
+  const zone = await Zone.findByIdAndUpdate(
+    req.params.id,
+    { name },
+    { returnDocument: "after", runValidators: true }
+  );
+  if (!zone) {
+    return res.status(404).json({ success: false, message: "Zone not found" });
+  }
+
+  res.status(200).json({ success: true, message: "Zone updated successfully", zone });
+});
+
+exports.deleteZone = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const [branchCount, staffCount] = await Promise.all([
+    Branch.countDocuments({ zone: id }),
+    User.countDocuments({ "org.zones": id }),
+  ]);
+  if (branchCount || staffCount) {
+    return res.status(409).json({
+      success: false,
+      message: branchCount
+        ? `${branchCount} branch(es) are still in this zone.`
+        : "A BDE is still responsible for this zone.",
+      hint: branchCount
+        ? "Move those branches to another zone first."
+        : "Change that BDE's responsibility from the Reporting structure tab first.",
+    });
+  }
+
+  const zone = await Zone.findByIdAndDelete(id);
+  if (!zone) {
+    return res.status(404).json({ success: false, message: "Zone not found" });
+  }
+
+  res.status(200).json({ success: true, message: "Zone deleted successfully" });
+});

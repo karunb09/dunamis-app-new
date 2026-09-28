@@ -17,6 +17,12 @@ const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 const {
+  inPersonTeaching,
+  normalizeInstructorBranches,
+  setInstructorBranches,
+  validateInstructorPlacement,
+} = require("../services/orgPlacement");
+const {
   DEFAULT_TEACHING_LANGUAGES,
   normalizeLanguages,
 } = require("../constants/languages");
@@ -227,6 +233,8 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       specialization,
       profilePicture,
       employeePrefix,
+      reportsTo,
+      branchIds,
     } = req.body;
 
     const readLanguages = normalizeStringArray(readLanguage);
@@ -305,6 +313,10 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       });
     }
 
+    // Before anything is created, so a bad pick never leaves a half-made account.
+    const branchList = await normalizeInstructorBranches({ branchIds, mode });
+    const org = await validateInstructorPlacement({ targetUserId: null, org: { reportsTo } });
+
     const password = OtpGenerator.generate(8, {
       upperCaseAlphabets: true,
       lowerCaseAlphabets: true,
@@ -325,6 +337,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       accountType: "teacher",
       accountStatus: "active",
       employeeId,
+      org,
       image: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(
         `${firstName.trim()} ${lastName.trim()}`
       )}`,
@@ -364,6 +377,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       userId: user._id,
       teacherDetail: teacherDetail._id,
     });
+    await setInstructorBranches({ teacherId: teacher._id, branchIds: branchList, mode: "add" });
 
     user.roleId = teacher._id;
     user.roleModel = "teacher";
@@ -483,7 +497,8 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
     const teachers = await Teacher.find(filter)
       .populate({
         path: "userId",
-        select: "name email mobileNo accountType accountStatus employeeId image _id",
+        select: "name email mobileNo accountType accountStatus employeeId image _id org",
+        populate: { path: "org.reportsTo", select: "name employeeId" },
       })
       .populate({
         path: "teacherDetail",
@@ -496,6 +511,18 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
       .sort(options.sort)
       .limit(options.limit * 1)
       .skip((options.page - 1) * options.limit);
+
+    const branchesByTeacher = new Map();
+    const teacherBranches = await Branch.find({ teachers: { $in: teachers.map((t) => t._id) } })
+      .select("branchName teachers")
+      .lean();
+    for (const branch of teacherBranches) {
+      for (const teacherId of branch.teachers) {
+        const key = String(teacherId);
+        if (!branchesByTeacher.has(key)) branchesByTeacher.set(key, []);
+        branchesByTeacher.get(key).push({ _id: branch._id, branchName: branch.branchName });
+      }
+    }
 
     const total = await Teacher.countDocuments(filter);
     const totalPages = Math.ceil(total / options.limit);
@@ -637,6 +664,7 @@ exports.getAllTeachers = asyncHandler(async (req, res) => {
               }
             : null,
           courses: teacher.course,
+          branches: branchesByTeacher.get(teacherIdStr) || [],
           students: formattedStudents,
           attendanceHistory: teacherDetail
             ? [
@@ -737,7 +765,8 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
       .select("+weeklyAvailability")
       .populate({
         path: "userId",
-        select: "name email mobileNo accountType employeeId image _id",
+        select: "name email mobileNo accountType employeeId image _id org",
+        populate: { path: "org.reportsTo", select: "name employeeId" },
       })
       .populate({
         path: "teacherDetail",
@@ -945,9 +974,12 @@ exports.getTeacherById = asyncHandler(async (req, res) => {
     });
 
     // Format teacher for response
+    const branches = await Branch.find({ teachers: teacher._id }).select("branchName").lean();
+
     const formattedTeacher = {
       id: teacher._id,
       user: teacher.userId,
+      branches,
       salaryStatus: teacher.salaryStatus,
       studentCount,
       averageRating: parseFloat(averageRating.toFixed(1)),
@@ -1041,6 +1073,25 @@ exports.updateTeacher = asyncHandler(async (req, res) => {
     }
 
     const teacherDetailsUpdate = teacherDetails ? { ...teacherDetails } : {};
+
+    // Teaching mode decides branch access and check-in, so only admins set it,
+    // and never to online while the instructor still teaches in person.
+    if (teacherDetailsUpdate.mode !== undefined) {
+      const isStaff = ["admin", "superadmin"].includes(req.user.accountType);
+      if (!isStaff) {
+        delete teacherDetailsUpdate.mode;
+      } else if (teacherDetailsUpdate.mode === "online") {
+        const inPerson = await inPersonTeaching(teacher._id);
+        const current = await TeacherDetail.findById(teacher.teacherDetail).select("mode").lean();
+        if (inPerson.length && current?.mode !== "online") {
+          return res.status(409).json({
+            success: false,
+            message: `This instructor still teaches in person: ${inPerson.join("; ")}.`,
+            hint: "Remove them from those branches, offline courses and branch schedule first, then switch them to online.",
+          });
+        }
+      }
+    }
     const profilePictureFile = req.files?.profilePicture || req.files?.profileImage;
 
     if (profilePictureFile) {

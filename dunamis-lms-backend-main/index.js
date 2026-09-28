@@ -87,6 +87,8 @@ const branchRoutes = require("./routes/branch.routes");
 const cityRoutes = require("./routes/city.routes");
 const contentRoutes = require("./routes/content.routes");
 const zoneRoutes = require("./routes/zone.routes");
+const orgRoutes = require("./routes/org.routes");
+const communicationMatrixRoutes = require("./routes/communicationMatrix.routes");
 const courseRoutes = require("./routes/course.routes");
 const teacherRoutes = require("./routes/teachers.routes");
 const demoBookingRoutes = require("./routes/demoBooking.route")
@@ -111,8 +113,10 @@ const referralRoutes = require("./routes/referral.routes");
 const opsRoutes = require("./routes/ops.routes");
 const insightsRoutes = require("./routes/insights.routes");
 const reportsRoutes = require("./routes/reports.routes");
+const instructorCheckInRoutes = require("./routes/instructorCheckIn.routes");
 const paymentsRoutes = require("./routes/payments.routes");
 const studentPaymentsRoutes = require("./routes/studentPayments.routes");
+const chatbotRoutes = require("./routes/chatbot.routes");
 
 const PORT = process.env.PORT || 3000;
 
@@ -142,6 +146,16 @@ const paymentLimiter = rateLimit({
   message: { success: false, message: "Too many requests, please try again later." },
 });
 
+// Public, unauthenticated chat widget: generous enough for a real conversation,
+// tight enough that nobody scripts the endpoint.
+const chatbotLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: isProd ? 40 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "You're sending messages too quickly. Please wait a minute." },
+});
+
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -164,6 +178,7 @@ require("./cronJobs/classJoinLinkReminder.cron");
 require("./cronJobs/monthlyInsights.cron");
 require("./cronJobs/paymentReconciler.cron");
 require("./cronJobs/instructorPayout.cron");
+require("./cronJobs/checkInReminder.cron");
 
 // Security headers. CSP is disabled (this is a JSON API, not an HTML origin —
 // CSP belongs on the frontends) and CORP is set to cross-origin so the
@@ -231,6 +246,8 @@ app.use("/api/v1/branch", branchRoutes);
 app.use("/api/v1/city", cityRoutes);
 app.use("/api/v1/content", contentRoutes);
 app.use("/api/v1/zone", zoneRoutes);
+app.use("/api/v1/org", orgRoutes);
+app.use("/api/v1/communication-matrix", communicationMatrixRoutes);
 app.use("/api/v1/course", courseRoutes);
 app.use("/api/v1/teachers", teacherRoutes);
 app.use("/api/v1/enrollment/create-order", paymentLimiter);
@@ -259,12 +276,16 @@ app.use("/api/v1/referral", referralRoutes);
 app.use("/api/v1/ops", opsRoutes);
 app.use("/api/v1/insights", insightsRoutes);
 app.use("/api/v1/reports", reportsRoutes);
+app.use("/api/v1/check-ins", instructorCheckInRoutes);
 app.use("/api/v1/payments", paymentsRoutes);
 // Only order creation is throttled. The fees page polls /summary and posts
 // checkout lifecycle pings, which would otherwise burn the 20-request budget
 // and leave the student unable to start the payment itself.
 app.use("/api/v1/student-payments/order", paymentLimiter);
 app.use("/api/v1/student-payments", studentPaymentsRoutes);
+app.use("/api/v1/chatbot/message", chatbotLimiter);
+app.use("/api/v1/chatbot/feedback", chatbotLimiter);
+app.use("/api/v1/chatbot", chatbotRoutes);
 
 app.get("/", (req, res) => {
   return res.json({

@@ -58,7 +58,7 @@ export const fetchApplicationById = createAsyncThunk(
 //Update application status
 export const updateApplicationStatus = createAsyncThunk(
   "application/updateStatus",
-  async ({ id, status, employeePrefix }, thunkAPI) => {
+  async ({ id, status, employeePrefix, reportsTo, branchIds }, thunkAPI) => {
     try {
       const token = getStoredToken();
       const res = await fetch(
@@ -70,12 +70,14 @@ export const updateApplicationStatus = createAsyncThunk(
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
-          body: JSON.stringify(employeePrefix ? { status, employeePrefix } : { status }),
+          body: JSON.stringify(
+            status === "selected" ? { status, employeePrefix, reportsTo, branchIds } : { status }
+          ),
         }
       );
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.message || "Failed to update status");
+        throw new Error([data.message || "Failed to update status", data.hint].filter(Boolean).join(" "));
       }
       if (status === "selected") {
         // A new teacher was just created server-side, so the cached list is stale.

@@ -14,10 +14,13 @@ import {
   FiUserCheck,
   FiDollarSign,
   FiMessageCircle,
+  FiCpu,
   FiMessageSquare,
   FiGift,
   FiBell,
+  FiShare2,
   FiChevronLeft,
+  FiMapPin,
   FiX,
 } from "react-icons/fi";
 import { PiStudentBold } from "react-icons/pi";
@@ -29,6 +32,8 @@ import { logoutUser } from "../../redux/authSlice";
 import { prefetchRoute } from "../../routeLoaders";
 import clsx from "clsx";
 import { getStoredUser } from "../../utils/authSession";
+import { hasPermission } from "../../utils/permissions";
+import { useChatbotStatus } from "../../hooks/useChatbotInsights";
 
 const WEBSITE_URL = import.meta.env.VITE_WEBSITE_URL || "http://localhost:3000";
 
@@ -44,8 +49,13 @@ const Sidebar = ({ isOpen, onClose }) => {
     "guest";
 
   const permissions = user?.permissions || [];
+  // Set by the API for instructors who teach at a centre (or were hired as
+  // offline/hybrid); online-only instructors never see branch check-in.
+  const checkInEligible = (user || getStoredUser())?.checkIn?.eligible === true;
   const isExpanded = isOpen || isDesktopOpen;
   const isAdminLike = !["student", "teacher", "guest"].includes(accountType);
+  // Hidden until the API says the assistant is on (CHATBOT_ENABLED).
+  const chatbotOn = useChatbotStatus({ enabled: isAdminLike }).data?.enabled === true;
 
   const studentMenu = [
     { to: "/home", icon: <FiHome />, text: "Home" },
@@ -73,6 +83,9 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: <FiEdit3 />,
       text: "Attendance & Homework",
     },
+    ...(checkInEligible
+      ? [{ to: "/teacher/check-in", icon: <FiMapPin />, text: "Branch Check-in" }]
+      : []),
     { to: "/teacher/messages", icon: <FiMessageSquare />, text: "Messages" },
   ];
 
@@ -161,6 +174,12 @@ const Sidebar = ({ isOpen, onClose }) => {
           permission: "reports",
         },
         {
+          to: "/admin/reports/check-ins",
+          icon: <FiMapPin />,
+          text: "Instructor Check-ins",
+          permission: "reports",
+        },
+        {
           to: "/admin/enquiries",
           icon: <FiMessageCircle />,
           text: "Enquiries",
@@ -179,39 +198,42 @@ const Sidebar = ({ isOpen, onClose }) => {
           permission: "updates",
         },
         {
+          to: "/admin/communication-matrix",
+          icon: <FiShare2 />,
+          text: "Communication Matrix",
+          permission: "updates",
+        },
+        {
           to: "/admin/site-content",
           icon: <FiFileText />,
           text: "Website Content",
           permission: "websiteContent",
         },
+        ...(chatbotOn
+          ? [
+              {
+                to: "/admin/chatbot-insights",
+                icon: <FiCpu />,
+                text: "Chatbot Insights",
+                permission: "contentManagement",
+              },
+            ]
+          : []),
       ],
     },
   ];
 
-  const hasFullAccess = () => {
-    return permissions.length === 0 || permissions.includes("allAccess");
-  };
-
-  const hasPermission = (permission) => {
-    if (!permission) return true;
-    if (hasFullAccess()) return true;
-    return permissions.includes(permission);
-  };
-
+  // Admins see the items their permissions allow (utils/permissions.js);
+  // superadmins and All Access see everything.
   const filteredAdminMenu = useMemo(() => {
-    if (accountType !== "admin") return adminMenu;
-
-    if (hasFullAccess()) {
-      return adminMenu;
-    }
-
+    const viewer = { accountType, permissions };
     return adminMenu
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => hasPermission(item.permission)),
+        items: section.items.filter((item) => !item.permission || hasPermission(viewer, item.permission)),
       }))
       .filter((section) => section.items.length > 0);
-  }, [accountType, permissions]);
+  }, [accountType, permissions, chatbotOn]);
 
   const getMenuToRender = () => {
     if (accountType === "student") return studentMenu;

@@ -73,9 +73,12 @@ async function remindEnrolledClasses(now) {
       if (!link) {
         await notifyEvent({
           event: "classJoinLink",
+          context: slot.branchId ? { branchId: slot.branchId } : { courseId: slot.courseId?._id || slot.courseId },
           instructorUser: teacher?.userId,
-          title: "No join link set",
-          message: `Your ${courseName} class at ${slot.startTime} starts in ${LEAD_MINUTES} minutes and has no join link. Add one so the students can join.`,
+          title: "Class has no join link",
+          message: `The ${courseName} class at ${slot.startTime} starts in ${LEAD_MINUTES} minutes and has no join link yet.`,
+          instructorTitle: "No join link set",
+          instructorMessage: `Your ${courseName} class at ${slot.startTime} starts in ${LEAD_MINUTES} minutes and has no join link. Add one so the students can join.`,
         });
         await stamp();
         return;

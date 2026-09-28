@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { z } = require("zod");
 const { idParam, objectId } = require("../validators/common");
@@ -10,7 +10,11 @@ const {
   downloadCertificate,
 } = require("../controller/certificate.controller");
 
-const anyRole = accessToRole(["student", "teacher", "admin", "superadmin"]);
+// Learners and instructors see their own; admins need Student Management.
+const anyRole = [
+  accessToRole(["student", "teacher", "admin", "superadmin"]),
+  requirePermission("studentManagement"),
+];
 
 router.get(
   "/",

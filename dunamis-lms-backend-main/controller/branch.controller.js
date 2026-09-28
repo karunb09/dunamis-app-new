@@ -3,7 +3,20 @@ const asyncHandler = require("../utils/asyncHandler");
 const Branch = require("../model/branch.model");
 const City = require("../model/city.model");
 const Teacher = require("../model/teacher.model");
+const Zone = require("../model/zone.model");
+const mongoose = require("mongoose");
 const { localFileUpload } = require("../utils/locallyUploader");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
+
+// A branch's zone must be one of its own city's zones: BDEs are responsible
+// for zones, so a mismatch would route the branch to another city's BDE.
+const zoneMismatch = async (zoneId, cityId) => {
+  if (!mongoose.isValidObjectId(zoneId)) return "Pick a zone for this branch.";
+  const zone = await Zone.findById(zoneId).select("city").lean();
+  if (!zone) return "That zone no longer exists.";
+  if (String(zone.city) !== String(cityId)) return "That zone belongs to a different city.";
+  return null;
+};
 
 const getBranchFallbackImage = (branchName = "Branch") =>
   `https://api.dicebear.com/9.x/shapes/svg?seed=${encodeURIComponent(
@@ -23,6 +36,37 @@ const parseOptionalArray = (value) => {
       .map((item) => item.trim())
       .filter(Boolean);
   }
+};
+
+const isBlank = (value) =>
+  value === undefined || value === null || String(value).trim() === "";
+
+// The instructor check-in pin arrives as FormData strings. Fields absent from
+// the request leave the pin as it is; both coordinates sent blank clear it.
+const parseCheckInPin = ({ geoLat, geoLng, geofenceRadiusM }) => {
+  const radius = isBlank(geofenceRadiusM) ? undefined : Number(geofenceRadiusM);
+  if (radius !== undefined && (!Number.isFinite(radius) || radius < 50 || radius > 2000)) {
+    return { error: "Check-in radius must be between 50 and 2000 metres." };
+  }
+
+  if (geoLat === undefined && geoLng === undefined) return { geo: undefined, radius };
+  if (isBlank(geoLat) && isBlank(geoLng)) return { geo: null, radius };
+
+  const lat = Number(geoLat);
+  const lng = Number(geoLng);
+  if (
+    isBlank(geoLat) ||
+    isBlank(geoLng) ||
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lng) > 180
+  ) {
+    return {
+      error: "Enter both latitude and longitude for the check-in location, or leave both blank.",
+    };
+  }
+  return { geo: { lat, lng }, radius };
 };
 
 // Create Branch
@@ -77,11 +121,14 @@ exports.createBranch = asyncHandler(async (req, res) => {
       });
     }
 
-    if (!/^\d+$/.test(String(zone).trim())) {
-      return res.status(400).json({
-        success: false,
-        message: "Zone must contain numbers only.",
-      });
+    const zoneProblem = await zoneMismatch(zone, city);
+    if (zoneProblem) {
+      return res.status(400).json({ success: false, message: zoneProblem });
+    }
+
+    const pin = parseCheckInPin(req.body);
+    if (pin.error) {
+      return res.status(400).json({ success: false, message: pin.error });
     }
 
     // Validate if status is valid
@@ -120,6 +167,7 @@ exports.createBranch = asyncHandler(async (req, res) => {
         });
       }
     }
+    await assertCanTeachInPerson(teacherIds);
 
     // Handle image upload
     let branchImagePath = getBranchFallbackImage(branchName);
@@ -148,6 +196,8 @@ exports.createBranch = asyncHandler(async (req, res) => {
       centreFacilities,
       teachers: teacherIds,
       branchImage: branchImagePath, // Save image path if uploaded
+      ...(pin.geo ? { geo: pin.geo } : {}),
+      ...(pin.radius !== undefined ? { geofenceRadiusM: pin.radius } : {}),
     });
 
     res.status(201).json({
@@ -162,6 +212,7 @@ exports.getAllBranches = asyncHandler(async (req, res) => {
     const branches = await Branch.find()
       .populate("branchManager", "name email")
       .populate("city", "cityName location")
+      .populate("zone", "name")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -198,6 +249,7 @@ exports.getBranchById = asyncHandler(async (req, res) => {
     const branch = await Branch.findById(id)
       .populate("branchManager", "name email phone")
       .populate("city", "cityName location")
+      .populate("zone", "name")
       .populate({
         path: "courses",
         select: "name code description teacher price",
@@ -232,18 +284,6 @@ exports.getBranchById = asyncHandler(async (req, res) => {
     res.status(200).json({
       success: true,
       branch,
-    });
-});
-
-// Get Branch Managers
-exports.getBranchManagers = asyncHandler(async (req, res) => {
-    const managers = await User.find({ accountType: "admin" }).select(
-      "_id name email"
-    );
-
-    res.status(200).json({
-      success: true,
-      managers,
     });
 });
 
@@ -318,11 +358,14 @@ exports.updateBranch = asyncHandler(async (req, res) => {
       });
     }
 
-    if (!/^\d+$/.test(String(zone).trim())) {
-      return res.status(400).json({
-        success: false,
-        message: "Zone must contain numbers only.",
-      });
+    const zoneProblem = await zoneMismatch(zone, city);
+    if (zoneProblem) {
+      return res.status(400).json({ success: false, message: zoneProblem });
+    }
+
+    const pin = parseCheckInPin(req.body);
+    if (pin.error) {
+      return res.status(400).json({ success: false, message: pin.error });
     }
 
     // Validate if branchManager exists
@@ -352,6 +395,10 @@ exports.updateBranch = asyncHandler(async (req, res) => {
         });
       }
     }
+    // Only instructors being added: one already on the branch from before the
+    // rule shouldn't block every edit of it.
+    const existingTeacherIds = new Set((existingBranch.teachers || []).map(String));
+    await assertCanTeachInPerson(teacherIds.filter((teacherId) => !existingTeacherIds.has(String(teacherId))));
 
     // Handle image upload for update
     let branchImagePath = existingBranch.branchImage || null;
@@ -383,6 +430,9 @@ exports.updateBranch = asyncHandler(async (req, res) => {
     };
 
     updates.branchImage = branchImagePath;
+    if (pin.geo) updates.geo = pin.geo;
+    if (pin.geo === null) updates.$unset = { geo: 1 };
+    if (pin.radius !== undefined) updates.geofenceRadiusM = pin.radius;
 
     const updatedBranch = await Branch.findByIdAndUpdate(id, updates, {
       returnDocument: "after",

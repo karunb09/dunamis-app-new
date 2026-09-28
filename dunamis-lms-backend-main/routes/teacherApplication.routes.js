@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const teacherApplicationController = require('../controller/teacherApplication.controller');
 const TeacherApplication = require("../model/teacherApplication.model")
-const { isAuth, accessToRole } = require('../middleware/auth');
+const { isAuth, accessToRole, requirePermission } = require('../middleware/auth');
 
 // ===== PUBLIC ROUTES =====
 
@@ -38,6 +38,7 @@ router.get('/status/:id', teacherApplicationController.getTeacherApplicationById
 router.get('/get-all', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     teacherApplicationController.getAllTeacherApplications
 );
 
@@ -49,6 +50,7 @@ router.get('/get-all',
 router.get('/getApplicationById/:id', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     teacherApplicationController.getTeacherApplicationById
 );
 
@@ -61,6 +63,7 @@ router.get('/getApplicationById/:id',
 router.put('/updateStatus/:id/status', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     teacherApplicationController.updateApplicationStatus
 );
 
@@ -72,6 +75,7 @@ router.put('/updateStatus/:id/status',
 router.delete('/delete/:id', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     teacherApplicationController.deleteTeacherApplication
 );
 
@@ -85,6 +89,7 @@ router.delete('/delete/:id',
 router.get('/stats/overview', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     async (req, res) => {
         try {
             const TeacherApplication = require('../model/teacherApplication.model');
@@ -131,6 +136,7 @@ router.get('/stats/overview',
 router.get('/export/csv', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     async (req, res) => {
         try {
             const { status } = req.query;
@@ -197,6 +203,7 @@ router.get('/export/csv',
 router.post('/:id/notes', 
     isAuth,
     accessToRole(["admin", "superadmin"]),
+    requirePermission("instructorManagement"),
     async (req, res) => {
         try {
             const { id } = req.params;

@@ -12,7 +12,7 @@ const {
   upsertInstructorCourseMedia,
   getInstructorCourseMedia,
 } = require("../controller/course.controller");
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const { publicCache } = require("../middleware/cacheControl");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
@@ -20,7 +20,8 @@ const { idParam } = require("../validators/common");
 router.get("/get", publicCache(), getAllCourses);
 router.get("/get/:id", publicCache(), getCourseById);
 
-// Admin routes
+// Admin routes. The catalog reads stay open to every admin: course pickers on
+// student, dues, report and org pages all load them.
 router.get(
   "/manage",
   isAuth,
@@ -37,6 +38,7 @@ router.get(
   "/manage/:id/assignment-history",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("courseManagement"),
   validate(idParam, "params"),
   getCourseAssignmentHistory
 );
@@ -44,12 +46,14 @@ router.post(
   "/create",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("courseManagement"),
   createCourse
 );
 router.put(
   "/update/:id",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("courseManagement"),
   validate(idParam, "params"),
   updateCourse
 );
@@ -57,6 +61,7 @@ router.delete(
   "/delete/:id",
   isAuth,
   accessToRole(["admin", "superadmin"]),
+  requirePermission("courseManagement"),
   validate(idParam, "params"),
   deleteCourse
 );
@@ -66,12 +71,14 @@ router.put(
   "/:id/instructor-media",
   isAuth,
   accessToRole(["teacher", "admin", "superadmin"]),
+  requirePermission("courseManagement", "instructorManagement"),
   upsertInstructorCourseMedia
 );
 router.get(
   "/:id/instructor-media",
   isAuth,
   accessToRole(["teacher", "admin", "superadmin"]),
+  requirePermission("courseManagement", "instructorManagement"),
   getInstructorCourseMedia
 );
 

@@ -1,11 +1,32 @@
 const mongoose = require("mongoose");
+const User = require("../model/user.model");
 const Student = require("../model/student.model");
 const Course = require("../model/course.model");
 const Teacher = require("../model/teacher.model");
 const Assignment = require("../model/assignment.model");
+const ClassRoster = require("../model/classRoster.model");
 const { notifyEvent } = require("../utils/notificationService");
+const { enrollmentContext, loadRoutingDirectory } = require("../services/staffRouting");
 
 const DAY_MS = 86400000;
+
+const addMonths = (date, months) => {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + months);
+  return d;
+};
+
+// The learner's own instructor: whoever's roster they sit on for this course.
+// Falls back to the course's first instructor for learners with no roster.
+const findInstructor = async ({ studentId, course }) => {
+  const roster = await ClassRoster.findOne({
+    courseId: course._id,
+    status: "active",
+    students: { $elemMatch: { studentId, status: "active" } },
+  }).select("teacherId");
+  const teacherIds = roster ? [roster.teacherId] : course.teacher || [];
+  return Teacher.findOne({ _id: { $in: teacherIds } });
+};
 
 const normalizeDate = (date) => {
   const d = new Date(date);
@@ -22,6 +43,7 @@ async function runAssignmentCycle(force = false) {
   const students = await Student.find({
     "enrolledCourses.status": "in-progress",
   }).populate("userId", "name email");
+  const directory = await loadRoutingDirectory();
 
   console.log(`Found ${students.length} active students.`);
 
@@ -42,7 +64,7 @@ async function runAssignmentCycle(force = false) {
         continue;
       }
 
-      const course = await Course.findById(courseId).select("teacher name");
+      const course = await Course.findById(courseId).select("teacher name mode");
       if (!course) {
         console.log("Skipping — course not found", courseId);
         continue;
@@ -79,12 +101,20 @@ async function runAssignmentCycle(force = false) {
           continue;
         }
 
-        const courseTeachers = course.teacher || [];
-        console.log("Course teachers:", courseTeachers);
+        // Monthly means monthly: a closed assignment must not open the next
+        // one the following day.
+        const last = await Assignment.findOne({
+          "students.studentId": student._id,
+          courseId,
+        })
+          .sort({ createdAt: -1 })
+          .select("createdAt");
+        if (!force && last && addMonths(last.createdAt, 1) > today) {
+          console.log("Skipping — last assignment is less than a month old");
+          continue;
+        }
 
-        const assignedTeacher = await Teacher.findOne({
-          _id: { $in: courseTeachers },
-        });
+        const assignedTeacher = await findInstructor({ studentId: student._id, course });
 
         if (!assignedTeacher) {
           console.log("Skipping — no teacher found for course");
@@ -115,8 +145,10 @@ async function runAssignmentCycle(force = false) {
           : "a student";
         await notifyEvent({
           event: "assignmentCycle",
+          context: enrollmentContext({ student, course }),
+          directory,
           instructorUser: assignedTeacher.userId
-            ? { _id: assignedTeacher.userId }
+            ? await User.findById(assignedTeacher.userId).select("email").lean()
             : null,
           title: "Assignment due to be set",
           message: `Monthly assignment cycle: set an assignment for ${studentName} in ${course.name}.`,

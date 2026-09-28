@@ -7,11 +7,20 @@ const TeacherApplication = require("../model/teacherApplication.model");
 const DemoBooking = require("../model/demoBooking.model");
 const Branch = require("../model/branch.model");
 const PaymentTransaction = require("../model/paymentTransaction.model");
+const { getScope, loadStaff } = require("../middleware/auth");
+const { placeFilter, studentFilter } = require("../utils/scopeFilters");
 
 // Recognized-revenue statuses — keep this in sync with controller/insights.controller.js.
 const PAID_STATUSES = ["paid", "paid_pending_fulfillment", "fulfilled"];
 
 exports.getAdminSummary = asyncHandler(async (req, res) => {
+    const staff = await loadStaff(req);
+    const can = (key) => Boolean(staff?.unrestricted || staff?.permissions?.includes(key));
+    // A scoped admin's home counts cover their branches and courses only.
+    const area = await getScope(req);
+    const demoArea = area ? placeFilter(area) : {};
+    const skip = Promise.resolve(null);
+
     const [
       totalStudents,
       activeCourses,
@@ -23,20 +32,25 @@ exports.getAdminSummary = asyncHandler(async (req, res) => {
       attendedDemos,
       revenueResult,
     ] = await Promise.all([
-      Student.countDocuments(),
+      Student.countDocuments(area ? await studentFilter(area) : {}),
       Course.countDocuments({ isPublished: true }),
       Teacher.countDocuments(),
       Branch.countDocuments({ status: "active" }),
-      Enquiry.countDocuments({ status: "new" }),
-      TeacherApplication.countDocuments({ status: { $in: ["new", "shortlisted", "interviewed"] } }),
-      DemoBooking.countDocuments({ demoStatus: { $in: ["Booked", "Rescheduled"] } }),
-      DemoBooking.countDocuments({ demoStatus: "Attended" }),
+      can("enquiries") ? Enquiry.countDocuments({ status: "new" }) : skip,
+      can("instructorManagement")
+        ? TeacherApplication.countDocuments({ status: { $in: ["new", "shortlisted", "interviewed"] } })
+        : skip,
+      DemoBooking.countDocuments({ demoStatus: { $in: ["Booked", "Rescheduled"] }, ...demoArea }),
+      DemoBooking.countDocuments({ demoStatus: "Attended", ...demoArea }),
       // PaymentTransaction is the authoritative revenue source — it also
       // captures manual/cash enrollments that Student.payments[] misses.
-      PaymentTransaction.aggregate([
-        { $match: { status: { $in: PAID_STATUSES } } },
-        { $group: { _id: null, total: { $sum: "$amount" } } },
-      ]),
+      // Revenue is Financials information.
+      can("financials")
+        ? PaymentTransaction.aggregate([
+            { $match: { status: { $in: PAID_STATUSES }, ...(area ? placeFilter(area) : {}) } },
+            { $group: { _id: null, total: { $sum: "$amount" } } },
+          ])
+        : skip,
     ]);
 
     res.status(200).json({
@@ -46,11 +60,12 @@ exports.getAdminSummary = asyncHandler(async (req, res) => {
         activeCourses,
         totalInstructors,
         activeBranches,
+        // null = not something this admin's permissions cover.
         newEnquiries,
         pendingApplications,
         bookedDemos,
         attendedDemos,
-        revenue: revenueResult?.[0]?.total || 0,
+        revenue: revenueResult ? revenueResult[0]?.total || 0 : null,
       },
     });
 });

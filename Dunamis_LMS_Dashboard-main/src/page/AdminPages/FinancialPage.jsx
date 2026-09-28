@@ -11,6 +11,7 @@ import DuesTab from "./Financials/DuesTab";
 import InstructorPayTab from "./Financials/InstructorPayTab";
 import RateCardTab from "./Financials/RateCardTab";
 import { Pill } from "./Financials/financeUi";
+import ScopeBanner from "../../components/org/ScopeBanner";
 
 const TAB_IDS = [
   "needs-attention",
@@ -81,6 +82,8 @@ const FinancialPage = () => {
           Refresh
         </button>
       </div>
+
+      <ScopeBanner />
 
       <PageTabBar tabs={tabs} activeTab={activeTab} onChange={changeTab} />
 

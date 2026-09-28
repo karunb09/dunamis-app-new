@@ -62,6 +62,9 @@ const errorHandler = (err, req, res, next) => {
   return res.status(statusCode).json({
     success: false,
     message: err.message || "Server error",
+    // Only for errors a service raised on purpose, never a crash's internals.
+    ...(statusCode < 500 && err.hint ? { hint: err.hint } : {}),
+    ...(statusCode < 500 && err.details ? { details: err.details } : {}),
     ...(isProd ? {} : { stack: err.stack }),
   });
 };

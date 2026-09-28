@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const {
   validateCode,
   getAllReferrals,
@@ -11,7 +11,7 @@ const {
   deletePartner,
 } = require("../controller/referral.controller");
 
-const adminOnly = accessToRole(["admin", "superadmin"]);
+const adminOnly = [accessToRole(["admin", "superadmin"]), requirePermission("referralManagement")];
 
 router.get("/validate/:code", isAuth, validateCode);
 router.get("/partners", isAuth, adminOnly, getAllPartners);

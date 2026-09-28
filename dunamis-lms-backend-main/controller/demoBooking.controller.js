@@ -23,6 +23,9 @@ const {
   getAdminUsers,
   notifyEvent,
 } = require("../utils/notificationService");
+const { formatUserName } = require("../utils/formatName");
+const { getScope } = require("../middleware/auth");
+const { isInScope, placeFilter } = require("../utils/scopeFilters");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -68,6 +71,12 @@ const toIdString = (value) => {
   return String(value._id || value.id || value);
 };
 
+// Offline demos happen at a branch; online ones belong to their course.
+const demoContext = (slot) =>
+  slot?.branchId
+    ? { branchId: toIdString(slot.branchId) }
+    : { courseId: toIdString(slot?.courseId) };
+
 const sendDemoBookingEmails = async ({
   booking,
   slot,
@@ -89,34 +98,36 @@ const sendDemoBookingEmails = async ({
     instructor: slot.createdBy,
   };
 
-  const deliveries = [];
   const studentEmail = lead?.email || student?.userId?.email || "";
-
-  if (studentEmail) {
-    const { subject, html, attachments = [] } =
-      studentDemoBookingEmailTemplate(payload);
-    deliveries.push({
-      type: "student",
-      recipient: studentEmail,
-      task: mailSender(studentEmail, subject, html, attachments),
-    });
-  }
-
+  const courseName = slot.courseId?.name || "a course";
+  const learnerName = formatUserName(student?.userId?.name || lead, "A learner");
+  const learnerEmail = studentDemoBookingEmailTemplate(payload);
   const staffEmail = adminDemoBookingEmailTemplate(payload);
   const instructorEmail = instructorDemoBookingEmailTemplate(payload);
-  deliveries.push({
-    type: "staff",
-    recipient: "matrix",
-    task: notifyEvent({
-      event: "demoBooked",
-      instructorUser: slot.createdBy?.userId,
-      subject: staffEmail.subject,
-      html: staffEmail.html,
-      attachments: staffEmail.attachments || [],
-      instructorSubject: instructorEmail.subject,
-      instructorHtml: instructorEmail.html,
-    }),
-  });
+
+  const deliveries = [
+    {
+      type: "matrix",
+      recipient: "matrix",
+      task: notifyEvent({
+        event: "demoBooked",
+        context: demoContext(slot),
+        instructorUser: slot.createdBy?.userId,
+        title: "New demo booking",
+        message: `${learnerName} booked a ${courseName} demo.`,
+        subject: staffEmail.subject,
+        html: staffEmail.html,
+        attachments: staffEmail.attachments || [],
+        instructorSubject: instructorEmail.subject,
+        instructorHtml: instructorEmail.html,
+        learners: studentEmail ? [{ _id: student?.userId?._id, email: studentEmail }] : [],
+        learnerTitle: "Demo booked",
+        learnerMessage: `Your ${courseName} demo is booked.`,
+        learnerSubject: learnerEmail.subject,
+        learnerHtml: learnerEmail.html,
+      }),
+    },
+  ];
 
   if (student?.userId?._id) {
     deliveries.push({
@@ -467,6 +478,9 @@ exports.getAllBookings = asyncHandler(async (req, res) => {
     if (enrollmentStatus) query.enrollmentStatus = enrollmentStatus;
     if (courseId) query.courseId = courseId;
 
+    const area = await getScope(req);
+    if (area) Object.assign(query, placeFilter(area));
+
     const bookings = await DemoBooking.find(query)
       .populate({
         path: "studentId",
@@ -671,9 +685,9 @@ exports.updateBooking = asyncHandler(async (req, res) => {
         path: "slotId",
         select: "createdBy",
       })
-      .select("teacherId slotId demoStatus enrollmentStatus meetingLink");
+      .select("teacherId slotId demoStatus enrollmentStatus meetingLink branchId courseId");
 
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res
         .status(404)
         .json({ success: false, message: "Booking not found" });
@@ -867,17 +881,16 @@ const sendDemoChangeNotifications = async ({
   const courseName = booking.courseId?.name || "your course";
   const isCancel = kind === "cancelled";
 
-  let previousInstructorName = null;
-  let previousInstructorEmail = null;
+  let previousInstructorUser = null;
   if (previousTeacherId) {
     const previousTeacher = await Teacher.findById(previousTeacherId)
       .select("userId")
       .populate("userId", "name email");
-    if (previousTeacher?.userId) {
-      previousInstructorName = `${previousTeacher.userId.name?.firstName || ""} ${previousTeacher.userId.name?.lastName || ""}`.trim();
-      previousInstructorEmail = previousTeacher.userId.email || null;
-    }
+    previousInstructorUser = previousTeacher?.userId || null;
   }
+  const previousInstructorName = previousInstructorUser
+    ? formatUserName(previousInstructorUser.name, "")
+    : null;
 
   const template = isCancel ? demoCancelledEmailTemplate : demoRescheduledEmailTemplate;
   const { subject, html, attachments = [] } = template({
@@ -895,15 +908,11 @@ const sendDemoChangeNotifications = async ({
   });
 
   const noticeTitle = isCancel ? "Demo cancelled" : "Demo rescheduled";
+  const when = `${booking.slotId?.startTime} on ${new Date(booking.slotId?.date).toLocaleDateString("en-IN")}`;
+  const newInstructorUser = booking.slotId?.createdBy?.userId || null;
   const deliveries = [];
 
-  if (recipientEmail) {
-    deliveries.push({
-      type: "student-email",
-      task: mailSender(recipientEmail, subject, html, attachments),
-    });
-  }
-
+  // The learner's portal copy is kept alongside the email for both kinds.
   if (studentUser?._id) {
     deliveries.push({
       type: "student-notice",
@@ -911,50 +920,80 @@ const sendDemoChangeNotifications = async ({
         title: noticeTitle,
         message: isCancel
           ? `Your ${courseName} demo has been cancelled.`
-          : `Your ${courseName} demo has moved to ${booking.slotId?.startTime} on ${new Date(booking.slotId?.date).toLocaleDateString("en-IN")}.`,
+          : `Your ${courseName} demo has moved to ${when}.`,
         userIds: [studentUser._id],
         creatorId: studentUser._id,
       }),
     });
   }
 
-  // The incoming instructor, and the outgoing one when the demo moved away.
-  const instructorUsers = [booking.slotId?.createdBy?.userId].filter(Boolean);
-  if (instructorUsers.length) {
+  if (isCancel) {
+    if (recipientEmail) {
+      deliveries.push({
+        type: "student-email",
+        task: mailSender(recipientEmail, subject, html, attachments),
+      });
+    }
+    if (newInstructorUser) {
+      deliveries.push({
+        type: "instructor-notice",
+        task: createDashboardNotice({
+          title: noticeTitle,
+          message: `A ${courseName} demo assigned to you was cancelled.`,
+          userIds: [newInstructorUser._id],
+        }),
+      });
+    }
+    const admins = await getAdminUsers();
+    if (admins.length) {
+      deliveries.push({
+        type: "admin-notice",
+        task: createDashboardNotice({
+          title: noticeTitle,
+          message: `${courseName} demo cancelled${reason ? ` — ${reason}` : ""}.`,
+          userIds: admins.map((admin) => admin._id),
+        }),
+      });
+    }
+  } else {
+    const learnerName = formatUserName(studentUser?.name || booking.lead, "A learner");
     deliveries.push({
-      type: "instructor-notice",
-      task: createDashboardNotice({
-        title: noticeTitle,
-        message: isCancel
-          ? `A ${courseName} demo assigned to you was cancelled.`
-          : `A ${courseName} demo was moved into your ${booking.slotId?.startTime} slot.`,
-        userIds: instructorUsers.map((user) => user._id),
+      type: "matrix",
+      task: notifyEvent({
+        event: "demoRescheduled",
+        context: booking.slotId?.branchId
+          ? { branchId: toIdString(booking.slotId.branchId) }
+          : { courseId: toIdString(booking.courseId) },
+        instructorUser: newInstructorUser,
+        title: "Demo rescheduled",
+        message: `${learnerName}'s ${courseName} demo has moved to ${when}${reason ? ` — ${reason}` : ""}.`,
+        instructorTitle: "Demo moved into your schedule",
+        instructorMessage: `A ${courseName} demo with ${learnerName} is now in your ${when} slot.`,
+        learners: recipientEmail ? [{ _id: studentUser?._id, email: recipientEmail }] : [],
+        learnerTitle: noticeTitle,
+        learnerMessage: `Your ${courseName} demo has moved to ${when}.`,
+        learnerSubject: subject,
+        learnerHtml: html,
+        attachments,
       }),
     });
-  }
 
-  if (previousInstructorEmail && !isCancel) {
-    deliveries.push({
-      type: "previous-instructor-email",
-      task: mailSender(
-        previousInstructorEmail,
-        `A ${courseName} demo has moved off your schedule`,
-        html,
-        attachments
-      ),
-    });
-  }
-
-  const admins = await getAdminUsers();
-  if (admins.length) {
-    deliveries.push({
-      type: "admin-notice",
-      task: createDashboardNotice({
-        title: noticeTitle,
-        message: `${courseName} demo ${isCancel ? "cancelled" : "rescheduled"}${reason ? ` — ${reason}` : ""}.`,
-        userIds: admins.map((admin) => admin._id),
-      }),
-    });
+    // Only when the demo actually left their schedule.
+    const instructorChanged =
+      previousInstructorUser && toIdString(previousInstructorUser) !== toIdString(newInstructorUser);
+    if (instructorChanged) {
+      deliveries.push({
+        type: "previous-instructor",
+        task: notifyEvent({
+          event: "demoRescheduled",
+          instructorUser: previousInstructorUser,
+          instructorTitle: "Demo moved off your schedule",
+          instructorMessage: `The ${courseName} demo with ${learnerName} (was ${
+            previousSlot?.startTime || "your slot"
+          }) has moved to another instructor.`,
+        }),
+      });
+    }
   }
 
   const results = await Promise.allSettled(deliveries.map((delivery) => delivery.task));
@@ -972,7 +1011,7 @@ exports.rescheduleDemoBooking = asyncHandler(async (req, res) => {
     const { slotId, teacherId, reason } = req.body;
 
     const booking = await loadBookingForChange(req.params.id);
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res.status(404).json({ success: false, message: "Demo booking not found" });
     }
 
@@ -1051,7 +1090,7 @@ exports.cancelDemoBooking = asyncHandler(async (req, res) => {
     const { reason } = req.body;
 
     const booking = await loadBookingForChange(req.params.id);
-    if (!booking) {
+    if (!booking || !isInScope(await getScope(req), booking)) {
       return res.status(404).json({ success: false, message: "Demo booking not found" });
     }
 

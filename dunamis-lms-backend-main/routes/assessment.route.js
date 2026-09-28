@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { isAuth, accessToRole } = require("../middleware/auth");
+const { isAuth, accessToRole, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const { idParam } = require("../validators/common");
 const {
@@ -46,7 +46,8 @@ router.post(
 );
 
 router.put("/submit/:assessmentId", isAuth, accessToRole(["teacher"]), submitAssessment);
-router.post("/manualCycle", isAuth, accessToRole(["admin", "superadmin"]), manualAssessmentCycle);
-router.get("/", isAuth, accessToRole(["admin", "superadmin"]), getAllAssessments);
+// No dashboard screen: All Access only.
+router.post("/manualCycle", isAuth, accessToRole(["admin", "superadmin"]), requirePermission(), manualAssessmentCycle);
+router.get("/", isAuth, accessToRole(["admin", "superadmin"]), requirePermission(), getAllAssessments);
 
 module.exports = router;

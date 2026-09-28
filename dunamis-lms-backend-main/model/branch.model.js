@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { DEFAULT_GEOFENCE_RADIUS_M } = require("../utils/geo");
 
 const branchSchema = new mongoose.Schema(
   {
@@ -24,10 +25,11 @@ const branchSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // Must belong to the same city as the branch.
     zone: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Zone",
       required: true,
-      trim: true,
     },
     city: {
       type: mongoose.Schema.Types.ObjectId,
@@ -48,6 +50,18 @@ const branchSchema = new mongoose.Schema(
     branchOpenDays: {
       type: [String],
       required: true,
+    },
+    // Pin for instructor check-in. Unset on branches nobody has pinned yet;
+    // check-ins there are accepted but flagged as location-unverified.
+    geo: {
+      lat: { type: Number, min: -90, max: 90 },
+      lng: { type: Number, min: -180, max: 180 },
+    },
+    geofenceRadiusM: {
+      type: Number,
+      min: 50,
+      max: 2000,
+      default: DEFAULT_GEOFENCE_RADIUS_M,
     },
     branchCapacity: {
       type: Number,

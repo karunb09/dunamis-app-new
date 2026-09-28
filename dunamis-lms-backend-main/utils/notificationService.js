@@ -1,6 +1,9 @@
 const AdminNotice = require("../model/adminNotice.model");
 const User = require("../model/user.model");
 const mailSender = require("./mailSender");
+const { brandCard, brandAttachments } = require("../mail/emailLayout");
+const { loadRoutingDirectory, resolveStaff } = require("../services/staffRouting");
+const { COMMUNICATION_MATRIX, getRule } = require("./communicationMatrix");
 
 const normalizeUserId = (value) => {
   if (!value) return null;
@@ -18,107 +21,115 @@ const getSystemCreatorId = async (preferredUserId) => {
 };
 
 const getAdminUsers = async () =>
-  User.find({ accountType: { $in: ["admin", "superadmin"] } }).select(
+  User.find({ accountType: { $in: ["admin", "superadmin"] }, accountStatus: "active" }).select(
     "_id name email accountType employeeId"
   );
 
-// Staff routing matrix for student-lifecycle communications. Channel is
-// strict: "email" rows send email only, "notification" rows dashboard only.
-// AA/BDE are resolved from the employeeId role letter (unit + A/B);
-// superadmins receive every event.
-const COMMUNICATION_MATRIX = {
-  demoBooked: { instructor: true, aa: true, bde: true, channel: "email" },
-  signUp: { instructor: false, aa: true, bde: true, channel: "notification" },
-  courseEnrolled: { instructor: true, aa: true, bde: true, channel: "email" },
-  classReminder: { instructor: true, aa: true, bde: false, channel: "notification", contentType: "Reminder" },
-  // Fires 15 minutes before a class. AA/BDE excluded — nothing for them to act
-  // on, and one row per class per day would bury every other notice.
-  classJoinLink: { instructor: true, aa: false, bde: false, channel: "notification", contentType: "Reminder" },
-  classAttendance: { instructor: true, aa: true, bde: true, channel: "notification" },
-  feeReminder: { instructor: false, aa: true, bde: true, channel: "notification", contentType: "Reminder" },
-  feeReceived: { instructor: false, aa: true, bde: true, channel: "notification" },
-  homework: { instructor: true, aa: true, bde: false, channel: "notification" },
-  assignmentCycle: { instructor: true, aa: true, bde: true, channel: "notification" },
-  assessmentCycle: { instructor: true, aa: true, bde: true, channel: "email" },
-  // AA/BDE excluded on purpose — the outgoing instructor may have resigned,
-  // there's nothing for sales/coordination staff to act on here.
-  enrollmentReassigned: { instructor: true, aa: false, bde: false, channel: "email" },
-};
-
-const AA_ID_PREFIX = /^(DSM|DSD|DCC)A/;
-const BDE_ID_PREFIX = /^(DSM|DSD|DCC)B/;
-
-const getStaffRecipients = async ({ aa, bde }) => {
-  const admins = await getAdminUsers();
-  const superadmins = admins.filter((user) => user.accountType === "superadmin");
-  const roleMatched = admins.filter(
-    (user) =>
-      user.accountType === "admin" &&
-      ((aa && AA_ID_PREFIX.test(user.employeeId || "")) ||
-        (bde && BDE_ID_PREFIX.test(user.employeeId || "")))
-  );
-
-  if (!roleMatched.length && (aa || bde)) {
-    console.warn("No AA/BDE staff matched by employeeId — falling back to all admins");
-    return admins;
+// Email rows without their own html get the standard branded card, so any row
+// can switch channel without every call site owning two templates.
+const deliver = async ({ channel, users, title, message, subject, html, attachments, contentType, creatorId }) => {
+  if (channel === "email") {
+    return sendEmails({
+      recipients: users.map((user) => user.email),
+      subject: subject || title,
+      html: html || brandCard({ title: title || subject, intro: message }),
+      // Attachments (inline logos) belong to the caller's html.
+      attachments: html ? attachments : brandAttachments(),
+    });
   }
-
-  return [...superadmins, ...roleMatched];
+  return createDashboardNotice({
+    title: title || subject,
+    message: message || "",
+    userIds: users.map((user) => user._id),
+    creatorId,
+    contentType,
+  });
 };
 
+// Sends one sheet event. An audience receives it only when the matrix ticks
+// it AND the call supplies content for it: staff read the shared
+// title/message (+ subject/html for email), the instructor its own fields or
+// the shared ones, learners only their own learner* fields. So a call can
+// send one audience alone — createAssignment sends just the learner part.
+//
+// context: { branchId } for something happening at a branch, { courseId } for
+// an online course, {} when there is no location (a sign-up). Crons sending
+// many events pass one `directory` from loadRoutingDirectory().
 const notifyEvent = async ({
   event,
+  context = {},
+  directory,
   instructorUser,
+  learners = [],
   title,
   message,
   subject,
   html,
+  instructorTitle,
+  instructorMessage,
   instructorSubject,
   instructorHtml,
+  learnerTitle,
+  learnerMessage,
+  learnerSubject,
+  learnerHtml,
   attachments = [],
+  // Learner templates often differ from the staff one; defaults to `attachments`.
+  learnerAttachments,
   creatorId,
 }) => {
-  const rule = COMMUNICATION_MATRIX[event];
+  const rule = await getRule(event);
   if (!rule) return;
 
-  const staff = await getStaffRecipients(rule);
-  const instructor = rule.instructor && instructorUser?._id ? instructorUser : null;
+  const shared = { title, message, subject, html };
+  const hasShared = Boolean(title || subject);
+  const deliveries = [];
 
-  if (rule.channel === "email") {
-    await Promise.allSettled([
-      staff.length
-        ? sendEmails({
-            recipients: staff.map((user) => user.email),
-            subject: subject || title,
-            html,
-            attachments,
-          })
-        : Promise.resolve(),
-      instructor?.email
-        ? sendEmails({
-            recipients: [instructor.email],
-            subject: instructorSubject || subject || title,
-            html: instructorHtml || html,
-            attachments,
-          })
-        : Promise.resolve(),
-    ]);
-    return;
+  if (hasShared && (rule.aa || rule.bde)) {
+    const { recipients, fellBack } = resolveStaff({
+      columns: rule,
+      context,
+      directory: directory || (await loadRoutingDirectory()),
+    });
+    if (fellBack) {
+      console.warn(`[notifyEvent] ${event}: nobody placed covers it — sent to every active admin`);
+    }
+    deliveries.push({ users: recipients, ...shared, attachments });
   }
 
-  const userIds = [
-    ...(instructor ? [instructor._id] : []),
-    ...staff.map((user) => user._id),
-  ];
-  if (userIds.length) {
-    await createDashboardNotice({
-      title,
-      message,
-      userIds,
-      creatorId,
-      contentType: rule.contentType || "Transactional",
+  if (rule.instructor && instructorUser?._id && (hasShared || instructorTitle || instructorSubject)) {
+    deliveries.push({
+      users: [instructorUser],
+      title: instructorTitle || title,
+      message: instructorMessage || message,
+      subject: instructorSubject || subject,
+      html: instructorHtml || html,
+      attachments,
     });
   }
+
+  const learnerUsers = learners.filter(Boolean);
+  if (rule.learner && learnerUsers.length && (learnerTitle || learnerSubject)) {
+    deliveries.push({
+      users: learnerUsers,
+      title: learnerTitle,
+      message: learnerMessage,
+      subject: learnerSubject,
+      html: learnerHtml,
+      attachments: learnerAttachments ?? attachments,
+    });
+  }
+
+  await Promise.allSettled(
+    deliveries.map((delivery) =>
+      deliver({
+        ...delivery,
+        channel: rule.channel,
+        contentType: rule.contentType || "Transactional",
+        creatorId,
+      })
+    )
+  );
 };
 
 const createDashboardNotice = async ({
@@ -192,8 +203,10 @@ const notifyUsers = async ({
 };
 
 module.exports = {
+  COMMUNICATION_MATRIX,
   createDashboardNotice,
   getAdminUsers,
+  getRule,
   notifyEvent,
   notifyUsers,
   sendEmails,

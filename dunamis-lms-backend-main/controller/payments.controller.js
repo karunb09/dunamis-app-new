@@ -25,6 +25,8 @@ const {
 const { applyReferralDiscount } = require("../utils/referral");
 const { istDayStart, istDayEndExclusive } = require("../utils/istMonth");
 const { installmentLabel } = require("../utils/installmentLabel");
+const { getScope } = require("../middleware/auth");
+const { isInScope, notFound, placeFilter, studentInScope } = require("../utils/scopeFilters");
 
 const PAID_GRACE_MS = 15 * 60 * 1000;
 const STALE_PENDING_MS = 2 * 60 * 60 * 1000;
@@ -203,7 +205,12 @@ const paymentRowStages = [
 
 // Shared by listPayments and exportPayments so an export can never disagree
 // with the ledger the admin is looking at.
-const buildPaymentsQuery = async (q) => {
+// Limits a PaymentTransaction match to the caller's area (null = everything).
+// Wrapped in $and because the recognized-date filter already uses $or.
+const withinArea = (match, area) =>
+  area ? { ...match, $and: [...(match.$and || []), placeFilter(area)] } : match;
+
+const buildPaymentsQuery = async (q, area) => {
   const dateField = q.dateField || "createdAt";
   const sortField = q.sort || (dateField === "paidAt" ? "paidAt" : "createdAt");
   const dir = q.dir === "asc" ? 1 : -1;
@@ -235,6 +242,8 @@ const buildPaymentsQuery = async (q) => {
 
   if (q.search) Object.assign(match, await buildSearchMatch(q.search));
 
+  const scopedMatch = withinArea(match, area);
+
   const recognizedStages =
     hasRange && dateField === "recognized"
       ? [
@@ -243,14 +252,14 @@ const buildPaymentsQuery = async (q) => {
         ]
       : [];
 
-  return { match, recognizedStages, sortField, dir };
+  return { match: scopedMatch, recognizedStages, sortField, dir };
 };
 
 exports.listPayments = asyncHandler(async (req, res) => {
   const q = req.validated?.query || {};
   const page = q.page || 1;
   const limit = Math.min(MAX_LIMIT, q.limit || DEFAULT_LIMIT);
-  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q);
+  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q, await getScope(req));
 
   const [result] = await PaymentTransaction.aggregate([
     { $match: match },
@@ -305,6 +314,7 @@ exports.listDues = asyncHandler(async (req, res) => {
     courseId: q.courseId ? new mongoose.Types.ObjectId(q.courseId) : null,
     studentId: q.studentId ? new mongoose.Types.ObjectId(q.studentId) : null,
     minDaysLate: q.minDaysLate ?? null,
+    scope: await getScope(req),
   });
 
   const total = result.total?.[0]?.count || 0;
@@ -330,7 +340,7 @@ exports.listNeedsAttention = asyncHandler(async (req, res) => {
   const now = new Date();
 
   const [result] = await PaymentTransaction.aggregate([
-    { $match: buildNeedsAttentionMatch(now) },
+    { $match: withinArea(buildNeedsAttentionMatch(now), await getScope(req)) },
     ...decorateStages(now),
     ...(query.includeAbandoned ? [] : [{ $match: { severity: "critical" } }]),
     { $addFields: { severityRank: { $cond: [{ $eq: ["$severity", "critical"] }, 0, 1] } } },
@@ -392,8 +402,8 @@ exports.listNeedsAttention = asyncHandler(async (req, res) => {
 // cannot pull the whole ledger into memory.
 const EXPORT_MAX_ROWS = 10000;
 
-const exportTransactions = async (q) => {
-  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q);
+const exportTransactions = async (q, area) => {
+  const { match, recognizedStages, sortField, dir } = await buildPaymentsQuery(q, area);
 
   const [result] = await PaymentTransaction.aggregate([
     { $match: match },
@@ -410,7 +420,7 @@ const exportTransactions = async (q) => {
   return { rows: result?.rows || [], total: result?.total?.[0]?.count || 0 };
 };
 
-const exportDues = async (q) => {
+const exportDues = async (q, area) => {
   const result = await aggregateOutstandingInstallments({
     asOf: new Date(),
     page: 1,
@@ -422,16 +432,17 @@ const exportDues = async (q) => {
     studentId: q.studentId ? new mongoose.Types.ObjectId(q.studentId) : null,
     minDaysLate: q.minDaysLate ?? null,
     withRows: true,
+    scope: area,
   });
 
   return { rows: result.rows || [], total: result.total?.[0]?.count || 0 };
 };
 
-const exportNeedsAttention = async (q) => {
+const exportNeedsAttention = async (q, area) => {
   const now = new Date();
 
   const [result] = await PaymentTransaction.aggregate([
-    { $match: buildNeedsAttentionMatch(now) },
+    { $match: withinArea(buildNeedsAttentionMatch(now), area) },
     ...decorateStages(now),
     ...(q.includeAbandoned ? [] : [{ $match: { severity: "critical" } }]),
     { $addFields: { severityRank: { $cond: [{ $eq: ["$severity", "critical"] }, 0, 1] } } },
@@ -485,7 +496,7 @@ exports.exportPayments = asyncHandler(async (req, res) => {
     "needs-attention": exportNeedsAttention,
   };
 
-  const { rows, total } = await exporters[scope](q);
+  const { rows, total } = await exporters[scope](q, await getScope(req));
 
   res.status(200).json({
     success: true,
@@ -501,7 +512,7 @@ exports.getNeedsAttentionCount = asyncHandler(async (req, res) => {
   const now = new Date();
 
   const rows = await PaymentTransaction.aggregate([
-    { $match: buildNeedsAttentionMatch(now) },
+    { $match: withinArea(buildNeedsAttentionMatch(now), await getScope(req)) },
     ...decorateStages(now),
     { $group: { _id: "$severity", count: { $sum: 1 } } },
   ]);
@@ -519,7 +530,7 @@ exports.reverifyPayment = asyncHandler(async (req, res) => {
   const { id } = req.validated?.params || req.params;
 
   const transaction = await PaymentTransaction.findById(id);
-  if (!transaction) {
+  if (!transaction || !isInScope(await getScope(req), transaction)) {
     return res.status(404).json({ success: false, message: "Payment transaction not found." });
   }
   if (transaction.gateway !== "cashfree") {
@@ -603,6 +614,7 @@ exports.recordCashInstallment = asyncHandler(async (req, res) => {
       hint: IT_SUPPORT_HINT,
     });
   }
+  if (!(await studentInScope(await getScope(req), student._id))) return notFound(res, "Student");
 
   const payable = getPayableInstallments(student);
   const matches = payable.filter((entry) => {
@@ -816,7 +828,7 @@ exports.getPaymentDetail = asyncHandler(async (req, res) => {
     .populate("collectedByUserId", "name email employeeId")
     .lean();
 
-  if (!transaction) {
+  if (!transaction || !isInScope(await getScope(req), transaction)) {
     return res.status(404).json({ success: false, message: "Payment transaction not found." });
   }
 

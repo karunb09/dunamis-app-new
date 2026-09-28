@@ -5,6 +5,7 @@ const Teacher = require("../model/teacher.model");
 const { localFileUpload } = require("../utils/locallyUploader");
 const mailSender = require("../utils/mailSender");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
+const { assertCanTeachInPerson } = require("../services/orgPlacement");
 
 const VIDEO_MIMES = ["video/mp4", "video/mpeg", "video/avi", "video/quicktime"];
 
@@ -128,6 +129,7 @@ exports.updateCourseItemStatus = asyncHandler(async (req, res) => {
     }
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ success: false, message: "Course not found" });
+    if (course.mode === "offline") await assertCanTeachInPerson([request.instructor]);
 
     const alreadyAssigned = (course.teacher || []).some((t) => String(t) === String(request.instructor));
     await Course.findByIdAndUpdate(courseId, { $addToSet: { teacher: request.instructor } });
