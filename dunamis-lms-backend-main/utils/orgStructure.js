@@ -1,7 +1,7 @@
 // The company's org chart as data (CEO sheet, Sep 2026). Mirrored in the
 // dashboard at src/constants/orgStructure.js — change both together.
 
-const DEPARTMENTS = ["leadership", "content", "operations", "marketing"];
+const DEPARTMENTS = ["leadership", "content", "operations", "marketing", "it"];
 
 const WORK_MODES = ["online", "offline", "both"];
 
@@ -16,20 +16,36 @@ const SCOPE_KEYS = [...OFFLINE_SCOPE_KEYS, ...ONLINE_SCOPE_KEYS];
 // scopeRequired: false for the Marketing Head, whose empty scope means all.
 const DESIGNATIONS = {
   ceo: { label: "CEO", department: "leadership", managers: [] },
-  resourceHead: { label: "Resource Head", department: "content", managers: ["ceo"] },
-  courseManager: { label: "Course Manager", department: "content", managers: ["resourceHead"] },
+  resourceHead: {
+    label: "Resource Head",
+    department: "content",
+    managers: ["ceo"],
+  },
+  courseManager: {
+    label: "Course Manager",
+    department: "content",
+    managers: ["resourceHead"],
+  },
   contentCreator: {
     label: "Content Creator",
     department: "content",
     managers: ["courseManager", "resourceHead"],
   },
-  operationsHead: { label: "Operations Head", department: "operations", managers: ["ceo"] },
+  operationsHead: {
+    label: "Operations Head",
+    department: "operations",
+    managers: ["ceo"],
+  },
   operationsManager: {
     label: "Operations Manager",
     department: "operations",
     managers: ["operationsHead"],
   },
-  hrManager: { label: "HR Manager", department: "operations", managers: ["operationsHead"] },
+  hrManager: {
+    label: "HR Manager",
+    department: "operations",
+    managers: ["operationsHead"],
+  },
   financeManager: {
     label: "Finance & Accounts Manager",
     department: "operations",
@@ -63,6 +79,16 @@ const DESIGNATIONS = {
     scope: { offline: "branches", online: "courses" },
     scopeRequired: true,
   },
+  productDeveloper: {
+    label: "Product Developer",
+    department: "it",
+    managers: ["ceo"],
+  },
+  productDesigner: {
+    label: "Product Designer",
+    department: "it",
+    managers: ["ceo"],
+  },
 };
 
 // The sheet only places Offline Instructors (under a BDE); online instructors
@@ -74,7 +100,8 @@ const ESCALATION_LADDER = ["aa", "bde", "bdm", "marketingHead"];
 
 const DESIGNATION_KEYS = Object.keys(DESIGNATIONS);
 
-const modeIncludes = (workMode, mode) => !workMode || workMode === "both" || workMode === mode;
+const modeIncludes = (workMode, mode) =>
+  !workMode || workMode === "both" || workMode === mode;
 
 module.exports = {
   DEPARTMENTS,

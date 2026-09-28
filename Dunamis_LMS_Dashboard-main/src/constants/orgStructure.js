@@ -8,13 +8,20 @@ export const DEPARTMENT_LABELS = {
   content: "Content",
   operations: "Operations",
   marketing: "Marketing",
+  it: "IT",
 };
 
 // titles: job-title suggestions, keyed by work mode where the sheet names the
 // role differently offline and online. idPrefix / idLetter: the employee-ID
 // prefix the create form pre-selects (the unit comes from the current pick).
 export const DESIGNATIONS = {
-  ceo: { label: "CEO", department: "leadership", managers: [], titles: ["CEO"], idPrefix: "DMPL" },
+  ceo: {
+    label: "CEO",
+    department: "leadership",
+    managers: [],
+    titles: ["CEO"],
+    idPrefix: "DMPL",
+  },
   resourceHead: {
     label: "Resource Head",
     department: "content",
@@ -108,11 +115,30 @@ export const DESIGNATIONS = {
     scopeRequired: true,
     idLetter: "A",
   },
+  productDeveloper: {
+    label: "Product Developer",
+    department: "it",
+    managers: ["ceo"],
+    titles: ["Product Developer"],
+    idPrefix: "DMPL",
+  },
+  productDesigner: {
+    label: "Product Designer",
+    department: "it",
+    managers: ["ceo"],
+    titles: ["Product Designer"],
+    idPrefix: "DMPL",
+  },
 };
 
 // The sheet only places Offline Instructors (under a BDE); online instructors
 // may report to any of these.
-export const INSTRUCTOR_MANAGERS = ["bde", "bdm", "courseManager", "resourceHead"];
+export const INSTRUCTOR_MANAGERS = [
+  "bde",
+  "bdm",
+  "courseManager",
+  "resourceHead",
+];
 
 export const WORK_MODES = [
   { value: "offline", label: "Offline" },
@@ -137,7 +163,8 @@ export const modeIncludes = (workMode, mode) =>
 export const designationLabel = (key) => DESIGNATIONS[key]?.label || "";
 
 // "an AA", "an HR Manager", "a BDE".
-export const withArticle = (label) => `${/^(?:[AEIO]|HR\b)/.test(label) ? "an" : "a"} ${label}`;
+export const withArticle = (label) =>
+  `${/^(?:[AEIO]|HR\b)/.test(label) ? "an" : "a"} ${label}`;
 
 export const designationsByDepartment = () =>
   Object.keys(DEPARTMENT_LABELS).map((department) => ({
@@ -165,7 +192,10 @@ export const scopeKeysFor = (designationKey, workMode) => {
     .map((mode) => scope[mode]);
 };
 
-export const suggestedEmployeePrefix = (designationKey, currentPrefix = "DSMA") => {
+export const suggestedEmployeePrefix = (
+  designationKey,
+  currentPrefix = "DSMA",
+) => {
   const designation = DESIGNATIONS[designationKey];
   if (!designation) return currentPrefix;
   if (designation.idPrefix) return designation.idPrefix;
