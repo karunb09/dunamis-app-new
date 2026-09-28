@@ -216,7 +216,8 @@ const AddBranch = () => {
             }));
             setPinAccuracy(fix.accuracyM);
         } catch (err) {
-            toast.error(err.message);
+            // Long enough to follow the settings path it spells out.
+            toast.error(err.message, { duration: 12000 });
         } finally {
             setPinning(false);
         }
