@@ -47,8 +47,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     "guest";
 
   const permissions = user?.permissions || [];
-  // Set by the API for instructors who teach at a centre (or were hired as
-  // offline/hybrid); online-only instructors never see branch check-in.
+  // Set by the API for offline/hybrid instructors and for AAs/BDEs who work at
+  // a branch; everyone else never sees branch check-in.
   const checkInEligible = (user || getStoredUser())?.checkIn?.eligible === true;
   const isExpanded = isOpen || isDesktopOpen;
   const isAdminLike = !["student", "teacher", "guest"].includes(accountType);
@@ -90,7 +90,12 @@ const Sidebar = ({ isOpen, onClose }) => {
   const adminMenu = [
     {
       section: null,
-      items: [{ to: "/admin", icon: <FiHome />, text: "Home", permission: null }],
+      items: [
+        { to: "/admin", icon: <FiHome />, text: "Home", permission: null },
+        ...(checkInEligible
+          ? [{ to: "/admin/check-in", icon: <FiMapPin />, text: "Branch Check-in", permission: null }]
+          : []),
+      ],
     },
     {
       section: "LEARNING MANAGEMENT",
@@ -174,7 +179,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         {
           to: "/admin/reports/check-ins",
           icon: <FiMapPin />,
-          text: "Instructor Check-ins",
+          text: "Check-ins",
           permission: "reports",
         },
         {
@@ -231,7 +236,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         items: section.items.filter((item) => !item.permission || hasPermission(viewer, item.permission)),
       }))
       .filter((section) => section.items.length > 0);
-  }, [accountType, permissions, chatbotOn]);
+  }, [accountType, permissions, chatbotOn, checkInEligible]);
 
   const getMenuToRender = () => {
     if (accountType === "student") return studentMenu;

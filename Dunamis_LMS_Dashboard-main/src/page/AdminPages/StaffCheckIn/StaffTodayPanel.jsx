@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from "react";
 import Swal from "sweetalert2";
 import { toast } from "react-hot-toast";
-import { FiCheckCircle, FiLogIn, FiMapPin } from "react-icons/fi";
-import { useCheckIn, useCheckOut, useMyCheckInToday } from "../../../hooks/useCheckIns";
+import { FiLogIn } from "react-icons/fi";
+import { useMyStaffToday, useStaffCheckIn, useStaffCheckOut } from "../../../hooks/useStaffCheckIns";
 import { formatDuration, formatTime } from "../../../utils/checkInFormat";
-import VisitFlags, { Pill } from "../../../components/checkIns/VisitFlags";
+import VisitFlags, { DayFlags, Pill } from "../../../components/checkIns/VisitFlags";
 import {
   BranchOption,
   EmptyBox,
@@ -16,36 +16,21 @@ import {
 } from "../../../components/checkIns/CheckInParts";
 import { nearestInsideId, useLiveFix, useNow } from "../../../components/checkIns/checkInHooks";
 
-const classState = (cls, now) => {
-  if (cls.coveredBy) return { tone: "emerald", label: "Checked in" };
-  if (now >= new Date(cls.endAt).getTime()) return { tone: "rose", label: "No check-in" };
-  if (now >= new Date(cls.startAt).getTime()) return { tone: "rose", label: "Not checked in" };
-  return { tone: "slate", label: `Starts ${formatTime(cls.startAt)}` };
-};
+const hoursLabel = (hours) =>
+  hours.closedToday
+    ? "Closed today"
+    : hours.opensAt
+      ? `Open ${formatTime(hours.opensAt)} – ${formatTime(hours.closesAt)} today`
+      : "Opening hours not set";
 
-const classLabel = (cls) =>
-  `${formatTime(cls.startAt)} – ${formatTime(cls.endAt)} · ${cls.courseName}${
-    cls.slotType === "demo" ? " (demo)" : ""
-  }`;
+const HoursPill = ({ hours }) => (
+  <Pill tone={hours.closedToday ? "sky" : "slate"}>{hoursLabel(hours)}</Pill>
+);
 
-const NextClassPill = ({ branch, now }) => {
-  const next = branch.classes.find((cls) => new Date(cls.endAt).getTime() > now);
-  return next ? (
-    <Pill tone="slate">Next: {classLabel(next)}</Pill>
-  ) : (
-    <Pill tone="slate">{branch.classes.length ? "Today's classes are over" : "No class here today"}</Pill>
-  );
-};
-
-const lastStartedEnd = (classes, at) => {
-  const started = classes.filter((cls) => new Date(cls.startAt).getTime() < at);
-  return started.length ? Math.max(...started.map((cls) => new Date(cls.endAt).getTime())) : null;
-};
-
-const TodayPanel = () => {
-  const { data, isLoading, isError, error, refetch } = useMyCheckInToday();
-  const checkInMutation = useCheckIn();
-  const checkOutMutation = useCheckOut();
+const StaffTodayPanel = () => {
+  const { data, isLoading, isError, error, refetch } = useMyStaffToday();
+  const checkInMutation = useStaffCheckIn();
+  const checkOutMutation = useStaffCheckOut();
   const now = useNow();
   const [selectedId, setSelectedId] = useState(null);
   const [refusal, setRefusal] = useState(null);
@@ -55,17 +40,14 @@ const TodayPanel = () => {
   const { fix, fixError, locating, firstReading, locate } = useLiveFix(hasBranches);
   const openVisit = data?.openVisit || null;
 
-  // Where they physically are wins; otherwise the branch with a class still to
-  // come; otherwise the first one.
-  const defaultId = useMemo(() => {
-    const nearest = nearestInsideId(branches, fix);
-    if (nearest) return nearest;
-    const upcoming = branches.find((branch) =>
-      branch.classes.some((cls) => !cls.coveredBy && new Date(cls.endAt).getTime() > now)
-    );
-    return (upcoming || branches[0])?._id || null;
-  }, [branches, fix, now]);
-
+  // Where they physically are wins; otherwise the first branch open today.
+  const defaultId = useMemo(
+    () =>
+      nearestInsideId(branches, fix) ||
+      (branches.find((branch) => !branch.hours.closedToday) || branches[0])?._id ||
+      null,
+    [branches, fix]
+  );
   const branch = branches.find((b) => b._id === (selectedId || defaultId)) || null;
   const busy = locating || checkInMutation.isPending || checkOutMutation.isPending;
 
@@ -96,13 +78,18 @@ const TodayPanel = () => {
     if (!isConfirmed) return;
 
     setRefusal(null);
+    const firstOfDay = !data.visits.length;
     const reading = await freshFix();
     if (!reading) return;
     try {
       const { visit } = await checkInMutation.mutateAsync({ branchId: branch._id, ...reading });
+      const lateMs =
+        firstOfDay && !visit.branchClosedToday && visit.branchOpensAt
+          ? new Date(visit.checkIn.at) - new Date(visit.branchOpensAt)
+          : 0;
       toast.success(
-        visit.flags.lateCheckIn
-          ? `Checked in at ${formatTime(visit.checkIn.at)} — ${visit.flags.lateByMinutes} min after your class started`
+        lateMs > 0
+          ? `Checked in at ${formatTime(visit.checkIn.at)} — ${Math.ceil(lateMs / 60000)} min after the branch opened`
           : `Checked in at ${formatTime(visit.checkIn.at)}`
       );
     } catch (err) {
@@ -111,18 +98,17 @@ const TodayPanel = () => {
   };
 
   const handleCheckOut = async () => {
-    const tappedAt = Date.now();
-    const lastEnd = lastStartedEnd(openVisit.classes, tappedAt);
-    const early = lastEnd && tappedAt < lastEnd;
+    const closesAt = openVisit.branchClosesAt && new Date(openVisit.branchClosesAt).getTime();
+    const beforeClosing = !openVisit.branchClosedToday && closesAt && Date.now() < closesAt;
     const { isConfirmed } = await Swal.fire({
       title: `Check out of ${openVisit.branch.branchName}?`,
-      text: early
-        ? `Your class runs until ${formatTime(lastEnd)}. Checking out now is recorded as an early logout and can't be changed.`
+      text: beforeClosing
+        ? `The branch closes at ${formatTime(closesAt)}. If this is your last stop today, leaving now is recorded as an early logout. Moving on to another branch is fine.`
         : "Your check-out time and location are recorded now and can't be changed afterwards.",
-      icon: early ? "warning" : "question",
+      icon: beforeClosing ? "warning" : "question",
       showCancelButton: true,
-      confirmButtonText: early ? "Check out early" : "Check out",
-      confirmButtonColor: early ? "#e11d48" : "#059669",
+      confirmButtonText: "Check out",
+      confirmButtonColor: "#059669",
     });
     if (!isConfirmed) return;
 
@@ -137,26 +123,31 @@ const TodayPanel = () => {
     }
   };
 
-  const runsUntil = openVisit ? lastStartedEnd(openVisit.classes, now) : null;
-
   if (isLoading) return <LoadingBlocks />;
   if (isError) {
     return <LoadError title="Could not load today's check-ins" error={error} onRetry={() => refetch()} />;
   }
 
-  if (!hasBranches) {
-    return data.mode === "offline" || data.mode === "hybrid" ? (
-      <EmptyBox
-        title="No centre linked to you yet"
-        text="You're set up to teach at a centre, but the admin team hasn't linked you to a branch yet. Once they do, your branch and today's classes appear here with a Check in button."
-      />
-    ) : (
+  if (!data.access.eligible) {
+    return (
       <EmptyBox
         title="Nothing to check in to"
-        text="Branch check-in is for instructors who teach at a centre. Your classes are online, so there's nothing to record here."
+        text="Branch check-in is for AAs and BDEs who work at a centre. Your placement doesn't include a branch."
       />
     );
   }
+  if (!hasBranches) {
+    return (
+      <EmptyBox
+        title="No branch in your placement yet"
+        text="You're set up to work at a centre, but no active branch is in your placement. Once an admin adds it, your branches appear here with a Check in button."
+      />
+    );
+  }
+
+  const day = data.day;
+  const firstVisitIsOpen = openVisit && data.visits[0]?._id === openVisit._id;
+  const closesAt = openVisit?.branchClosesAt;
 
   return (
     <div className="space-y-5">
@@ -173,35 +164,23 @@ const TodayPanel = () => {
         <OpenVisitCard
           visit={openVisit}
           note={
-            openVisit.flags.lateCheckIn &&
-            `${openVisit.flags.lateByMinutes} min after your class started`
+            firstVisitIsOpen && day?.lateCheckIn && `${day.lateByMinutes} min after the branch opened`
           }
           footnote={
-            runsUntil && now < runsUntil
-              ? `Your class runs until ${formatTime(runsUntil)} — checking out before then counts as an early logout.`
+            !openVisit.branchClosedToday && closesAt && now < new Date(closesAt).getTime()
+              ? `The branch closes at ${formatTime(closesAt)}. If this is your last stop today, checking out before then counts as an early logout.`
               : "Tap when you leave the branch. The time and your location are recorded when you tap."
           }
           onCheckOut={handleCheckOut}
           busy={busy}
-        >
-          {openVisit.classes.length > 0 && (
-            <ul className="mt-4 space-y-1 text-sm text-white/90">
-              {openVisit.classes.map((cls) => (
-                <li key={cls.slotId} className="flex items-center gap-2">
-                  <FiCheckCircle className="shrink-0 text-white/70" />
-                  {classLabel(cls)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </OpenVisitCard>
+        />
       ) : (
         <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Not checked in</p>
           <h2 className="mt-1 text-xl font-bold text-slate-900">Where are you checking in?</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Pick the centre you're at. Your classes there today are linked to this check-in
-            automatically — no need to choose a course.
+            Pick the branch you're at. Visiting more than one today? Check out here and check in at
+            the next — only your first check-in and last check-out of the day are judged.
           </p>
           <div className="mt-4 space-y-3">
             {branches.map((option) => (
@@ -212,7 +191,7 @@ const TodayPanel = () => {
                 selected={branch?._id === option._id}
                 onSelect={setSelectedId}
               >
-                <NextClassPill branch={option} now={now} />
+                <HoursPill hours={option.hours} />
               </BranchOption>
             ))}
           </div>
@@ -230,48 +209,22 @@ const TodayPanel = () => {
                 : `Check in${branch ? ` at ${branch.branchName}` : ""}`}
           </button>
           <p className="mt-3 text-xs text-slate-500">
-            Tap when you arrive. Even a minute after your class starts counts as a late login.
+            {data.visits.length
+              ? "Checking in at another branch now is part of the same day."
+              : "Tap when you arrive. Even a minute after the branch opens counts as a late login."}
           </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 className="text-base font-semibold text-slate-900">Today's classes</h3>
-        <p className="text-xs text-slate-500">At the branches you teach from</p>
-        <div className="mt-4 space-y-4">
-          {branches.map((option) => (
-            <div key={option._id}>
-              <p className="flex items-center gap-1.5 text-sm font-medium text-slate-700">
-                <FiMapPin className="text-slate-400" />
-                {option.branchName}
-              </p>
-              {option.classes.length ? (
-                <ul className="mt-2 space-y-2">
-                  {option.classes.map((cls) => {
-                    const state = classState(cls, now);
-                    return (
-                      <li
-                        key={cls.slotId}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-100 px-3 py-2.5 text-sm"
-                      >
-                        <span className="text-slate-700">{classLabel(cls)}</span>
-                        <Pill tone={state.tone}>{state.label}</Pill>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p className="mt-1 text-xs text-slate-400">No class here today.</p>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {data.visits.length > 0 && (
+      {day && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="text-base font-semibold text-slate-900">Today's record</h3>
-          <p className="text-xs text-slate-500">Submitted check-ins can't be edited.</p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">Today's record</h3>
+              <p className="text-xs text-slate-500">Submitted check-ins can't be edited.</p>
+            </div>
+            <DayFlags day={day} />
+          </div>
           <ul className="mt-4 space-y-3">
             {data.visits.map((visit) => (
               <li key={visit._id} className="rounded-2xl border border-slate-100 p-3">
@@ -297,4 +250,4 @@ const TodayPanel = () => {
   );
 };
 
-export default TodayPanel;
+export default StaffTodayPanel;

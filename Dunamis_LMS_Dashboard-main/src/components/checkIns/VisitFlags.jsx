@@ -1,5 +1,5 @@
 import React from "react";
-import { visitFlags } from "./visitFlagList";
+import { dayFlags, visitFlags } from "./visitFlagList";
 
 const TONES = {
   rose: "bg-rose-50 text-rose-700 ring-rose-200",
@@ -17,13 +17,12 @@ export const Pill = ({ tone = "slate", children }) => (
   </span>
 );
 
-const VisitFlags = ({ visit }) => {
-  const flags = visitFlags(visit);
-  if (visit.isOpen && !flags.length) return <Pill tone="sky">Checked in</Pill>;
+const FlagPills = ({ flags, isOpen }) => {
+  if (isOpen && !flags.length) return <Pill tone="sky">Checked in</Pill>;
   if (!flags.length) return <Pill tone="emerald">On time</Pill>;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {visit.isOpen && <Pill tone="sky">Checked in</Pill>}
+      {isOpen && <Pill tone="sky">Checked in</Pill>}
       {flags.map((flag) => (
         <Pill key={flag.key} tone={flag.tone}>
           {flag.label}
@@ -32,5 +31,9 @@ const VisitFlags = ({ visit }) => {
     </div>
   );
 };
+
+export const DayFlags = ({ day }) => <FlagPills flags={dayFlags(day)} isOpen={day.isOpen} />;
+
+const VisitFlags = ({ visit }) => <FlagPills flags={visitFlags(visit)} isOpen={visit.isOpen} />;
 
 export default VisitFlags;
