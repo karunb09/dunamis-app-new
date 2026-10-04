@@ -1,35 +1,31 @@
 import React, { useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
-import {
-  FiAlertTriangle,
-  FiExternalLink,
-  FiInbox,
-  FiMapPin,
-  FiRefreshCw,
-  FiSearch,
-} from "react-icons/fi";
-import { useAddCheckInNote, useCheckInReport } from "../../hooks/useCheckIns";
-import { exportToExcel } from "../../utils/exportToExcel";
+import { FiAlertTriangle, FiRefreshCw, FiSearch } from "react-icons/fi";
+import { useAddCheckInNote, useCheckInReport } from "../../../hooks/useCheckIns";
+import { exportToExcel } from "../../../utils/exportToExcel";
 import {
   formatDay,
   formatDistance,
   formatDuration,
   formatTime,
-  fromIstInputValue,
   istDayKey,
   mapsUrl,
-  monthRange,
-  shiftDayKey,
-  shiftMonthKey,
-  toIstInputValue,
-} from "../../utils/checkInFormat";
-import VisitFlags, { Pill } from "../../components/checkIns/VisitFlags";
-import { visitFlags } from "../../components/checkIns/visitFlagList";
-import CountTile from "../../components/checkIns/CountTile";
-import ExportMenu from "../../components/ExportMenu";
-import SlideOver from "../../components/SlideOver";
-import ScopeBanner from "../../components/org/ScopeBanner";
+} from "../../../utils/checkInFormat";
+import VisitFlags from "../../../components/checkIns/VisitFlags";
+import { visitFlags } from "../../../components/checkIns/visitFlagList";
+import CountTile from "../../../components/checkIns/CountTile";
+import ExportMenu from "../../../components/ExportMenu";
+import SlideOver from "../../../components/SlideOver";
+import {
+  AdminNotesList,
+  LocationRow,
+  NoteForm,
+  ReportEmpty,
+  ReportLoading,
+  SectionCard,
+  Th,
+  UnpinnedBanner,
+} from "../../../components/checkIns/ReportParts";
 
 const FLAG_FILTERS = [
   { id: "all", label: "All" },
@@ -40,13 +36,6 @@ const FLAG_FILTERS = [
   { id: "unverified", label: "Unverified" },
 ];
 
-const presetsFor = (today) => [
-  { id: "today", label: "Today", range: { from: today, to: today } },
-  { id: "yesterday", label: "Yesterday", range: { from: shiftDayKey(today, -1), to: shiftDayKey(today, -1) } },
-  { id: "month", label: "This month", range: { from: `${today.slice(0, 7)}-01`, to: today } },
-  { id: "lastMonth", label: "Last month", range: monthRange(shiftMonthKey(today.slice(0, 7), -1)) },
-];
-
 const timeWithSeconds = (value) => formatTime(value, { seconds: true });
 
 const checkOutText = (visit) => {
@@ -54,28 +43,6 @@ const checkOutText = (visit) => {
   if (visit.isOpen) return "Still checked in";
   return "No check-out";
 };
-
-const SectionCard = ({ title, subtitle, children, id, action }) => (
-  <div id={id} className="rounded-2xl border border-slate-200 bg-white p-5">
-    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
-      </div>
-      {action}
-    </div>
-    {children}
-  </div>
-);
-
-const EmptyBox = ({ text }) => (
-  <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-slate-400">
-    <FiInbox className="text-2xl" />
-    <p className="text-sm">{text}</p>
-  </div>
-);
-
-const Th = ({ children }) => <th className="py-2 pr-4 font-medium">{children}</th>;
 
 const buildSheets = (data) => [
   {
@@ -161,101 +128,10 @@ const matchesFlag = (visit, filter) => {
   return visitFlags(visit).some((flag) => flag.key === filter);
 };
 
-const LocationRow = ({ label, fix }) => (
-  <div className="flex items-start justify-between gap-3 rounded-2xl border border-slate-100 p-3">
-    <div>
-      <p className="text-xs uppercase tracking-wider text-slate-400">{label}</p>
-      <p className="text-sm font-medium text-slate-800">{timeWithSeconds(fix.at)}</p>
-      <p className="text-xs text-slate-500">
-        {fix.distanceM != null
-          ? `${formatDistance(fix.distanceM)} from the branch pin`
-          : "Branch had no pin"}{" "}
-        · ±{fix.accuracyM} m
-      </p>
-    </div>
-    <a
-      href={mapsUrl(fix.lat, fix.lng)}
-      target="_blank"
-      rel="noreferrer"
-      className="flex shrink-0 items-center gap-1 rounded-2xl border border-slate-200 px-3 py-2 text-xs font-medium text-slate-600 hover:border-orange-300 hover:text-orange-600"
-    >
-      <FiMapPin /> Map <FiExternalLink />
-    </a>
-  </div>
-);
-
-const NoteForm = ({ visit }) => {
-  const [note, setNote] = useState("");
-  const [corrected, setCorrected] = useState("");
-  const mutation = useAddCheckInNote();
-
-  const submit = async (e) => {
-    e.preventDefault();
-    try {
-      await mutation.mutateAsync({
-        id: visit._id,
-        note,
-        correctedCheckOutAt: fromIstInputValue(corrected)?.toISOString() || null,
-      });
-      toast.success("Note added");
-      setNote("");
-      setCorrected("");
-    } catch (err) {
-      toast.error(err.message);
-    }
-  };
-
-  return (
-    <form onSubmit={submit} className="space-y-3 rounded-2xl border border-slate-200 p-4">
-      <p className="text-sm font-semibold text-slate-800">Add a note</p>
-      <textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={3}
-        maxLength={500}
-        placeholder="e.g. Confirmed by phone — left at 5:05 pm"
-        className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100"
-      />
-      <label className="block text-xs font-medium text-slate-600">
-        Corrected check-out time (IST, optional)
-        <input
-          type="datetime-local"
-          value={corrected}
-          onChange={(e) => setCorrected(e.target.value)}
-          disabled={visit.isOpen}
-          min={toIstInputValue(visit.checkIn.at)}
-          max={toIstInputValue(new Date())}
-          className="mt-1 block w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 disabled:bg-slate-50"
-        />
-      </label>
-      {visit.isOpen && (
-        <p className="text-xs text-slate-400">
-          The instructor is still checked in — a corrected time can be added once they check out or
-          the day ends.
-        </p>
-      )}
-      <p className="text-xs text-slate-400">
-        Notes sit beside the instructor's record; the original times are never changed.
-      </p>
-      <button
-        type="submit"
-        disabled={!note.trim() || mutation.isPending}
-        className="rounded-2xl bg-[#FF6B35] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#fd5a1f] active:scale-[0.97] disabled:opacity-60"
-      >
-        {mutation.isPending ? "Saving…" : "Save note"}
-      </button>
-    </form>
-  );
-};
-
-const InstructorCheckInsPage = () => {
-  const today = istDayKey();
-  const presets = presetsFor(today);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const from = searchParams.get("from") || today;
-  const to = searchParams.get("to") || from;
+const InstructorCheckInsTab = ({ from, to }) => {
   // Query keys are hashed structurally, so a fresh object each render is fine.
   const { data, isLoading, isError, error, refetch, isFetching } = useCheckInReport({ from, to });
+  const addNote = useAddCheckInNote();
 
   const [search, setSearch] = useState("");
   const [teacherFilter, setTeacherFilter] = useState("");
@@ -263,9 +139,6 @@ const InstructorCheckInsPage = () => {
   const [selectedId, setSelectedId] = useState(null);
   const [slideOpen, setSlideOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-
-  const setRange = (range) => setSearchParams({ from: range.from, to: range.to });
-  const activePreset = presets.find((p) => p.range.from === from && p.range.to === to)?.id;
 
   const allVisits = data?.visits;
   const visits = useMemo(() => {
@@ -291,7 +164,7 @@ const InstructorCheckInsPage = () => {
   const handleExport = async () => {
     setExporting(true);
     try {
-      await exportToExcel({ fileName: `dunamis-check-ins-${from}_${to}`, sheets: buildSheets(data) });
+      await exportToExcel({ fileName: `dunamis-instructor-check-ins-${from}_${to}`, sheets: buildSheets(data) });
       toast.success("Report exported");
     } catch {
       toast.error("Export failed");
@@ -300,53 +173,30 @@ const InstructorCheckInsPage = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-6 w-48 rounded-2xl bg-slate-200" />
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-2xl bg-slate-100" />
-            ))}
-          </div>
-          <div className="h-64 rounded-2xl bg-slate-100" />
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <ReportLoading />;
 
   if (isError) {
     return (
-      <div className="p-6">
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
-          <p className="font-semibold text-rose-700">Could not load instructor check-ins</p>
-          <p className="mt-1 text-sm text-rose-600">{error?.message}</p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center">
+        <p className="font-semibold text-rose-700">Could not load instructor check-ins</p>
+        <p className="mt-1 text-sm text-rose-600">{error?.message}</p>
+        <button
+          onClick={() => refetch()}
+          className="mt-4 rounded-2xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-rose-700"
+        >
+          Retry
+        </button>
       </div>
     );
   }
 
   const { totals, summary, missedClasses, unpinnedBranches } = data;
-  const rangeLabel = from === to ? formatDay(from) : `${formatDay(from)} – ${formatDay(to)}`;
-
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Analytics</p>
-          <h1 className="text-2xl font-bold text-slate-900">Instructor Check-ins</h1>
-          <p className="text-sm text-slate-500">
-            When offline instructors arrived at and left their branches, {rangeLabel}. Times are IST,
-            to the second.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-slate-500">
+          When offline instructors arrived at and left their branches. Times are IST, to the second.
+        </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => refetch()}
@@ -361,44 +211,6 @@ const InstructorCheckInsPage = () => {
             totalCount={data.visits.length + missedClasses.length}
             selectedCount={0}
             exporting={exporting}
-          />
-        </div>
-      </div>
-
-      <ScopeBanner />
-
-      <div className="flex flex-wrap items-center gap-2">
-        {presets.map((preset) => (
-          <button
-            key={preset.id}
-            onClick={() => setRange(preset.range)}
-            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium ${
-              activePreset === preset.id
-                ? "border-orange-300 bg-orange-50 text-orange-700"
-                : "border-slate-200 bg-white text-slate-600 hover:border-orange-300"
-            }`}
-          >
-            {preset.label}
-          </button>
-        ))}
-        <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white px-2 py-1">
-          <input
-            type="date"
-            value={from}
-            max={to}
-            onChange={(e) => e.target.value && setRange({ from: e.target.value, to })}
-            className="rounded-xl border-0 bg-transparent px-1 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-100"
-            aria-label="From"
-          />
-          <span className="text-slate-400">–</span>
-          <input
-            type="date"
-            value={to}
-            min={from}
-            max={today}
-            onChange={(e) => e.target.value && setRange({ from, to: e.target.value })}
-            className="rounded-xl border-0 bg-transparent px-1 py-1.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-100"
-            aria-label="To"
           />
         </div>
       </div>
@@ -419,30 +231,7 @@ const InstructorCheckInsPage = () => {
         </a>
       )}
 
-      {unpinnedBranches.length > 0 && (
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-          <FiMapPin className="mt-0.5 shrink-0 text-lg" />
-          <span>
-            <strong>
-              {unpinnedBranches.length} {unpinnedBranches.length === 1 ? "branch has" : "branches have"} no
-              location pin
-            </strong>
-            , so check-ins there can't be verified:{" "}
-            {unpinnedBranches.map((branch, index) => (
-              <React.Fragment key={branch._id}>
-                {index > 0 && ", "}
-                <Link
-                  to={`/admin/centers/edit-branch/${branch._id}`}
-                  className="font-medium underline underline-offset-2 hover:text-amber-900"
-                >
-                  {branch.branchName}
-                </Link>
-              </React.Fragment>
-            ))}
-            . Open the branch at the centre and use "Use my current location".
-          </span>
-        </div>
-      )}
+      <UnpinnedBanner branches={unpinnedBranches} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <CountTile label="Visits" value={totals.visits} hint={`${totals.openNow} checked in now`} />
@@ -507,7 +296,7 @@ const InstructorCheckInsPage = () => {
             </table>
           </div>
         ) : (
-          <EmptyBox text="No check-ins or offline classes in this range." />
+          <ReportEmpty text="No check-ins or offline classes in this range." />
         )}
       </SectionCard>
 
@@ -596,7 +385,7 @@ const InstructorCheckInsPage = () => {
             </table>
           </div>
         ) : (
-          <EmptyBox text={data.visits.length ? "No visits match these filters." : "Nothing here yet"} />
+          <ReportEmpty text={data.visits.length ? "No visits match these filters." : "Nothing here yet"} />
         )}
       </SectionCard>
 
@@ -698,29 +487,9 @@ const InstructorCheckInsPage = () => {
                 )}
               </div>
 
-              {selected.adminNotes.length > 0 && (
-                <div>
-                  <p className="text-xs uppercase tracking-wider text-slate-400">Admin notes</p>
-                  <ul className="mt-2 space-y-2">
-                    {selected.adminNotes.map((note, index) => (
-                      <li key={index} className="rounded-2xl bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                        <p>{note.note}</p>
-                        <p className="mt-1 text-xs text-slate-400">
-                          {note.by} · {formatDay(istDayKey(new Date(note.at)))} {formatTime(note.at)}
-                          {note.correctedCheckOutAt && (
-                            <>
-                              {" · "}
-                              <Pill tone="sky">Left {formatTime(note.correctedCheckOutAt)}</Pill>
-                            </>
-                          )}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
+              <AdminNotesList notes={selected.adminNotes} />
 
-              <NoteForm key={selected._id} visit={selected} />
+              <NoteForm key={selected._id} visit={selected} mutation={addNote} />
             </div>
           </div>
         )}
@@ -729,4 +498,4 @@ const InstructorCheckInsPage = () => {
   );
 };
 
-export default InstructorCheckInsPage;
+export default InstructorCheckInsTab;

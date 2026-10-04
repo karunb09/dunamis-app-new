@@ -79,3 +79,10 @@ export const toIstInputValue = (value) => {
 };
 
 export const fromIstInputValue = (value) => (value ? new Date(`${value}:00+05:30`) : null);
+
+export const rangePresets = (today) => [
+  { id: "today", label: "Today", range: { from: today, to: today } },
+  { id: "yesterday", label: "Yesterday", range: { from: shiftDayKey(today, -1), to: shiftDayKey(today, -1) } },
+  { id: "month", label: "This month", range: { from: `${today.slice(0, 7)}-01`, to: today } },
+  { id: "lastMonth", label: "Last month", range: monthRange(shiftMonthKey(today.slice(0, 7), -1)) },
+];

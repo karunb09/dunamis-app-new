@@ -24,6 +24,7 @@ const {
 } = require("../utils/staffAccess");
 const { ORG_NAME_POPULATE } = require("../services/orgPlacement");
 const { checkInAccess } = require("../services/instructorCheckIn");
+const { staffCheckInAccess } = require("../services/staffCheckIn");
 
 const authCookieOptions = {
   httpOnly: true,
@@ -59,12 +60,17 @@ const buildSessionUser = (user) => ({
   studentDetails: user.studentDetails,
 });
 
-// Instructors also carry whether branch check-in applies to them, so the
-// dashboard shows that menu item only to those who teach at a centre.
+// Instructors and branch staff (AAs, BDEs) also carry whether branch check-in
+// applies to them, so the dashboard shows that menu item only to those it does.
 const sessionUserFor = async (user) => {
   const session = buildSessionUser(user);
-  if (user.accountType !== "teacher" || !user.teacherDetails?._id) return session;
-  return { ...session, checkIn: await checkInAccess(user.teacherDetails._id) };
+  if (user.accountType === "teacher" && user.teacherDetails?._id) {
+    return { ...session, checkIn: await checkInAccess(user.teacherDetails._id) };
+  }
+  if (user.accountType === "admin") {
+    return { ...session, checkIn: await staffCheckInAccess(user) };
+  }
+  return session;
 };
 
 const canManageUser = (requestUser, targetUserId) => {

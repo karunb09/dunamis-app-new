@@ -33,3 +33,30 @@ export const visitFlags = (visit) => {
   }
   return list;
 };
+
+// A staff member's day, judged at its two ends (see services/staffCheckIn.js):
+// late against the first branch's opening, early against the last's closing.
+export const dayFlags = (day) => {
+  const list = [];
+  if (day.lateCheckIn) {
+    list.push({ key: "late", tone: "rose", label: `Late login +${day.lateByMinutes}m` });
+  }
+  if (day.earlyCheckOut) {
+    list.push({ key: "early", tone: "rose", label: `Early logout −${day.earlyByMinutes}m` });
+  }
+  if (day.missingLogout) list.push({ key: "missing", tone: "rose", label: "Missing logout" });
+  if (day.lateCheckOut) list.push({ key: "lateOut", tone: "amber", label: "Late logout" });
+  if (day.offSite) list.push({ key: "offSite", tone: "amber", label: "Checked out off-site" });
+  if (day.locationUnverified) {
+    list.push({ key: "unverified", tone: "slate", label: "Location unverified" });
+  }
+  if (day.branchClosedToday) list.push({ key: "closed", tone: "sky", label: "Branch closed today" });
+  if (day.lastOutCorrectedAt) {
+    list.push({
+      key: "corrected",
+      tone: "sky",
+      label: `Admin: left ${formatTime(day.lastOutCorrectedAt)}`,
+    });
+  }
+  return list;
+};

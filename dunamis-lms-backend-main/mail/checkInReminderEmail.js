@@ -2,6 +2,7 @@ const { escapeHtml, brandCard, brandAttachments } = require("./emailLayout");
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL || "https://dashboard.dunamisindia.co.in";
 const CHECK_IN_URL = `${DASHBOARD_URL}/teacher/check-in`;
+const STAFF_CHECK_IN_URL = `${DASHBOARD_URL}/admin/check-in`;
 
 const formatTime = (value) =>
   new Date(value).toLocaleTimeString("en-IN", {
@@ -65,4 +66,45 @@ const buildMissingCheckOutEmail = ({
   attachments: brandAttachments(),
 });
 
-module.exports = { buildMissingCheckInEmail, buildMissingCheckOutEmail };
+// Branch staff (AA/BDE): sent once a day, at the first tick after the earliest
+// of their branches opened, if they haven't checked in anywhere.
+const buildStaffMissingCheckInEmail = ({ name, branches }) => ({
+  subject: "You haven't checked in at your branch today",
+  html: brandCard({
+    title: `Hi ${name}, you haven't checked in`,
+    intro: `${branches[0].branchName} opened at ${formatTime(branches[0].opensAt)} and there is no check-in from you today. Open the dashboard at the branch and tap Check in — the time is recorded when you tap.`,
+    details: branches
+      .map((branch) => line(branch.branchName, `opens ${formatTime(branch.opensAt)}`))
+      .join(""),
+    ctaText: "Check in now",
+    ctaHref: STAFF_CHECK_IN_URL,
+    footnote:
+      "Check-ins are recorded with your location and cannot be edited later. If you are on leave today, you can ignore this email.",
+  }),
+  attachments: brandAttachments(),
+});
+
+const buildStaffMissingCheckOutEmail = ({ name, branchName, checkInAt, expectedCheckOutAt }) => ({
+  subject: `You haven't checked out of ${branchName}`,
+  html: brandCard({
+    title: `Hi ${name}, you haven't checked out`,
+    intro: `You checked in at ${branchName} at ${formatTime(checkInAt)}. If you have left, check out now — you can do it from anywhere, and it will be marked as a late logout. If you are still at the branch, check out when you leave.`,
+    details: [
+      line("Branch", branchName),
+      line("Checked in", formatTime(checkInAt)),
+      line("Branch closed at", formatTime(expectedCheckOutAt)),
+    ].join(""),
+    ctaText: "Check out now",
+    ctaHref: STAFF_CHECK_IN_URL,
+    footnote:
+      "Check-out closes at midnight. After that, only the admin team can record when you left.",
+  }),
+  attachments: brandAttachments(),
+});
+
+module.exports = {
+  buildMissingCheckInEmail,
+  buildMissingCheckOutEmail,
+  buildStaffMissingCheckInEmail,
+  buildStaffMissingCheckOutEmail,
+};

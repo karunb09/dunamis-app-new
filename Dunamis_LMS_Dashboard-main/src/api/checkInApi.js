@@ -5,7 +5,7 @@ import axios from "./axios";
 
 // Carries the server's `details` (distance, radius) and `hint` through, so the
 // page can say how far away the instructor is rather than just "refused".
-const toError = (err, fallback) => {
+export const toError = (err, fallback) => {
   const data = err.response?.data;
   const msg = typeof data === "string" ? data : data?.message || err.message || fallback;
   const e = new Error(msg || fallback);
@@ -16,7 +16,7 @@ const toError = (err, fallback) => {
 };
 
 // Drops null/undefined/"" so the validator never sees an empty filter value.
-const clean = (params) =>
+export const clean = (params) =>
   Object.fromEntries(
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== "")
   );
