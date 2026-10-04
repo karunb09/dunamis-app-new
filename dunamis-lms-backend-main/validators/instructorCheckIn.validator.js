@@ -51,10 +51,19 @@ const checkInNoteSchema = z.object({
   correctedCheckOutAt: z.coerce.date({ error: "Corrected check-out must be a valid time." }).nullish(),
 });
 
+// Staff check-in report: the same filters, keyed by the staff member's user id.
+const staffCheckInReportQuerySchema = z.object({
+  from: dayKey("from").nullish(),
+  to: dayKey("to").nullish(),
+  userId: objectId("userId").nullish(),
+  branchId: objectId("branchId").nullish(),
+});
+
 module.exports = {
   checkInSchema,
   checkOutSchema,
   checkInReportQuerySchema,
   checkInHistoryQuerySchema,
   checkInNoteSchema,
+  staffCheckInReportQuerySchema,
 };

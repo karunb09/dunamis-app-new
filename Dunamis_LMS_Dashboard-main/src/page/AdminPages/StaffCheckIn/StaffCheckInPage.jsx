@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { CheckInShell } from "../../../components/checkIns/CheckInParts";
-import TodayPanel from "./TodayPanel";
-import HistoryPanel from "./HistoryPanel";
+import StaffTodayPanel from "./StaffTodayPanel";
+import StaffHistoryPanel from "./StaffHistoryPanel";
 
-const CheckInPage = () => {
+const StaffCheckInPage = () => {
   const [tab, setTab] = useState("today");
   return (
     <CheckInShell tab={tab} onTabChange={setTab}>
-      {tab === "today" ? <TodayPanel /> : <HistoryPanel />}
+      {tab === "today" ? <StaffTodayPanel /> : <StaffHistoryPanel />}
     </CheckInShell>
   );
 };
 
-export default CheckInPage;
+export default StaffCheckInPage;

@@ -41,7 +41,8 @@ const ReferralManagementPage = lazy(routeLoaders["/admin/referral-management"]);
 const SystemStatus = lazy(routeLoaders["/admin/system-status"]);
 const MonthlyReportPage = lazy(routeLoaders["/admin/reports"]);
 const DailyAttendanceReportPage = lazy(routeLoaders["/admin/reports/attendance"]);
-const InstructorCheckInsPage = lazy(routeLoaders["/admin/reports/check-ins"]);
+const CheckInsReportPage = lazy(routeLoaders["/admin/reports/check-ins"]);
+const StaffCheckInPage = lazy(routeLoaders["/admin/check-in"]);
 
 const Dashboard = lazy(routeLoaders["/teacher"]);
 const MyCourses = lazy(routeLoaders["/teacher/courses"]);
@@ -228,7 +229,8 @@ const App = () => {
               <Route path="/admin/financials" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="financials"><FinancialPage /></RequireAuth>} />
               <Route path="/admin/reports" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><MonthlyReportPage /></RequireAuth>} />
               <Route path="/admin/reports/attendance" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><DailyAttendanceReportPage /></RequireAuth>} />
-              <Route path="/admin/reports/check-ins" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><InstructorCheckInsPage /></RequireAuth>} />
+              <Route path="/admin/reports/check-ins" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="reports"><CheckInsReportPage /></RequireAuth>} />
+              <Route path="/admin/check-in" element={<RequireAuth allowedRoles={["admin", "superadmin"]}><StaffCheckInPage /></RequireAuth>} />
               <Route path="/admin/enquiries" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="enquiries"><EnquiriesPage /></RequireAuth>} />
               <Route path="/admin/referral-management" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="referralManagement"><ReferralManagementPage /></RequireAuth>} />
               <Route path="/admin/updates" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="updates"><UpdatesPage /></RequireAuth>} />
