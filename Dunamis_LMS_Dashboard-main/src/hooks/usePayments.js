@@ -37,14 +37,14 @@ export function useNeedsAttention(params) {
   });
 }
 
-// export function useNeedsAttentionCount() {
-//   return useQuery({
-//     queryKey: paymentKeys.needsAttentionCount,
-//     queryFn: paymentsApi.fetchNeedsAttentionCount,
-//     refetchInterval: 120_000,
-//     staleTime: 60_000,
-//   });
-// }
+export function useNeedsAttentionCount() {
+  return useQuery({
+    queryKey: paymentKeys.needsAttentionCount,
+    queryFn: paymentsApi.fetchNeedsAttentionCount,
+    refetchInterval: 120_000,
+    staleTime: 60_000,
+  });
+}
 
 export function usePaymentDetail(id) {
   return useQuery({
