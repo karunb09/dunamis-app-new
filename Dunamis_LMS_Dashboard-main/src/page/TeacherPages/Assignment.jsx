@@ -3,9 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { getAssignmentsByStatus, createAssignment, reviewSubmission } from "../../redux/Assignment/AssignmentSlice";
 import toast from "react-hot-toast";
 import { useQuery } from "@tanstack/react-query";
-import { FiMusic, FiPlus } from "react-icons/fi";
+import { FiExternalLink, FiMusic, FiPlus } from "react-icons/fi";
 import api from "../../api/axios";
-import { resolveImageUrl } from "../../utils/resolveImageUrl";
 
 const Tabs = ["All", "Pending", "Reviewed", "Overdue", "Reminders"];
 
@@ -46,7 +45,7 @@ function Assignments() {
             studentStatus: student.status,
             studentFeedback: student.feedback,
             studentRating: student.rating,
-            submissionFile: student.submissionFile,
+            submissionUrl: student.submissionUrl,
             submissionDate: student.submissionDate,
           });
         });
@@ -292,8 +291,18 @@ function Assignments() {
                   </p>
                 )}
                 {item.submissionDate && (
-                  <p className="text-xs text-gray-500">
+                  <p className="flex flex-wrap items-center gap-x-2 text-xs text-gray-500">
                     Submitted: {formatDate(item.submissionDate)}
+                    {item.submissionUrl && (
+                      <a
+                        href={item.submissionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-orange-600 hover:underline"
+                      >
+                        Open link <FiExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
                   </p>
                 )}
                 <div className="flex justify-end">
@@ -524,6 +533,29 @@ function CreateAssignment({ onClose, preset }) {
   );
 }
 
+function SubmissionLink({ url }) {
+  return (
+    <div>
+      <p className="mb-1 text-sm text-gray-500">Submission</p>
+      {url ? (
+        <>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#FF6B35] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#fd5a1f] motion-safe:active:scale-[0.97]"
+          >
+            Open submission <FiExternalLink className="h-4 w-4" />
+          </a>
+          <p className="mt-1 truncate text-xs text-gray-400">{url}</p>
+        </>
+      ) : (
+        <p className="text-sm text-gray-500">No link submitted yet</p>
+      )}
+    </div>
+  );
+}
+
 function ReviewAssignment({ assignment, student, onCancel, onSubmit }) {
   const dispatch = useDispatch();
   const [feedback, setFeedback] = useState(student?.feedback || "");
@@ -592,22 +624,9 @@ function ReviewAssignment({ assignment, student, onCancel, onSubmit }) {
         </p>
       </div>
 
-      {student?.submissionFile && student.submissionFile.length > 0 && (
-        <div className="mb-4">
-          <p className="text-sm font-medium text-gray-700 mb-2">Submitted Files:</p>
-          {student.submissionFile.map((file, idx) => (
-            <a
-              key={idx}
-              href={resolveImageUrl(file)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:underline block"
-            >
-              View File {idx + 1}
-            </a>
-          ))}
-        </div>
-      )}
+      <div className="mb-4">
+        <SubmissionLink url={student?.submissionUrl} />
+      </div>
 
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -737,22 +756,7 @@ function ViewAssignment({ assignment, student, onClose }) {
           </div>
         )}
 
-        {student?.submissionFile && student.submissionFile.length > 0 && (
-          <div>
-            <p className="text-sm text-gray-500 mb-2">Submitted Files</p>
-            {student.submissionFile.map((file, idx) => (
-              <a
-                key={idx}
-                href={resolveImageUrl(file)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-blue-600 hover:underline block mb-1"
-              >
-                View File {idx + 1}
-              </a>
-            ))}
-          </div>
-        )}
+        <SubmissionLink url={student?.submissionUrl} />
       </div>
 
       <div className="flex justify-end">

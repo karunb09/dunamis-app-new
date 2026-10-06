@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import StudentShell from "@/components/student/StudentShell";
 import { getWebsiteToken } from "@/lib/authSession";
@@ -9,17 +10,53 @@ import { API_BASE } from "@/lib/apiBase";
 // Authenticated calls go through the BFF proxy (JWT injected from httpOnly cookie).
 const BASE_URL = API_BASE;
 
+const formatDue = (value) => {
+  const dueDate = value ? new Date(value) : null;
+  if (!dueDate || Number.isNaN(dueDate.getTime())) return "No due date";
+  return dueDate.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "Asia/Kolkata",
+  });
+};
+
 export default function StudentUploadPage() {
   const [assignmentId, setAssignmentId] = useState("");
   const [assignmentTitle, setAssignmentTitle] = useState("Assignment Due");
+  const [dueDate, setDueDate] = useState(null);
   const [url, setUrl] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [reviewed, setReviewed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setAssignmentId(params.get("assignmentId") || "");
+    const id = params.get("assignmentId") || "";
+    setAssignmentId(id);
     setAssignmentTitle(params.get("title") || "Assignment Due");
+    if (!id) return;
+
+    // Show what is already on file, so a learner never re-sends a link we already have.
+    const token = getWebsiteToken();
+    fetch(`${BASE_URL}/v1/assignment/student`, {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        const mine = (Array.isArray(data?.data) ? data.data : []).find((a) => a._id === id);
+        if (!mine) return;
+        setDueDate(mine.dueDate || null);
+        const saved = Array.isArray(mine.submissionUrl) ? mine.submissionUrl[0] : mine.submissionUrl;
+        if (saved) {
+          setUrl(saved);
+          setSubmitted(true);
+        }
+        setReviewed(mine.assignmentStatus === "reviewed");
+      })
+      .catch(() => {});
   }, []);
 
   const handleSubmit = async (event) => {
@@ -66,9 +103,11 @@ export default function StudentUploadPage() {
           <div className="mb-3 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-lg text-red-500">Document</span>
-              <h2 className="text-lg font-semibold text-gray-800">Assignment Due</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {submitted ? "Assignment Submitted" : "Assignment Due"}
+              </h2>
             </div>
-            <p className="text-sm text-gray-500">11:59 PM, Today</p>
+            {dueDate ? <p className="text-sm text-gray-500">Due {formatDue(dueDate)}</p> : null}
           </div>
 
           <div className="mb-3 flex items-center space-x-2">
@@ -115,22 +154,28 @@ export default function StudentUploadPage() {
                   readOnly
                   className="w-full cursor-not-allowed rounded-md border border-gray-300 bg-gray-100 p-3 text-gray-600"
                 />
+                <p className="mt-2 text-sm text-gray-500">
+                  {reviewed
+                    ? "Your instructor has reviewed this submission, so the link can no longer be changed."
+                    : "Your link is saved. You can change it until your instructor reviews it."}
+                </p>
               </div>
               <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setSubmitted(false)}
+                <Link
+                  href="/student/assignments"
                   className="rounded-full border border-gray-400 px-6 py-2 text-gray-800 transition-all hover:bg-gray-100"
                 >
                   Back
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSubmitted(false)}
-                  className="rounded-full bg-gray-800 px-6 py-2 text-white transition-all hover:bg-gray-900"
-                >
-                  Re-submit
-                </button>
+                </Link>
+                {!reviewed ? (
+                  <button
+                    type="button"
+                    onClick={() => setSubmitted(false)}
+                    className="rounded-full bg-gray-800 px-6 py-2 text-white transition-all hover:bg-gray-900"
+                  >
+                    Re-submit
+                  </button>
+                ) : null}
               </div>
             </div>
           )}

@@ -19,6 +19,8 @@ const COMMUNICATION_MATRIX = {
   feeReminder: { learner: true, instructor: false, aa: true, bde: true, channel: "email", contentType: "Reminder" },
   feeReceived: { learner: false, instructor: false, aa: true, bde: true, channel: "notification" },
   assignmentCycle: { learner: true, instructor: true, aa: true, bde: true, channel: "notification" },
+  // Not on the sheet: without it an instructor had no way to know a link arrived.
+  assignmentSubmitted: { learner: false, instructor: true, aa: false, bde: false, channel: "notification" },
   assessmentCycle: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
   // Instructors record
   demoRescheduled: { learner: true, instructor: true, aa: true, bde: true, channel: "email" },
@@ -58,6 +60,12 @@ const MATRIX_ROWS = [
     locked: { learner: RECEIPT, instructor: NOT_APPLICABLE },
   },
   { event: "assignmentCycle", section: "learners", label: "Assignments (monthly)" },
+  {
+    event: "assignmentSubmitted",
+    section: "learners",
+    label: "Assignment submitted",
+    locked: { learner: NOT_APPLICABLE },
+  },
   { event: "assessmentCycle", section: "learners", label: "Assessments (6-monthly)" },
   { event: "demoRescheduled", section: "instructors", label: "Demo reschedule" },
   { event: "classRescheduled", section: "instructors", label: "Class reschedule" },

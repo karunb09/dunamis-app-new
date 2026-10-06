@@ -4,8 +4,10 @@ const ClassRoster = require("../model/classRoster.model");
 const Course = require("../model/course.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
+const User = require("../model/user.model");
 const { formatUserName } = require("../utils/formatName");
 const { notifyEvent } = require("../utils/notificationService");
+const { enrollmentContext } = require("../services/staffRouting");
 
 const toId = (value) => String(value?._id || value || "");
 
@@ -177,22 +179,43 @@ exports.submitAssignment = asyncHandler(async (req, res) => {
         .status(400)
         .json({ message: "Student not part of this assignment" });
 
-    if (studentSubmission.submissionUrl) {
+    if (studentSubmission.status === "reviewed") {
       return res.status(400).json({
         success: false,
-        message: "You have already submitted this assignment.",
+        message: "This assignment has already been reviewed, so the link can't be changed.",
       });
     }
-    
+
+    const replacing = Boolean(studentSubmission.submissionUrl);
     studentSubmission.status = "pending";
     studentSubmission.submissionDate = new Date();
     studentSubmission.submissionUrl = submissionUrl;
 
     await assignment.save();
 
+    await (async () => {
+      const [student, course, instructor] = await Promise.all([
+        Student.findById(studentId).select("userId payments branch").populate("userId", "name").lean(),
+        Course.findById(assignment.courseId).select("name mode").lean(),
+        User.findById(assignment.userId).select("email").lean(),
+      ]);
+      const learnerName = formatUserName(student?.userId?.name, "A learner");
+      const title = assignment.title || "an assignment";
+      await notifyEvent({
+        event: "assignmentSubmitted",
+        context: student && course ? enrollmentContext({ student, course }) : {},
+        instructorUser: instructor,
+        title: replacing ? "Assignment link updated" : "Assignment submitted",
+        message: replacing
+          ? `${learnerName} changed their link for "${title}".`
+          : `${learnerName} submitted "${title}"${course?.name ? ` for ${course.name}` : ""}.`,
+        creatorId: req.user.userId,
+      });
+    })().catch((err) => console.error("Assignment submission notice failed:", err.message));
+
     res.status(200).json({
       success: true,
-      message: "Video URL submitted successful",
+      message: replacing ? "Link updated." : "Video URL submitted successful",
       url: submissionUrl,
     });
 });
@@ -383,11 +406,11 @@ exports.getStudentAssignments = asyncHandler(async (req, res) => {
 
       let computedStatus = studentData?.status || "assigned";
 
+      // "pending" is a submission waiting for review — handing it in never makes it overdue.
       if (
         a.dueDate &&
         new Date(a.dueDate) < today &&
-        (studentData?.status === "assigned" ||
-          studentData?.status === "pending")
+        studentData?.status === "assigned"
       ) {
         computedStatus = "overdue";
       }
