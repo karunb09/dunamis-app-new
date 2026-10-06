@@ -112,7 +112,7 @@ test("the matrix lists every row with its defaults and locked cells", async () =
   const res = await request(app, "GET", "/api/v1/communication-matrix", { token });
 
   assert.equal(res.status, 200);
-  assert.equal(res.body.rows.length, 17);
+  assert.equal(res.body.rows.length, 18);
   const feeReceived = res.body.rows.find((row) => row.event === "feeReceived");
   assert.equal(feeReceived.label, "Fee received");
   assert.equal(feeReceived.locked.learner, "Receipt — always sent");

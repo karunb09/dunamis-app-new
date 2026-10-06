@@ -155,6 +155,7 @@ export default function StudentAssignmentsPage() {
         ) : filteredAssignments.length > 0 ? (
           filteredAssignments.map((assignment) => {
             const done = ["pending", "reviewed", "submitted"].includes(assignment.status);
+            const uploadHref = `/student/upload?assignmentId=${encodeURIComponent(assignment.id)}&title=${encodeURIComponent(assignment.course)}`;
             return (
               <div
                 key={assignment.id}
@@ -183,20 +184,27 @@ export default function StudentAssignmentsPage() {
                   </span>
                   {!done ? (
                     <Link
-                      href={`/student/upload?assignmentId=${encodeURIComponent(assignment.id)}&title=${encodeURIComponent(assignment.course)}`}
+                      href={uploadHref}
                       className="rounded-full bg-[#262626] px-5 py-1 text-sm text-white transition hover:bg-black"
                     >
                       Upload
                     </Link>
                   ) : assignment.submissionUrl ? (
-                    <a
-                      href={assignment.submissionUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-full border border-black bg-transparent px-5 py-1 text-sm font-bold text-black transition hover:bg-[#f5f5f5]"
-                    >
-                      View
-                    </a>
+                    <div className="flex flex-col items-end gap-1">
+                      <a
+                        href={assignment.submissionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full border border-black bg-transparent px-5 py-1 text-sm font-bold text-black transition hover:bg-[#f5f5f5]"
+                      >
+                        View
+                      </a>
+                      {assignment.status === "pending" ? (
+                        <Link href={uploadHref} className="text-xs text-black/50 underline transition hover:text-black">
+                          Change link
+                        </Link>
+                      ) : null}
+                    </div>
                   ) : (
                     <span className="rounded-full border border-black/10 px-5 py-1 text-sm text-black/50">Submitted</span>
                   )}

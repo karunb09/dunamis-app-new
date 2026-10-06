@@ -4,8 +4,10 @@
 //
 // The load-bearing claims: an instructor can only assign to learners they
 // actually teach; a learner whose monthly cycle already opened a placeholder
-// gets that filled rather than a duplicate; and a review marks the learner
-// being reviewed — not whoever happens to be first on a shared assignment.
+// gets that filled rather than a duplicate; a review marks the learner
+// being reviewed — not whoever happens to be first on a shared assignment;
+// a learner can swap their link until it is reviewed, without a
+// submission ever being shown as overdue; and the instructor is told each time.
 //
 // Run with:  npm run test:integration
 
@@ -17,6 +19,7 @@ process.env.MAIL_HOST = "";
 const { startMemoryMongo, stopMemoryMongo, clearCollections } = require("./helpers/db");
 
 const mongoose = require("mongoose");
+const AdminNotice = require("../model/adminNotice.model");
 const Assignment = require("../model/assignment.model");
 const ClassRoster = require("../model/classRoster.model");
 const Course = require("../model/course.model");
@@ -213,4 +216,93 @@ test("an instructor cannot review another instructor's assignment", async () => 
   assert.equal(res.statusCode, 403);
   const stored = await Assignment.findById(theirs._id);
   assert.equal(stored.students[0].status, "pending");
+});
+
+// roleId comes off the JWT as a string.
+const asStudent = (student, body = {}) => ({
+  user: { accountType: "student", userId: student.userId, roleId: String(student._id) },
+  params: {},
+  query: {},
+  body,
+});
+
+const assignTo = (student, entry, dueDate = new Date(Date.now() - 2 * 86400000)) =>
+  Assignment.create({
+    courseId: course._id,
+    teacherId: teacher._id,
+    userId: teacher.userId,
+    title: "Past due",
+    dueDate,
+    students: [{ studentId: student._id, ...entry }],
+  });
+
+test("a submission waiting for review stays pending after its due date", async () => {
+  await assignTo(asha, { status: "pending", submissionUrl: "https://drive.google.com/file/d/abc/view" });
+  await assignTo(asha, { status: "assigned" }, new Date(Date.now() - 3 * 86400000));
+
+  const res = await run(controller.getStudentAssignments, asStudent(asha));
+
+  const statuses = res.payload.data.map((a) => a.assignmentStatus).sort();
+  assert.deepEqual(statuses, ["overdue", "pending"]);
+});
+
+test("a learner can replace their link while it waits for review", async () => {
+  const submittedAt = new Date(Date.now() - 86400000);
+  const doc = await assignTo(asha, {
+    status: "pending",
+    submissionUrl: "https://drive.google.com/file/d/old/view",
+    submissionDate: submittedAt,
+  });
+
+  const res = await run(
+    controller.submitAssignment,
+    asStudent(asha, { assignmentId: doc._id, submissionUrl: "https://drive.google.com/file/d/new/view" })
+  );
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.payload.message, "Link updated.");
+  const stored = await Assignment.findById(doc._id);
+  assert.equal(stored.students[0].submissionUrl, "https://drive.google.com/file/d/new/view");
+  assert.equal(stored.students[0].status, "pending");
+  assert.ok(stored.students[0].submissionDate > submittedAt);
+});
+
+test("a reviewed submission's link is locked", async () => {
+  const doc = await assignTo(asha, {
+    status: "reviewed",
+    submissionUrl: "https://drive.google.com/file/d/old/view",
+    rating: 4,
+  });
+
+  const res = await run(
+    controller.submitAssignment,
+    asStudent(asha, { assignmentId: doc._id, submissionUrl: "https://drive.google.com/file/d/new/view" })
+  );
+
+  assert.equal(res.statusCode, 400);
+  const stored = await Assignment.findById(doc._id);
+  assert.equal(stored.students[0].submissionUrl, "https://drive.google.com/file/d/old/view");
+  assert.equal(stored.students[0].status, "reviewed");
+});
+
+test("the instructor gets a notice when a link arrives and when it changes", async () => {
+  const doc = await assignTo(asha, { status: "assigned" });
+
+  await run(
+    controller.submitAssignment,
+    asStudent(asha, { assignmentId: doc._id, submissionUrl: "https://drive.google.com/file/d/first/view" })
+  );
+  let notices = await AdminNotice.find().lean();
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].title, "Assignment submitted");
+  assert.deepEqual(notices[0].specificUsers.map(String), [String(teacher.userId)]);
+  assert.match(notices[0].message, /Asha Test submitted "Past due" for Drawing Essentials/);
+
+  await run(
+    controller.submitAssignment,
+    asStudent(asha, { assignmentId: doc._id, submissionUrl: "https://drive.google.com/file/d/second/view" })
+  );
+  notices = await AdminNotice.find().sort({ createdAt: 1 }).lean();
+  assert.equal(notices.length, 2);
+  assert.equal(notices[1].title, "Assignment link updated");
 });
