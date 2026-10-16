@@ -131,7 +131,7 @@ jobs:
 
       - name: Notify success (email)
         continue-on-error: true
-        uses: dawidd6/action-send-mail@v18
+        uses: dawidd6/action-send-mail@v22
         with:
           server_address: ${{ secrets.MAIL_HOST }}
           server_port: ${{ secrets.MAIL_PORT }}
@@ -162,7 +162,7 @@ jobs:
             "${{ secrets.NTFY_TOPIC_URL }}"
 
       - name: Notify failure (email)
-        uses: dawidd6/action-send-mail@v18
+        uses: dawidd6/action-send-mail@v22
         with:
           server_address: ${{ secrets.MAIL_HOST }}
           server_port: ${{ secrets.MAIL_PORT }}
