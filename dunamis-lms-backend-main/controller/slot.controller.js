@@ -16,8 +16,7 @@ const { hasSlotStarted } = require("../utils/classRoster");
 const {
   IT_SUPPORT_HINT,
   getExpectedDurationMinutes,
-  isAllowedDayPair,
-  getDayPairLabel,
+  formatDaysLabel,
   timeToMinutes,
   parseTimeToMinutes,
   availabilitySignature,
@@ -529,7 +528,7 @@ exports.getAvailableSlots = asyncHandler(async (req, res) => {
       return {
         ...plainSlot,
         availabilityDays,
-        dayPairLabel: getDayPairLabel(availabilityDays),
+        daysLabel: formatDaysLabel(availabilityDays),
         studentCount,
         availableSeats: isUnlimited(maxStudents)
           ? null

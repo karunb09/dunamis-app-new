@@ -25,6 +25,7 @@ const {
   hasLiveEnrollment,
 } = require("../services/enrollmentService");
 const { getStudentSchedules } = require("../utils/classRoster");
+const { formatDaysLabel } = require("../utils/availabilityRules");
 const { notifyEvent, notifyUsers } = require("../utils/notificationService");
 const {
   getCashfreeErrorMessage,
@@ -932,7 +933,7 @@ const reassignmentEmailTemplate = ({ title, intro, studentName, courseName, sche
 const sendReassignmentNotification = async ({ student, newCourse, newTeacher, newSlot }) => {
   const teacherWithUser = await Teacher.findById(newTeacher._id).populate("userId", "name email");
   const studentName = getDisplayName(student.userId);
-  const days = (newSlot.recurringDays || []).join("/") || "TBD";
+  const days = formatDaysLabel(newSlot.recurringDays) || "TBD";
   const scheduleText = `${days}, ${newSlot.startTime || "TBD"}-${newSlot.endTime || "TBD"}`;
 
   const notificationHtml = reassignmentEmailTemplate({

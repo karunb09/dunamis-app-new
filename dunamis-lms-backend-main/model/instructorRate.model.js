@@ -25,7 +25,8 @@ const instructorRateSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
-    // The full month's sessions this rate buys — two a week.
+    // The full month's sessions this rate buys for a two-day-a-week class; an
+    // online class on custom days scales it by its days per week.
     sessionsPerMonth: {
       type: Number,
       default: 8,

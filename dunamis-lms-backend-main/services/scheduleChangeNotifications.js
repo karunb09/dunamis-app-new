@@ -8,14 +8,13 @@ const {
   sendEmails,
 } = require("../utils/notificationService");
 const { brandCard, brandAttachments } = require("../mail/emailLayout");
-const { getDayPairLabel } = require("../utils/availabilityRules");
+const { formatDaysLabel } = require("../utils/availabilityRules");
 
 const DASHBOARD_URL = process.env.OPS_DASHBOARD_URL || "https://dashboard.dunamisindia.co.in";
 
 const describeSchedule = (snapshot) => {
   if (!snapshot) return "class removed";
-  const dayLabel = getDayPairLabel(snapshot.days) || (snapshot.days || []).join(" & ");
-  return `${dayLabel} ${snapshot.startTime}-${snapshot.endTime}`;
+  return `${formatDaysLabel(snapshot.days)} ${snapshot.startTime}-${snapshot.endTime}`;
 };
 
 const teacherName = (teacher) => {

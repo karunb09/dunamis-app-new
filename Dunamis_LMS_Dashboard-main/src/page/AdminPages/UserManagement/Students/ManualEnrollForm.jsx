@@ -232,7 +232,7 @@ export default function ManualEnrollForm({ onSuccess }) {
   const slotLabel = (slot) => {
     const days =
       slot.batchLabel ||
-      slot.dayPairLabel ||
+      slot.daysLabel ||
       (Array.isArray(slot.recurringDays) ? slot.recurringDays.join(" / ") : "");
     const time = `${slot.startTime || ""}–${slot.endTime || ""}`;
     const seats = slot.availableSeats != null ? ` · ${slot.availableSeats} seats left` : "";

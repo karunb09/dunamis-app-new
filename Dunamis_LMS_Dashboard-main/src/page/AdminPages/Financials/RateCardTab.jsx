@@ -112,7 +112,10 @@ const RateCardTab = () => {
           <div key={group.name} className="rounded-2xl border border-slate-200 bg-white">
             <div className="border-b border-slate-100 px-5 py-3">
               <p className="text-sm font-semibold text-slate-900">{group.name}</p>
-              <p className="text-xs text-slate-500">Per learner, per month</p>
+              <p className="text-xs text-slate-500">
+                Per learner, per month. Sessions are for a 2-day-a-week class; online
+                classes on custom days scale them (1 day = half, 3 days = 1.5×).
+              </p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">

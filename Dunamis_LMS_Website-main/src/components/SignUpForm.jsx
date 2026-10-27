@@ -53,8 +53,8 @@ const STUDENT_TERMS_SECTIONS = [
   {
     title: "2. Sessions / Classes",
     items: [
-      "Regular courses include 8 sessions per month (2 sessions per week).",
-      "Additional sessions beyond the standard 8 per month will be charged on a prorated basis.",
+      "Each course runs on the days of the batch you choose, usually 2 sessions per week (8 per month).",
+      "Additional sessions beyond your batch's schedule will be charged on a prorated basis.",
     ],
   },
   {
@@ -68,7 +68,7 @@ const STUDENT_TERMS_SECTIONS = [
   {
     title: "4. Class Compensation",
     items: [
-      "As classes are conducted twice a week, missed sessions by students will not be compensated, except in cases of documented medical emergencies.",
+      "Missed sessions by students will not be compensated, except in cases of documented medical emergencies.",
       "If a trainer misses a session, the class will be compensated within the same month.",
     ],
   },

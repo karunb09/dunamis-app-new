@@ -38,17 +38,12 @@ import StepNav from './EnrollTermsParts/StepNav';
 import StepDelivery from './EnrollTermsParts/StepDelivery';
 import StepInstructor from './EnrollTermsParts/StepInstructor';
 
-const DAY_PAIR_OPTIONS = [
-  { id: 'mon-thu', label: 'Mon - Thu', days: ['monday', 'thursday'] },
-  { id: 'tue-fri', label: 'Tue - Fri', days: ['tuesday', 'friday'] },
-  { id: 'wed-sat', label: 'Wed - Sat', days: ['wednesday', 'saturday'] },
-  { id: 'sat-sun', label: 'Sat - Sun', days: ['saturday', 'sunday'] },
-];
-
 const DAY_NAME_TO_INDEX = {
   sunday: 0, monday: 1, tuesday: 2, wednesday: 3,
   thursday: 4, friday: 5, saturday: 6,
 };
+
+const WEEK_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 const getNextStartDate = (days = []) => {
   if (!days.length) return null;
@@ -154,60 +149,57 @@ const getWeekdayFromDate = (value) => {
     .toLowerCase();
 };
 
-const getPairForDays = (days = []) => {
-  const normalizedDays = normalizeDays(days).sort();
-  if (!normalizedDays.length) return null;
+// The weekly days of the class a dated slot belongs to: a fixed pair, or any
+// set of days for an online class. A slot with no recorded days stands alone
+// on its own weekday.
+const getDaysForSlot = (slot) => {
+  const sourceDays = [
+    slot?.availabilityDays,
+    slot?.recurringDays,
+    slot?.raw?.availabilityDays,
+    slot?.raw?.recurringDays,
+  ]
+    .map(normalizeDays)
+    .find((days) => days.length > 0) || [getWeekdayFromDate(slot?.date)].filter(Boolean);
 
-  return (
-    DAY_PAIR_OPTIONS.find((option) => {
-      const normalizedPair = option.days.slice().sort();
-      return (
-        normalizedPair.length === normalizedDays.length &&
-        normalizedPair.every((day, index) => day === normalizedDays[index])
-      );
-    }) || null
-  );
+  return [...new Set(sourceDays)]
+    .filter((day) => WEEK_ORDER.includes(day))
+    .sort((a, b) => WEEK_ORDER.indexOf(a) - WEEK_ORDER.indexOf(b));
 };
 
-const getPairForSlot = (slot) => {
-  const sourceDays =
-    normalizeDays(slot?.availabilityDays).length > 0
-      ? normalizeDays(slot.availabilityDays)
-      : normalizeDays(slot?.recurringDays).length > 0
-        ? normalizeDays(slot.recurringDays)
-        : normalizeDays(slot?.raw?.availabilityDays).length > 0
-          ? normalizeDays(slot.raw.availabilityDays)
-          : normalizeDays(slot?.raw?.recurringDays);
+const shortDaysLabel = (days = []) =>
+  days.map((day) => day.slice(0, 1).toUpperCase() + day.slice(1, 3)).join(', ');
 
-  const exactPair = getPairForDays(sourceDays);
-  if (exactPair) return exactPair;
-
-  const dateDay = getWeekdayFromDate(slot?.date);
-  return (
-    DAY_PAIR_OPTIONS.find((option) => option.days.includes(dateDay)) ||
-    DAY_PAIR_OPTIONS[0]
-  );
+const compareWeekdays = (a, b) => {
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    const diff = WEEK_ORDER.indexOf(a[i] ?? '') - WEEK_ORDER.indexOf(b[i] ?? '');
+    if (diff) return diff;
+  }
+  return 0;
 };
 
 const normalizeKey = (value) => String(value || '').trim().toLowerCase();
 
-const groupSlotsByDayPair = (slots = []) => {
-  const groups = new Map(
-    DAY_PAIR_OPTIONS.map((option) => [
-      option.id,
-      { ...option, slots: [] },
-    ])
-  );
+// One group per weekly schedule, so a Mon/Wed/Fri class is never split.
+const groupSlotsByDays = (slots = []) => {
+  const groups = new Map();
 
   slots.forEach((slot) => {
-    const pair = getPairForSlot(slot);
-    const group = groups.get(pair.id);
-    if (group) {
-      group.slots.push(slot);
+    const days = getDaysForSlot(slot);
+    if (!days.length) return;
+    const id = days.join('-');
+    if (!groups.has(id)) {
+      groups.set(id, {
+        id,
+        days,
+        label: slot.daysLabel || shortDaysLabel(days),
+        slots: [],
+      });
     }
+    groups.get(id).slots.push(slot);
   });
 
-  return Array.from(groups.values()).filter((group) => group.slots.length > 0);
+  return Array.from(groups.values()).sort((a, b) => compareWeekdays(a.days, b.days));
 };
 
 export default function EnrollTerm({
@@ -439,7 +431,7 @@ export default function EnrollTerm({
     ]
   );
 
-  const slotGroups = useMemo(() => groupSlotsByDayPair(visibleSlots), [visibleSlots]);
+  const slotGroups = useMemo(() => groupSlotsByDays(visibleSlots), [visibleSlots]);
 
   const selectedSlot = useMemo(
     () => visibleSlots.find((slot) => slot.id === selectedSlotId) || null,
@@ -961,7 +953,7 @@ export default function EnrollTerm({
               </div>
             ) : selectedInstructorId && slotGroups.length > 0 ? (
               <>
-                {/* Day pair selector */}
+                {/* Schedule selector: one chip per weekly schedule */}
                 <div className="flex flex-wrap gap-2">
                   {slotGroups.map((group) => {
                     const isActive = selectedGroupId === group.id;
@@ -982,7 +974,10 @@ export default function EnrollTerm({
                               : 'border-gray-200 bg-white text-gray-700 hover:border-orange-200 hover:bg-orange-50/30'
                         }`}
                       >
-                        {group.label}
+                        <span className="block">{group.label}</span>
+                        <span className="mt-0.5 block text-xs font-medium opacity-70">
+                          {group.days.length} class{group.days.length === 1 ? '' : 'es'} a week
+                        </span>
                       </button>
                     );
                   })}

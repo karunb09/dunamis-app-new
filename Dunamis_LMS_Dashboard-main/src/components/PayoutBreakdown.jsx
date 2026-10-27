@@ -105,8 +105,9 @@ export default function PayoutBreakdown({ record }) {
       </div>
 
       <p className="text-xs text-slate-500">
-        Each learner is paid pro-rata on the sessions they attended, capped at one
-        full month.
+        Each learner is paid pro-rata on the sessions they attended, against
+        their own class schedule (a 3-day-a-week class counts 1.5× the rate
+        card's sessions), capped at one full month.
       </p>
     </div>
   );

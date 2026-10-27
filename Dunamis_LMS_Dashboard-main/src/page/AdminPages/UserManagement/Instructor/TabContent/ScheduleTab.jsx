@@ -80,7 +80,7 @@ function hexToRgba(hex, alpha = 1) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-const groupByDayPair = (slots) => {
+const groupByDays = (slots) => {
   const pairs = new Map();
   slots.forEach((slot) => {
     const days = sortDays(Array.isArray(slot.days) ? slot.days : []);
@@ -90,8 +90,15 @@ const groupByDayPair = (slots) => {
     }
     pairs.get(label).slots.push(slot);
   });
+  const byWeekdays = (a, b) => {
+    for (let i = 0; i < Math.max(a.order.length, b.order.length); i += 1) {
+      const diff = (a.order[i] ?? 99) - (b.order[i] ?? 99);
+      if (diff) return diff;
+    }
+    return 0;
+  };
   return [...pairs.values()]
-    .sort((a, b) => (a.order[0] ?? 99) - (b.order[0] ?? 99) || (a.order[1] ?? 99) - (b.order[1] ?? 99))
+    .sort(byWeekdays)
     .map((pair) => ({
       ...pair,
       slots: pair.slots.sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime)),
@@ -167,7 +174,7 @@ export default function ScheduleTab({ teacher }) {
                 if (!sectionSlots.length) return null;
                 const config = SECTION_CONFIG[sec];
                 const capacity = capacityLabel(sectionSlots);
-                const dayPairs = groupByDayPair(sectionSlots);
+                const dayPairs = groupByDays(sectionSlots);
                 return (
                   <div key={sec} className="px-4 py-3">
                     <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -189,7 +196,7 @@ export default function ScheduleTab({ teacher }) {
                     <div className="space-y-2">
                       {dayPairs.map((pair) => (
                         <div key={pair.label} className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
-                          <span className="w-20 shrink-0 text-xs font-semibold text-slate-700">
+                          <span className="shrink-0 text-xs font-semibold text-slate-700 sm:w-32">
                             {pair.label}
                           </span>
                           <div className="flex flex-wrap gap-1.5">

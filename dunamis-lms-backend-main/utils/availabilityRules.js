@@ -1,4 +1,5 @@
 const Branch = require("../model/branch.model");
+const Course = require("../model/course.model");
 
 const SLOT_DURATION_RULES = {
   enrolled: {
@@ -18,8 +19,6 @@ const DAY_PAIR_OPTIONS = [
   { label: "Sat - Sun", days: ["saturday", "sunday"] },
 ];
 
-const ALLOWED_DAY_PAIRS = DAY_PAIR_OPTIONS.map((option) => option.days);
-
 const VALID_DAYS = [
   "monday",
   "tuesday",
@@ -37,31 +36,52 @@ const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
 const getExpectedDurationMinutes = (slot = {}) =>
   SLOT_DURATION_RULES[slot.slotType]?.[slot.sessionType] || null;
 
+const SHORT_DAY_NAMES = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+};
+
 const sortedDays = (days = []) =>
   days.map((day) => String(day).toLowerCase()).sort();
 
-const isAllowedDayPair = (days = []) => {
+// Distinct, lowercase, Monday-first.
+const weekOrderedDays = (days = []) =>
+  [...new Set((days || []).map((day) => String(day).toLowerCase()))]
+    .filter((day) => VALID_DAYS.includes(day))
+    .sort((a, b) => VALID_DAYS.indexOf(a) - VALID_DAYS.indexOf(b));
+
+const findDayPair = (days = []) => {
   const normalizedDays = sortedDays(days);
-  return ALLOWED_DAY_PAIRS.some((pair) => {
-    const normalizedPair = pair.slice().sort();
-    return (
-      normalizedPair.length === normalizedDays.length &&
-      normalizedPair.every((day, index) => day === normalizedDays[index])
-    );
-  });
+  return (
+    DAY_PAIR_OPTIONS.find((option) => {
+      const normalizedPair = option.days.slice().sort();
+      return (
+        normalizedPair.length === normalizedDays.length &&
+        normalizedPair.every((day, index) => day === normalizedDays[index])
+      );
+    }) || null
+  );
 };
 
-const getDayPairLabel = (days = []) => {
-  const normalizedDays = sortedDays(days);
-  const match = DAY_PAIR_OPTIONS.find((option) => {
-    const normalizedPair = option.days.slice().sort();
-    return (
-      normalizedPair.length === normalizedDays.length &&
-      normalizedPair.every((day, index) => day === normalizedDays[index])
-    );
-  });
+const isAllowedDayPair = (days = []) => Boolean(findDayPair(days));
 
-  return match?.label || "";
+// "Mon - Thu" for the fixed pairs; "Mon, Wed & Fri", "Sat" or "Every day" for
+// an online class on custom days.
+const formatDaysLabel = (days = []) => {
+  const pair = findDayPair(days);
+  if (pair) return pair.label;
+
+  const ordered = weekOrderedDays(days);
+  if (ordered.length === VALID_DAYS.length) return "Every day";
+
+  const names = ordered.map((day) => SHORT_DAY_NAMES[day]);
+  if (names.length <= 1) return names[0] || "";
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 };
 
 // Strict "HH:MM" (24-hour) only — used wherever two stored times are compared.
@@ -169,6 +189,17 @@ const resolveAvailabilityEntries = (incoming = [], existing = []) => {
 // Shape / duration / day-pair / branch-hours rules for a set of entries.
 // Returns an error message, or null when every entry is valid.
 const validateAvailabilityEntries = async (entries = []) => {
+  const courseModes = new Map();
+  const courseModeFor = async (courseId) => {
+    const key = String(courseId || "");
+    if (!key) return null;
+    if (!courseModes.has(key)) {
+      const course = await Course.findById(key).select("mode").lean();
+      courseModes.set(key, course?.mode || null);
+    }
+    return courseModes.get(key);
+  };
+
   for (const slot of entries) {
     if (
       !Array.isArray(slot.days) ||
@@ -185,8 +216,16 @@ const validateAvailabilityEntries = async (entries = []) => {
       }
     }
 
-    if (!isAllowedDayPair(slot.days)) {
-      return "Slots must use one allowed day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun";
+    if (new Set(slot.days.map((day) => String(day).toLowerCase())).size !== slot.days.length) {
+      return "Each day can only be picked once";
+    }
+
+    // Custom days are an online-only option; in-person classes keep the pairs.
+    if (
+      !isAllowedDayPair(slot.days) &&
+      (slot.branchId || (await courseModeFor(slot.courseId)) === "offline")
+    ) {
+      return "Custom days are only available for online courses. Offline classes must use one day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun";
     }
 
     if (!["demo", "enrolled"].includes(slot.slotType)) {
@@ -301,11 +340,10 @@ const findAvailabilityOverlap = ({ entries = [], baseEntries = [] } = {}) => {
 module.exports = {
   SLOT_DURATION_RULES,
   DAY_PAIR_OPTIONS,
-  ALLOWED_DAY_PAIRS,
   IT_SUPPORT_HINT,
   getExpectedDurationMinutes,
   isAllowedDayPair,
-  getDayPairLabel,
+  formatDaysLabel,
   timeToMinutes,
   parseTimeToMinutes,
   availabilitySignature,

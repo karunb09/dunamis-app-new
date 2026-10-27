@@ -193,7 +193,7 @@ const buildNormalizedSlot = (slot, branchLookup) => {
     bookingTag,
     recurringDays,
     availabilityDays,
-    dayPairLabel: slot?.dayPairLabel || "",
+    daysLabel: slot?.daysLabel || "",
     branchId: branchId || null,
     branchLabel,
     teacherId: normalizeEntityId(

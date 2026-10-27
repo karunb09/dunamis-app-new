@@ -15,6 +15,35 @@ const toId = (value) => String(value?._id || value || "");
 const rateKey = (categoryId, level, sessionType) =>
   `${toId(categoryId)}|${level || ""}|${sessionType}`;
 
+// Rate card sessions/month are for a two-day-a-week class; an online class on
+// custom days scales them (1 day = half, 3 days = 1.5x).
+const RATE_DAYS_PER_WEEK = 2;
+
+// Merges a learner's rows across the classes they attended into one line. The
+// class they attended most that month sets the schedule (ties: more days).
+const foldSchedules = (rows = []) => {
+  const lines = new Map();
+  for (const row of rows) {
+    const { daysPerWeek: rawDays, ...lineId } = row._id;
+    const daysPerWeek = rawDays || RATE_DAYS_PER_WEEK;
+    const key = `${toId(lineId.studentId)}|${toId(lineId.courseId)}|${lineId.sessionType}`;
+    const line = lines.get(key);
+    if (!line) {
+      lines.set(key, { ...row, _id: lineId, daysPerWeek, topCount: row.sessionsAttended });
+      continue;
+    }
+    line.sessionsAttended += row.sessionsAttended;
+    if (
+      row.sessionsAttended > line.topCount ||
+      (row.sessionsAttended === line.topCount && daysPerWeek > line.daysPerWeek)
+    ) {
+      line.topCount = row.sessionsAttended;
+      line.daysPerWeek = daysPerWeek;
+    }
+  }
+  return [...lines.values()];
+};
+
 // The 7th of the month after the cycle, per the instructor manual.
 const payDueDateFor = (month, dayOfMonth) =>
   istDayStart(`${shiftMonth(month, 1)}-${String(dayOfMonth).padStart(2, "0")}`);
@@ -53,8 +82,9 @@ const buildInstructorPayout = async ({ teacherId, month }) => {
 
   // One row per learner per class the instructor actually taught. sessionType
   // and category are denormalised onto attendance, so only the course level
-  // needs looking up.
-  const attended = await AttendanceHomework.aggregate([
+  // needs looking up. The session's slot says how many days a week its class
+  // ran, which sets how many sessions make a full month.
+  const attendedBySchedule = await AttendanceHomework.aggregate([
     {
       $match: {
         teacherId: teacherObjectId,
@@ -63,17 +93,31 @@ const buildInstructorPayout = async ({ teacherId, month }) => {
       },
     },
     {
+      $lookup: {
+        from: "slots",
+        localField: "slotId",
+        foreignField: "_id",
+        as: "slot",
+      },
+    },
+    {
       $group: {
         _id: {
           studentId: "$studentId",
           courseId: "$courseId",
           sessionType: "$sessionType",
+          daysPerWeek: {
+            $size: {
+              $ifNull: [{ $arrayElemAt: ["$slot.recurringDays", 0] }, []],
+            },
+          },
         },
         categoryId: { $first: "$category" },
         sessionsAttended: { $sum: 1 },
       },
     },
   ]);
+  const attended = foldSchedules(attendedBySchedule);
 
   const courseIds = [...new Set(attended.map((row) => toId(row._id.courseId)))];
   const studentIds = [...new Set(attended.map((row) => toId(row._id.studentId)))];
@@ -118,8 +162,14 @@ const buildInstructorPayout = async ({ teacherId, month }) => {
     const level = course?.level || "";
     const rate = rateByKey.get(rateKey(categoryId, level, sessionType));
 
-    const sessionsPerMonth =
-      Number(rate?.sessionsPerMonth) || config.defaultSessionsPerMonth;
+    const sessionsPerMonth = Math.max(
+      1,
+      Math.round(
+        ((Number(rate?.sessionsPerMonth) || config.defaultSessionsPerMonth) *
+          row.daysPerWeek) /
+          RATE_DAYS_PER_WEEK
+      )
+    );
     const sessionsAttended = Number(row.sessionsAttended) || 0;
     // Capped at one full month: a five-week month must not pay over 100%.
     const amount = rate

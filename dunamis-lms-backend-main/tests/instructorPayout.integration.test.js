@@ -22,6 +22,7 @@ const Category = require("../model/category.model");
 const Course = require("../model/course.model");
 const DemoBooking = require("../model/demoBooking.model");
 const InstructorRate = require("../model/instructorRate.model");
+const Slot = require("../model/slot.model");
 const Student = require("../model/student.model");
 const Teacher = require("../model/teacher.model");
 const User = require("../model/user.model");
@@ -59,8 +60,26 @@ const markAttendance = async ({
   sessionType,
   days,
   attendanceStatus = "Present",
+  // The class's weekly days, stored on a real slot per session. Without it the
+  // slot is unknown and the class counts as two days a week.
+  recurringDays = null,
 }) => {
   for (const day of days) {
+    const slotId = recurringDays
+      ? (
+          await Slot.create({
+            courseId,
+            date: dayInMonth(day),
+            startTime: "17:00",
+            endTime: "18:00",
+            createdBy: teacherId,
+            slotType: "enrolled",
+            sessionType,
+            recurringDays,
+            isRecurring: true,
+          })
+        )._id
+      : oid();
     await AttendanceHomework.create({
       teacherId,
       studentId,
@@ -68,7 +87,7 @@ const markAttendance = async ({
       courseId,
       category: categoryId,
       subCategory: oid(),
-      slotId: oid(),
+      slotId,
       sessionType,
       attendanceStatus,
       date: dayInMonth(day),
@@ -307,4 +326,66 @@ test("the payout is due on the 7th of the following month", async () => {
 
   // IST midnight on 7 Sep 2026 = 6 Sep 18:30 UTC.
   assert.equal(payout.payDueDate.toISOString(), "2026-09-06T18:30:00.000Z");
+});
+
+test("an online class on three days a week needs twelve sessions for the full rate", async () => {
+  const studentId = await makeStudent("Farah");
+  await markAttendance({
+    studentId,
+    courseId: beginnerCourseId,
+    categoryId: vocalsId,
+    sessionType: "standard",
+    days: [3, 5, 7, 10, 12, 14, 17, 19, 21],
+    recurringDays: ["monday", "wednesday", "friday"],
+  });
+
+  const [line] = (await buildInstructorPayout({ teacherId, month: MONTH })).lines;
+  assert.equal(line.sessionsAttended, 9);
+  assert.equal(line.sessionsPerMonth, 12);
+  // 750 * 9/12
+  assert.equal(line.amount, 563);
+});
+
+test("a one-day-a-week class pays the full rate for four sessions", async () => {
+  const studentId = await makeStudent("Gita");
+  await markAttendance({
+    studentId,
+    courseId: beginnerCourseId,
+    categoryId: vocalsId,
+    sessionType: "standard",
+    days: [1, 8, 15, 22],
+    recurringDays: ["saturday"],
+  });
+
+  const [line] = (await buildInstructorPayout({ teacherId, month: MONTH })).lines;
+  assert.equal(line.sessionsPerMonth, 4);
+  assert.equal(line.amount, 750);
+});
+
+test("a learner who changed class mid-month gets one line, on the class they attended most", async () => {
+  const studentId = await makeStudent("Hema");
+  await markAttendance({
+    studentId,
+    courseId: beginnerCourseId,
+    categoryId: vocalsId,
+    sessionType: "standard",
+    days: [3, 6],
+    recurringDays: ["monday", "thursday"],
+  });
+  await markAttendance({
+    studentId,
+    courseId: beginnerCourseId,
+    categoryId: vocalsId,
+    sessionType: "standard",
+    days: [10, 12, 14, 17, 19, 21],
+    recurringDays: ["monday", "wednesday", "friday"],
+  });
+
+  const payout = await buildInstructorPayout({ teacherId, month: MONTH });
+  assert.equal(payout.lines.length, 1);
+  const [line] = payout.lines;
+  assert.equal(line.sessionsAttended, 8);
+  assert.equal(line.sessionsPerMonth, 12);
+  // 750 * 8/12
+  assert.equal(line.amount, 500);
 });

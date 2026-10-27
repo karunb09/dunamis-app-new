@@ -227,8 +227,23 @@ const getDayPairForDays = (days = []) => {
   );
 };
 
-const getDayPairIdForDays = (days = []) =>
-  getDayPairForDays(days)?.id || DAY_PAIR_OPTIONS[0].id;
+// Online courses may also run on any set of days; offline classes keep the pairs.
+const DAY_MODE_OPTIONS = [
+  { id: "pair", label: "Day pair" },
+  { id: "custom", label: "Custom days" },
+];
+
+const formatClassesPerWeek = (count) =>
+  `${count} class${count === 1 ? "" : "es"} a week`;
+
+const getDaysError = (days, dayMode) => {
+  if (dayMode === "pair") {
+    return getDayPairForDays(days)
+      ? ""
+      : "Select a valid day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun";
+  }
+  return days.length ? "" : "Pick at least one day for this slot";
+};
 
 const parseTimeToMinutes = (timeStr) => {
   const raw = String(timeStr || "").trim();
@@ -377,6 +392,8 @@ const Availability = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [dayPairDropdownOpen, setDayPairDropdownOpen] = useState(false);
   const dayPairDropdownRef = useRef(null);
+  const [dayMode, setDayMode] = useState("pair");
+  const effectiveDayMode = isOfflineCourse ? "pair" : dayMode;
   const [classGuards, setClassGuards] = useState({ pending: {}, enrolled: {} });
 
   const loadClassGuards = useCallback(async () => {
@@ -512,9 +529,10 @@ const Availability = ({
     setEditingSlotId(slot?.localId || null);
     setSelectedTimes(new Set());
     setDayPairDropdownOpen(false);
+    if (slot) setDayMode(getDayPairForDays(nextSlot.days) ? "pair" : "custom");
     setDraftSlot({
       ...nextSlot,
-      days: slot ? (getDayPairForDays(nextSlot.days)?.days || []) : [],
+      days: slot ? sortDays(nextSlot.days) : [],
       branchId: nextSlot.branchId || "",
       startTime,
       endTime: addMinutesToTime(startTime, duration),
@@ -574,6 +592,22 @@ const Availability = ({
     if (!editingSlotId) setSelectedTimes(new Set());
   };
 
+  const changeDayMode = (mode) => {
+    if (mode === dayMode) return;
+    setDayMode(mode);
+    setDayPairDropdownOpen(false);
+    updateDraft({ days: [] });
+    if (!editingSlotId) setSelectedTimes(new Set());
+  };
+
+  const toggleCustomDay = (day) => {
+    const days = draftSlot.days.includes(day)
+      ? draftSlot.days.filter((d) => d !== day)
+      : sortDays([...draftSlot.days, day]);
+    updateDraft({ days });
+    if (!editingSlotId) setSelectedTimes(new Set());
+  };
+
   const getTimeOptionDisabledReason = (option, days = draftSlot.days) => {
     if (selectedBranch && selectedBranch.timings.length === 2) {
       const branchOpen = parseTimeToMinutes(selectedBranch.timings[0]);
@@ -615,8 +649,9 @@ const Availability = ({
   };
 
   const validateDraftSlot = () => {
-    if (!getDayPairForDays(draftSlot.days)) {
-      toast.error("Select a valid day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun");
+    const daysError = getDaysError(draftSlot.days, effectiveDayMode);
+    if (daysError) {
+      toast.error(daysError);
       return false;
     }
 
@@ -712,8 +747,9 @@ const Availability = ({
       toast.error("Select a branch for this offline course slot");
       return;
     }
-    if (!getDayPairForDays(draftSlot.days)) {
-      toast.error("Select a valid day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun");
+    const daysError = getDaysError(draftSlot.days, effectiveDayMode);
+    if (daysError) {
+      toast.error(daysError);
       return;
     }
 
@@ -742,7 +778,7 @@ const Availability = ({
     if (!newSlots.length) return;
     setSlots((prev) => [...prev, ...newSlots]);
     setHasUnsavedChanges(true);
-    // Preserve course / branch / day pair — only clear the time selection
+    // Preserve course / branch / days — only clear the time selection
     setSelectedTimes(new Set());
     toast.success(`${newSlots.length} slot(s) added locally. Save to publish.`);
   };
@@ -856,44 +892,105 @@ const Availability = ({
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="relative block" ref={dayPairDropdownRef}>
-            <span className="mb-2 block text-sm font-medium text-slate-900">
-              Select Day Pair <span className="text-rose-500">*</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setDayPairDropdownOpen((prev) => !prev)}
-              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-300"
-            >
-              <span className={selectedPair ? "text-slate-700" : "text-slate-400"}>
-                {selectedPair ? selectedPair.label : "Select a day pair"}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <span className="block text-sm font-medium text-slate-900">
+                {isOfflineCourse ? "Select Day Pair" : "Select Days"}{" "}
+                <span className="text-rose-500">*</span>
               </span>
-              <FiChevronDown
-                className={`shrink-0 transition-transform ${dayPairDropdownOpen ? "rotate-180" : ""}`}
-              />
-            </button>
-            {dayPairDropdownOpen && (
-              <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
-                {DAY_PAIR_OPTIONS.map((pair) => {
-                  const isChecked = selectedPair?.id === pair.id;
-                  return (
-                    <label
-                      key={pair.id}
-                      className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
-                    >
-                      <input
-                        type="radio"
-                        checked={isChecked}
-                        onChange={() => toggleDayPair(pair.id)}
-                        className="h-4 w-4 cursor-pointer accent-slate-900"
-                      />
-                      <div>
-                        <span className="text-sm font-semibold text-slate-800">{pair.label}</span>
-                        <span className="ml-2 text-xs text-slate-400">{pair.helper}</span>
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
+              {!isOfflineCourse ? (
+                <div
+                  role="tablist"
+                  className="inline-flex rounded-2xl border border-slate-200 bg-slate-50 p-0.5"
+                >
+                  {DAY_MODE_OPTIONS.map((mode) => {
+                    const isActive = effectiveDayMode === mode.id;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={isActive}
+                        onClick={() => changeDayMode(mode.id)}
+                        className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
+                          isActive
+                            ? "bg-white text-orange-700 shadow-sm ring-1 ring-orange-200"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+            {effectiveDayMode === "custom" ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {DAYS.map((day) => {
+                    const isChecked = draftSlot.days.includes(day);
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        aria-pressed={isChecked}
+                        onClick={() => toggleCustomDay(day)}
+                        className={`min-w-[3.25rem] rounded-2xl border px-3 py-2.5 text-sm font-medium transition ${
+                          isChecked
+                            ? "border-orange-300 bg-orange-50 text-orange-700"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                        }`}
+                      >
+                        {DAY_LABELS[day]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {draftSlot.days.length
+                    ? formatClassesPerWeek(draftSlot.days.length)
+                    : "Pick one or more days"}
+                </p>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setDayPairDropdownOpen((prev) => !prev)}
+                  className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-slate-300"
+                >
+                  <span className={selectedPair ? "text-slate-700" : "text-slate-400"}>
+                    {selectedPair ? selectedPair.label : "Select a day pair"}
+                  </span>
+                  <FiChevronDown
+                    className={`shrink-0 transition-transform ${dayPairDropdownOpen ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {dayPairDropdownOpen && (
+                  <div className="absolute left-0 top-full z-10 mt-1 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg">
+                    {DAY_PAIR_OPTIONS.map((pair) => {
+                      const isChecked = selectedPair?.id === pair.id;
+                      return (
+                        <label
+                          key={pair.id}
+                          className="flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-slate-50"
+                        >
+                          <input
+                            type="radio"
+                            checked={isChecked}
+                            onChange={() => toggleDayPair(pair.id)}
+                            className="h-4 w-4 cursor-pointer accent-slate-900"
+                          />
+                          <div>
+                            <span className="text-sm font-semibold text-slate-800">{pair.label}</span>
+                            <span className="ml-2 text-xs text-slate-400">{pair.helper}</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -1218,7 +1315,8 @@ const Availability = ({
         <div className="mt-6 rounded-[28px] border border-sky-100 bg-sky-50/70 p-5 text-sm text-slate-600">
           <p className="font-semibold text-slate-900">How this schedule works</p>
           <div className="mt-2 space-y-1">
-            <p>Choose one fixed day pair: Mon-Thu, Tue-Fri, Wed-Sat, or Sat-Sun.</p>
+            <p>Online courses: pick a day pair (Mon-Thu, Tue-Fri, Wed-Sat, Sat-Sun) or custom days — any days of the week.</p>
+            <p>Offline courses always use a day pair.</p>
             <p>Group slots are 60 min, individual slots are 40 min, and demo slots are 20 min.</p>
             <p>Overlapping slots are disabled across group, individual, and demo schedules.</p>
           </div>
