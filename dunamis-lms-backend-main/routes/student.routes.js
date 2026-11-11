@@ -113,7 +113,7 @@ router.patch(
   extendDueDate
 );
 
-// delete
-router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), managers, validate(idParam, "params"), studentParamInScope(), deleteStudent);
+// Sign-up-only accounts, All Access (the CEO) or superadmin only.
+router.delete("/:id", isAuth, accessToRole(["admin", "superadmin"]), requirePermission(), validate(idParam, "params"), studentParamInScope(), deleteStudent);
 
 module.exports = router;

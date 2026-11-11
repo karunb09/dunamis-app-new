@@ -368,10 +368,14 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
                 return res.status(409).json({
                     success: false,
                     message: "A non-teacher user already exists with this email",
+                    ...(user.accountType === "student" && {
+                        hint: "If they signed up as a student by mistake, an admin with All Access can delete that account from Students → Registered Students, then hire them again.",
+                    }),
                 });
             }
 
             // Before anything is created, so a bad pick never leaves a half-made account.
+            const idPrefix = user?.employeeId ? null : await resolvePrefix(employeePrefix, "DSMI");
             const branchList = await normalizeInstructorBranches({ branchIds, mode: application.mode });
             const placement = reportsTo
               ? await validateInstructorPlacement({ targetUserId: user?._id || null, org: { reportsTo } })
@@ -423,7 +427,7 @@ exports.updateApplicationStatus = asyncHandler(async (req, res) => {
             }
 
             if (!user.employeeId) {
-                user.employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMI"));
+                user.employeeId = await generateEmployeeId(idPrefix);
                 shouldSaveUser = true;
             }
             assignedEmployeeId = user.employeeId;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
@@ -6,6 +6,7 @@ import ReactSelect from "react-select";
 import { createTeacher } from "../../../../redux/Intructor/teacherSlice";
 import BackButton from "../../../../components/BackButton";
 import InstructorPlacementFields from "../../../../components/org/InstructorPlacementFields";
+import EmployeeUnitSelect from "../../../../components/org/EmployeeUnitSelect";
 import {
   DEFAULT_TEACHING_LANGUAGES,
   LANGUAGE_OPTIONS,
@@ -50,6 +51,11 @@ const AddInstructorForm = () => {
   const navigate = useNavigate();
   const { loading } = useSelector((state) => state.teachers);
   const [formData, setFormData] = useState(INITIAL_FORM);
+
+  const setEmployeeUnit = useCallback(
+    (employeeUnit) => setFormData((prev) => ({ ...prev, employeeUnit })),
+    []
+  );
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -224,16 +230,11 @@ const AddInstructorForm = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Employee Unit</label>
-              <select
-                name="employeeUnit"
+              <EmployeeUnitSelect
                 value={formData.employeeUnit}
-                onChange={handleChange}
+                onChange={setEmployeeUnit}
                 className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-black"
-              >
-                <option value="DSM">DSM</option>
-                <option value="DSD">DSD</option>
-                <option value="DCC">DCC</option>
-              </select>
+              />
               <p className="mt-1 text-xs text-gray-500">
                 The employee ID (e.g. {formData.employeeUnit}I001) is generated from this unit.
               </p>

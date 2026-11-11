@@ -199,6 +199,6 @@ export const suggestedEmployeePrefix = (
   const designation = DESIGNATIONS[designationKey];
   if (!designation) return currentPrefix;
   if (designation.idPrefix) return designation.idPrefix;
-  const unit = /^(DSM|DSD|DCC)/.exec(currentPrefix)?.[1] || "DSM";
+  const unit = /^[A-Z]{3}[AIB]$/.test(currentPrefix) ? currentPrefix.slice(0, 3) : "DSM";
   return `${unit}${designation.idLetter}`;
 };

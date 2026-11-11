@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateUser } from "../../../../redux/User/UserSlice";
 import toast from "react-hot-toast";
-import { FaArchive, FaBan, FaClipboard, FaEnvelope, FaFilter, FaFlag, FaList, FaPhone, FaSearch, FaSortAmountDown, FaTh, FaUserSlash } from "react-icons/fa";
+import { FaArchive, FaBan, FaClipboard, FaEnvelope, FaFilter, FaFlag, FaList, FaPhone, FaSearch, FaSortAmountDown, FaTh, FaTrash, FaUserSlash } from "react-icons/fa";
 import { FiX } from "react-icons/fi";
 import Swal from "sweetalert2";
 import dayjs from "dayjs";
@@ -16,7 +16,8 @@ import PersonCard from "../../../../components/cards/PersonCard";
 import RowActionsMenu from "../../../../components/RowActionsMenu";
 import ExportMenu from "../../../../components/ExportMenu";
 import { resolveImageUrl } from "../../../../utils/resolveImageUrl";
-import { useStudentsByType, useUpdateStudent, studentKeys } from "../../../../hooks/useStudents";
+import { useDeleteStudent, useStudentsByType, useUpdateStudent, studentKeys } from "../../../../hooks/useStudents";
+import { hasFullAccess } from "../../../../utils/permissions";
 import usePersistedState from "../../../../hooks/usePersistedState";
 import { exportToExcel } from "../../../../utils/exportToExcel";
 import { formatLastLogin, lastLoginTitle } from "../../../../utils/lastLogin";
@@ -90,7 +91,9 @@ const RegisteredStudents = () => {
     const [searchTerm, setSearchTerm] = useState("");
     const { data: studentsByType, isLoading, error } = useStudentsByType();
     const updateMutation = useUpdateStudent();
+    const deleteMutation = useDeleteStudent();
     const authToken = useSelector((state) => state.auth.token);
+    const canDeleteAccounts = hasFullAccess(useSelector((state) => state.auth.user));
     const token = authToken || getStoredToken();
 
     const [view, setView] = usePersistedState("registeredStudentsView", "cards");
@@ -117,6 +120,11 @@ const RegisteredStudents = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
+    // Only a bare sign-up can be deleted; the server re-checks (pending payments too).
+    const withHistory = new Set(
+        [...(studentsByType?.enrolled || []), ...(studentsByType?.demo || [])].map((s) => s._id)
+    );
+
     let students = (studentsByType?.registered || []).map((s, index) => ({
         _id: s._id,
         userDocId: s.userId?._id,
@@ -134,6 +142,7 @@ const RegisteredStudents = () => {
             followUp3: normFollowUp(s.followUps?.followUp3),
         },
         response: s.followUps?.response || "",
+        signUpOnly: !withHistory.has(s._id),
     }));
 
     if (filters.status) {
@@ -281,6 +290,37 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
         }
     };
 
+    const handleDeleteAccount = async (row) => {
+        const { isConfirmed } = await Swal.fire({
+            icon: "warning",
+            title: "Delete this account?",
+            text: `This permanently removes the sign-up and login for ${row.name} (${row.email || "no email"}). It can't be undone. Use it for accounts made by mistake, e.g. an instructor who signed up as a learner — their email is then free to hire them.`,
+            showCancelButton: true,
+            confirmButtonText: "Delete account",
+            confirmButtonColor: "#dc2626",
+            focusCancel: true,
+        });
+        if (!isConfirmed) return;
+
+        setProcessingAction({ key: `${row._id}-delete`, label: `Deleting ${row.name}'s account...` });
+        try {
+            await deleteMutation.mutateAsync(row._id);
+            setSelectedIds((prev) => prev.filter((id) => id !== row._id));
+            toast.success(`${row.name}'s account deleted`);
+        } catch (err) {
+            await Swal.fire({
+                icon: "error",
+                title: "Couldn't delete",
+                text: [getErrorMessage(err, `We could not delete ${row.name}'s account.`), err?.response?.data?.hint]
+                    .filter(Boolean)
+                    .join(" "),
+                confirmButtonColor: "#dc2626",
+            });
+        } finally {
+            setProcessingAction(null);
+        }
+    };
+
     const buildMenuItems = (row) => [
         {
             label: "Copy Email",
@@ -323,6 +363,15 @@ Status: ${s.accountStatus === "active" ? "Active" : "Inactive"}`
             disabled: Boolean(processingAction),
             onClick: () => handleStudentAction(row, "Report"),
         },
+        ...(canDeleteAccounts
+            ? [{
+                label: row.signUpOnly ? "Delete account" : "Delete — has bookings",
+                icon: <FaTrash size={13} />,
+                danger: true,
+                disabled: Boolean(processingAction) || !row.signUpOnly,
+                onClick: () => handleDeleteAccount(row),
+            }]
+            : []),
     ];
 
     const statusBadge = (row) =>

@@ -14,12 +14,15 @@ import DataCards from '../../../components/DataCards';
 import PersonCard from '../../../components/cards/PersonCard';
 import PageTabBar from '../../../components/PageTabBar';
 import OrgChart from '../../../components/org/OrgChart';
+import EmployeeUnits from '../../../components/org/EmployeeUnits';
+import { hasFullAccess } from '../../../utils/permissions';
 import { DEPARTMENT_LABELS, DESIGNATIONS, designationLabel } from '../../../constants/orgStructure';
 
 const TABS = [
     { id: 'admins', label: 'Admins' },
     { id: 'structure', label: 'Reporting structure' },
 ];
+const UNITS_TAB = { id: 'units', label: 'Employee units' };
 
 const SCOPE_NAME = {
     branches: (item) => item.branchName,
@@ -50,6 +53,8 @@ const AdminManageMentPage = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const { admins, listStatus } = useSelector(state => state.admin);
+    const viewer = useSelector(state => state.auth.user);
+    const tabs = hasFullAccess(viewer) ? [...TABS, UNITS_TAB] : TABS;
 
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOpen, setSortOpen] = useState(false);
@@ -200,10 +205,10 @@ const AdminManageMentPage = () => {
             </div>
 
             <div className="mb-5">
-                <PageTabBar tabs={TABS} activeTab={tab} onChange={setTab} />
+                <PageTabBar tabs={tabs} activeTab={tab} onChange={setTab} />
             </div>
 
-            {tab === 'structure' ? <OrgChart /> : (
+            {tab === 'units' ? <EmployeeUnits /> : tab === 'structure' ? <OrgChart /> : (
             <>
 
             {/* Toolbar */}

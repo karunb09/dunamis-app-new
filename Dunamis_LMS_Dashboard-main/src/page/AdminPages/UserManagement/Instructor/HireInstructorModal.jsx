@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FiX } from "react-icons/fi";
 import InstructorPlacementFields from "../../../../components/org/InstructorPlacementFields";
+import EmployeeUnitSelect from "../../../../components/org/EmployeeUnitSelect";
 
 const FIELD =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm transition focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100";
@@ -48,11 +49,7 @@ const HireInstructorModal = ({ application, submitting, onCancel, onConfirm }) =
         <div className="mt-5 space-y-4">
           <div className="md:w-1/2 md:pr-2">
             <label className="mb-1.5 block text-sm font-medium text-slate-700">Employee unit</label>
-            <select value={unit} onChange={(e) => setUnit(e.target.value)} className={FIELD}>
-              <option value="DSM">DSM</option>
-              <option value="DSD">DSD</option>
-              <option value="DCC">DCC</option>
-            </select>
+            <EmployeeUnitSelect value={unit} onChange={setUnit} className={FIELD} />
             <p className="mt-1 text-xs text-slate-500">The employee ID (e.g. {unit}I001) is generated from this unit.</p>
           </div>
           <InstructorPlacementFields

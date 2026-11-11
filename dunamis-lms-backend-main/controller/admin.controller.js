@@ -80,7 +80,7 @@ exports.createAdmin = asyncHandler(async (req, res) => {
       specialChars: true,
     });
 
-    const employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMA"));
+    const employeeId = await generateEmployeeId(await resolvePrefix(employeePrefix, "DSMA"));
 
     const user = await User.create({
       name: { firstName, lastName },

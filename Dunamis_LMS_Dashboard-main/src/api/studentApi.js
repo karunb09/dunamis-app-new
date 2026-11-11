@@ -65,6 +65,15 @@ export async function fetchStudentAttendanceHomework(id, params = {}) {
   }
 }
 
+export async function deleteStudent(id) {
+  try {
+    await axios.delete(`/student/${id}`);
+    return id;
+  } catch (err) {
+    throw toError(err, "Failed to delete student");
+  }
+}
+
 export async function updateStudent(id, payload) {
   try {
     const { data } = await axios.put(`/student/${id}`, payload);

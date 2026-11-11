@@ -11,6 +11,9 @@ const Assignment = require("../model/assignment.model");
 const Teacher = require("../model/teacher.model");
 const Slot = require("../model/slot.model");
 const AttendanceHomework = require("../model/attendanceHomework.model");
+const PaymentTransaction = require("../model/paymentTransaction.model");
+const DemoBooking = require("../model/demoBooking.model");
+const ClassRoster = require("../model/classRoster.model");
 const { notifyEvent } = require("../utils/notificationService");
 const { getScope } = require("../middleware/auth");
 const { studentFilter } = require("../utils/scopeFilters");
@@ -561,6 +564,9 @@ exports.updateStudent = asyncHandler(async (req, res) => {
     });
 });
 // DeleteStud.
+// For an account created by mistake (e.g. an instructor who signed up as a
+// learner, which blocks hiring them under that email). Anything beyond the
+// sign-up itself is someone's history, so those accounts are refused.
 exports.deleteStudent = asyncHandler(async (req, res) => {
     const { id } = req.params;
 
@@ -572,15 +578,41 @@ exports.deleteStudent = asyncHandler(async (req, res) => {
       });
     }
 
-    // Delete linked user
-    await User.findByIdAndDelete(student.userId);
+    const user = await User.findById(student.userId).select("accountType email");
+    if (user && user.accountType !== "student") {
+      return res.status(409).json({
+        success: false,
+        message: `This record belongs to a ${user.accountType} account, not a student, so it can't be deleted here.`,
+      });
+    }
 
-    // Delete student
-    await Student.findByIdAndDelete(id);
+    const [hasTransaction, hasDemo, onRoster] = await Promise.all([
+      PaymentTransaction.exists({ studentId: student._id }),
+      DemoBooking.exists({ studentId: student._id }),
+      ClassRoster.exists({ "students.studentId": student._id }),
+    ]);
+    const hasHistory =
+      student.enrolledCourses.length > 0 ||
+      student.payments.length > 0 ||
+      student.demoCourse.length > 0 ||
+      hasTransaction ||
+      hasDemo ||
+      onRoster;
+    if (hasHistory) {
+      return res.status(409).json({
+        success: false,
+        message: "This student has demo bookings, enrollments or payment attempts, so the account can't be deleted.",
+        hint: "Only accounts with nothing but a sign-up can be deleted. Disable this one instead.",
+      });
+    }
+
+    if (user) await user.deleteOne();
+    await student.deleteOne();
+    console.info(`[student] ${req.user.userId} deleted sign-up-only student ${student._id} (${user?.email || "no user"})`);
 
     res.status(200).json({
       success: true,
-      message: "Student and linked user deleted successfully",
+      message: "Student account deleted",
     });
 });
 // Get by type

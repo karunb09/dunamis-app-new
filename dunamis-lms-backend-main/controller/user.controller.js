@@ -14,7 +14,7 @@ const {
   ACCESS_TOKEN_TTL_MS,
 } = require("../config/auth");
 const asyncHandler = require("../utils/asyncHandler");
-const { EMPLOYEE_ID_REGEX, bumpCounterFloor } = require("../utils/employeeId");
+const { EMPLOYEE_ID_REGEX, bumpCounterFloor, employeeIdPrefix, isAllowedPrefix } = require("../utils/employeeId");
 const { isReferralCodeTaken } = require("../utils/referral");
 const {
   LAST_ALL_ACCESS_HINT,
@@ -688,6 +688,15 @@ exports.setEmployeeId = asyncHandler(async (req, res) => {
     return res.status(400).json({
       success: false,
       message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMI001.",
+    });
+  }
+
+  // Inactive units still count: staff keep the IDs they were issued.
+  if (!(await isAllowedPrefix(employeeIdPrefix(employeeId), { activeOnly: false }))) {
+    return res.status(400).json({
+      success: false,
+      message: `${employeeId.slice(0, 3)} isn't an employee unit.`,
+      hint: "An admin with All Access can add it under Admins → Employee units.",
     });
   }
 

@@ -11,23 +11,23 @@ import {
     jobTitleOptions,
     suggestedEmployeePrefix,
 } from "../../constants/orgStructure";
+import { useActiveUnits } from "../../hooks/useEmployeeUnits";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-const EMPLOYEE_PREFIX_OPTIONS = [
+const employeePrefixOptions = (units) => [
     { value: "DMPL", label: "DMPL — Central Office" },
-    { value: "DSMA", label: "DSMA — DSM Admin" },
-    { value: "DSMB", label: "DSMB — DSM BD" },
-    { value: "DSDA", label: "DSDA — DSD Admin" },
-    { value: "DSDB", label: "DSDB — DSD BD" },
-    { value: "DCCA", label: "DCCA — DCC Admin" },
-    { value: "DCCB", label: "DCCB — DCC BD" },
+    ...units.flatMap(({ code, name }) => [
+        { value: `${code}A`, label: `${code}A — ${name} (Admin)` },
+        { value: `${code}B`, label: `${code}B — ${name} (BD)` },
+    ]),
 ];
 
 const AddAdminForm = () => {
     const { id } = useParams();
     const dispatch = useDispatch();
     const navigate = useNavigate();
+    const { units } = useActiveUnits();
 
     const [formData, setFormData] = useState({
         firstName: "",
@@ -519,7 +519,7 @@ const AddAdminForm = () => {
                                     onChange={handleChange}
                                     className="w-full p-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 >
-                                    {EMPLOYEE_PREFIX_OPTIONS.map(({ value, label }) => (
+                                    {employeePrefixOptions(units).map(({ value, label }) => (
                                         <option key={value} value={value}>{label}</option>
                                     ))}
                                 </select>

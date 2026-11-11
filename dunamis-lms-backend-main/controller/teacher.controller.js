@@ -324,7 +324,7 @@ exports.createTeacher = asyncHandler(async (req, res) => {
       specialChars: true,
     });
 
-    const employeeId = await generateEmployeeId(resolvePrefix(employeePrefix, "DSMI"));
+    const employeeId = await generateEmployeeId(await resolvePrefix(employeePrefix, "DSMI"));
 
     const user = await User.create({
       name: {

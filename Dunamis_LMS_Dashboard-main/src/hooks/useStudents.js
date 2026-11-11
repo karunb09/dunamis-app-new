@@ -87,6 +87,15 @@ export function useUpdateStudent() {
   });
 }
 
+// Sign-up-only accounts (the server refuses anything with history); All Access only.
+export function useDeleteStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => studentApi.deleteStudent(id),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: studentKeys.all }),
+  });
+}
+
 export function useReassignEnrollment() {
   const queryClient = useQueryClient();
   return useMutation({
