@@ -59,7 +59,7 @@ const branchSchema = new mongoose.Schema(
     },
     geofenceRadiusM: {
       type: Number,
-      min: 50,
+      min: 10,
       max: 2000,
       default: DEFAULT_GEOFENCE_RADIUS_M,
     },

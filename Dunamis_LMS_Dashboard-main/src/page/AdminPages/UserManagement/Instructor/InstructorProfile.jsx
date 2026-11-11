@@ -69,6 +69,8 @@ const InstructorProfile = () => {
       teachLanguages: selectedTeacher.teacherDetails?.language?.teach || [],
       reportsTo: selectedTeacher.user?.org?.reportsTo?._id || "",
       branchIds: (selectedTeacher.branches || []).map((branch) => branch._id),
+      employeeId: selectedTeacher.user?.employeeId || "",
+      employeeUnit: "",
       profilePicture:
         selectedTeacher.teacherDetails?.profilePicture ||
         selectedTeacher.user?.image ||
@@ -164,14 +166,39 @@ const InstructorProfile = () => {
         await saveMode();
         await savePlacement();
       }
+      const newEmployeeId = updated.employeeUnit
+        ? await patchEmployeeId({ employeePrefix: `${updated.employeeUnit}I` })
+        : null;
       await dispatch(fetchTeacherById(instructorId)).unwrap();
-      toast.success("Instructor profile updated successfully.");
+      toast.success(
+        newEmployeeId
+          ? `Instructor profile updated. New employee ID: ${newEmployeeId}`
+          : "Instructor profile updated successfully."
+      );
       setIsEditing(false);
     } catch (saveError) {
       toast.error(saveError?.message || saveError || "Failed to update instructor profile.");
     } finally {
       setIsSavingProfile(false);
     }
+  };
+
+  const patchEmployeeId = async (body) => {
+    const token = getStoredToken();
+    const res = await fetch(`${VITE_BASE_URL}/user/${selectedTeacher.user._id}/employee-id`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: "include",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error([data.message || "Failed to update employee ID", data.hint].filter(Boolean).join(" "));
+    }
+    return data.user.employeeId;
   };
 
   const handleEditEmployeeId = async () => {
@@ -187,20 +214,9 @@ const InstructorProfile = () => {
     });
     if (!isConfirmed || !employeeId?.trim()) return;
 
-    const token = getStoredToken();
     try {
-      const res = await fetch(`${VITE_BASE_URL}/user/${selectedTeacher.user._id}/employee-id`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({ employeeId: employeeId.trim() }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.message || "Failed to update employee ID");
-      toast.success(`Employee ID updated to ${data.user.employeeId}`);
+      const updatedId = await patchEmployeeId({ employeeId: employeeId.trim() });
+      toast.success(`Employee ID updated to ${updatedId}`);
       dispatch(fetchTeacherById(instructorId));
     } catch (err) {
       toast.error(err.message);

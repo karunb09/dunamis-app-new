@@ -14,7 +14,14 @@ const {
   ACCESS_TOKEN_TTL_MS,
 } = require("../config/auth");
 const asyncHandler = require("../utils/asyncHandler");
-const { EMPLOYEE_ID_REGEX, bumpCounterFloor, employeeIdPrefix, isAllowedPrefix } = require("../utils/employeeId");
+const {
+  EMPLOYEE_ID_REGEX,
+  bumpCounterFloor,
+  employeeIdPrefix,
+  generateEmployeeId,
+  isAllowedPrefix,
+  resolvePrefix,
+} = require("../utils/employeeId");
 const { isReferralCodeTaken } = require("../utils/referral");
 const {
   LAST_ALL_ACCESS_HINT,
@@ -680,24 +687,29 @@ const buildDashboardNoticeFilter = (requestUser, includeDeleted = false) => {
   };
 };
 
+// Either a typed ID (a correction) or `employeePrefix` (e.g. "DLHI"), which
+// issues that unit's next ID: how someone moves unit. The old ID is retired.
 exports.setEmployeeId = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const prefix = req.body.employeePrefix ? await resolvePrefix(req.body.employeePrefix) : null;
   const employeeId = String(req.body.employeeId || "").trim().toUpperCase();
 
-  if (!EMPLOYEE_ID_REGEX.test(employeeId)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMI001.",
-    });
-  }
+  if (!prefix) {
+    if (!EMPLOYEE_ID_REGEX.test(employeeId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid employee ID format. Expected e.g. DMPL001 or DSMI001.",
+      });
+    }
 
-  // Inactive units still count: staff keep the IDs they were issued.
-  if (!(await isAllowedPrefix(employeeIdPrefix(employeeId), { activeOnly: false }))) {
-    return res.status(400).json({
-      success: false,
-      message: `${employeeId.slice(0, 3)} isn't an employee unit.`,
-      hint: "An admin with All Access can add it under Admins → Employee units.",
-    });
+    // Inactive units still count: staff keep the IDs they were issued.
+    if (!(await isAllowedPrefix(employeeIdPrefix(employeeId), { activeOnly: false }))) {
+      return res.status(400).json({
+        success: false,
+        message: `${employeeId.slice(0, 3)} isn't an employee unit.`,
+        hint: "An admin with All Access can add it under Admins → Employee units.",
+      });
+    }
   }
 
   const user = await User.findById(id);
@@ -709,6 +721,19 @@ exports.setEmployeeId = asyncHandler(async (req, res) => {
   }
 
   if (await guardTopAccount(req, res, user)) return;
+
+  if (prefix) {
+    if (employeeIdPrefix(user.employeeId) === prefix) {
+      return res.status(400).json({ success: false, message: `${user.employeeId} is already a ${prefix} ID.` });
+    }
+    user.employeeId = await generateEmployeeId(prefix);
+    await user.save();
+    return res.status(200).json({
+      success: true,
+      message: "Employee unit changed",
+      user: { _id: user._id, employeeId: user.employeeId },
+    });
+  }
 
   if (user.employeeId !== employeeId && (await isReferralCodeTaken(employeeId, { excludeUserId: user._id }))) {
     return res.status(409).json({

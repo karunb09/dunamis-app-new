@@ -371,18 +371,19 @@ function CoursesPageContent({ initialCourses = [] }) {
       {/* ── Filters strip ─────────────────────────────────────── */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
-          {/* Category chips */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0">
+          {/* Category chips — py/px room so the hover lift and shadow aren't clipped by the scroller */}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide flex-1 min-w-0 py-1 px-0.5">
             {["", ...categories].map((cat) => {
               const isActive = selectedCategory === cat;
               return (
                 <button
                   key={cat || "__all__"}
                   onClick={() => updateCategoryFilter(cat)}
-                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-200 ${
+                  aria-pressed={isActive}
+                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-offset-1 ${
                     isActive
-                      ? "bg-[#CC3700] text-white shadow-sm"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      ? "border-[#CC3700] bg-[#CC3700] text-white shadow-md shadow-orange-200"
+                      : "border-gray-300 bg-white text-gray-700 shadow-sm hover:-translate-y-px hover:border-[#CC3700] hover:bg-orange-50 hover:text-[#CC3700] hover:shadow"
                   }`}
                 >
                   {cat || "All"}
@@ -392,15 +393,16 @@ function CoursesPageContent({ initialCourses = [] }) {
           </div>
 
           {/* Mode toggle */}
-          <div className="hidden sm:flex gap-1 shrink-0 rounded-xl bg-gray-100 p-1">
+          <div className="hidden sm:flex gap-1 shrink-0 rounded-full border border-gray-300 bg-white p-1 shadow-sm">
             {["", "online", "offline"].map((m) => (
               <button
                 key={m || "__all__"}
                 onClick={() => updateModeFilter(m)}
-                className={`rounded-lg px-3 py-1 text-xs font-semibold transition-all duration-200 ${
+                aria-pressed={selectedMode === m}
+                className={`rounded-full px-3.5 py-1 text-xs font-semibold transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${
                   selectedMode === m
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
+                    ? "bg-[#CC3700] text-white shadow-sm"
+                    : "text-gray-700 hover:bg-orange-50 hover:text-[#CC3700]"
                 }`}
               >
                 {m === "" ? "All" : m === "online" ? "🌐 Online" : "📍 Offline"}
@@ -411,10 +413,10 @@ function CoursesPageContent({ initialCourses = [] }) {
           {/* Advanced filter button */}
           <button
             onClick={() => setShowFilter(true)}
-            className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold border transition ${
+            className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold shadow-sm transition-all duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 ${
               hasActiveFilters
                 ? "border-[#CC3700] bg-orange-50 text-[#CC3700]"
-                : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                : "border-gray-300 bg-white text-gray-700 hover:-translate-y-px hover:border-[#CC3700] hover:bg-orange-50 hover:text-[#CC3700] hover:shadow"
             }`}
           >
             <LuSlidersHorizontal className="w-3.5 h-3.5" />

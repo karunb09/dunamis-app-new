@@ -175,6 +175,25 @@ test("manual employee IDs must name a known unit (inactive ones included)", asyn
   assert.equal(inactive.body.user.employeeId, "DCCA007");
 });
 
+test("moving someone to another unit issues that unit's next ID", async () => {
+  const { token: manager } = await seedStaff(["adminManagement"]);
+  const { user: target } = await seedStaff(["courseManagement"], { employeeId: "DSMA004" });
+  await request(app, "GET", "/api/v1/employee-units", { token: manager });
+  await generateEmployeeId("DLHA");
+
+  const moved = await request(app, "PATCH", `/api/v1/user/${target._id}/employee-id`, { token: manager, body: { employeePrefix: "dlha" } });
+  assert.equal(moved.status, 200);
+  assert.equal(moved.body.user.employeeId, "DLHA002");
+
+  const same = await request(app, "PATCH", `/api/v1/user/${target._id}/employee-id`, { token: manager, body: { employeePrefix: "DLHA" } });
+  assert.equal(same.status, 400);
+
+  await EmployeeUnit.updateOne({ code: "DCC" }, { isActive: false });
+  const inactive = await request(app, "PATCH", `/api/v1/user/${target._id}/employee-id`, { token: manager, body: { employeePrefix: "DCCA" } });
+  assert.equal(inactive.status, 400);
+  assert.equal((await User.findById(target._id)).employeeId, "DLHA002");
+});
+
 test("only unused, non-default units can be deleted", async () => {
   const { token: ceo } = await seedStaff(["allAccess"]);
   await request(app, "GET", "/api/v1/employee-units", { token: ceo });

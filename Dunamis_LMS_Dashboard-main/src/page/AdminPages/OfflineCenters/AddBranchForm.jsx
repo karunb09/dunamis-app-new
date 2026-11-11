@@ -269,8 +269,8 @@ const AddBranch = () => {
             throw new Error("The check-in location's latitude or longitude is out of range.");
         }
         const radius = Number(formData.geofenceRadiusM);
-        if (!Number.isFinite(radius) || radius < 50 || radius > 2000) {
-            throw new Error("Check-in radius must be between 50 and 2000 metres.");
+        if (!Number.isFinite(radius) || radius < 10 || radius > 2000) {
+            throw new Error("Check-in radius must be between 10 and 2000 metres.");
         }
 
         const img = formData.branchImage;
@@ -571,7 +571,7 @@ const AddBranch = () => {
                             Radius (metres)
                             <input
                                 type="number"
-                                min="50"
+                                min="10"
                                 max="2000"
                                 step="10"
                                 name="geofenceRadiusM"

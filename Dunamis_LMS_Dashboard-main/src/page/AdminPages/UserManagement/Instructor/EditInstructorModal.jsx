@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FaCamera } from 'react-icons/fa';
 import { DEFAULT_AVATAR, resolveImageUrl } from '../../../../utils/resolveImageUrl';
 import ReactSelect from 'react-select';
 import ProfileImageCropper from '../../../../components/ProfileImageCropper';
 import InstructorPlacementFields from '../../../../components/org/InstructorPlacementFields';
+import EmployeeUnitSelect from '../../../../components/org/EmployeeUnitSelect';
 import {
     LANGUAGE_OPTIONS,
     LANGUAGE_SELECT_STYLES,
@@ -36,6 +37,8 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
     const handleChange = (key, value) => {
         setForm(prev => ({ ...prev, [key]: value }));
     };
+
+    const setEmployeeUnit = useCallback((employeeUnit) => setForm(prev => ({ ...prev, employeeUnit })), []);
 
     const handleProfilePictureChange = (event) => {
         const file = event.target.files?.[0];
@@ -120,6 +123,23 @@ const EditInstructorModal = ({ open, onClose, data, onSave, saving = false }) =>
                         <option value="offline">Offline</option>
                         <option value="hybrid">Hybrid (Online + Offline)</option>
                     </select>
+                </div>
+
+                <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1">Employee unit</label>
+                    <EmployeeUnitSelect
+                        value={form.employeeUnit || ""}
+                        onChange={setEmployeeUnit}
+                        placeholder={form.employeeId ? `Keep ${form.employeeId}` : "No employee ID yet — pick a unit"}
+                        exclude={/^([A-Z]{3})I\d/.exec(form.employeeId || "")?.[1]}
+                        className="w-full border rounded-2xl border-gray-300 px-3 py-2"
+                    />
+                    {form.employeeUnit && (
+                        <p className="mt-1 text-xs text-amber-700">
+                            Saving gives them the next {form.employeeUnit}I number (e.g. {form.employeeUnit}I001).
+                            {form.employeeId ? ` ${form.employeeId} is retired and never reused.` : ""}
+                        </p>
+                    )}
                 </div>
 
                 {/* Teaching Languages */}

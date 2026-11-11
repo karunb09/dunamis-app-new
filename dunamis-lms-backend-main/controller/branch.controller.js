@@ -45,8 +45,8 @@ const isBlank = (value) =>
 // the request leave the pin as it is; both coordinates sent blank clear it.
 const parseCheckInPin = ({ geoLat, geoLng, geofenceRadiusM }) => {
   const radius = isBlank(geofenceRadiusM) ? undefined : Number(geofenceRadiusM);
-  if (radius !== undefined && (!Number.isFinite(radius) || radius < 50 || radius > 2000)) {
-    return { error: "Check-in radius must be between 50 and 2000 metres." };
+  if (radius !== undefined && (!Number.isFinite(radius) || radius < 10 || radius > 2000)) {
+    return { error: "Check-in radius must be between 10 and 2000 metres." };
   }
 
   if (geoLat === undefined && geoLng === undefined) return { geo: undefined, radius };
