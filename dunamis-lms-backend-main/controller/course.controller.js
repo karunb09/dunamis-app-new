@@ -9,6 +9,7 @@ const ClassRoster = require("../model/classRoster.model");
 const CourseAssignmentLog = require("../model/courseAssignmentLog.model");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
 const { assertCanTeachInPerson } = require("../services/orgPlacement");
+const { activeDocPath } = require("../utils/instructorDocs");
 const fs = require("fs/promises");
 const path = require("path");
 const {
@@ -198,7 +199,9 @@ const formatPublicTeacherForCourse = (teacher) => {
           _id: teacher.teacherDetail._id,
           name: teacher.teacherDetail.name,
           profilePicture: teacher.teacherDetail.profilePicture,
-          profileVideo: teacher.teacherDetail.profileVideo,
+          // The application keeps the original; "Update" in My Courses adds a version on the teacher.
+          profileVideo:
+            activeDocPath(teacher.profileVideos) || teacher.teacherDetail.profileVideo,
           mode: teacher.teacherDetail.mode,
           areaOfExpertise: teacher.teacherDetail.areaOfExpertise,
           currentState: teacher.teacherDetail.currentState,
@@ -220,7 +223,7 @@ const formatPublicTeacherForCourse = (teacher) => {
 
 const publicTeacherPopulate = {
   path: "teacher",
-  select: "averageRating studentCount teacherDetail userId",
+  select: "averageRating studentCount teacherDetail userId profileVideos",
   populate: [
     {
       path: "teacherDetail",

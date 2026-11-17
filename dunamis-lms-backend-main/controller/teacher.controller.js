@@ -16,6 +16,7 @@ const { localFileUpload } = require("../utils/locallyUploader");
 const { generateEmployeeId, resolvePrefix } = require("../utils/employeeId");
 const { resolveTeacherStudentContext } = require("../utils/teacherRoster");
 const { logCourseAssignments } = require("../utils/courseAssignmentLog");
+const { activeDocPath } = require("../utils/instructorDocs");
 const {
   inPersonTeaching,
   normalizeInstructorBranches,
@@ -109,7 +110,7 @@ const formatAvailabilitySlot = (slot) => {
   return `${dayLabel} (${timeLabel})`;
 };
 
-const formatPublicTeacherApplication = (teacherDetail) => {
+const formatPublicTeacherApplication = (teacherDetail, profileVideos) => {
   if (!teacherDetail) return null;
 
   return {
@@ -125,7 +126,7 @@ const formatPublicTeacherApplication = (teacherDetail) => {
     availability: teacherDetail.availability,
     mode: teacherDetail.mode,
     profilePicture: teacherDetail.profilePicture,
-    profileVideo: teacherDetail.profileVideo,
+    profileVideo: activeDocPath(profileVideos) || teacherDetail.profileVideo,
     specialization:
       teacherDetail.specilization || teacherDetail.specialization || "",
   };
@@ -179,7 +180,7 @@ const formatPublicTeacherSummary = (teacher) => {
     user: formatPublicUserSummary(teacher.userId),
     averageRating: safeParseNumber(teacher.averageRating, 0),
     studentCount: safeParseNumber(teacher.studentCount, 0),
-    teacherApplication: formatPublicTeacherApplication(teacherDetail),
+    teacherApplication: formatPublicTeacherApplication(teacherDetail, teacher.profileVideos),
     courses: courseSummaries,
     attendanceHistory: [
       {
@@ -200,11 +201,11 @@ const formatPublicTeacherDetails = (teacher) => ({
   user: formatPublicUserSummary(teacher.userId),
   averageRating: safeParseNumber(teacher.averageRating, 0),
   studentCount: safeParseNumber(teacher.studentCount, 0),
-  teacherDetails: formatPublicTeacherApplication(teacher.teacherDetail),
+  teacherDetails: formatPublicTeacherApplication(teacher.teacherDetail, teacher.profileVideos),
   courses: Array.isArray(teacher.course)
     ? teacher.course.map(formatPublicCourseSummary).filter(Boolean)
     : [],
-  introVideoUrl: teacher.teacherDetail?.profileVideo || "",
+  introVideoUrl: activeDocPath(teacher.profileVideos) || teacher.teacherDetail?.profileVideo || "",
   createdAt: teacher.createdAt,
   updatedAt: teacher.updatedAt,
 });
@@ -449,7 +450,7 @@ exports.getPublicTeachers = asyncHandler(async (req, res) => {
         },
       })
       .select(
-        "userId teacherDetail course studentCount averageRating weeklyAvailability createdAt updatedAt"
+        "userId teacherDetail course studentCount averageRating weeklyAvailability profileVideos createdAt updatedAt"
       )
       .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
       .skip((pageNumber - 1) * limitNumber)
@@ -726,7 +727,7 @@ exports.getPublicTeacherById = asyncHandler(async (req, res) => {
         },
       })
       .select(
-        "userId teacherDetail course studentCount averageRating createdAt updatedAt"
+        "userId teacherDetail course studentCount averageRating profileVideos createdAt updatedAt"
       );
 
     if (!teacher) {
