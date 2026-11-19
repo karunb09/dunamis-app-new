@@ -27,6 +27,7 @@ const CreateCourseForm = lazy(() => import("./page/AdminPages/AddCoursePage"));
 const StudentManagementPage = lazy(routeLoaders["/admin/student-management"]);
 const InstructorManagementPage = lazy(routeLoaders["/admin/instructor-management"]);
 const AdminManageMentPage = lazy(routeLoaders["/admin/admin-management"]);
+const TodaySchedulePage = lazy(routeLoaders["/admin/schedule/today"]);
 const OffilineCentersPage = lazy(routeLoaders["/admin/centers"]);
 const UpdatesPage = lazy(routeLoaders["/admin/updates"]);
 const CommunicationMatrixPage = lazy(routeLoaders["/admin/communication-matrix"]);
@@ -179,6 +180,10 @@ const App = () => {
               />
               <Route path="/admin/add-category" element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="categoryManagement"><AddCategory /></RequireAuth>} />
               {/* User Management */}
+              <Route
+                path="/admin/schedule/today"
+                element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission={["studentManagement", "instructorManagement", "adminManagement"]}><TodaySchedulePage /></RequireAuth>}
+              />
               <Route
                 path="/admin/student-management"
                 element={<RequireAuth allowedRoles={["admin", "superadmin"]} requiredPermission="studentManagement"><StudentManagementPage /></RequireAuth>}

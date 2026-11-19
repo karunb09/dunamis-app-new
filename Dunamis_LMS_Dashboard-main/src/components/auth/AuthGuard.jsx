@@ -37,7 +37,7 @@ export const RequireAuth = ({ allowedRoles = [], requiredPermission, children })
     return <Navigate to={getDefaultRoute(accountType)} replace />;
   }
 
-  if (requiredPermission && !hasPermission(user, requiredPermission)) {
+  if (requiredPermission && !hasPermission(user, ...[].concat(requiredPermission))) {
     return <Navigate to="/admin" replace />;
   }
 

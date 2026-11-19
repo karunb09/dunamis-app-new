@@ -130,6 +130,12 @@ const Sidebar = ({ isOpen, onClose }) => {
       section: "USER MANAGEMENT",
       items: [
         {
+          to: "/admin/schedule/today",
+          icon: <FiCalendar />,
+          text: "Today's Schedule",
+          permission: ["studentManagement", "instructorManagement", "adminManagement"],
+        },
+        {
           to: "/admin/student-management",
           icon: <PiStudentBold />,
           text: "Student Management",
@@ -233,7 +239,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     return adminMenu
       .map((section) => ({
         ...section,
-        items: section.items.filter((item) => !item.permission || hasPermission(viewer, item.permission)),
+        items: section.items.filter((item) => !item.permission || hasPermission(viewer, ...[].concat(item.permission))),
       }))
       .filter((section) => section.items.length > 0);
   }, [accountType, permissions, chatbotOn, checkInEligible]);

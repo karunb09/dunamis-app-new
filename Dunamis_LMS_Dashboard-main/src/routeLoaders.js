@@ -9,6 +9,7 @@ export const routeLoaders = {
   "/admin/student-management": () => import("./page/AdminPages/UserManagement/StudentManagementPage"),
   "/admin/instructor-management": () => import("./page/AdminPages/UserManagement/InstructorManagementPage"),
   "/admin/admin-management": () => import("./page/AdminPages/UserManagement/AdminManageMentPage"),
+  "/admin/schedule/today": () => import("./page/AdminPages/UserManagement/TodaySchedulePage"),
   "/admin/centers": () => import("./page/AdminPages/OffilineCentersPage"),
   "/admin/financials": () => import("./page/AdminPages/FinancialPage"),
   "/admin/reports": () => import("./page/AdminPages/MonthlyReportPage"),
