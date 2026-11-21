@@ -19,6 +19,8 @@ const { getScope } = require("../middleware/auth");
 const { studentFilter } = require("../utils/scopeFilters");
 const { getStudentSchedules } = require("../utils/classRoster");
 const { buildContentTitleMaps } = require("../utils/contentTitles");
+const { resolveSlotJoinLink } = require("../utils/meetingLink");
+const { formatUserName } = require("../utils/formatName");
 
 const IT_SUPPORT_HINT = process.env.IT_SUPPORT_EMAIL
   ? `Contact IT support at ${process.env.IT_SUPPORT_EMAIL} if this issue persists.`
@@ -338,13 +340,13 @@ exports.getStudentOverview = asyncHandler(async (req, res) => {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const [upcomingClasses, recentActivity] = await Promise.all([
+    const [upcomingSlots, recentActivity, classes] = await Promise.all([
       Slot.find({
         slotType: "enrolled",
         students: student._id,
         date: { $gte: todayStart },
       })
-        .select("date startTime endTime sessionType courseId branchId createdBy")
+        .select("date startTime endTime sessionType courseId branchId createdBy parentAvailabilityId meetingLinkOverride")
         .populate("courseId", "name code mode")
         .populate("branchId", "branchName location")
         .populate({
@@ -361,7 +363,42 @@ exports.getStudentOverview = asyncHandler(async (req, res) => {
         .sort({ date: -1 })
         .limit(15)
         .lean(),
+      // The learner's weekly classes, each with the standing join link that
+      // the instructor (or an admin) sets once per batch.
+      ClassRoster.find({
+        status: "active",
+        students: { $elemMatch: { studentId: student._id, status: "active" } },
+      })
+        .select("parentAvailabilityId courseId teacherId branchId sessionType recurringDays startTime endTime meetingLink meetingLinkUpdatedAt")
+        .populate("courseId", "name code")
+        .populate("branchId", "branchName")
+        .populate({ path: "teacherId", select: "userId", populate: { path: "userId", select: "name" } })
+        .lean(),
     ]);
+
+    const missingRosterIds = [
+      ...new Set(
+        upcomingSlots
+          .map((slot) => String(slot.parentAvailabilityId || ""))
+          .filter((id) => id && !classes.some((roster) => String(roster.parentAvailabilityId) === id))
+      ),
+    ];
+    const otherRosters = missingRosterIds.length
+      ? await ClassRoster.find({ parentAvailabilityId: { $in: missingRosterIds } })
+          .select("parentAvailabilityId meetingLink")
+          .lean()
+      : [];
+    const rosterById = new Map(
+      [...classes, ...otherRosters].map((roster) => [String(roster.parentAvailabilityId), roster])
+    );
+
+    const upcomingClasses = upcomingSlots.map((slot) => {
+      const { meetingLinkOverride, ...rest } = slot;
+      return {
+        ...rest,
+        meetingLink: resolveSlotJoinLink(slot, rosterById.get(String(slot.parentAvailabilityId || ""))),
+      };
+    });
 
     const recentPayments = [...(student.payments || [])]
       .sort(
@@ -385,7 +422,23 @@ exports.getStudentOverview = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      overview: { upcomingClasses, recentActivity, recentPayments },
+      overview: {
+        upcomingClasses,
+        recentActivity,
+        recentPayments,
+        classes: classes.map((roster) => ({
+          parentAvailabilityId: roster.parentAvailabilityId,
+          course: roster.courseId,
+          branch: roster.branchId,
+          teacherName: formatUserName(roster.teacherId?.userId?.name, "Instructor"),
+          sessionType: roster.sessionType,
+          recurringDays: roster.recurringDays || [],
+          startTime: roster.startTime,
+          endTime: roster.endTime,
+          meetingLink: roster.meetingLink || "",
+          meetingLinkUpdatedAt: roster.meetingLinkUpdatedAt,
+        })),
+      },
     });
 });
 // Attendance & Homework (admin view of a student's full attendance history)

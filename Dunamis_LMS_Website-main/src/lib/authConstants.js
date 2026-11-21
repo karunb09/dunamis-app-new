@@ -9,6 +9,10 @@ export const TOKEN_COOKIE = "dunamis_token";
 // resolves. Not a credential.
 export const USER_COOKIE = "dunamis_user";
 
+// Readable cookie holding only when the session ends (epoch seconds), so the
+// page can warn before it does. Set and cleared with the two cookies above.
+export const SESSION_EXP_COOKIE = "dunamis_session_exp";
+
 // Client-side marker placed in Redux/state to mean "a session exists" without
 // ever exposing the JWT. Existing `token && ...` checks keep working.
 export const SESSION_SENTINEL = "session";

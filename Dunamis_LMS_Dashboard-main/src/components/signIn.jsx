@@ -5,7 +5,11 @@ import { toast } from "react-hot-toast";
 import { FiAward, FiBookOpen, FiCalendar, FiLock, FiUsers } from "react-icons/fi";
 import { HiEye, HiEyeOff } from "react-icons/hi";
 import { login, forgotPassword, verifyOTP, resetPassword, setLoginHold } from "../redux/authSlice";
-import { clearAuthSession } from "../utils/authSession";
+import {
+  clearAuthSession,
+  clearSessionEndedNotice,
+  hasSessionEndedNotice,
+} from "../utils/authSession";
 import { STUDENT_PORTAL_URL, getDefaultRoute } from "../utils/portalUrls";
 import SuccessCheck from "./SuccessCheck";
 
@@ -35,6 +39,10 @@ const workspaceTiles = [
 const SignIn = () => {
   const [step, setStep] = useState(1);
   const [signedInAs, setSignedInAs] = useState(null);
+  const [sessionEnded] = useState(hasSessionEndedNotice);
+  useEffect(() => {
+    clearSessionEndedNotice();
+  }, []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [emailError, setEmailError] = useState("");
@@ -272,6 +280,15 @@ const SignIn = () => {
                       ? "Password Updated"
                       : "Reset Password"}
             </h2>
+
+            {step === 1 && sessionEnded && (
+              <p
+                role="status"
+                className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 ring-1 ring-amber-200"
+              >
+                You were signed out to keep your account safe. Sign in again to pick up where you left off.
+              </p>
+            )}
 
             {step === 1 && (
               <>

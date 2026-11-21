@@ -1,4 +1,4 @@
-import { TOKEN_COOKIE, USER_COOKIE } from "@/lib/authConstants";
+import { SESSION_EXP_COOKIE, TOKEN_COOKIE, USER_COOKIE } from "@/lib/authConstants";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -52,11 +52,20 @@ export const setSessionCookies = (res, token, user) => {
     maxAge,
   });
 
+  res.cookies.set(SESSION_EXP_COOKIE, String(exp || Math.floor(Date.now() / 1000) + maxAge), {
+    httpOnly: false, // a timestamp, not a credential
+    secure: isProd,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
+  });
+
   return res;
 };
 
 export const clearSessionCookies = (res) => {
   res.cookies.set(TOKEN_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
   res.cookies.set(USER_COOKIE, "", { httpOnly: false, path: "/", maxAge: 0 });
+  res.cookies.set(SESSION_EXP_COOKIE, "", { httpOnly: false, path: "/", maxAge: 0 });
   return res;
 };

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { Provider, useDispatch } from "react-redux";
 import { makeStore } from "@/store/store";
 import { hydrateSession } from "@/store/authSlice";
+import SessionTimeout from "@/components/auth/SessionTimeout";
 
 function AuthSessionHydrator({ children }) {
   const dispatch = useDispatch();
@@ -31,7 +32,10 @@ export function Providers({ children, initialAuth }) {
 
   return (
     <Provider store={storeRef.current}>
-      <AuthSessionHydrator>{children}</AuthSessionHydrator>
+      <AuthSessionHydrator>
+        {children}
+        <SessionTimeout />
+      </AuthSessionHydrator>
     </Provider>
   );
 }

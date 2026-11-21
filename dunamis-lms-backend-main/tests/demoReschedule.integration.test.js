@@ -281,7 +281,7 @@ test("a demo slot already held by someone else cannot be taken", async () => {
     res
   );
 
-  assert.equal(res.statusCode, 400);
+  assert.equal(res.statusCode, 409);
   assert.match(res.body.message, /already booked/);
 });
 

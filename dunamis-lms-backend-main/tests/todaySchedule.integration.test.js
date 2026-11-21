@@ -1,8 +1,9 @@
 "use strict";
 
-// Today's schedule (User Management): who has a class or demo today, and which
-// offline AAs/BDEs are due at an open branch. Classes come from the daily
-// attendance report, so empty generated slots never count.
+// Today's schedule (User Management): instructors with a class or demo today,
+// learners on an active enrollment, and the offline AAs/BDEs due at an open
+// branch. Classes come from the daily attendance report, so empty generated
+// slots never count.
 //
 // Run with:  npm run test:integration
 
@@ -22,6 +23,7 @@ const InstructorCheckIn = require("../model/instructorCheckIn.model");
 const Slot = require("../model/slot.model");
 const StaffCheckIn = require("../model/staffCheckIn.model");
 const Student = require("../model/student.model");
+const SubCategory = require("../model/subCategory.model");
 const Teacher = require("../model/teacher.model");
 const User = require("../model/user.model");
 const { buildTodaySchedule } = require("../services/todaySchedule");
@@ -54,14 +56,19 @@ async function makeTeacher(firstName) {
   return Teacher.create({ userId: user._id, teacherDetail: oid() });
 }
 
-async function makeStudent(firstName) {
+async function makeStudent(firstName, { course, status = "in-progress", adminActions = {} } = {}) {
   const user = await makeUser(firstName, "student");
-  return Student.create({ userId: user._id });
+  return Student.create({
+    userId: user._id,
+    adminActions,
+    enrolledCourses: course ? [{ courseId: course._id, status }] : [],
+  });
 }
 
-async function makeCourse(name) {
+async function makeCourse(name, { mode = "online", instrument = name } = {}) {
   seq += 1;
-  return Course.create({ name, code: `C${seq}`, description: "d", category: oid(), subCategory: [oid()] });
+  const sub = await SubCategory.create({ name: instrument });
+  return Course.create({ name, code: `C${seq}`, description: "d", category: oid(), subCategory: [sub._id], mode });
 }
 
 async function makeBranch(name, openDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]) {
@@ -116,14 +123,18 @@ before(startMemoryMongo);
 after(stopMemoryMongo);
 beforeEach(clearCollections);
 
-test("lists today's classes and live demo bookings by instructor and by learner", async () => {
+test("lists today's classes and demos by instructor, and only actively enrolled learners", async () => {
   const meera = await makeTeacher("Meera");
   const guitar = await makeCourse("GUITAR");
-  const asha = await makeStudent("Asha");
-  const ravi = await makeStudent("Ravi");
+  const asha = await makeStudent("Asha", { course: guitar });
+  const ravi = await makeStudent("Ravi", { course: guitar });
+  const paused = await makeStudent("Pia", { course: guitar, status: "paused" });
+  const blocked = await makeStudent("Bo", { course: guitar, adminActions: { isBlocked: true } });
+  const elsewhere = await makeStudent("Nia", { course: await makeCourse("PIANO") });
   const kiran = await makeStudent("Kiran");
 
-  await makeSlot({ teacher: meera, course: guitar, students: [asha, ravi] });
+  await makeSlot({ teacher: meera, course: guitar, students: [asha, ravi, paused, blocked, elsewhere] });
+  await makeSlot({ teacher: meera, course: guitar, students: [paused], start: "17:00", end: "18:00" });
   const demo = await makeSlot({ teacher: meera, course: guitar, slotType: "demo", start: "18:00", end: "18:20" });
   await book(demo, { student: kiran });
   await book(demo, { lead: { firstName: "Guest", lastName: "Visitor" } });
@@ -135,31 +146,36 @@ test("lists today's classes and live demo bookings by instructor and by learner"
   const today = await buildTodaySchedule({ sections: ALL, now: NOW });
 
   assert.equal(today.day.key, DAY);
-  assert.deepEqual(today.totals, { classes: 1, demos: 1, instructors: 1, students: 4, staff: 0 });
+  assert.deepEqual(
+    today.classes.map((c) => [c.kind, c.mode, c.instruments.map((i) => i.name)]),
+    [["class", "online", ["GUITAR"]], ["demo", "online", ["GUITAR"]]]
+  );
 
   const [row] = today.instructors;
   assert.equal(row.name, "Meera Rao");
   assert.deepEqual(row.classes.map((c) => [c.kind, c.startTime]), [["class", "16:00"], ["demo", "18:00"]]);
-  assert.equal(row.learnerCount, 4);
+  assert.deepEqual(row.classes[0].learners.map((l) => l.name).sort(), ["Asha Rao", "Ravi Rao"]);
+  assert.deepEqual(row.classes[1].learners.map((l) => l.name).sort(), ["Guest Visitor", "Kiran Rao"]);
   assert.equal(row.inPerson, false);
   assert.equal(row.checkIn, null);
 
-  const names = today.students.map((s) => s.name);
-  assert.deepEqual(names.slice(0, 2).sort(), ["Asha Rao", "Ravi Rao"]);
-  assert.deepEqual(names.slice(2).sort(), ["Guest Visitor", "Kiran Rao"]);
-  const guest = today.students.find((s) => s.name === "Guest Visitor");
-  assert.equal(guest.studentId, null);
-  assert.equal(guest.classes[0].teacherName, "Meera Rao");
-  assert.equal(guest.classes[0].learners, undefined);
+  assert.deepEqual(today.students.map((s) => s.name).sort(), ["Asha Rao", "Ravi Rao"]);
+  assert.equal(today.students[0].classes[0].teacherName, "Meera Rao");
+  assert.equal(today.students[0].classes[0].learners, undefined);
 });
 
 test("offline instructors show today's branch check-in", async () => {
   const meera = await makeTeacher("Meera");
   const branch = await makeBranch("Banjara Hills");
-  const course = await makeCourse("DRUMS");
-  await makeSlot({ teacher: meera, course, students: [await makeStudent("Asha")], branch });
+  const course = await makeCourse("DRUMS", { mode: "offline" });
+  await makeSlot({ teacher: meera, course, students: [await makeStudent("Asha", { course })], branch });
 
-  let [row] = (await buildTodaySchedule({ sections: ALL, now: NOW })).instructors;
+  const today = await buildTodaySchedule({ sections: ALL, now: NOW });
+  assert.deepEqual(
+    today.classes.map((c) => [c.mode, c.branchName]),
+    [["offline", "Banjara Hills"]]
+  );
+  let [row] = today.instructors;
   assert.equal(row.inPerson, true);
   assert.deepEqual(row.checkIn, { status: "none" });
 
@@ -180,7 +196,7 @@ test("offline AAs and BDEs are listed with the branches open today", async () =>
   await makeUser("Finance", "admin", { org: { designation: "financeManager" } });
 
   let today = await buildTodaySchedule({ sections: ALL, now: NOW });
-  assert.equal(today.totals.staff, 1);
+  assert.equal(today.staff.length, 1);
   const [row] = today.staff;
   assert.equal(row.name, "Asha Rao");
   assert.equal(row.designation, "aa");
@@ -198,9 +214,16 @@ test("a scoped viewer sees only their area; hidden sections carry no names", asy
   const mine = await makeBranch("Mine");
   const other = await makeBranch("Other");
   const meera = await makeTeacher("Meera");
-  const course = await makeCourse("VIOLIN");
-  await makeSlot({ teacher: meera, course, students: [await makeStudent("Asha")], branch: mine });
-  await makeSlot({ teacher: meera, course, students: [await makeStudent("Ravi")], branch: other, start: "18:00", end: "19:00" });
+  const course = await makeCourse("VIOLIN", { mode: "offline" });
+  await makeSlot({ teacher: meera, course, students: [await makeStudent("Asha", { course })], branch: mine });
+  await makeSlot({
+    teacher: meera,
+    course,
+    students: [await makeStudent("Ravi", { course })],
+    branch: other,
+    start: "18:00",
+    end: "19:00",
+  });
   await makeUser("Elsewhere", "admin", { org: { designation: "aa", workMode: "offline", branches: [other._id] } });
 
   const today = await buildTodaySchedule({
@@ -209,8 +232,7 @@ test("a scoped viewer sees only their area; hidden sections carry no names", asy
     now: NOW,
   });
 
-  assert.equal(today.totals.classes, 1);
-  assert.equal(today.totals.students, null);
+  assert.deepEqual(today.classes.map((c) => c.branchName), ["Mine"]);
   assert.deepEqual(today.hiddenSections, ["students"]);
   assert.deepEqual(today.students, []);
   assert.deepEqual(today.staff, []);

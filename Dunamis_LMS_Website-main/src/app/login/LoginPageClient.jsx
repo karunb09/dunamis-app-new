@@ -26,6 +26,7 @@ export default function LoginPageClient() {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth || {});
   const nextHref = params.get("next") || "";
+  const sessionEnded = params.get("reason") === "expired";
 
   const [showPassword, setShowPassword] = useState(false);
   const [staffPortalNotice, setStaffPortalNotice] = useState(null);
@@ -143,6 +144,11 @@ export default function LoginPageClient() {
               Use this page for student accounts only. Instructors and admins
               should use the staff portal link in the footer.
             </p>
+            {sessionEnded ? (
+              <p role="status" className="mt-4 rounded-2xl bg-amber-50 px-4 py-3 text-[15px] font-medium text-amber-900 ring-1 ring-amber-200">
+                You were signed out to keep your account safe. Sign in again to pick up where you left off.
+              </p>
+            ) : null}
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-6">

@@ -158,6 +158,15 @@ const chatbotLimiter = rateLimit({
   message: { success: false, message: "You're sending messages too quickly. Please wait a minute." },
 });
 
+// Book Demo step pings: a handful per visit, from the visitor's own browser.
+const demoFunnelLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: isProd ? 60 : 1000,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Too many requests, please try again later." },
+});
+
 const webhookLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
@@ -258,6 +267,7 @@ app.use("/api/v1/enrollment/verify-payment", paymentLimiter);
 app.use("/api/v1/enrollment/generate-installments", paymentLimiter);
 app.use("/api/v1/enrollment", enrollmentRoutes);
 app.use("/api/v1/slots", slotRoutes);
+app.use("/api/v1/demoBookings/funnel", demoFunnelLimiter);
 app.use("/api/v1/demoBookings", demoBookingRoutes);
 app.use("/api/v1/enquiry", enquiryRoutes);
 app.use("/api/v1/callback-request", callbackRequestRoutes);

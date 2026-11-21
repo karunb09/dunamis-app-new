@@ -87,6 +87,15 @@ const visibleSections = (data) => {
   return (name) => !hidden.has(name);
 };
 
+const DEMO_FLOW_SOURCES = {
+  course_page: "Course page",
+  instructor: "Teacher profile",
+  hero: "Home page",
+  chatbot: "Chat assistant",
+  link: "Shared link",
+  unknown: "Unknown",
+};
+
 // Leads are company-wide enquiries: without them the funnel starts at demos.
 const funnelStages = (data) =>
   visibleSections(data)("enquiries") ? data.funnel.stages : data.funnel.stages.filter((s) => s.key !== "leads");
@@ -491,6 +500,40 @@ const MonthlyReportPage = () => {
               headers={["Course", "Demos booked"]}
               rows={(funnel.demos.topCourses || []).map((c) => [c.name, c.booked])}
             />
+
+            {funnel.bookingFlow && (
+              <div className="mt-6 border-t border-slate-100 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Website Book Demo flow</p>
+                <p className="mb-3 mt-1 text-xs text-slate-500">
+                  {funnel.bookingFlow.completionRate == null
+                    ? "Nobody opened Book Demo this month."
+                    : `${funnel.bookingFlow.completionRate}% of visitors who opened Book Demo booked one.`}
+                </p>
+                <FunnelBar stages={funnel.bookingFlow.steps} />
+                <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Where visitors started</p>
+                    <SimpleTable
+                      headers={["Opened from", "Opened", "Booked", "Rate"]}
+                      rows={funnel.bookingFlow.bySource.map((row) => [
+                        DEMO_FLOW_SOURCES[row.source] || row.source,
+                        row.opened,
+                        row.booked,
+                        formatPct(row.rate),
+                      ])}
+                    />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400">Courses with no demo times</p>
+                    <SimpleTable
+                      headers={["Course", "Visitors turned away"]}
+                      rows={funnel.bookingFlow.noSlotCourses.map((c) => [c.name, c.count])}
+                      emptyText="Every course visitors opened had demo times."
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           <SectionCard title="Delivery" subtitle="Classes held, attendance, and academic activity">

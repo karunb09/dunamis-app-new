@@ -4,6 +4,7 @@ const{
     login,
     logout,
     getCurrentUser,
+    refreshSession,
     changePassword,
     updateUser,
     getUserById,
@@ -34,6 +35,7 @@ const {
 router.post("/login", validate(loginSchema), login);
 router.post("/logout", isAuth, logout);
 router.get("/me", isAuth, getCurrentUser);
+router.post("/refresh-session", isAuth, refreshSession);
 router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
 router.post("/verify-otp", validate(verifyOtpSchema), verifyOTP);
 router.post("/reset-password", validate(resetPasswordSchema), resetPassword);

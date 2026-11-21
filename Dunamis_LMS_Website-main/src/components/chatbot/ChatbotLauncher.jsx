@@ -219,6 +219,7 @@ function Launcher() {
           onClose={closeModal}
           course={modal.course}
           preferredInstructorId={modal.instructorId}
+          source="chatbot"
           onSuccess={() => chat.endChat("completed", "demo")}
         />
       ) : null}

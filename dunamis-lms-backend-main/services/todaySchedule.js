@@ -1,13 +1,16 @@
-// Who is on the timetable today: instructors and learners with a class or demo,
-// and the offline AAs/BDEs whose branches are open. Classes come from the daily
-// attendance report so both pages agree on what counts as a class.
+// Who is on the timetable today: instructors with a class or demo, learners on
+// an active enrollment, and the offline AAs/BDEs whose branches are open.
+// Classes come from the daily attendance report so both pages agree on what
+// counts as a class.
 
 const Branch = require("../model/branch.model");
+const Course = require("../model/course.model");
 const DemoBooking = require("../model/demoBooking.model");
 const InstructorCheckIn = require("../model/instructorCheckIn.model");
 const Slot = require("../model/slot.model");
 const StaffCheckIn = require("../model/staffCheckIn.model");
 const Student = require("../model/student.model");
+require("../model/subCategory.model");
 const User = require("../model/user.model");
 const { buildDailyAttendanceReport } = require("./attendanceReport");
 const { branchHoursFor, branchIdsFor, isStaffRole } = require("./staffCheckIn");
@@ -19,6 +22,7 @@ const { loadScopeCatalog } = require("../utils/orgScope");
 const { isInScope } = require("../utils/scopeFilters");
 
 const idOf = (value) => String(value?._id || value || "");
+const unique = (values) => [...new Set(values.filter(Boolean))];
 const timeOn = (dayKey, value) =>
   new Date(istDayStart(dayKey).getTime() + parseTimeMinutes(value) * 60000);
 
@@ -93,6 +97,62 @@ const demoClasses = async (dayKey) => {
     }));
 };
 
+// A class learner counts only while their enrollment in that course is
+// in-progress and their account is usable; a class left with nobody is dropped.
+const keepActiveLearners = async (classes) => {
+  const ids = unique(classes.flatMap((item) => item.learners.map((learner) => idOf(learner.studentId))));
+  if (!ids.length) return classes;
+  const students = await Student.find({ _id: { $in: ids } })
+    .select("userId adminActions enrolledCourses.courseId enrolledCourses.status")
+    .populate("userId", "accountStatus")
+    .lean();
+  const activeCourses = new Map(
+    students
+      .filter(
+        (student) =>
+          student.userId?.accountStatus === "active" &&
+          !student.adminActions?.isBlocked &&
+          !student.adminActions?.isDisabled &&
+          !student.adminActions?.isArchived
+      )
+      .map((student) => [
+        idOf(student._id),
+        new Set(
+          (student.enrolledCourses || [])
+            .filter((entry) => entry.status === "in-progress")
+            .map((entry) => idOf(entry.courseId))
+        ),
+      ])
+  );
+  return classes
+    .map((item) => ({
+      ...item,
+      learners: item.learners.filter((learner) =>
+        activeCourses.get(idOf(learner.studentId))?.has(idOf(item.courseId))
+      ),
+    }))
+    .filter((item) => item.learners.length > 0);
+};
+
+// Delivery mode and instruments (the course's subcategories) for the filters.
+const withCourseFacets = async (classes) => {
+  const courses = await Course.find({ _id: { $in: unique(classes.map((item) => idOf(item.courseId))) } })
+    .select("mode subCategory")
+    .populate("subCategory", "name")
+    .lean();
+  const byId = new Map(courses.map((course) => [idOf(course._id), course]));
+  return classes.map((item) => {
+    const course = byId.get(idOf(item.courseId));
+    return {
+      ...item,
+      mode: item.branchId || course?.mode === "offline" ? "offline" : "online",
+      instruments: (course?.subCategory || [])
+        .filter((sub) => sub?.name)
+        .map((sub) => ({ id: sub._id, name: sub.name })),
+    };
+  });
+};
+
 const describeCheckIns = (visits) => {
   if (!visits?.length) return { status: "none" };
   const ordered = [...visits].sort((a, b) => new Date(a.checkIn.at) - new Date(b.checkIn.at));
@@ -121,26 +181,21 @@ const groupInstructors = (classes, checkIns) => {
     byTeacher.get(key).classes.push(item);
   }
   return [...byTeacher.values()].map((row) => {
-    const learnerIds = new Set(
-      row.classes.flatMap((item) => item.learners.map((learner) => learner.studentId || learner.name))
-    );
     const inPerson = row.classes.some((item) => item.branchId);
     return {
       ...row,
-      learnerCount: learnerIds.size,
-      firstStartAt: row.classes[0].startAt,
-      lastEndAt: new Date(Math.max(...row.classes.map((item) => new Date(item.endAt).getTime()))),
       inPerson,
       checkIn: inPerson ? describeCheckIns(checkIns.get(idOf(row.teacherId))) : null,
     };
   });
 };
 
+// Demo bookings are leads, not students: they show on the instructor's day only.
 const groupStudents = (classes) => {
   const byStudent = new Map();
-  for (const item of classes) {
+  for (const item of classes.filter((entry) => entry.kind === "class")) {
     for (const learner of item.learners) {
-      const key = learner.studentId ? idOf(learner.studentId) : `guest:${item.slotId}:${learner.name}`;
+      const key = idOf(learner.studentId);
       if (!byStudent.has(key)) {
         byStudent.set(key, { studentId: learner.studentId, name: learner.name, classes: [] });
       }
@@ -234,9 +289,9 @@ const buildTodaySchedule = async ({ area = null, sections, now = new Date() }) =
     sections.staff ? staffOnDuty({ dayKey, branchIds: area?.branchIds || null }) : [],
   ]);
 
-  const classes = [...enrolledClasses(report, dayKey), ...demos]
-    .filter((item) => isInScope(area, { branchId: item.branchId, courseId: item.courseId }))
-    .sort(byStart);
+  const inArea = (item) => isInScope(area, { branchId: item.branchId, courseId: item.courseId });
+  const enrolled = await keepActiveLearners(enrolledClasses(report, dayKey).filter(inArea));
+  const classes = (await withCourseFacets([...enrolled, ...demos.filter(inArea)])).sort(byStart);
 
   const teacherIds = [...new Set(classes.filter((item) => item.branchId).map((item) => idOf(item.teacherId)))];
   const visits = teacherIds.length
@@ -268,13 +323,16 @@ const buildTodaySchedule = async ({ area = null, sections, now = new Date() }) =
     day: { key: dayKey, label: dayLabel(dayKey) },
     generatedAt: now.toISOString(),
     partial: report.partial,
-    totals: {
-      classes: classes.filter((item) => item.kind === "class").length,
-      demos: classes.filter((item) => item.kind === "demo").length,
-      instructors: sections.instructors ? instructors.length : null,
-      students: sections.students ? students.length : null,
-      staff: sections.staff ? staff.length : null,
-    },
+    // Every visible class, without names, so the page can count and filter
+    // even when the instructors section is hidden.
+    classes: classes.map(({ slotId, kind, mode, branchId, branchName, instruments }) => ({
+      slotId,
+      kind,
+      mode,
+      branchId,
+      branchName,
+      instruments,
+    })),
     hiddenSections: Object.keys(sections).filter((key) => !sections[key]),
     instructors: sections.instructors ? withLearners(instructors) : [],
     students: sections.students ? students : [],

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { isSameOrigin } from "@/lib/sameOrigin";
 import { TOKEN_COOKIE } from "@/lib/authConstants";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -25,25 +26,6 @@ const STRIPPED_RESPONSE_HEADERS = new Set([
   "connection",
 ]);
 
-async function sameOriginOk(req) {
-  const hdrs = await headers();
-  const origin = hdrs.get("origin");
-  // For same-origin browser fetches the Origin header equals our own origin.
-  // Cross-site (CSRF) requests carry the attacker's origin or, for some
-  // navigations, none — reject those on unsafe methods.
-  if (!origin) return false;
-  try {
-    // Use the Host header (set explicitly by Nginx) rather than req.url, which
-    // carries http:// behind a TLS-terminating proxy without X-Forwarded-Proto.
-    // Host-only comparison is sufficient for CSRF — attacker domains differ here.
-    const host = hdrs.get("x-forwarded-host") || hdrs.get("host");
-    if (!host) return false;
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
-
 async function handle(req, ctx) {
   if (!BACKEND_URL) {
     return NextResponse.json(
@@ -52,7 +34,7 @@ async function handle(req, ctx) {
     );
   }
 
-  if (UNSAFE_METHODS.has(req.method) && !(await sameOriginOk(req))) {
+  if (UNSAFE_METHODS.has(req.method) && !(await isSameOrigin())) {
     return NextResponse.json(
       { success: false, message: "Cross-origin request blocked" },
       { status: 403 },

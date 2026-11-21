@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { LuStar } from "react-icons/lu";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import FilterQuestionsModal from "@/components/PopupModals/FilterQuestionsModal";
+import DemoCoursePicker from "@/components/PopupModals/DemoCoursePicker";
 import { fetchPublicSiteContent } from "@/lib/siteContent";
 import { getInitialsImage, resolveImageUrl } from "@/lib/resolveImageUrl";
 
@@ -188,7 +188,7 @@ export default function Testimonials() {
         </div>
       </motion.section>
 
-      <FilterQuestionsModal
+      <DemoCoursePicker
         isOpen={isInterestModalOpen}
         onClose={() => setInterestModalOpen(false)}
       />

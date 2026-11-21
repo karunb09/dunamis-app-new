@@ -1,5 +1,6 @@
 import {
   USER_COOKIE,
+  SESSION_EXP_COOKIE,
   SESSION_SENTINEL,
 } from "@/lib/authConstants";
 
@@ -41,23 +42,36 @@ const slimUser = (user) =>
       }
     : null;
 
+// When the session ends, in epoch ms, or null if the page doesn't know.
+export const getSessionExpiry = () => {
+  const seconds = Number(readCookie(SESSION_EXP_COOKIE));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null;
+};
+
 const writeUserCookie = (user) => {
   if (typeof document === "undefined" || !user) return;
   const value = encodeURIComponent(JSON.stringify(slimUser(user)));
   const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  // 7-day display cookie; the httpOnly token cookie governs real auth lifetime.
-  document.cookie = `${USER_COOKIE}=${value}; Path=/; Max-Age=${60 * 60 * 24 * 7}; SameSite=Lax${secure}`;
+  // Lives exactly as long as the session, so the page never shows someone as
+  // signed in after their token has gone. Sessions from before the expiry
+  // cookie existed keep the old 7-day lifetime until their next sign-in.
+  const expiry = getSessionExpiry();
+  const maxAge = expiry
+    ? Math.max(0, Math.floor((expiry - Date.now()) / 1000))
+    : 60 * 60 * 24 * 7;
+  document.cookie = `${USER_COOKIE}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
 };
 
-const deleteUserCookie = () => {
+const deleteCookie = (name) => {
   if (typeof document === "undefined") return;
-  document.cookie = `${USER_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+  document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
 };
 
 // The httpOnly token cookie is cleared by the server /api/auth/logout route.
-// Here we can only clear the readable display cookie.
+// Here we can only clear the readable ones.
 export const clearWebsiteAuthSession = () => {
-  deleteUserCookie();
+  deleteCookie(USER_COOKIE);
+  deleteCookie(SESSION_EXP_COOKIE);
 };
 
 // Back-compat: callers use this to mean "is there a session?". Returns a

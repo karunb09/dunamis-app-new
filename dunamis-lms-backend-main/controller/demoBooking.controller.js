@@ -26,6 +26,7 @@ const {
 const { formatUserName } = require("../utils/formatName");
 const { getScope } = require("../middleware/auth");
 const { isInScope, placeFilter } = require("../utils/scopeFilters");
+const { recordDemoFunnelEvent } = require("../services/demoFunnel");
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -39,17 +40,23 @@ const buildLeadFromStudent = (student) => ({
   email: normalizeEmail(student?.userId?.email),
 });
 
+// Many learners have a single name, so lastName is optional.
 const validateLead = (lead = {}) => {
   const firstName = normalizeText(lead.firstName);
   const lastName = normalizeText(lead.lastName);
   const phone = normalizeText(lead.phone);
   const email = normalizeEmail(lead.email);
 
-  if (!firstName || !lastName || !phone || !email) {
+  if (!firstName || !phone || !email) {
     return {
       valid: false,
-      message: "Guest demo booking requires firstName, lastName, phone, and email",
+      message: "Please give your name, mobile number and email to book a demo",
     };
+  }
+
+  const phoneDigits = phone.replace(/\D/g, "").length;
+  if (phoneDigits < 8 || phoneDigits > 15) {
+    return { valid: false, message: "Enter a valid mobile number" };
   }
 
   if (!EMAIL_REGEX.test(email)) {
@@ -315,7 +322,7 @@ const validateDemoSlotSelection = async ({
 
     const activeBookings = await countActiveDemoBookings(slot._id, excludeBookingId);
     if (slot.maxStudents && activeBookings >= slot.maxStudents) {
-      return fail(400, "Selected demo slot is already booked");
+      return fail(409, "Selected demo slot is already booked");
     }
 
   return {
@@ -335,6 +342,8 @@ exports.bookDemoSlot = asyncHandler(async (req, res) => {
       deliveryMode,
       branchId,
       lead,
+      flowId,
+      source,
     } = req.body;
 
     if (!courseId || !slotId) {
@@ -448,11 +457,29 @@ exports.bookDemoSlot = asyncHandler(async (req, res) => {
       });
     });
 
+    if (flowId) {
+      void recordDemoFunnelEvent({
+        flowId,
+        event: "booked",
+        courseId,
+        source,
+        deliveryMode: resolvedDeliveryMode,
+        loggedIn: Boolean(req.user),
+      }).catch((error) => {
+        console.error("Demo funnel event failed", { flowId, error: error?.message || error });
+      });
+    }
+
     return res.status(201).json({
       success: true,
       message: "Demo slot booked successfully",
       booking: bookingDetails,
     });
+});
+
+exports.trackDemoFunnel = asyncHandler(async (req, res) => {
+  await recordDemoFunnelEvent(req.body);
+  return res.status(204).end();
 });
 
 // Get all bookings

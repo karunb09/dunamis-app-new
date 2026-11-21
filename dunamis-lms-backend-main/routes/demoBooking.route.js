@@ -8,11 +8,13 @@ const {
   updateBooking,
   rescheduleDemoBooking,
   cancelDemoBooking,
+  trackDemoFunnel,
 } = require("../controller/demoBooking.controller");
 const { accessToRole, isAuth, requirePermission } = require("../middleware/auth");
 const validate = require("../middleware/validate");
 const {
   bookDemoSchema,
+  demoFunnelEventSchema,
   updateBookingSchema,
   rescheduleBookingSchema,
   cancelBookingSchema,
@@ -33,15 +35,16 @@ const optionalAuth = (req, res, next) => {
 
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     return next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid or expired token",
-    });
+  } catch {
+    // An expired login cookie must not stop a visitor booking as a guest; the
+    // guest path still requires a complete lead.
+    req.user = null;
+    return next();
   }
 };
 
 router.post("/", optionalAuth, validate(bookDemoSchema), bookDemoSlot);
+router.post("/funnel", validate(demoFunnelEventSchema), trackDemoFunnel);
 router.get("/my", isAuth, accessToRole(["student"]), getMyBookings);
 // Learners and instructors pass requirePermission; admins need Student Management.
 const managers = requirePermission("studentManagement");

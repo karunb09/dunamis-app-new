@@ -19,6 +19,7 @@ const ClassRoster = require("../model/classRoster.model");
 const PaymentTransaction = require("../model/paymentTransaction.model");
 const Referral = require("../model/referral.model");
 const DemoBooking = require("../model/demoBooking.model");
+const DemoFunnelEvent = require("../model/demoFunnelEvent.model");
 const Enquiry = require("../model/enquiry.model");
 const CallbackRequest = require("../model/callbackRequest.model");
 const TeacherApplication = require("../model/teacherApplication.model");
@@ -117,9 +118,12 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING, are
   };
 
   // ---- Wave A: heavy facets -------------------------------------------------
-  const [revenueFacet, funnelFacet, attendanceFacet, enrollmentMap, sessionRows] = await Promise.all([
+  const [revenueFacet, funnelFacet, demoFlowFacet, attendanceFacet, enrollmentMap, sessionRows] = await Promise.all([
     section("revenue", () => buildRevenueFacet(ctx), null),
     section("funnel", () => buildFunnelFacet(ctx), null),
+    // Website Book Demo steps. The events carry no branch, so a scoped viewer
+    // cannot be shown their share; the section is hidden for them.
+    section("demoFlow", () => buildDemoFlowFacet(ctx), null),
     section("attendance", () => buildAttendanceFacet(ctx), null),
     section("enrollments", () => buildEnrollmentMap(ctx), new Map()),
     section(
@@ -293,15 +297,18 @@ async function buildMonthlyInsights({ monthKey, trailing = DEFAULT_TRAILING, are
   const revenue = buildRevenueSection({ revenueFacet, referralFacet, outstanding, monthKeys });
 
   // ---- Assemble: funnel ---------------------------------------------------
-  const funnel = buildFunnelSection({
-    funnelFacet,
-    enquiryRows,
-    callbackRows,
-    applicationRows,
-    courseRequestRows,
-    monthKeys,
-    monthKey: key,
-  });
+  const funnel = {
+    ...buildFunnelSection({
+      funnelFacet,
+      enquiryRows,
+      callbackRows,
+      applicationRows,
+      courseRequestRows,
+      monthKeys,
+      monthKey: key,
+    }),
+    bookingFlow: buildDemoFlowSection({ demoFlowFacet, monthKeys }),
+  };
 
   // ---- Assemble: delivery -------------------------------------------------
   const delivery = buildDeliverySection({
@@ -536,6 +543,30 @@ async function buildFunnelFacet({ trendStart, monthStart, monthEnd, area }) {
         followUp: [
           { $match: { createdAt: { $gte: monthStart, $lt: monthEnd } } },
           { $group: { _id: "$followUp", count: { $sum: 1 } } },
+        ],
+      },
+    },
+  ]);
+  return result;
+}
+
+async function buildDemoFlowFacet({ trendStart, monthStart, monthEnd }) {
+  const [result] = await DemoFunnelEvent.aggregate([
+    { $match: { createdAt: { $gte: trendStart, $lt: monthEnd } } },
+    {
+      $facet: {
+        byMonth: [{ $group: { _id: { m: monthExpr("$createdAt"), event: "$event" }, count: { $sum: 1 } } }],
+        bySource: [
+          { $match: { createdAt: { $gte: monthStart, $lt: monthEnd }, event: { $in: ["opened", "booked"] } } },
+          { $group: { _id: { source: "$source", event: "$event" }, count: { $sum: 1 } } },
+        ],
+        noSlotCourses: [
+          { $match: { createdAt: { $gte: monthStart, $lt: monthEnd }, event: "opened", hasSlots: false } },
+          { $group: { _id: "$courseId", count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+          { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "c" } },
+          { $project: { count: 1, name: { $first: "$c.name" }, code: { $first: "$c.code" } } },
         ],
       },
     },
@@ -794,6 +825,60 @@ function buildFunnelSection({ funnelFacet, enquiryRows, callbackRows, applicatio
       total: toMetric(courseRequestByMonth, monthKeys),
       byStatus: groupCounts(Array.from(courseRequestByStatus, ([key, count]) => ({ _id: key, count }))),
     },
+  };
+}
+
+const DEMO_FLOW_STEPS = [
+  { key: "opened", label: "Opened Book Demo" },
+  { key: "slot_chosen", label: "Picked a time" },
+  { key: "submitted", label: "Pressed Book" },
+  { key: "booked", label: "Booked" },
+];
+
+function buildDemoFlowSection({ demoFlowFacet, monthKeys }) {
+  if (!demoFlowFacet) return null;
+
+  const byEvent = new Map(DEMO_FLOW_STEPS.map(({ key }) => [key, new Map()]));
+  for (const row of demoFlowFacet.byMonth) {
+    byEvent.get(row._id.event)?.set(row._id.m, row.count);
+  }
+  const metrics = Object.fromEntries(
+    DEMO_FLOW_STEPS.map(({ key }) => [key, toMetric(byEvent.get(key), monthKeys)])
+  );
+
+  const steps = DEMO_FLOW_STEPS.map(({ key, label }, index) => {
+    const prev = index ? metrics[DEMO_FLOW_STEPS[index - 1].key].current : null;
+    return {
+      key,
+      label,
+      value: metrics[key].current,
+      previous: metrics[key].previous,
+      rateFromPrev: index ? rateFrom(metrics[key].current, prev) : null,
+    };
+  });
+
+  const sources = new Map();
+  for (const row of demoFlowFacet.bySource) {
+    const source = row._id.source || "unknown";
+    const entry = sources.get(source) || { source, opened: 0, booked: 0 };
+    entry[row._id.event] = row.count;
+    sources.set(source, entry);
+  }
+
+  return {
+    steps,
+    opened: metrics.opened,
+    booked: metrics.booked,
+    completionRate: rateFrom(metrics.booked.current, metrics.opened.current),
+    bySource: [...sources.values()]
+      .map((entry) => ({ ...entry, rate: rateFrom(entry.booked, entry.opened) }))
+      .sort((a, b) => b.opened - a.opened),
+    noSlotCourses: (demoFlowFacet.noSlotCourses || []).map((c) => ({
+      courseId: c._id,
+      name: c.name || "Unknown course",
+      code: c.code || "",
+      count: c.count,
+    })),
   };
 }
 

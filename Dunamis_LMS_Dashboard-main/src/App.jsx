@@ -11,6 +11,7 @@ import SignInNavbar from "./components/signInNavbar";
 import { PublicOnlyRoute, RequireAuth } from "./components/auth/AuthGuard";
 import { hydrateSession } from "./redux/authSlice";
 import { pushPath } from "./utils/navHistory";
+import SessionTimeout from "./components/SessionTimeout";
 import { routeLoaders } from "./routeLoaders";
 
 // Hot Toast
@@ -126,6 +127,7 @@ const App = () => {
   return (
     <div className="flex min-h-screen bg-slate-100 text-slate-900">
       <Toaster />
+      <SessionTimeout />
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

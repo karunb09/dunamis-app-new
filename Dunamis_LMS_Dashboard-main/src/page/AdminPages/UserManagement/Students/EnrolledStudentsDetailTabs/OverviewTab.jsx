@@ -1,8 +1,14 @@
 import { installmentSummary } from "../../../../../utils/installmentLabel";
-import React from "react";
+import React, { useState } from "react";
 import dayjs from "dayjs";
-import { FiActivity, FiCalendar, FiCreditCard } from "react-icons/fi";
+import { toast } from "react-hot-toast";
+import { FiActivity, FiCalendar, FiCreditCard, FiExternalLink, FiVideo } from "react-icons/fi";
 import { useStudentOverview } from "../../../../../hooks/useStudents";
+import { saveClassLink } from "../../../../../api/classLinksApi";
+import MeetingLinkBlock from "../../../../../components/MeetingLinkBlock";
+import { formatDays } from "../../../../../utils/formatDays";
+import { getStoredUser } from "../../../../../utils/authSession";
+import { hasPermission } from "../../../../../utils/permissions";
 
 const Panel = ({ icon, title, children, className = "" }) => (
     <div className={`rounded-2xl border border-slate-100 bg-white p-5 shadow-sm ${className}`}>
@@ -28,7 +34,23 @@ const teacherName = (createdBy) => {
 };
 
 const OverviewTab = ({ studentId }) => {
-    const { data: overview, isLoading, error } = useStudentOverview(studentId);
+    const { data: overview, isLoading, error, refetch } = useStudentOverview(studentId);
+    const [savingId, setSavingId] = useState(null);
+    // Changing a class link is an instructor-management action on the server.
+    const canEditLinks = hasPermission(getStoredUser(), "instructorManagement");
+
+    const saveLink = async (parentAvailabilityId, meetingLink) => {
+        setSavingId(parentAvailabilityId);
+        try {
+            const data = await saveClassLink(parentAvailabilityId, meetingLink);
+            toast.success(data.message);
+            await refetch();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setSavingId(null);
+        }
+    };
 
     if (isLoading) {
         return <p className="text-sm text-slate-500">Loading overview…</p>;
@@ -40,6 +62,7 @@ const OverviewTab = ({ studentId }) => {
     const upcomingClasses = overview?.upcomingClasses || [];
     const recentActivity = overview?.recentActivity || [];
     const recentPayments = overview?.recentPayments || [];
+    const classes = overview?.classes || [];
 
     return (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -60,11 +83,24 @@ const OverviewTab = ({ studentId }) => {
                                         {teacherName(cls.createdBy) && ` · ${teacherName(cls.createdBy)}`}
                                     </p>
                                 </div>
-                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                    cls.branchId ? "bg-sky-50 text-sky-600" : "bg-emerald-50 text-emerald-600"
-                                }`}>
-                                    {cls.branchId?.branchName || "Online"}
-                                </span>
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                        cls.branchId ? "bg-sky-50 text-sky-600" : "bg-emerald-50 text-emerald-600"
+                                    }`}>
+                                        {cls.branchId?.branchName || "Online"}
+                                    </span>
+                                    {cls.meetingLink && (
+                                        <a
+                                            href={cls.meetingLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                                        >
+                                            <FiExternalLink className="h-3 w-3" />
+                                            Join
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -99,6 +135,43 @@ const OverviewTab = ({ studentId }) => {
                     </div>
                 ) : (
                     <EmptyNote text="No attendance activity recorded yet." />
+                )}
+            </Panel>
+
+            <Panel icon={<FiVideo size={15} />} title="Class join links" className="lg:col-span-2">
+                {classes.length ? (
+                    <>
+                        <p className="-mt-2 mb-3 text-xs text-slate-500">
+                            One link per weekly class, shared by everyone in it. Students are emailed it 15 minutes before each session.
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {classes.map((cls) => (
+                                <div key={cls.parentAvailabilityId} className="rounded-2xl bg-slate-50/60 px-4 py-3">
+                                    <p className="truncate text-sm font-medium text-slate-900">
+                                        {cls.course?.name || "Class"}
+                                        {cls.course?.code && (
+                                            <span className="ml-1.5 text-xs font-normal text-slate-400">{cls.course.code}</span>
+                                        )}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-slate-500">
+                                        {[formatDays(cls.recurringDays), `${cls.startTime}–${cls.endTime}`, cls.teacherName, cls.branch?.branchName]
+                                            .filter(Boolean)
+                                            .join(" · ")}
+                                    </p>
+                                    <MeetingLinkBlock
+                                        link={cls.meetingLink}
+                                        readOnly={!canEditLinks}
+                                        saving={savingId === cls.parentAvailabilityId}
+                                        onSave={(next) => saveLink(cls.parentAvailabilityId, next)}
+                                        savedHint="Changing it updates the link for every student in this class."
+                                        emptyHint={canEditLinks ? "No link yet. Adding one shares it with the whole class." : "No link added yet."}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <EmptyNote text="Not placed in a weekly class yet." />
                 )}
             </Panel>
 

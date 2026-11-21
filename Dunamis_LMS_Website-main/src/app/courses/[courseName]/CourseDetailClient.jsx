@@ -228,6 +228,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
   const [activeTab, setActiveTab] = useState("Overview");
   const [detailLoading, setDetailLoading] = useState(false);
   const [preferredInstructorId, setPreferredInstructorId] = useState("");
+  const [demoSource, setDemoSource] = useState("course_page");
   const [activeInstructor, setActiveInstructor] = useState(null);
   const [openModule, setOpenModule] = useState(null);
   const courseFallbackImage = getCoursePlaceholderImage();
@@ -318,7 +319,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
 
   useEffect(() => {
     if (!pendingQueryAction || !rawCourse) return;
-    if (pendingQueryAction === "demo") { setPreferredInstructorId(""); setBookDemoOpen(true); setPendingQueryAction(null); return; }
+    if (pendingQueryAction === "demo") { setPreferredInstructorId(""); setDemoSource("link"); setBookDemoOpen(true); setPendingQueryAction(null); return; }
     if (pendingQueryAction === "enroll") {
       if (hasActiveAuth()) {
         if (!isStudentAccount()) { showStudentOnlyMessage("enroll in courses"); setPendingQueryAction(null); return; }
@@ -343,7 +344,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
     setPendingEnrollmentAuth(true); setLoginOpen(true);
   };
 
-  const openDemoFlow = (instructorId = "") => { setPreferredInstructorId(instructorId); setBookDemoOpen(true); };
+  const openDemoFlow = (instructorId = "") => { setPreferredInstructorId(instructorId); setDemoSource(instructorId ? "instructor" : "course_page"); setBookDemoOpen(true); };
 
   /* ── Loading / error ── */
   // Only show the spinner when we have nothing to render yet — if the course was
@@ -832,7 +833,7 @@ export default function CourseDetailClient({ initialCourse = null }) {
 
       {/* ════ MODALS ══════════════════════════════════════════════ */}
       <EnrollTerm isOpen={isEnrollTermOpen} onClose={() => setEnrollTermOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId} />
-      <BookDemoModal isOpen={isBookDemoOpen} onClose={() => setBookDemoOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId} />
+      <BookDemoModal isOpen={isBookDemoOpen} onClose={() => setBookDemoOpen(false)} course={rawCourse} preferredInstructorId={preferredInstructorId} source={demoSource} />
       <CallbackRequestModal isOpen={isCallbackOpen} onClose={() => setCallbackOpen(false)} course={rawCourse} />
       <LoginModal open={isLoginOpen}
         onClose={() => { setLoginOpen(false); setPendingEnrollmentAuth(false); }}

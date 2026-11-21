@@ -226,7 +226,6 @@ function CoursesPageContent({ initialCourses = [] }) {
     if (nextCategory) nextParams.set("category", nextCategory); else nextParams.delete("category");
     if (nextMode) nextParams.set("mode", nextMode); else nextParams.delete("mode");
     if (nextLanguage) nextParams.set("language", nextLanguage); else nextParams.delete("language");
-    if (!nextCategory && !nextMode && !nextLanguage) nextParams.delete("intent");
     const nextQuery = nextParams.toString();
     const nextHref = nextQuery ? `${pathname}?${nextQuery}` : pathname;
     const currentHref = searchParamsString ? `${pathname}?${searchParamsString}` : pathname;

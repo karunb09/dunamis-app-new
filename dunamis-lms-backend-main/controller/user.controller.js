@@ -42,6 +42,19 @@ const authCookieOptions = {
 // Personal HR fields on the Admin record never travel in the session.
 const ADMIN_HR_FIELDS = "-dateOfBirth -emergencyContact -address";
 
+// Login and "Stay signed in" issue the same claims with a fresh lifetime.
+const signAccessToken = (user) =>
+  jwt.sign(
+    {
+      email: user.email,
+      userId: user._id,
+      roleId: user.roleId,
+      accountType: user.accountType,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_TTL_SECONDS }
+  );
+
 const populateSessionUser = (query) =>
   query
     .populate({ path: "adminDetails", select: ADMIN_HR_FIELDS })
@@ -118,16 +131,7 @@ exports.login = asyncHandler(async (req, res) => {
     }
 
     if (await bcrypt.compare(password, user.password)) {
-      const payload = {
-        email: user.email,
-        userId: user._id,
-        roleId: user.roleId,
-        accountType: user.accountType,
-      };
-
-      const token = jwt.sign(payload, process.env.JWT_SECRET, {
-        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-      });
+      const token = signAccessToken(user);
 
       // updateOne, not save(): the doc is about to have `password` stripped for
       // the response, and save() would fail its `required` check.
@@ -156,6 +160,35 @@ exports.login = asyncHandler(async (req, res) => {
         message: "Email or password is incorrect",
       });
     }
+});
+
+// Swaps a still-valid token for a fresh one when a signed-in visitor chooses
+// "Stay signed in". Claims are re-read from the account, so a changed role or a
+// deactivation takes effect here rather than being carried forward.
+exports.refreshSession = asyncHandler(async (req, res) => {
+    const user = await populateSessionUser(
+      User.findById(req.user.userId).select("-password")
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been deactivated, please contact admin",
+      });
+    }
+
+    const token = signAccessToken(user);
+    return res
+      .cookie("token", token, {
+        expires: new Date(Date.now() + ACCESS_TOKEN_TTL_MS),
+        ...authCookieOptions,
+      })
+      .status(200)
+      .json({ success: true, token, user: await sessionUserFor(user) });
 });
 
 exports.getCurrentUser = asyncHandler(async (req, res) => {

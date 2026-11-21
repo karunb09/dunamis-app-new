@@ -75,6 +75,31 @@ export const login = createAsyncThunk(
   }
 );
 
+// "Stay signed in": swaps the current, still-valid token for a fresh one. The
+// rejection message is deliberately not one the store's session-expired
+// middleware reacts to, so the session timeout dialog decides what happens.
+export const extendSession = createAsyncThunk(
+  "auth/extendSession",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/user/refresh-session`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${getStoredToken()}` },
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.token) {
+        return rejectWithValue("Session could not be extended");
+      }
+      return { token: data.token, user: data.user };
+    } catch {
+      return rejectWithValue("Session could not be extended");
+    }
+  }
+);
+
 export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
@@ -496,6 +521,12 @@ const authSlice = createSlice({
         state.loading = false;
         state.hydrating = false;
         state.error = action.payload;
+      })
+
+      .addCase(extendSession.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        persistAuthSession(action.payload);
       })
 
       .addCase(logoutUser.fulfilled, (state) => {

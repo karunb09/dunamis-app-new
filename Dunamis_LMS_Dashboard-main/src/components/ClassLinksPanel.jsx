@@ -1,28 +1,15 @@
 import React, { useCallback, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { FiUsers, FiVideo } from "react-icons/fi";
-import MeetingLinkBlock from "../../../components/MeetingLinkBlock";
-import { getStoredToken } from "../../../utils/authSession";
+import MeetingLinkBlock from "./MeetingLinkBlock";
+import { fetchClassLinks, saveClassLink } from "../api/classLinksApi";
+import { formatDays } from "../utils/formatDays";
 
-const BASE_URL = import.meta.env.VITE_BASE_URL;
-
-const DAY_LABELS = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
-};
-
-const formatDays = (days = []) =>
-  days.map((d) => DAY_LABELS[String(d).toLowerCase()] || d).join(" · ");
-
-// Join links for the teacher's recurring classes. The link is stored on the
+// Join links for an instructor's recurring classes. The link is stored on the
 // batch, not the dated slot, so it survives the weekly slot regeneration and
-// only has to be entered once.
-const ClassLinksPanel = ({ courseId }) => {
+// only has to be entered once. Instructors see their own classes; admins pass
+// `teacherId` to see (and, unless `readOnly`, change) someone else's.
+const ClassLinksPanel = ({ courseId, teacherId, readOnly = false }) => {
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
@@ -30,18 +17,13 @@ const ClassLinksPanel = ({ courseId }) => {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/slots/my-classes`, {
-        headers: { Authorization: `Bearer ${getStoredToken()}` },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.message || "Failed to load classes");
-      setClasses(data.classes || []);
+      setClasses(await fetchClassLinks(teacherId));
     } catch (err) {
-      toast.error(err.message || "Failed to load classes");
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [teacherId]);
 
   useEffect(() => {
     load();
@@ -50,19 +32,7 @@ const ClassLinksPanel = ({ courseId }) => {
   const saveLink = async (parentAvailabilityId, meetingLink) => {
     setSavingId(parentAvailabilityId);
     try {
-      const res = await fetch(
-        `${BASE_URL}/slots/class/${parentAvailabilityId}/meeting-link`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getStoredToken()}`,
-          },
-          body: JSON.stringify({ meetingLink }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to save link");
+      const data = await saveClassLink(parentAvailabilityId, meetingLink);
       setClasses((prev) =>
         prev.map((cls) =>
           cls.parentAvailabilityId === parentAvailabilityId
@@ -72,7 +42,7 @@ const ClassLinksPanel = ({ courseId }) => {
       );
       toast.success(data.message);
     } catch (err) {
-      toast.error(err.message || "Failed to save link");
+      toast.error(err.message);
     } finally {
       setSavingId(null);
     }
@@ -127,10 +97,15 @@ const ClassLinksPanel = ({ courseId }) => {
 
             <MeetingLinkBlock
               link={cls.meetingLink}
+              readOnly={readOnly}
               saving={savingId === cls.parentAvailabilityId}
               onSave={(next) => saveLink(cls.parentAvailabilityId, next)}
               savedHint="Students are emailed this 15 minutes before class."
-              emptyHint="Add a link so students can join this class."
+              emptyHint={
+                readOnly
+                  ? "No link added yet."
+                  : "Add a link so students can join this class."
+              }
             />
           </div>
         ))}

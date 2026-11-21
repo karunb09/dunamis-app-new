@@ -68,6 +68,24 @@ export const hydrateSession = createAsyncThunk(
   }
 );
 
+// "Stay signed in": the auth route swaps the token for a fresh one and resets
+// the session cookies.
+export const extendSession = createAsyncThunk(
+  "auth/extendSession",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch(`${AUTH_BASE}/refresh`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok || data.success === false) {
+        return rejectWithValue(data.message || "Session expired");
+      }
+      return { user: data.user || null };
+    } catch {
+      return rejectWithValue("Unable to extend session");
+    }
+  }
+);
+
 export const logoutSession = createAsyncThunk("auth/logoutSession", async () => {
   try {
     await fetch(`${AUTH_BASE}/logout`, { method: "POST" });
@@ -288,6 +306,11 @@ const authSlice = createSlice({
         state.token = null;
         state.notices = [];
         clearWebsiteAuthSession();
+      })
+      .addCase(extendSession.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+        state.token = action.payload.user ? SESSION_SENTINEL : null;
+        persistWebsiteAuthSession({ user: action.payload.user });
       })
       .addCase(logoutSession.fulfilled, (state) => {
         state.user = null;

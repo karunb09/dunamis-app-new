@@ -28,16 +28,18 @@ const User = require("../model/user.model");
 
 const validate = require("../middleware/validate");
 const { loginSchema } = require("../validators/auth.validator");
-const { login } = require("../controller/user.controller");
+const { login, refreshSession } = require("../controller/user.controller");
+const { isAuth } = require("../middleware/auth");
 
 function buildApp() {
   const app = express();
   app.use(express.json());
   app.post("/api/v1/user/login", validate(loginSchema), login);
+  app.post("/api/v1/user/refresh-session", isAuth, refreshSession);
   return app;
 }
 
-function postJson(app, path, body) {
+function postJson(app, path, body, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const server = app.listen(0, () => {
       const port = server.address().port;
@@ -47,7 +49,11 @@ function postJson(app, path, body) {
           port,
           path,
           method: "POST",
-          headers: { "content-type": "application/json", "content-length": Buffer.byteLength(data) },
+          headers: {
+            "content-type": "application/json",
+            "content-length": Buffer.byteLength(data),
+            ...extraHeaders,
+          },
         },
         (res) => {
           let d = "";
@@ -177,4 +183,46 @@ test("successful login stamps lastLoginAt; a failed one does not", async () => {
     afterSuccess.lastLoginAt.getTime(),
     "a rejected login leaves the stamp alone"
   );
+});
+
+// "Stay signed in" swaps a still-valid token for a fresh one.
+const tokenFor = (user, expiresIn = 60) =>
+  jwt.sign(
+    { email: user.email, userId: user._id, roleId: user.roleId, accountType: user.accountType },
+    process.env.JWT_SECRET,
+    { expiresIn }
+  );
+
+test("refresh-session -> a fresh token with a full lifetime and the same claims", async () => {
+  const user = await seedUser();
+  const res = await postJson(app, "/api/v1/user/refresh-session", {}, {
+    authorization: `Bearer ${tokenFor(user, 20)}`,
+  });
+
+  assert.equal(res.status, 200);
+  const decoded = jwt.verify(res.body.token, process.env.JWT_SECRET);
+  assert.equal(decoded.exp - decoded.iat, 900);
+  assert.equal(String(decoded.userId), String(user._id));
+  assert.equal(decoded.accountType, "student");
+  assert.match(String(res.headers["set-cookie"] || ""), /token=/);
+  assert.equal(res.body.user.password, undefined);
+});
+
+test("refresh-session -> refused for an expired token", async () => {
+  const user = await seedUser();
+  const res = await postJson(app, "/api/v1/user/refresh-session", {}, {
+    authorization: `Bearer ${tokenFor(user, -10)}`,
+  });
+  assert.equal(res.status, 401);
+});
+
+test("refresh-session -> refused once the account is deactivated", async () => {
+  const user = await seedUser();
+  const token = tokenFor(user);
+  await User.updateOne({ _id: user._id }, { $set: { accountStatus: "inactive" } });
+  const res = await postJson(app, "/api/v1/user/refresh-session", {}, {
+    authorization: `Bearer ${token}`,
+  });
+  assert.equal(res.status, 403);
+  assert.equal(res.body.token, undefined);
 });

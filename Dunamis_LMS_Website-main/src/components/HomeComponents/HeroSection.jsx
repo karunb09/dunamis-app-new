@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import FilterQuestionsModal from "@/components/PopupModals/FilterQuestionsModal";
+import DemoCoursePicker from "@/components/PopupModals/DemoCoursePicker";
 
 const heroImages = [
   { src: "/BG-1-hero.jpg", alt: "Students learning music together" },
@@ -177,7 +177,7 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
-      <FilterQuestionsModal
+      <DemoCoursePicker
         isOpen={isInterestModalOpen}
         onClose={() => setInterestModalOpen(false)}
       />

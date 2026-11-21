@@ -4,7 +4,7 @@ import { fetchTeacherById } from "../../../redux/Intructor/teacherSlice";
 import { submitCourseRequest, fetchMyRequests } from "../../../redux/courseRequests/courseRequestSlice";
 import { useCategoriesQuery } from "../../../hooks/useCategories";
 import StudentTable from "./StudentTable";
-import ClassLinksPanel from "./ClassLinksPanel";
+import ClassLinksPanel from "../../../components/ClassLinksPanel";
 import Curriculum from "./Curriculum";
 import toast from "react-hot-toast";
 import DynamicCourseIcon from "../../../components/DynamicCourseIcon";

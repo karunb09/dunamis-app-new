@@ -1,5 +1,9 @@
 const { z } = require("zod");
 const { objectId, meetingLink } = require("./common");
+const {
+  DEMO_FUNNEL_EVENTS,
+  DEMO_FUNNEL_SOURCES,
+} = require("../model/demoFunnelEvent.model");
 
 // Public/optional-auth demo booking (POST /demoBookings). Reject malformed ids
 // at the boundary (Slot.findById(badId) would otherwise throw a 500). lead and
@@ -11,6 +15,20 @@ const bookDemoSchema = z.looseObject({
   branchId: objectId("branchId").optional(),
   deliveryMode: z.string().trim().optional(),
   lead: z.object({}).loose().optional(),
+  // Tracking must never block a booking: a bad value is dropped, not refused.
+  flowId: z.uuid().optional().catch(undefined),
+  source: z.enum(DEMO_FUNNEL_SOURCES).optional().catch(undefined),
+});
+
+// "booked" is written by bookDemoSlot itself, never reported by the browser.
+const demoFunnelEventSchema = z.object({
+  flowId: z.uuid(),
+  event: z.enum(DEMO_FUNNEL_EVENTS.filter((event) => event !== "booked")),
+  courseId: objectId("courseId"),
+  source: z.enum(DEMO_FUNNEL_SOURCES),
+  deliveryMode: z.enum(["online", "offline"]).nullish(),
+  loggedIn: z.boolean().optional(),
+  hasSlots: z.boolean().optional(),
 });
 
 const updateBookingSchema = z.object({
@@ -38,6 +56,7 @@ const cancelBookingSchema = z.object({
 
 module.exports = {
   bookDemoSchema,
+  demoFunnelEventSchema,
   updateBookingSchema,
   rescheduleBookingSchema,
   cancelBookingSchema,

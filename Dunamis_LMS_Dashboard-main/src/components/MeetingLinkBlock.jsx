@@ -3,23 +3,25 @@ import { toast } from "react-hot-toast";
 import { FiCopy, FiExternalLink } from "react-icons/fi";
 
 // Shared by demo bookings and enrolled classes. `onSave(nextLink)` is called
-// only when the value actually changed.
+// only when the value actually changed. `readOnly` shows the link without the
+// edit controls.
 const MeetingLinkBlock = ({
   link = "",
   saving = false,
+  readOnly = false,
   onSave,
   label = "Class Link",
   savedHint = "Student was emailed this link.",
   emptyHint = "Saving a link emails it to the student straight away.",
 }) => {
   const savedLink = link || "";
-  const [editing, setEditing] = useState(!savedLink);
+  const [editing, setEditing] = useState(!savedLink && !readOnly);
   const [draft, setDraft] = useState(savedLink);
 
   useEffect(() => {
     setDraft(savedLink);
-    setEditing(!savedLink);
-  }, [savedLink]);
+    setEditing(!savedLink && !readOnly);
+  }, [readOnly, savedLink]);
 
   const submit = () => {
     const next = draft.trim();
@@ -75,7 +77,7 @@ const MeetingLinkBlock = ({
             Save
           </button>
         </div>
-      ) : (
+      ) : !savedLink ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <a
             href={savedLink}
@@ -94,14 +96,16 @@ const MeetingLinkBlock = ({
             <FiCopy className="h-3.5 w-3.5" />
             Copy
           </button>
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            disabled={saving}
-            className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-orange-200 hover:text-orange-600 disabled:opacity-50"
-          >
-            Edit
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              disabled={saving}
+              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-orange-200 hover:text-orange-600 disabled:opacity-50"
+            >
+              Edit
+            </button>
+          )}
         </div>
       )}
 

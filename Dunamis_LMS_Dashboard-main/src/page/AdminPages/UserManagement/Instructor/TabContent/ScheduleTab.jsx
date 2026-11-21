@@ -1,4 +1,7 @@
 import { FiUsers } from "react-icons/fi";
+import ClassLinksPanel from "../../../../../components/ClassLinksPanel";
+import { getStoredUser } from "../../../../../utils/authSession";
+import { hasPermission } from "../../../../../utils/permissions";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
@@ -146,89 +149,95 @@ export default function ScheduleTab({ teacher }) {
   const cards = [...groups.values()];
 
   return (
-    <div className="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
-      {cards.map((card, idx) => {
-        const color = card.category?.color || null;
-        return (
-          <div key={idx} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
-            {/* Course header */}
-            <div className="border-b border-slate-100 px-4 py-3">
-              {card.category?.name && (
-                <span
-                  className="mb-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                  style={{
-                    backgroundColor: hexToRgba(color, 0.15),
-                    color: color || "#475569",
-                  }}
-                >
-                  {card.category.icon} {card.category.name}
-                </span>
-              )}
-              <h3 className="text-sm font-semibold break-words text-slate-800">{card.name}</h3>
-            </div>
+    <div className="space-y-4 p-4">
+      <ClassLinksPanel
+        teacherId={teacher?.id || teacher?._id}
+        readOnly={!hasPermission(getStoredUser(), "instructorManagement")}
+      />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {cards.map((card, idx) => {
+          const color = card.category?.color || null;
+          return (
+            <div key={idx} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+              {/* Course header */}
+              <div className="border-b border-slate-100 px-4 py-3">
+                {card.category?.name && (
+                  <span
+                    className="mb-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    style={{
+                      backgroundColor: hexToRgba(color, 0.15),
+                      color: color || "#475569",
+                    }}
+                  >
+                    {card.category.icon} {card.category.name}
+                  </span>
+                )}
+                <h3 className="text-sm font-semibold break-words text-slate-800">{card.name}</h3>
+              </div>
 
-            {/* Session-type sections */}
-            <div className="divide-y divide-slate-100">
-              {SECTION_ORDER.map((sec) => {
-                const sectionSlots = card.sections[sec];
-                if (!sectionSlots.length) return null;
-                const config = SECTION_CONFIG[sec];
-                const capacity = capacityLabel(sectionSlots);
-                const dayPairs = groupByDays(sectionSlots);
-                return (
-                  <div key={sec} className="px-4 py-3">
-                    <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className={`h-2 w-2 rounded-full ${config.dot}`} />
-                      <span className={`text-xs font-semibold uppercase tracking-wide ${config.accent}`}>
-                        {config.title}
-                      </span>
-                      <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">
-                        {sectionSlots.length}
-                      </span>
-                      {capacity && (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-400">
-                          <FiUsers className="h-3.5 w-3.5" />
-                          {capacity}
+              {/* Session-type sections */}
+              <div className="divide-y divide-slate-100">
+                {SECTION_ORDER.map((sec) => {
+                  const sectionSlots = card.sections[sec];
+                  if (!sectionSlots.length) return null;
+                  const config = SECTION_CONFIG[sec];
+                  const capacity = capacityLabel(sectionSlots);
+                  const dayPairs = groupByDays(sectionSlots);
+                  return (
+                    <div key={sec} className="px-4 py-3">
+                      <div className="mb-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className={`h-2 w-2 rounded-full ${config.dot}`} />
+                        <span className={`text-xs font-semibold uppercase tracking-wide ${config.accent}`}>
+                          {config.title}
                         </span>
-                      )}
-                    </div>
-
-                    <div className="space-y-2">
-                      {dayPairs.map((pair) => (
-                        <div key={pair.label} className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
-                          <span className="shrink-0 text-xs font-semibold text-slate-700 sm:w-32">
-                            {pair.label}
+                        <span className="rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-500">
+                          {sectionSlots.length}
+                        </span>
+                        {capacity && (
+                          <span className="inline-flex items-center gap-1 text-xs text-slate-400">
+                            <FiUsers className="h-3.5 w-3.5" />
+                            {capacity}
                           </span>
-                          <div className="flex flex-wrap gap-1.5">
-                            {pair.slots.map((slot, i) => (
-                              <span
-                                key={slot._id || i}
-                                title={
-                                  capacity
-                                    ? undefined
-                                    : `${Number(slot.maxStudents) >= 9999 ? "Unlimited" : slot.maxStudents} student(s)`
-                                }
-                                className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-xs text-slate-600"
-                              >
-                                {formatRange(slot.startTime, slot.endTime)}
-                                {!capacity && (
-                                  <span className="ml-1 text-slate-400">
-                                    · {Number(slot.maxStudents) >= 9999 ? "∞" : slot.maxStudents}
-                                  </span>
-                                )}
-                              </span>
-                            ))}
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        {dayPairs.map((pair) => (
+                          <div key={pair.label} className="flex flex-col gap-1.5 sm:flex-row sm:items-baseline">
+                            <span className="shrink-0 text-xs font-semibold text-slate-700 sm:w-32">
+                              {pair.label}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {pair.slots.map((slot, i) => (
+                                <span
+                                  key={slot._id || i}
+                                  title={
+                                    capacity
+                                      ? undefined
+                                      : `${Number(slot.maxStudents) >= 9999 ? "Unlimited" : slot.maxStudents} student(s)`
+                                  }
+                                  className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-xs text-slate-600"
+                                >
+                                  {formatRange(slot.startTime, slot.endTime)}
+                                  {!capacity && (
+                                    <span className="ml-1 text-slate-400">
+                                      · {Number(slot.maxStudents) >= 9999 ? "∞" : slot.maxStudents}
+                                    </span>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
